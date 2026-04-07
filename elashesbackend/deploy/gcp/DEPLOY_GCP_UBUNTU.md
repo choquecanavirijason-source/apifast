@@ -1,6 +1,11 @@
 # Deploy Backend en Google Cloud VM (Ubuntu)
 
-Este flujo despliega el backend FastAPI en una VM Ubuntu usando `systemd` + `nginx`.
+Este flujo despliega backend + frontend en una VM Ubuntu usando `systemd` + `nginx`.
+Estructura objetivo:
+
+- Frontend: `/opt/elashes/apifast/adminElashes`
+- Backend: `/opt/elashes/apifast/elashesbackend`
+- Build frontend servido por nginx: `/opt/elashes/apifast/server/public/app`
 
 ## 1) Preparar VM en Google Cloud
 
@@ -13,6 +18,11 @@ Este flujo despliega el backend FastAPI en una VM Ubuntu usando `systemd` + `ngi
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip nginx git libgl1 libglib2.0-0
+
+# Node.js 20 para compilar frontend
+sudo apt install -y curl
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
 
 ## 3) Clonar proyecto y preparar entorno
@@ -22,13 +32,22 @@ sudo mkdir -p /opt/elashes
 sudo chown -R $USER:$USER /opt/elashes
 cd /opt/elashes
 
-git clone <URL_DE_TU_REPO> -b <TU_RAMA> elashesbackend
-cd elashesbackend
+git clone <URL_DE_TU_REPO> -b <TU_RAMA> apifast
+cd apifast/elashesbackend
 
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+
+# Build frontend (admin)
+cd /opt/elashes/apifast/adminElashes
+cp .env.production.example .env.production
+npm ci
+npm run build
+
+# Volver al backend
+cd /opt/elashes/apifast/elashesbackend
 ```
 
 ## 4) Configurar variables de entorno
@@ -40,17 +59,16 @@ nano .env
 
 Variables clave de produccion:
 - `DEBUG=false`
-- `SECRET_KEY=<clave-larga-segura>`
+- `SECRET_KEY=pon_aqui_una_clave_larga_y_segura`
 - `ACCESS_TOKEN_EXPIRE_MINUTES=1440`
-- `ALLOWED_ORIGINS=["https://tu-dominio.com","http://tu-ip-publica"]`
-- `DATABASE_URL=sqlite:///./elashes.db` (o tu URL real de DB)
+- `ALLOWED_ORIGINS=["http://136.115.241.231"]`
+- `DATABASE_URL=sqlite:///./elashes.db`
 
 ## 5) Configurar systemd
 
 ```bash
 sudo cp deploy/gcp/elashesbackend.service /etc/systemd/system/elashesbackend.service
-sudo sed -i 's|/opt/elashes/elashesbackend|/opt/elashes/elashesbackend|g' /etc/systemd/system/elashesbackend.service
-sudo chown -R www-data:www-data /opt/elashes/elashesbackend
+sudo chown -R www-data:www-data /opt/elashes/apifast/elashesbackend
 
 sudo systemctl daemon-reload
 sudo systemctl enable elashesbackend
@@ -63,11 +81,13 @@ Logs en vivo:
 sudo journalctl -u elashesbackend -f
 ```
 
+Nota: en este proyecto el `startup` ejecuta inicialización/migraciones, por eso en `elashesbackend.service` se recomienda `--workers 1` para evitar carreras entre procesos al arrancar.
+
 ## 6) Configurar nginx como reverse proxy
 
 ```bash
-sudo cp deploy/gcp/nginx-elashesbackend.conf /etc/nginx/sites-available/elashesbackend
-sudo ln -sf /etc/nginx/sites-available/elashesbackend /etc/nginx/sites-enabled/elashesbackend
+sudo cp deploy/gcp/nginx-elashes-fullstack.conf /etc/nginx/sites-available/elashes
+sudo ln -sf /etc/nginx/sites-available/elashes /etc/nginx/sites-enabled/elashes
 sudo rm -f /etc/nginx/sites-enabled/default
 
 sudo nginx -t
@@ -80,10 +100,12 @@ sudo systemctl status nginx
 Desde VM:
 ```bash
 curl http://127.0.0.1:8000/docs
+curl http://127.0.0.1/api/docs
 ```
 
 Desde navegador externo:
-- `http://<IP_PUBLICA_VM>/docs`
+- Frontend: `http://<IP_PUBLICA_VM>/`
+- Backend docs por proxy: `http://<IP_PUBLICA_VM>/api/docs`
 
 ## 8) HTTPS (recomendado)
 
@@ -96,11 +118,21 @@ sudo certbot --nginx -d tu-dominio.com
 ## 9) Actualizar backend
 
 ```bash
-cd /opt/elashes/elashesbackend
+cd /opt/elashes/apifast/elashesbackend
 git pull
 source .venv/bin/activate
 pip install -r requirements.txt
 sudo systemctl restart elashesbackend
+```
+
+Si actualizas frontend:
+
+```bash
+cd /opt/elashes/apifast/adminElashes
+git pull
+npm ci
+npm run build
+sudo systemctl reload nginx
 ```
 
 ## Notas

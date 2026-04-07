@@ -2,7 +2,6 @@
 mysql/
 
 # Ignorar archivos comunes de entorno
-.env
 *.log
 
 # Ignorar archivos del sistema
