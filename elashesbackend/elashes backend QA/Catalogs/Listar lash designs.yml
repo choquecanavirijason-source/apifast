@@ -1,0 +1,22 @@
+info:
+  name: Listar lash designs
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/catalogs/lash-designs"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const id = res.body[0].id
+        bru.setEnvVar("lashDesignId", id)
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

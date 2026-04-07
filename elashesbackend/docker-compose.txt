@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  database:
+    
+    image: mysql:8.0  
+    container_name: "elashes-database"
+
+    environment: 
+      MYSQL_DATABASE: "elashes"
+      MYSQL_USER: "admin"
+      MYSQL_PASSWORD: "password"
+      MYSQL_ROOT_PASSWORD: "password"
+    
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - './mysql:/var/lib/mysql'

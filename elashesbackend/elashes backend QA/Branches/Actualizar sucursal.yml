@@ -1,0 +1,27 @@
+info:
+  name: Actualizar sucursal
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/branches/2"
+  headers:
+    - name: Authorization
+      value: "{{token}}"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Sucursal Norte Renovada",
+        "address": "Av. Beijing #789"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

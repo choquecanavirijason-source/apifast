@@ -1,0 +1,27 @@
+info:
+  name: Crear sucursal nueva
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/branches/"
+  headers:
+    - name: Authorization
+      value: "{{token}}"
+  body:
+    type: json
+    data: |-
+      {
+        "name" : "Sucursal Este",
+        "address": "AV beiging"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

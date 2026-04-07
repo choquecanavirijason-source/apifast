@@ -1,0 +1,54 @@
+name: local
+variables:
+  - name: baseUrl
+    value: http://127.0.0.1:8000
+  - name: token
+    value: ""
+  - name: adminUser
+    value: admin
+  - name: adminPass
+    value: admin123
+  - name: operariaUser
+    value: operaria1
+  - name: operariaPass
+    value: operaria123
+  - name: secretariaUser
+    value: secretaria1
+  - name: secretariaPass
+    value: secretaria123
+  - name: almacenUser
+    value: almacen1
+  - name: almacePass
+    value: almacen123
+  - name: clientId
+    value: ""
+  - name: trackingId
+    value: ""
+  - name: serviceId
+    value: ""
+  - name: appointmentId
+    value: ""
+  - name: paymentId
+    value: ""
+  - name: branchId
+    value: ""
+  - name: categoryId
+    value: ""
+  - name: productId
+    value: ""
+  - name: batchId
+    value: ""
+  - name: questionnaireId
+    value: ""
+  - name: eyeTypeId
+    value: ""
+  - name: effectId
+    value: ""
+  - name: volumeId
+    value: ""
+  - name: lashDesignId
+    value: ""
+  - name: roleId
+    value: ""
+  - name: userId
+    value: ""

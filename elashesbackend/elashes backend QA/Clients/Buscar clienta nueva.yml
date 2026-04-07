@@ -1,0 +1,27 @@
+info:
+  name: Buscar clienta nueva
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/clients/"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Carla",
+        "last_name": "Mendoza",
+        "age": 27,
+        "phone": "70000999",
+        "eye_type_id": 4
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

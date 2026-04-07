@@ -1,0 +1,32 @@
+info:
+  name: Registrar nuevo usuario
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/register"
+  headers:
+    - name: Authorization
+      value: ""
+  body:
+    type: json
+    data: |-
+      {
+        "username": "ivanaiza",
+        "email": "recepcion2@elashes.com",
+        "phone": "+59171234567",
+        "password": "recepcion123",
+        "role_id": 3,
+        "branch_id": 1,
+        "is_active": true
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

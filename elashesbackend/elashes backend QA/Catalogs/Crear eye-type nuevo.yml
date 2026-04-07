@@ -1,0 +1,23 @@
+info:
+  name: Crear eye-type nuevo
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/catalogs/eye-types"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Caído",
+        "description": "Ojo ligeramente descendente",
+        "image": null
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,12 @@
+info:
+  name: Clients
+  type: folder
+  seq: 1
+
+request:
+  headers:
+    - name: Authorization
+      value: "{{token}}"
+  auth:
+    type: bearer
+    token: "{{token}}"

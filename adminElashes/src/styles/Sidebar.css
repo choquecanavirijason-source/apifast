@@ -1,0 +1,25 @@
+/* Sidebar.css */
+
+/* Estilo base para los items */
+.nav-item, 
+.nav-item-btn {
+  background: transparent;
+  color: #fff;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Efecto Hover */
+.nav-item:hover, 
+.nav-item-btn:hover,
+.sublink:hover {
+  background-color: rgba(88, 230, 104, 0.526) !important;
+  color: #080808 !important;
+}
+
+/* Estilo para el elemento Activo (seleccionado) */
+.nav-item.active,
+.sublink.active {
+  background-color: rgba(123, 248, 169, 0.1);
+  color: #f8e5e9;
+  font-weight: 700;
+}

@@ -1,0 +1,31 @@
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
+
+# Agrega estas líneas al final de tu .gitignore
+echo "" >> .gitignore
+echo "# MySQL Database files" >> .gitignore
+echo "mysql/" >> .gitignore
+echo "*.sock" >> .gitignore
+echo "*.pid" >> .gitignore
+echo "*.lock" >> .gitignore

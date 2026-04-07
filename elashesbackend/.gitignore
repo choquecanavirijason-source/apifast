@@ -1,0 +1,26 @@
+# Entornos Python
+venv/
+.env
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Instalaciones
+build/
+dist/
+*.egg-info/
+
+# Logs y datos
+*.log
+*.db
+*.sqlite3
+instance/
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db

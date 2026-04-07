@@ -1,0 +1,30 @@
+info:
+  name: Login admin
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "username": "admin",
+        "password": "admin123"
+      }
+  auth:
+    type: basic
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const token = res.body.access_token;
+        bru.setEnvVar("token", token);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

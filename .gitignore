@@ -1,0 +1,37 @@
+# Ignorar datos de MySQL (volumen local)
+mysql/
+
+# Ignorar archivos comunes de entorno
+.env
+*.log
+
+# Ignorar archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Reglas para tus carpetas específicas ---
+
+# Frontend / Tauri (adminElashes)
+node_modules/
+adminElashes/src-tauri/target/
+adminElashes/src-tauri/binaries/
+adminElashes/src-tauri/gen/
+
+# Python Backend (elashesbackend)
+__pycache__/
+*.pyc
+venv/
+*.spec
+elashesbackend/dist/
+elashesbackend/build/
+
+# Build de Producción (server/public)
+# Ignora los assets generados con hash para no ensuciar el historial
+server/public/app/assets/index-*.js
+server/public/app/assets/index-*.css

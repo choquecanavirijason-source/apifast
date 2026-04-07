@@ -1,0 +1,73 @@
+services:
+  # --- Base de Datos (Ya la tenías) ---
+  database:
+    image: mysql:8.0
+    container_name: "elashes-database"
+    environment:
+      MYSQL_DATABASE: "elashes"
+      MYSQL_USER: "admin"
+      MYSQL_PASSWORD: "password"
+      MYSQL_ROOT_PASSWORD: "password"
+    ports:
+      - "3307:3306"
+    volumes:
+      - './mysql:/var/lib/mysql'
+    networks:
+      - app-network
+
+  # --- Backend (Python) ---
+  backend:
+    build: ./elashesbackend
+    container_name: "elashes-backend"
+    restart: always
+    volumes:
+      - ./elashesbackend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      # Estos nombres deben coincidir con tu clase Settings de Python
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_USER=admin
+      - DB_PASSWORD=password
+      - DB_NAME=elashes
+      - SECRET_KEY=tu_clave_secreta_aqui
+    networks:
+      - app-network
+  
+  # backend:
+  #   build: ./elashesbackend  # Ruta a la carpeta del backend
+  #   container_name: "elashes-backend"
+  #   restart: always
+  #   # --- AGREGA ESTO ---
+  #   volumes:
+  #     - ./elashesbackend:/app
+  #   ports:
+  #     - "8000:8000"   # Puerto Host:Puerto Contenedor (Ajusta según tu app Python)
+  #   depends_on:
+  #     - database      # Espera a que la BD inicie
+  #   environment:
+  #     # IMPORTANTE: Aquí el host de la BD es el nombre del servicio 'database', NO 'localhost'
+  #     DB_HOST: database 
+  #     DB_USER: admin
+  #     DB_PASSWORD: password
+  #     DB_NAME: elashes
+  #   networks:
+  #     - app-network
+
+  # --- Frontend (React) ---
+  frontend:
+    build: ./adminElashes # Ruta a la carpeta del frontend
+    container_name: "elashes-frontend"
+    ports:
+      - "3000:80"
+    stdin_open: true  # Necesario para que React no se cierre inmediatamente en Docker
+    tty: true
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

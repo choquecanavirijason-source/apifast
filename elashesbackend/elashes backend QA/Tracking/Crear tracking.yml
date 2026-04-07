@@ -1,0 +1,32 @@
+info:
+  name: "Crear tracking "
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/tracking/"
+  body:
+    type: json
+    data: |-
+      {
+        "client_id": {{clientId}},
+        "eye_type_id": {{eyeTypeId}},
+        "effect_id": {{effectId}},
+        "volume_id": {{volumeId}},
+        "lash_design_id": {{lashDesignId}},
+        "questionnaire_id": {{questionnaireId}},
+        "design_notes": "Aplicación inicial con estilo natural y apertura visual.",
+        "questionnaire_responses": {
+          "alergias": "no",
+          "usa_lentes": "si",
+          "sensibilidad": "leve"
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

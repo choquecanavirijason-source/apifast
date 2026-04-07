@@ -1,0 +1,24 @@
+info:
+  name: Crear rol nuevo
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admin/permissions"
+  body:
+    type: json
+    data: |-
+      {
+        "name" : "Recepcionista",
+        "permission_id" : [1,2,11,12,15,17]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

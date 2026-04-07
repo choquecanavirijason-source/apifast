@@ -1,0 +1,243 @@
+/* Utilidades para usar los colores primarios y secundarios en toda la aplicación */
+
+/* Colores de texto */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-secondary {
+  color: var(--color-secondary);
+}
+
+.text-primary-500 {
+  color: var(--color-primary-500);
+}
+
+.text-secondary-500 {
+  color: var(--color-secondary-500);
+}
+
+/* Colores de fondo */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+
+.bg-primary-500 {
+  background-color: var(--color-primary-500);
+}
+
+.bg-secondary-500 {
+  background-color: var(--color-secondary-500);
+}
+
+.bg-primary-50 {
+  background-color: var(--color-primary-50);
+}
+
+.bg-primary-100 {
+  background-color: var(--color-primary-100);
+}
+
+.bg-secondary-50 {
+  background-color: var(--color-secondary-50);
+}
+
+.bg-secondary-100 {
+  background-color: var(--color-secondary-100);
+}
+
+/* Bordes */
+.border-primary {
+  border-color: var(--color-primary);
+}
+
+.border-secondary {
+  border-color: var(--color-secondary);
+}
+
+.border-primary-500 {
+  border-color: var(--color-primary-500);
+}
+
+.border-secondary-500 {
+  border-color: var(--color-secondary-500);
+}
+
+/* Ring (focus) */
+.ring-primary {
+  --tw-ring-color: var(--color-primary);
+}
+
+.ring-secondary {
+  --tw-ring-color: var(--color-secondary);
+}
+
+/* Focus states */
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary);
+}
+
+.focus\:ring-secondary:focus {
+  --tw-ring-color: var(--color-secondary);
+}
+
+.focus\:border-primary:focus {
+  border-color: var(--color-primary);
+}
+
+.focus\:border-secondary:focus {
+  border-color: var(--color-secondary);
+}
+
+/* Hover states */
+.hover\:bg-primary:hover {
+  background-color: var(--color-primary);
+}
+
+.hover\:bg-secondary:hover {
+  background-color: var(--color-secondary);
+}
+
+.hover\:text-primary:hover {
+  color: var(--color-primary);
+}
+
+.hover\:text-secondary:hover {
+  color: var(--color-secondary);
+}
+
+.hover\:border-primary:hover {
+  border-color: var(--color-primary);
+}
+
+.hover\:border-secondary:hover {
+  border-color: var(--color-secondary);
+}
+
+/* Botones predefinidos */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  border: 2px solid var(--color-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 210, 56, 0.3);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+  border: 2px solid var(--color-secondary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-secondary-700);
+  border-color: var(--color-secondary-700);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 27, 22, 0.3);
+}
+
+.btn-outline-primary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+}
+
+.btn-outline-secondary {
+  background-color: transparent;
+  color: var(--color-secondary);
+  border: 2px solid var(--color-secondary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+}
+
+/* Gradientes */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-600));
+}
+
+.bg-gradient-secondary {
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-700));
+}
+
+.bg-gradient-primary-to-secondary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}
+
+/* Sombras */
+.shadow-primary {
+  box-shadow: 0 4px 12px rgba(245, 210, 56, 0.2);
+}
+
+.shadow-secondary {
+  box-shadow: 0 4px 12px rgba(26, 27, 22, 0.2);
+}
+
+.shadow-primary-lg {
+  box-shadow: 0 8px 25px rgba(245, 210, 56, 0.3);
+}
+
+.shadow-secondary-lg {
+  box-shadow: 0 8px 25px rgba(26, 27, 22, 0.3);
+}
+
+/* Placeholders */
+.placeholder-primary::placeholder {
+  color: var(--color-primary);
+  opacity: 0.7;
+}
+
+.placeholder-secondary::placeholder {
+  color: var(--color-secondary);
+  opacity: 0.7;
+}
+
+/* Fill para SVGs */
+.fill-primary {
+  fill: var(--color-primary);
+}
+
+.fill-secondary {
+  fill: var(--color-secondary);
+}
+
+/* Stroke para SVGs */
+.stroke-primary {
+  stroke: var(--color-primary);
+}
+
+.stroke-secondary {
+  stroke: var(--color-secondary);
+}

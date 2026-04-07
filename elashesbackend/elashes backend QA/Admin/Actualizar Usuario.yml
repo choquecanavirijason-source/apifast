@@ -1,0 +1,24 @@
+info:
+  name: Actualizar Usuario
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/admin/users/5"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "recepcion.actualizada@elashes.com",
+        "is_active": true
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

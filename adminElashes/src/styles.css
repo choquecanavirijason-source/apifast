@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+:root{
+  --primary: #0f172a;
+  --secondary: #0ea5a6;
+  --accent: #7c3aed;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --muted: #64748b;
+  --text: #0f172a;
+}
+.app-layout{display:flex;height:100vh;min-width:0}
+html,body,#root{height:100%;margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:var(--bg);color:var(--text)}
+.sidebar{width:260px;background:linear-gradient(180deg,var(--primary),#0b1220);color:white;padding:16px;box-sizing:border-box;box-shadow:2px 0 12px rgba(2,6,23,0.12);border-radius:0 16px 16px 0}
+.header{height:64px;background:var(--surface);display:flex;align-items:center;padding:0 20px;box-shadow:0 4px 12px rgba(15,23,42,0.06);justify-content:space-between;gap:12px}
+.content{flex:1;display:flex;flex-direction:column;min-width:0}
+.main{padding:28px;flex:1;overflow:auto;min-width:0;overflow-x:hidden}
+
+/* Cards and typography */
+.page-title{font-size:20px;font-weight:700;margin:0 0 12px 0}
+.card{background:var(--surface);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+.grid-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-responsive{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.muted{color:var(--muted)}
+
+/* Responsive tweaks */
+@media (max-width:800px){
+  .sidebar{display:none}
+  .app-layout{flex-direction:column}
+}
+
+/* Collapsed sidebar state */
+.sidebar.collapsed{
+  width:72px;
+  padding:12px 8px;
+}
+.sidebar.collapsed h2{display:none}
+.sidebar.collapsed nav{display:block}
+.sidebar{transition:width 180ms ease, padding 180ms ease}
+
+/* Sidebar nav items with icons */
+.sidebar .sidebar-nav{display:flex;flex-direction:column;gap:6px;padding-top:8px}
+.nav-item{padding:10px 14px;border-radius:10px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;color:rgba(255,255,255,0.95);text-decoration:none;gap:12px}
+.nav-item .icon{flex:0 0 34px;display:flex;align-items:center;justify-content:center}
+.nav-item .label{flex:1;margin:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* SVG icon sizing and color inherit */
+.nav-item .icon svg{width:20px;height:20px;vertical-align:middle;color:inherit}
+.logo-mark svg{width:20px;height:20px}
+
+/* Improve visuals: smoother icon transitions and chevron rotation */
+.nav-item .icon svg{transition:transform 180ms ease, color 180ms ease, opacity 180ms ease}
+.nav-item .chev svg{transition:transform 180ms ease, opacity 180ms ease}
+.has-sub.open .chev svg{transform:rotate(90deg)}
+.submenu{padding-left:44px;margin-top:6px;display:flex;flex-direction:column;gap:6px;opacity:1;transform:translateY(0);transition:opacity 180ms ease,transform 180ms ease}
+.has-sub .submenu{opacity:0;transform:translateY(-6px)}
+.has-sub.open .submenu{opacity:1;transform:translateY(0)}
+
+/* Submenu styles */
+.nav-item.has-sub{display:block;padding:0;margin-bottom:6px}
+.nav-item.has-sub > button{width:100%;text-align:left;padding:8px 12px;border-radius:8px;display:flex;align-items:center;justify-content:space-between}
+.nav-item.has-sub .chev svg{width:16px;height:16px}
+.submenu{padding-left:44px;margin-top:6px;display:flex;flex-direction:column;gap:6px}
+.sublink{padding:8px 10px;border-radius:8px;color:rgba(255,255,255,0.9);text-decoration:none;transition:background 140ms ease,transform 140ms ease}
+.sublink:hover{background:rgba(255,255,255,0.04);transform:translateX(6px)}
+.sublink.active{background:rgba(255,255,255,0.06);transform:translateX(6px)}
+
+/* When collapsed, hide labels and submenus */
+.sidebar.collapsed .label{display:none}
+.sidebar.collapsed .submenu{display:none}
+
+/* Collapsed: hide labels & submenus, show tooltips */
+.sidebar.collapsed .label{display:none}
+.sidebar.collapsed .submenu{display:none}
+
+/* Tooltip for collapsed items (uses title attribute on buttons/links) */
+.sidebar.collapsed .nav-item, .sidebar.collapsed .nav-item > button{
+  position:relative
+}
+.sidebar.collapsed .nav-item[title]:hover::after,
+.sidebar.collapsed .nav-item > button[title]:hover::after{
+  content: attr(title);
+  position:fixed;
+  left:92px;
+  top:50%;
+  transform:translateY(-50%);
+  background:rgba(0,0,0,0.85);
+  color:#fff;
+  padding:6px 10px;
+  border-radius:8px;
+  white-space:nowrap;
+  box-shadow:0 6px 18px rgba(2,6,23,0.4);
+  z-index:40;
+  font-size:13px;
+}
+
+/* Collapsed: show icons only */
+.sidebar.collapsed .nav-item{justify-content:center;padding:8px 6px}
+.sidebar.collapsed .nav-item .label{display:none}
+.sidebar.collapsed .nav-item .icon{margin-right:0}
+
+/* Hover and active states */
+.nav-item:hover{background:rgba(255,255,255,0.06)}
+.nav-item.active{background:rgba(255,255,255,0.12)}
+.sidebar{transition:width 180ms ease, padding 180ms ease}
+
+/* logo mark */
+.logo-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#0ea5a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+
+/* active indicator */
+.nav-item.active{position:relative}
+.nav-item.active::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:4px;background:var(--accent);border-radius:4px}
+.nav-item.active{position:relative}
+.nav-item.active::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:4px;background:var(--accent);border-radius:4px}
+/* hide active stripe when sidebar collapsed */
+.sidebar.collapsed .nav-item.active::before{display:none}
+
+/* Pos tracking fullscreen: show only module content (hide app chrome). */
+body.pos-hub-clean-fullscreen .sidebar,
+body.pos-hub-clean-fullscreen .header{display:none!important}
+body.pos-hub-clean-fullscreen .app-layout{display:block;height:100vh}
+body.pos-hub-clean-fullscreen .content{height:100vh}
+body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
+
+/* Slightly larger icons and tighter spacing for modern feel */
+.nav-item{padding:10px 14px;border-radius:10px}
+.nav-item .icon{width:34px;margin-right:12px}
+.sidebar.collapsed .nav-item{padding:10px 8px}
+
+/* subtle backdrop for sidebar */
+.sidebar{background:linear-gradient(180deg,rgba(6,10,20,0.95),rgba(4,6,12,0.98));backdrop-filter:blur(6px)}
+
+/* small helpers */
+.sidebar-top{padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.sidebar-foot{color:rgba(255,255,255,0.6);font-size:12px}
+
+/* KPI mini cards */
+.card{background:var(--surface);padding:16px;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,0.06)}
+.card .muted{font-size:12px;color:var(--muted)}
+
+/* avatar style */
+.avatar{width:40px;height:40px;border-radius:999px;background:linear-gradient(45deg,#7c3aed,#0ea5a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+
+/* Theme classes: apply to root element (eg. <html class="theme-ocean">) or to body */
+.theme-light{
+  --primary: #0f172a;
+  --secondary: #0ea5a6;
+  --accent: #7c3aed;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --muted: #64748b;
+  --text: #0f172a;
+}
+
+.theme-ocean{
+  --primary: #0b2545;
+  --secondary: #0ea5a6;
+  --accent: #3dd3c1;
+  --bg: #eaf8fb;
+  --surface: #ffffff;
+  --muted: #5b6b73;
+  --text: #092235;
+}
+
+.theme-dark{
+  --primary: #071126;
+  --secondary: #1fb6ff;
+  --accent: #8b5cf6;
+  --bg: #081023;
+  --surface: #0f172a;
+  --muted: #9aa6b2;
+  --text: #e6eef6;
+}
+
+/* Header elements */
+.header input[type="search"], .header .search{
+  padding:8px 12px;border-radius:10px;border:1px solid #eef2f6;min-width:220px;background:#fff;color:var(--text)
+}
+.header .avatar{width:40px;height:40px;border-radius:999px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+
+/* Responsive tweaks */
+@media (max-width:1000px){
+  .grid-cards{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:700px){
+  .sidebar{display:none}
+  .app-layout{flex-direction:column}
+  .header input[type="search"], .header .search{min-width:120px}
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: 12px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+td {
+  padding: 14px 16px;
+  color: var(--text);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-size: 14px;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: rgba(0,0,0,0.02); /* Sutil hover */
+}
