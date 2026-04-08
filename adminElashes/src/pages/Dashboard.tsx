@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   BarChart,
   Bar,
@@ -34,11 +37,15 @@ import { Button, SectionCard, StatCard } from "../components/common/ui";
 import { DashboardService, type DashboardOverview } from "../core/services/dashboard/dashboard.service";
 import { BranchService } from "../core/services/branch/branch.service";
 import { AgendaService, type ServiceOption } from "../core/services/agenda/agenda.service";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../core/utils/branch";
 
 interface BranchOption {
   id: number;
   name: string;
 }
+
+type ExportFormat = "excel" | "pdf";
+type ExportSection = "overview" | "revenue" | "services" | "inventory" | "quicklinks";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1"];
 
@@ -108,7 +115,10 @@ export default function Dashboard() {
   >([]);
   const [fromDate, setFromDate] = useState(getLocalDateInputValue(getMonthStart()));
   const [toDate, setToDate] = useState(getLocalDateInputValue());
-  const [branchFilter, setBranchFilter] = useState("");
+  const [branchFilter, setBranchFilter] = useState(() => {
+    const selected = getSelectedBranchId();
+    return selected ? String(selected) : "";
+  });
   const [serviceFilter, setServiceFilter] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -175,8 +185,36 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    void loadDashboard();
+    const syncBranchFromGlobal = () => {
+      const selected = getSelectedBranchId();
+      setBranchFilter(selected ? String(selected) : "");
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === BRANCH_STORAGE_KEY) syncBranchFromGlobal();
+    };
+
+    window.addEventListener("branchchange", syncBranchFromGlobal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("branchchange", syncBranchFromGlobal);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [dashboardFilters]);
+
+  useEffect(() => {
+    if (!branchFilter) {
+      setSelectedBranchId(null);
+      return;
+    }
+
+    const nextBranch = Number(branchFilter);
+    setSelectedBranchId(Number.isFinite(nextBranch) && nextBranch > 0 ? nextBranch : null);
+  }, [branchFilter]);
 
   const handleDownload = async (kind: "tickets" | "payments" | "pos") => {
     setIsDownloading(true);
@@ -236,21 +274,98 @@ export default function Dashboard() {
     { label: "Caja & Seguimiento", helper: "Ventas y seguimiento técnico", path: "/admin/pos-tracking" },
   ];
 
+  const downloadSectionReport = (section: ExportSection, format: ExportFormat) => {
+    const branchName = branchFilter
+      ? branches.find((branch) => String(branch.id) === branchFilter)?.name ?? `Sucursal ${branchFilter}`
+      : "Todas";
+
+    const titleMap: Record<ExportSection, string> = {
+      overview: "Resumen operativo",
+      revenue: "Ingresos por periodo",
+      services: "Servicios mas solicitados",
+      inventory: "Inventario relevante",
+      quicklinks: "Accesos directos",
+    };
+
+    const title = titleMap[section];
+
+    const rowsBySection: Record<ExportSection, Array<{ label: string; value: string | number }>> = {
+      overview: [
+        { label: "Clientes", value: overview.cards.clients_total },
+        { label: "Clientes con actividad", value: overview.cards.clients_with_activity },
+        { label: "Tickets pendientes", value: overview.cards.appointments_pending },
+        { label: "Tickets confirmados", value: overview.cards.appointments_confirmed },
+        { label: "Tickets completados", value: overview.cards.appointments_completed },
+        { label: "Tickets cancelados", value: overview.cards.appointments_cancelled },
+        { label: "Pagos registrados", value: overview.cards.payments_count },
+        { label: "Ingresos", value: formatCurrency(overview.cards.payments_paid_total) },
+        { label: "Ventas POS", value: overview.cards.pos_sales_count },
+      ],
+      revenue: revenueChartData.map((item) => ({
+        label: item.name,
+        value: `${formatCurrency(item.total)} | pagos: ${item.pagos}`,
+      })),
+      services: serviceChartData.map((item) => ({
+        label: item.name,
+        value: `tickets: ${item.tickets} | completados: ${item.completados} | ingreso: ${formatCurrency(item.total)}`,
+      })),
+      inventory: inventoryChartData.map((item) => ({
+        label: item.name,
+        value: item.value,
+      })),
+      quicklinks: quickLinks.map((item) => ({
+        label: item.label,
+        value: `${item.helper} | ${item.path}`,
+      })),
+    };
+
+    const rows = rowsBySection[section];
+    if (!rows.length) {
+      toast.info("No hay datos para exportar en esta sección.");
+      return;
+    }
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const safeTitle = title.toLowerCase().replace(/\s+/g, "-");
+
+    if (format === "excel") {
+      const worksheet = XLSX.utils.json_to_sheet(rows.map((row) => ({
+        Seccion: title,
+        Sucursal: branchName,
+        Desde: fromDate || "-",
+        Hasta: toDate || "-",
+        Item: row.label,
+        Valor: row.value,
+      })));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Dashboard");
+      XLSX.writeFile(workbook, `${safeTitle}-${timestamp}.xlsx`);
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    doc.setFontSize(14);
+    doc.text(title, 40, 48);
+    doc.setFontSize(10);
+    doc.text(`Sucursal: ${branchName}`, 40, 66);
+    doc.text(`Rango: ${fromDate || "-"} a ${toDate || "-"}`, 40, 82);
+
+    autoTable(doc, {
+      startY: 96,
+      head: [["Item", "Valor"]],
+      body: rows.map((row) => [row.label, String(row.value)]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [22, 45, 38] },
+    });
+
+    doc.save(`${safeTitle}-${timestamp}.pdf`);
+  };
+
   return (
     <Layout
       title="Panel Administrativo"
       subtitle="Dashboard operativo con métricas reales, filtros globales y reportes descargables."
       variant="table"
-      topContent={
-        <div className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-5">
-          <p className="text-sm text-slate-700">
-            Controla ingresos, tickets, actividad de clientes, inventario y ventas POS desde un solo lugar.
-          </p>
-          <p className="mt-2 text-xs text-slate-500">
-            Los filtros afectan las métricas principales y también los reportes CSV descargables.
-          </p>
-        </div>
-      }
       toolbar={
         <FilterActionBar
           left={
@@ -416,6 +531,12 @@ export default function Dashboard() {
         <SectionCard
           title="Ingresos por periodo"
           subtitle="Pagos cobrados agrupados por día según los filtros activos."
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("revenue", "excel")}>Excel</Button>
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("revenue", "pdf")}>PDF</Button>
+            </div>
+          }
         >
           <div className="h-72">
             {revenueChartData.length === 0 ? (
@@ -423,7 +544,7 @@ export default function Dashboard() {
                 No hay datos de ingresos para el rango seleccionado.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <BarChart data={revenueChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
@@ -456,6 +577,12 @@ export default function Dashboard() {
         <SectionCard
           title="Servicios Más Solicitados"
           subtitle="Tickets generados por servicio y su ingreso estimado."
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("services", "excel")}>Excel</Button>
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("services", "pdf")}>PDF</Button>
+            </div>
+          }
         >
           <div className="h-72">
             {serviceChartData.length === 0 ? (
@@ -463,7 +590,7 @@ export default function Dashboard() {
                 No hay tickets para el filtro actual.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <BarChart data={serviceChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                   <XAxis type="number" tickLine={false} axisLine={false} />
@@ -499,6 +626,12 @@ export default function Dashboard() {
         <SectionCard
           title="Resumen Operativo"
           subtitle="Una vista rápida del flujo de tickets, caja y atención."
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("overview", "excel")}>Excel</Button>
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("overview", "pdf")}>PDF</Button>
+            </div>
+          }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -549,6 +682,12 @@ export default function Dashboard() {
         <SectionCard
           title="Inventario Relevante"
           subtitle="Productos con más unidades disponibles según la sucursal filtrada."
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("inventory", "excel")}>Excel</Button>
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("inventory", "pdf")}>PDF</Button>
+            </div>
+          }
         >
           <div className="h-72">
             {inventoryChartData.length === 0 ? (
@@ -556,7 +695,7 @@ export default function Dashboard() {
                 No hay datos de inventario para mostrar.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <PieChart>
                   <Pie
                     data={inventoryChartData}
@@ -579,7 +718,16 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-5">
-        <SectionCard title="Accesos Directos" subtitle="Flujos rápidos para operar tickets, agenda, caja y clientes.">
+        <SectionCard
+          title="Accesos Directos"
+          subtitle="Flujos rápidos para operar tickets, agenda, caja y clientes."
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("quicklinks", "excel")}>Excel</Button>
+              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("quicklinks", "pdf")}>PDF</Button>
+            </div>
+          }
+        >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {quickLinks.map((item) => (
               <button

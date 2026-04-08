@@ -42,20 +42,22 @@ export default function DraggableTicketCard({
   getRemainingLabel: (endTime: string) => string;
   onDelete: (ticket: TicketItem) => void;
   professionals: ProfessionalForSelect[];
-  onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string }) => void;
+  onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string; isIa: boolean }) => void;
   isSavingEdit: boolean;
 }) {
   const [date, setDate] = useState(getDateInputValue(ticket.start_time));
   const [time, setTime] = useState(getTimeInputValue(ticket.start_time));
   const [professionalId, setProfessionalId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
+  const [isIa, setIsIa] = useState(Boolean(ticket.is_ia));
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     setDate(getDateInputValue(ticket.start_time));
     setTime(getTimeInputValue(ticket.start_time));
     setProfessionalId(ticket.professional_id ? String(ticket.professional_id) : "");
+    setIsIa(Boolean(ticket.is_ia));
     setIsEditing(false);
-  }, [ticket.id, ticket.start_time, ticket.professional_id]);
+  }, [ticket.id, ticket.start_time, ticket.professional_id, ticket.is_ia]);
 
   const assignedProfessional =
     professionals.find((professional) => String(professional.id) === String(ticket.professional_id))?.username ??
@@ -132,7 +134,7 @@ export default function DraggableTicketCard({
       </div>
 
       {isEditing ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
           <div>
             <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
             <input
@@ -166,6 +168,18 @@ export default function DraggableTicketCard({
               ))}
             </select>
           </div>
+          <div>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Ticket IA</p>
+            <label className="inline-flex h-[30px] w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+              <span>{isIa ? "Activo" : "No"}</span>
+              <input
+                type="checkbox"
+                checked={isIa}
+                onChange={(event) => setIsIa(event.target.checked)}
+                className="h-4 w-4 accent-emerald-600"
+              />
+            </label>
+          </div>
         </div>
       ) : null}
 
@@ -175,7 +189,7 @@ export default function DraggableTicketCard({
             <button
               type="button"
               onClick={() => {
-                onSaveEdits(ticket, { date, time, professionalId });
+                onSaveEdits(ticket, { date, time, professionalId, isIa });
                 setIsEditing(false);
               }}
               disabled={isSavingEdit}
@@ -189,6 +203,7 @@ export default function DraggableTicketCard({
                 setDate(getDateInputValue(ticket.start_time));
                 setTime(getTimeInputValue(ticket.start_time));
                 setProfessionalId(ticket.professional_id ? String(ticket.professional_id) : "");
+                setIsIa(Boolean(ticket.is_ia));
                 setIsEditing(false);
               }}
               disabled={isSavingEdit}

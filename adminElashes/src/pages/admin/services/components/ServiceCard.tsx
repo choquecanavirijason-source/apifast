@@ -24,7 +24,7 @@ export default function ServiceCard({
         <img
           src={service.image_url}
           alt={service.name}
-          className="mb-3 h-28 w-full rounded-xl border border-slate-200 object-cover"
+          className="mb-3 h-56 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain"
           loading="lazy"
         />
       ) : null}

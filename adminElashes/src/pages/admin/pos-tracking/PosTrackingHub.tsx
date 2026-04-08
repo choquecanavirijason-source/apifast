@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, ClipboardList, Maximize2, Minimize2, ReceiptText, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Maximize2, Minimize2, ReceiptText, Users } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
@@ -91,15 +91,25 @@ export default function PosTrackingHub() {
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col gap-0 bg-[#f0f0f3] ${isFullscreen ? "h-screen overflow-hidden" : ""}`}
-      style={{ minHeight: "100%", width: "100%", maxWidth: "90vw", marginInline: "auto" }}
+      style={{ minHeight: "100%", width: "100%" }}
     >
       <div className={`sticky top-0 z-20 border-b border-slate-200/80 bg-[#f0f0f3] ${isFullscreen ? "px-3 py-2" : ""}`}>
-        <div className="mx-auto flex w-full max-w-[90vw] flex-row items-center justify-between gap-2">
+        <div className="mx-auto flex w-full flex-row items-center justify-between gap-2 px-3 sm:px-4">
           <div className="min-w-0">
             <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">Operación: Caja &amp; Seguimiento</h1>
             <p className="text-[11px] text-slate-500">Ventas en punto de seguimiento y registro técnico en un solo lugar</p>
           </div>
           <div className="flex w-auto items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-slate-600 transition hover:bg-slate-100"
+              aria-label="Ir atras al dashboard"
+              title="Ir atras al dashboard"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="text-xs font-semibold">Ir atras</span>
+            </button>
             <button
               type="button"
               onClick={handleFullscreen}
@@ -127,7 +137,7 @@ export default function PosTrackingHub() {
       </div>
 
       <div className={`min-h-0 flex-1 overflow-hidden ${isFullscreen ? "px-4 pb-4 pt-3" : "pt-4"}`}>
-        <div className={`mx-auto flex h-full min-h-0 w-full max-w-[90vw] flex-col ${isFullscreen ? "" : "min-h-[min(100%,calc(100vh-11rem))]"}`}>
+        <div className={`mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-2 sm:px-4 ${isFullscreen ? "" : "min-h-[min(100%,calc(100vh-11rem))]"}`}>
           {effectiveSection === "pos" ? <PosPage embedded /> : null}
           {effectiveSection === "tracking" ? <FollowUpPage embedded /> : null}
           {effectiveSection === "queue" ? <QueuePage /> : null}

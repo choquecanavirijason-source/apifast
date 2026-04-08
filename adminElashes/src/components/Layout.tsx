@@ -1,10 +1,16 @@
 import React from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Header from './Header'
 import AppSidebar from './AppSidebar'
 
 export default function Layout(){
-  const [collapsed, setCollapsed] = React.useState(false)
+  const location = useLocation()
+  const [collapsed, setCollapsed] = React.useState(true)
+  const isPosTrackingFullscreen = location.pathname.startsWith('/admin/pos-tracking')
+
+  if (isPosTrackingFullscreen) {
+    return <Outlet />
+  }
 
   return (
     <div className="app-layout">

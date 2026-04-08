@@ -160,7 +160,8 @@ export default function AppRouter() {
             <Route path="admin/calendar" element={<CalendarPage />} />
             <Route path="admin/calendar/citas" element={<CalendarPage />} />
             <Route path="admin/calendar/agenda" element={<CalendarPage />} />
-            <Route path="admin/pos" element={<PosPage />} />
+            <Route path="admin/pos" element={<PosPage section="sale" />} />
+            <Route path="admin/pos/history" element={<PosPage section="history" />} />
           </Route>
         </Route>
 

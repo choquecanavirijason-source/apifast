@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Menu, Bell, Search, ChevronDown, X, TimerReset, LogOut } from "lucide-react";
+import { Menu, Bell, Search, ChevronDown, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { logout as logoutAction, updateSession } from "@/core/reducer/auth.reducer";
@@ -405,24 +405,6 @@ export default function Header({
     void loadNotifications(true);
   }, [notificationsOpen, selectedBranchId]);
 
-  const sessionLabel = useMemo(() => {
-    if (idleRemainingSeconds <= 0) return "Sesión por expirar";
-
-    const hours = Math.floor(idleRemainingSeconds / 3600);
-    const minutes = Math.floor((idleRemainingSeconds % 3600) / 60);
-    const seconds = idleRemainingSeconds % 60;
-    const formatted = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-    if (idleRemainingSeconds <= 5 * 60) return `Expira en ${formatted}`;
-    return formatted;
-  }, [idleRemainingSeconds]);
-
-  const tokenLabel = useMemo(() => {
-    if (!remainingSeconds || remainingSeconds <= 0) return "--:--";
-    const minutes = Math.floor(remainingSeconds / 60);
-    const seconds = remainingSeconds % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }, [remainingSeconds]);
-
   const handleSearchSelect = (href: string) => {
     setSearchDropdownOpen(false);
     setShowMobileSearch(false);
@@ -440,7 +422,7 @@ export default function Header({
 
   return (
     // CAMBIO PRINCIPAL: bg-[#094732] (Verde Esmeralda) y texto blanco
-    <header className="h-20 bg-gradient-to-r from-[#162d26] via-[#1C352D] to-[#1a312a] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm">
+    <header className="h-20 bg-gradient-to-r from-[#162d26] via-[#1C352D] to-[#1a312a] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
       
       {/* --- 1. SECCIÓN IZQUIERDA: Toggle & Título --- */}
       <div className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
@@ -453,12 +435,7 @@ export default function Header({
           <Menu className="w-6 h-6" />
         </button>
         
-          <div className="hidden md:flex flex-col">
-            <h1 className="font-bold text-white text-lg leading-tight tracking-tight drop-shadow-sm">
-             Panel de Control
-           </h1>
-            <span className="text-[11px] text-emerald-200/80 font-medium tracking-wide">Bienvenido de nuevo</span>
-        </div>
+         
       </div>
 
       {/* --- 2. SECCIÓN CENTRAL: Buscador (Estilo Dark) --- */}
@@ -605,6 +582,7 @@ export default function Header({
             onChange={handleBranchChange}
             className="bg-transparent text-xs font-semibold text-white outline-none"
           >
+            <option value="" className="text-slate-900">Todas</option>
             {branches.length === 0 ? (
               <option value="">Sin sucursales</option>
             ) : (
@@ -681,15 +659,6 @@ export default function Header({
         </div>
 
         <div className="h-8 w-px bg-emerald-800 hidden sm:block"></div>
-
-        <div className="hidden lg:flex items-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900/40 px-3 py-2 text-emerald-100">
-          <TimerReset className="h-4 w-4 text-emerald-300" />
-          <div className="flex flex-col leading-none">
-            <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sesión</span>
-            <span className="mt-1 text-xs font-bold text-white">{sessionLabel}</span>
-            <span className="mt-1 text-[10px] font-medium text-emerald-300/80">Token {tokenLabel}</span>
-          </div>
-        </div>
 
         {/* Perfil de Usuario */}
         <div className="relative" ref={profilePanelRef}>

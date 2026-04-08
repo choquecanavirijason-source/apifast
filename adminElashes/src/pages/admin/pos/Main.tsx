@@ -9,7 +9,6 @@ import {
   Clock,
   CreditCard,
   ArrowRight,
-  ArrowLeft,
   Plus,
   Printer,
   QrCode,
@@ -19,8 +18,6 @@ import {
   Tag,
   Trash2,
   Wallet,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "react-toastify";
@@ -44,9 +41,8 @@ import GenericModal from "../../../components/common/modal/GenericModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
-import ColFilter from "./components/ColFilter";
+import SalesHistoryTable from "./components/SalesHistoryTable";
 import ServiceSelectorCard from "./components/ServiceSelectorCard";
-import StatusBadge from "./components/StatusBadge";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
 import type { RootState } from "../../../store";
 
@@ -126,6 +122,16 @@ const formatLocalDateTime = (date: Date) => {
 const getPosDraftStorageKey = (branchId: number | null) =>
   `${POS_DRAFT_STORAGE_KEY_PREFIX}:${branchId ?? "global"}`;
 
+const createLocalId = () => {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  const timePart = Date.now().toString(36);
+  return `local-${timePart}-${randomPart}`;
+};
+
 const isCartLine = (value: unknown): value is CartLine => {
   if (!value || typeof value !== "object") return false;
   const line = value as Partial<CartLine>;
@@ -155,7 +161,7 @@ const normalizeCartLine = (line: CartLine): CartLine => ({
 });
 
 const createDefaultLine = (service?: ServiceOption): CartLine => ({
-  localId: crypto.randomUUID(),
+  localId: createLocalId(),
   service_id: service ? String(service.id) : "",
   professional_id: "",
   date: getLocalDateInputValue(),
@@ -197,13 +203,18 @@ const labelClass =
 // PosPage
 // ════════════════════════════════════════════════════════════════════════════
 
-export type PosPageProps = { embedded?: boolean; initialDate?: string };
+export type PosPageProps = {
+  embedded?: boolean;
+  initialDate?: string;
+  section?: "sale" | "history";
+};
 
-export default function PosPage({ embedded = false, initialDate }: PosPageProps) {
+export default function PosPage({ embedded = false, initialDate, section }: PosPageProps) {
   const navigate = useNavigate();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
+  const isSectionLocked = Boolean(section);
 
-  const [activeTab, setActiveTab] = useState<"sale" | "history">("sale");
+  const [activeTab, setActiveTab] = useState<"sale" | "history">(section ?? "sale");
 
   // Data
   const [clients,      setClients]      = useState<ClientForSelect[]>([]);
@@ -254,6 +265,10 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
 
   // History filters & pagination
   const [historySearch, setHistorySearch] = useState("");
+  const [historyClientFilter, setHistoryClientFilter] = useState("");
+  const [historyPaymentFilter, setHistoryPaymentFilter] = useState("all");
+  const [historyDateFrom, setHistoryDateFrom] = useState("");
+  const [historyDateTo, setHistoryDateTo] = useState("");
   const [colFilters, setColFilters] = useState({ sale_code: "", client: "", payment_method: "", total: "" });
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -384,25 +399,63 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
     });
   }, [services, categoryModalSearch, categoryModalFilterId]);
 
+  const historyClientOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        sales
+          .map((sale) => `${sale.client?.name ?? ""} ${sale.client?.last_name ?? ""}`.trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [sales]);
+
+  const historyPaymentOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        sales
+          .map((sale) => (sale.payment_method ?? "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [sales]);
+
   // Filtered + paged history
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
       const clientName = `${sale.client?.name ?? ""} ${sale.client?.last_name ?? ""}`.toLowerCase();
+      const paymentMethod = (sale.payment_method ?? "").trim().toLowerCase();
+      const saleDate = String(sale.created_at ?? "").slice(0, 10);
       const globalMatch =
         !historySearch ||
         sale.sale_code.toLowerCase().includes(historySearch.toLowerCase()) ||
         clientName.includes(historySearch.toLowerCase()) ||
         String(sale.total).includes(historySearch);
 
+      const topFiltersMatch =
+        (!historyClientFilter || clientName.includes(historyClientFilter.toLowerCase())) &&
+        (historyPaymentFilter === "all" || paymentMethod === historyPaymentFilter.toLowerCase()) &&
+        (!historyDateFrom || saleDate >= historyDateFrom) &&
+        (!historyDateTo || saleDate <= historyDateTo);
+
       const colMatch =
         (!colFilters.sale_code     || sale.sale_code.toLowerCase().includes(colFilters.sale_code.toLowerCase())) &&
         (!colFilters.client        || clientName.includes(colFilters.client.toLowerCase())) &&
-        (!colFilters.payment_method|| (sale.payment_method ?? "").toLowerCase().includes(colFilters.payment_method.toLowerCase())) &&
+        (!colFilters.payment_method|| paymentMethod.includes(colFilters.payment_method.toLowerCase())) &&
         (!colFilters.total         || String(sale.total).includes(colFilters.total));
 
-      return globalMatch && colMatch;
+      return globalMatch && topFiltersMatch && colMatch;
     });
-  }, [sales, historySearch, colFilters]);
+  }, [sales, historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters]);
+
+  const filteredSalesTotalAmount = useMemo(
+    () => filteredSales.reduce((sum, sale) => sum + Number(sale.total ?? 0), 0),
+    [filteredSales]
+  );
+
+  const allSalesTotalAmount = useMemo(
+    () => sales.reduce((sum, sale) => sum + Number(sale.total ?? 0), 0),
+    [sales]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / rowsPerPage));
   const pagedSales = useMemo(() => {
@@ -617,7 +670,15 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
     sellerId,
   ]);
 
-  useEffect(() => { setCurrentPage(1); }, [historySearch, colFilters, rowsPerPage]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
+
+  useEffect(() => {
+    if (section) {
+      setActiveTab(section);
+    }
+  }, [section]);
 
   // ── Cart ──────────────────────────────────────────────────────────────────
 
@@ -1078,14 +1139,7 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
       resetSaleForm();
       await loadContext();
       if (!embedded) {
-        setActiveTab("history");
-        setTimeout(() => {
-          const posUrl =
-            window.location.pathname.includes("/admin/pos") || window.location.pathname.includes("/admin/pos-tracking")
-              ? undefined
-              : "/admin/pos-tracking";
-          if (posUrl) navigate(posUrl);
-        }, 100);
+        navigate("/admin/pos/history");
       }
     } catch (error: unknown) {
       const message =
@@ -1183,7 +1237,7 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
 
   // ── Toolbar ───────────────────────────────────────────────────────────────
 
-  const toolbar = embedded ? undefined : (
+  const toolbar = embedded || isSectionLocked ? undefined : (
     <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
       {(["sale", "history"] as const).map((tab) => (
         <button
@@ -1197,6 +1251,36 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
         </button>
       ))}
     </div>
+  );
+
+  const HistorySection = () => (
+    <SalesHistoryTable
+      historySearch={historySearch}
+      onHistorySearchChange={setHistorySearch}
+      historyClientFilter={historyClientFilter}
+      onHistoryClientFilterChange={setHistoryClientFilter}
+      historyClientOptions={historyClientOptions}
+      historyPaymentFilter={historyPaymentFilter}
+      onHistoryPaymentFilterChange={setHistoryPaymentFilter}
+      historyPaymentOptions={historyPaymentOptions}
+      historyDateFrom={historyDateFrom}
+      onHistoryDateFromChange={setHistoryDateFrom}
+      historyDateTo={historyDateTo}
+      onHistoryDateToChange={setHistoryDateTo}
+      filteredSalesTotalAmount={filteredSalesTotalAmount}
+      allSalesTotalAmount={allSalesTotalAmount}
+      rowsPerPage={rowsPerPage}
+      rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+      onRowsPerPageChange={setRowsPerPage}
+      colFilters={colFilters}
+      onColFilterChange={(key, value) => setColFilters((prev) => ({ ...prev, [key]: value }))}
+      pagedSales={pagedSales}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      filteredSalesCount={filteredSales.length}
+      onPageChange={setCurrentPage}
+      onViewDetail={setReceiptSale}
+    />
   );
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1666,185 +1750,16 @@ export default function PosPage({ embedded = false, initialDate }: PosPageProps)
         </div>
 
       ) : (
-        /* ══ HISTORY TAB ════════════════════════════════════════════════════ */
-        <div className="flex flex-col gap-4">
-
-          {/* Top bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-              <input
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Buscar ventas, clientes o montos…"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 placeholder-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>Mostrar</span>
-              <select
-                value={rowsPerPage}
-                onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
-              >
-                {ROWS_PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="px-4 py-3 text-left w-10">
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">#</span>
-                    </th>
-                    {[
-                      { key: "sale_code",       label: "Código"   },
-                      { key: "client",           label: "Cliente"  },
-                      { key: "payment_method",   label: "Método"   },
-                      { key: "total",            label: "Total"    },
-                    ].map(({ key, label }) => (
-                      <th key={key} className="px-4 py-3 text-left">
-                        <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
-                        <ColFilter
-                          value={colFilters[key as keyof typeof colFilters]}
-                          onChange={(v) => setColFilters((prev) => ({ ...prev, [key]: v }))}
-                        />
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-left">
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tickets</span>
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Fecha</span>
-                    </th>
-                    <th className="px-4 py-3 text-right">
-                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Acción</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {pagedSales.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-16 text-center text-slate-400 text-sm">
-                        Sin resultados para los filtros aplicados.
-                      </td>
-                    </tr>
-                  ) : (
-                    pagedSales.map((sale, idx) => (
-                      <tr key={sale.id} className="group transition hover:bg-slate-50/60">
-                        <td className="px-4 py-3.5 text-slate-400 text-xs font-medium">
-                          {(currentPage - 1) * rowsPerPage + idx + 1}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="font-mono text-xs font-bold text-emerald-600">{sale.sale_code}</span>
-                        </td>
-                        <td className="px-4 py-3.5 font-semibold text-slate-800">
-                          {sale.client?.name} {sale.client?.last_name}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <StatusBadge status={sale.payment_method ?? "—"} />
-                        </td>
-                        <td className="px-4 py-3.5 font-black text-slate-900">
-                          Bs {sale.total?.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                            {sale.appointments?.length ?? 0} tickets
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-400">
-                          {new Date(sale.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            onClick={() => setReceiptSale(sale)}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900 opacity-0 group-hover:opacity-100"
-                          >
-                            Ver detalle
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-              <p className="text-xs text-slate-400">
-                Mostrando{" "}
-                <span className="font-semibold text-slate-600">
-                  {filteredSales.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}
-                </span>{" "}
-                a{" "}
-                <span className="font-semibold text-slate-600">
-                  {Math.min(currentPage * rowsPerPage, filteredSales.length)}
-                </span>{" "}
-                de{" "}
-                <span className="font-semibold text-slate-600">{filteredSales.length}</span>
-              </p>
-
-              <div className="flex items-center gap-1">
-                {[
-                  { Icon: ChevronsLeft,  onClick: () => setCurrentPage(1),            disabled: currentPage === 1 },
-                  { Icon: ArrowLeft,     onClick: () => setCurrentPage((p) => p - 1), disabled: currentPage === 1 },
-                ].map(({ Icon, onClick, disabled }, i) => (
-                  <button
-                    key={i}
-                    disabled={disabled}
-                    onClick={onClick}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </button>
-                ))}
-
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const offset = Math.max(0, Math.min(currentPage - 3, totalPages - 5));
-                  const page   = offset + i + 1;
-                  return page <= totalPages ? (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold transition ${
-                        currentPage === page
-                          ? "bg-slate-900 text-white shadow-sm"
-                          : "border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ) : null;
-                })}
-
-                {[
-                  { Icon: ArrowRight,    onClick: () => setCurrentPage((p) => p + 1), disabled: currentPage === totalPages },
-                  { Icon: ChevronsRight, onClick: () => setCurrentPage(totalPages),   disabled: currentPage === totalPages },
-                ].map(({ Icon, onClick, disabled }, i) => (
-                  <button
-                    key={i}
-                    disabled={disabled}
-                    onClick={onClick}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <HistorySection />
       )}
 
       {/* ══ RECEIPT MODAL ════════════════════════════════════════════════════ */}
       <GenericModal
         isOpen={Boolean(receiptSale)}
-        onClose={() => { setReceiptSale(null); setActiveTab("sale"); }}
+        onClose={() => {
+          setReceiptSale(null);
+          setActiveTab(section ?? "sale");
+        }}
         title="Comprobante de Pago"
       >
         {receiptSale && (

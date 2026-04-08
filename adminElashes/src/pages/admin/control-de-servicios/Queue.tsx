@@ -372,16 +372,33 @@ const Main = () => {
         : null;
     const targetColumn = String(over.id);
 
-    if (!ticketId || !["waiting", "in_service", "completed"].includes(targetColumn)) return;
+    if (!ticketId || !["waiting", "in_service", "completed", "ia"].includes(targetColumn)) return;
 
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket) return;
 
-    const currentColumn = getColumnForStatus(ticket.status);
-    if (currentColumn === targetColumn) return;
+    if (targetColumn === "ia") {
+      if (ticket.is_ia) return;
+
+      try {
+        await AgendaService.updateAppointment(ticketId, { is_ia: true });
+        toast.success("Ticket movido a Tickets con IA.");
+        void loadTickets();
+      } catch (error) {
+        console.error("Error moviendo ticket a IA:", error);
+        toast.error("No se pudo mover el ticket a IA.");
+      }
+      return;
+    }
+
+    if (!["waiting", "in_service", "completed"].includes(targetColumn)) return;
 
     const newStatus = COLUMN_TO_STATUS[targetColumn];
     if (!newStatus) return;
+
+    const currentColumn = getColumnForStatus(ticket.status);
+    const statusUnchanged = currentColumn === targetColumn;
+    if (statusUnchanged && !ticket.is_ia) return;
 
     if (newStatus === "in_service" && !ticket.professional_id) {
       toast.warning("Asigna una operaria antes de mover a En servicio.");
@@ -389,7 +406,10 @@ const Main = () => {
     }
 
     try {
-      await AgendaService.updateAppointment(ticketId, { status: newStatus });
+      await AgendaService.updateAppointment(ticketId, {
+        status: newStatus,
+        is_ia: false,
+      });
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
       void loadTickets();
     } catch (error) {
@@ -416,7 +436,7 @@ const Main = () => {
 
   const handleSaveTicketEdits = async (
     ticket: TicketItem,
-    payload: { date: string; time: string; professionalId: string }
+    payload: { date: string; time: string; professionalId: string; isIa: boolean }
   ) => {
     const safeDate = payload.date?.trim();
     const safeTime = payload.time?.trim();
@@ -445,6 +465,7 @@ const Main = () => {
         start_time: formatLocalDateTime(nextStart),
         end_time: formatLocalDateTime(nextEnd),
         professional_id: payload.professionalId ? Number(payload.professionalId) : null,
+        is_ia: payload.isIa,
       });
 
       toast.success("Ticket actualizado.");
@@ -698,94 +719,94 @@ const Main = () => {
             <p className="text-xs text-slate-500">
               Tickets filtrados: <span className="font-semibold text-slate-700">{filteredTickets.length}</span>
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setFilterService("");
-                setFilterDate(todayDate());
-                setFilterTime("");
-                setFilterProfessionalId("");
-              }}
-            >
-              Limpiar filtros
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void loadTickets()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Actualizando..." : "Actualizar tabla"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setFilterService("");
+                  setFilterDate(todayDate());
+                  setFilterTime("");
+                  setFilterProfessionalId("");
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            </div>
           </div>
         </SectionCard>
 
         <div className="mt-5">
           <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
             <div className="space-y-5">
-              <SectionCard bodyClassName="!p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Tickets con IA</h3>
-                    <p className="text-xs text-slate-500">Todos los tickets generados por IA se agrupan aquí.</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                    {iaTickets.length}
-                  </span>
-                </div>
+              <div className="grid gap-5 xl:gap-6 lg:grid-cols-2 xl:grid-cols-4 items-start">
+                <DroppableColumn
+                  id="ia"
+                  title={`Tickets con IA (${iaTickets.length})`}
+                  subtitle="Todos los tickets generados por IA se agrupan aqui."
+                  tickets={iaTickets}
+                  isEmptyLabel="No hay tickets con IA para los filtros actuales."
+                  renderCard={(ticket) => (
+                    <DraggableTicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      professionals={professionals}
+                      onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
+                      isSavingEdit={editingTicketId === ticket.id}
+                      actions={
+                        ["pending", "waiting", "confirmed"].includes(ticket.status) ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleStartService(ticket);
+                            }}
+                          >
+                            Iniciar atencion
+                          </Button>
+                        ) : ticket.status === "in_service" ? (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleMarkCompleted(ticket);
+                            }}
+                          >
+                            Finalizar
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenFinishModal(ticket);
+                            }}
+                          >
+                            Completar
+                          </Button>
+                        )
+                      }
+                      showRemaining={ticket.status === "in_service"}
+                      statusColors={statusColors}
+                      getRemainingLabel={getRemainingLabel}
+                      onDelete={handleDeleteClick}
+                    />
+                  )}
+                />
 
-                {iaTickets.length === 0 ? (
-                  <p className="text-xs text-slate-500">No hay tickets con IA para los filtros actuales.</p>
-                ) : (
-                  <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    {iaTickets.map((ticket) => (
-                      <DraggableTicketCard
-                        key={ticket.id}
-                        ticket={ticket}
-                        professionals={professionals}
-                        onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                        isSavingEdit={editingTicketId === ticket.id}
-                        actions={
-                          ["pending", "waiting", "confirmed"].includes(ticket.status) ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleStartService(ticket);
-                              }}
-                            >
-                              Iniciar atencion
-                            </Button>
-                          ) : ticket.status === "in_service" ? (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleMarkCompleted(ticket);
-                              }}
-                            >
-                              Finalizar
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenFinishModal(ticket);
-                              }}
-                            >
-                              Completar
-                            </Button>
-                          )
-                        }
-                        showRemaining={ticket.status === "in_service"}
-                        statusColors={statusColors}
-                        getRemainingLabel={getRemainingLabel}
-                        onDelete={handleDeleteClick}
-                      />
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-
-              <div className="grid gap-5 xl:gap-6 lg:grid-cols-3 items-start">
                 <DroppableColumn
                   id="waiting"
                   title="En espera"
