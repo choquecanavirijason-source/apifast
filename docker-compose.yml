@@ -1,5 +1,5 @@
 services:
-  # --- Base de Datos (Ya la tenías) ---
+  #  --- Base de Datos (Ya la tenías) ---
   database:
     image: mysql:8.0
     container_name: "elashes-database"

@@ -1,5 +1,8 @@
 import os
 import sys
+from urllib.parse import quote_plus
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -30,8 +33,15 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False # Es mejor False para producción/exe
 
-    # IMPORTANTE: La DB se crea en la carpeta del usuario, NO dentro del exe temporal
-    database_url: str = f"sqlite:///{os.path.join(external_path, 'elashes.db')}"
+    # Si defines DATABASE_URL en .env / entorno, se usa tal cual.
+    # Si defines DB_HOST (p. ej. Docker), se arma mysql+pymysql://...
+    # Si no hay ninguno, SQLite en la carpeta del proyecto (modo .exe / local).
+    database_url: Optional[str] = None
+    db_host: Optional[str] = None
+    db_port: int = 3306
+    db_user: Optional[str] = None
+    db_password: Optional[str] = None
+    db_name: Optional[str] = None
 
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
@@ -46,6 +56,23 @@ class Settings(BaseSettings):
 
     mobile_image_quality: int = 85
     mobile_max_resolution: tuple = (1920, 1080)
+
+    @model_validator(mode="after")
+    def resolve_database_url(self):
+        if self.database_url and str(self.database_url).strip():
+            self.database_url = str(self.database_url).strip()
+            return self
+        if self.db_host:
+            user = self.db_user or "root"
+            pwd = self.db_password if self.db_password is not None else ""
+            dbn = self.db_name or "elashes"
+            self.database_url = (
+                f"mysql+pymysql://{quote_plus(user)}:{quote_plus(pwd)}"
+                f"@{self.db_host}:{self.db_port}/{dbn}"
+            )
+            return self
+        self.database_url = f"sqlite:///{os.path.join(external_path, 'elashes.db')}"
+        return self
 
     class Config:
         # Esto buscará el .env empaquetado dentro del EXE

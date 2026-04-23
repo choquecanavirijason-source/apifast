@@ -34,6 +34,8 @@ import { toast } from "react-toastify";
 import Layout from "../components/common/layout";
 import FilterActionBar from "../components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "../components/common/ui";
+import DownloadActions from "../components/common/ui/DownloadActions";
+import FilterField from "../components/common/ui/FilterField";
 import { DashboardService, type DashboardOverview } from "../core/services/dashboard/dashboard.service";
 import { BranchService } from "../core/services/branch/branch.service";
 import { AgendaService, type ServiceOption } from "../core/services/agenda/agenda.service";
@@ -370,26 +372,23 @@ export default function Dashboard() {
         <FilterActionBar
           left={
             <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Desde</label>
+              <FilterField label="Desde">
                 <input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
                   className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Hasta</label>
+              </FilterField>
+              <FilterField label="Hasta">
                 <input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
                   className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Sucursal</label>
+              </FilterField>
+              <FilterField label="Sucursal">
                 <select
                   value={branchFilter}
                   onChange={(e) => setBranchFilter(e.target.value)}
@@ -402,9 +401,8 @@ export default function Dashboard() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Servicio</label>
+              </FilterField>
+              <FilterField label="Servicio">
                 <select
                   value={serviceFilter}
                   onChange={(e) => setServiceFilter(e.target.value)}
@@ -417,7 +415,7 @@ export default function Dashboard() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FilterField>
             </div>
           }
           right={
@@ -532,13 +530,13 @@ export default function Dashboard() {
           title="Ingresos por periodo"
           subtitle="Pagos cobrados agrupados por día según los filtros activos."
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("revenue", "excel")}>Excel</Button>
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("revenue", "pdf")}>PDF</Button>
-            </div>
+            <DownloadActions
+              onExcel={() => downloadSectionReport("revenue", "excel")}
+              onPdf={() => downloadSectionReport("revenue", "pdf")}
+            />
           }
         >
-          <div className="h-72">
+          <div className="h-52">
             {revenueChartData.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-500">
                 No hay datos de ingresos para el rango seleccionado.
@@ -578,10 +576,10 @@ export default function Dashboard() {
           title="Servicios Más Solicitados"
           subtitle="Tickets generados por servicio y su ingreso estimado."
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("services", "excel")}>Excel</Button>
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("services", "pdf")}>PDF</Button>
-            </div>
+            <DownloadActions
+              onExcel={() => downloadSectionReport("services", "excel")}
+              onPdf={() => downloadSectionReport("services", "pdf")}
+            />
           }
         >
           <div className="h-72">
@@ -627,10 +625,10 @@ export default function Dashboard() {
           title="Resumen Operativo"
           subtitle="Una vista rápida del flujo de tickets, caja y atención."
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("overview", "excel")}>Excel</Button>
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("overview", "pdf")}>PDF</Button>
-            </div>
+            <DownloadActions
+              onExcel={() => downloadSectionReport("overview", "excel")}
+              onPdf={() => downloadSectionReport("overview", "pdf")}
+            />
           }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -683,10 +681,10 @@ export default function Dashboard() {
           title="Inventario Relevante"
           subtitle="Productos con más unidades disponibles según la sucursal filtrada."
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("inventory", "excel")}>Excel</Button>
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("inventory", "pdf")}>PDF</Button>
-            </div>
+            <DownloadActions
+              onExcel={() => downloadSectionReport("inventory", "excel")}
+              onPdf={() => downloadSectionReport("inventory", "pdf")}
+            />
           }
         >
           <div className="h-72">
@@ -722,10 +720,10 @@ export default function Dashboard() {
           title="Accesos Directos"
           subtitle="Flujos rápidos para operar tickets, agenda, caja y clientes."
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("quicklinks", "excel")}>Excel</Button>
-              <Button size="sm" variant="secondary" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadSectionReport("quicklinks", "pdf")}>PDF</Button>
-            </div>
+            <DownloadActions
+              onExcel={() => downloadSectionReport("quicklinks", "excel")}
+              onPdf={() => downloadSectionReport("quicklinks", "pdf")}
+            />
           }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">

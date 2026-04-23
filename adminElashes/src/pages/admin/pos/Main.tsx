@@ -1,25 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import {
-  Banknote,
-  CalendarDays,
-  CheckCircle2,
-  ChevronDown,
-  Clock,
-  CreditCard,
-  ArrowRight,
-  Plus,
-  Printer,
-  QrCode,
-  ReceiptText,
-  Search,
-  ShoppingCart,
-  Tag,
-  Trash2,
-  Wallet,
-} from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
+import { CalendarDays } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AgendaService,
@@ -37,65 +19,18 @@ import {
 import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import Layout from "../../../components/common/layout";
-import GenericModal from "../../../components/common/modal/GenericModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
 import SalesHistoryTable from "./components/SalesHistoryTable";
-import ServiceSelectorCard from "./components/ServiceSelectorCard";
+import PosSaleStepOne from "./components/PosSaleStepOne";
+import PosSaleStepTwo from "./components/PosSaleStepTwo";
+import PosReceiptModals from "./components/PosReceiptModals";
+import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
+import type { CartLine, PosSaleDraft, ReceiptTicketEdit } from "./pos.types";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
 import type { RootState } from "../../../store";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type CartLine = {
-  localId: string;
-  service_id: string;
-  professional_id: string;
-  date: string;
-  time: string;
-  without_time: boolean;
-  status: "pending" | "in_service";
-  duration_minutes: number;
-  price: number;
-};
-
-type ReceiptTicketEdit = {
-  date: string;
-  time: string;
-  without_time: boolean;
-  professional_id: string;
-  status: "pending" | "in_service";
-};
-
-type PosSaleDraft = {
-  clientId: string;
-  clientSearch: string;
-  paymentMethod: string;
-  discountType: "amount" | "percent";
-  discountValue: string;
-  notes: string;
-  cartLines: CartLine[];
-  serviceSearch: string;
-  selectedServiceCategoryId: string;
-  sellerId: string;
-};
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const PAYMENT_METHODS = [
-  { value: "cash",     label: "Efectivo",      icon: Banknote   },
-  { value: "card",     label: "Tarjeta",        icon: CreditCard },
-  { value: "transfer", label: "Transferencia",  icon: Wallet     },
-  { value: "qr",       label: "QR",             icon: QrCode     },
-];
-
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 const POS_DRAFT_STORAGE_KEY_PREFIX = "pos-sale-draft-v1";
-const TICKET_STATUS_OPTIONS = [
-  { value: "pending", label: "En espera" },
-  { value: "in_service", label: "En atencion" },
-] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -212,9 +147,10 @@ export type PosPageProps = {
 export default function PosPage({ embedded = false, initialDate, section }: PosPageProps) {
   const navigate = useNavigate();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
-  const isSectionLocked = Boolean(section);
 
   const [activeTab, setActiveTab] = useState<"sale" | "history">(section ?? "sale");
+  // Nuevo: estado para el paso del wizard
+  const [step, setStep] = useState<1 | 2>(1);
 
   // Data
   const [clients,      setClients]      = useState<ClientForSelect[]>([]);
@@ -1235,24 +1171,6 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     }
   };
 
-  // ── Toolbar ───────────────────────────────────────────────────────────────
-
-  const toolbar = embedded || isSectionLocked ? undefined : (
-    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-      {(["sale", "history"] as const).map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            activeTab === tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          {tab === "sale" ? "Nueva Venta" : "Historial"}
-        </button>
-      ))}
-    </div>
-  );
-
   const HistorySection = () => (
     <SalesHistoryTable
       historySearch={historySearch}
@@ -1283,51 +1201,65 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     />
   );
 
-  // ════════════════════════════════════════════════════════════════════════
   return (
     <Layout
-      title={embedded ? undefined : "Caja Registradora"}
-      subtitle={embedded ? undefined : "Punto de venta rápido y gestión de servicios"}
+      title={
+        embedded ? undefined : (
+          <span className="flex w-full items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-base font-semibold leading-tight text-slate-800">Caja Registradora</span>
+              <span className="block text-[11px] leading-tight text-slate-500">Punto de venta rápido y gestión de servicios</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
+              <CalendarDays className="h-4 w-4 text-slate-400" />
+              <span className="font-medium text-slate-600">
+                {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
+              </span>
+            </span>
+          </span>
+        )
+      }
+      subtitle={undefined}
       pageClassName={
         embedded
-          ? "!min-h-0 flex flex-1 flex-col !bg-transparent !p-0 h-full"
-          : "bg-[#f5f5f7]"
+          ? "!min-h-0 flex h-full flex-1 flex-col !bg-transparent !p-0 overflow-hidden"
+          : "bg-[#f5f5f7] flex h-[100dvh] flex-col overflow-hidden"
       }
       containerClassName={
         embedded
-          ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-transparent !p-0 max-w-none"
-          : "border-0 bg-transparent shadow-none max-w-[1520px]"
+          ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent !p-0 max-w-none"
+          : "border-0 bg-transparent shadow-none max-w-[1520px] flex min-h-0 flex-1 flex-col overflow-hidden"
       }
-      toolbar={toolbar}
+      toolbar={
+        <div className="flex items-center justify-between w-full mt-1 mb-1">
+          <div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
+            {(["sale", "history"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setStep(1);
+                }}
+                className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  activeTab === tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab === "sale" ? "Nueva Venta" : "Historial"}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
     >
-      <div className="pb-4 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
-      {/* ══ SALE TAB ═════════════════════════════════════════════════════════ */}
-      {activeTab === "sale" ? (
-        <div
-          className={`flex flex-col md:grid md:grid-cols-[1fr_380px] gap-6 items-start ${isLoading ? "pointer-events-none opacity-60" : ""}`}
-          aria-busy={isLoading}
-        >
-
-          {/* LEFT */}
-          <div className="flex flex-col gap-5 min-w-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 tracking-tight">Nueva Venta</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Agrega servicios y confirma el pago</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2">
-                <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-                <span className="font-medium text-slate-600">
-                  {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
-                </span>
-              </div>
-            </div>
-
-            <ServiceSelectorCard
+      <div className="flex h-full min-h-0 flex-col overflow-hidden pb-2 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
+        {activeTab === "sale" ? (
+          step === 1 ? (
+            <PosSaleStepOne
               labelClass={labelClass}
               fieldClass={fieldClass}
+              isLoading={isLoading}
               serviceSearch={serviceSearch}
-              onServiceSearchChange={(value) => {
+              onServiceSearchChange={(value: any) => {
                 setServiceSearch(value);
                 updateServiceMenuPosition();
                 setIsServiceMenuOpen(true);
@@ -1338,14 +1270,14 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               }}
               onToggleServiceMenu={() => {
                 updateServiceMenuPosition();
-                setIsServiceMenuOpen((prev) => !prev);
+                setIsServiceMenuOpen((current) => !current);
               }}
               isServiceMenuOpen={isServiceMenuOpen}
               serviceMenuPosition={serviceMenuPosition}
               filteredServices={filteredServices}
               onServiceSelect={handleServiceSelect}
               selectedServiceCategoryId={selectedServiceCategoryId}
-              onCategoryFilterChange={(value) => {
+              onCategoryFilterChange={(value: SetStateAction<string>) => {
                 setSelectedServiceCategoryId(value);
                 updateServiceMenuPosition();
                 setIsServiceMenuOpen(true);
@@ -1356,937 +1288,137 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               onAddServiceToCart={addServiceToCart}
               serviceComboboxRef={serviceComboboxRef}
               serviceMenuRef={serviceMenuRef}
+              cartLines={cartLines}
+              services={services}
+              subtotal={subtotal}
+              onRemoveLine={removeLine}
+              onContinue={() => setStep(2)}
             />
-
-            {/* Cart */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-slate-500" />
-                  <span className="text-xs font-semibold text-slate-700">Carrito</span>
-                  {cartLines.length > 0 && (
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-                      {cartLines.length}
-                    </span>
-                  )}
-                </div>
-                {cartLines.length > 0 && (
-                  <span className="text-xs text-slate-400 font-medium">
-                    Subtotal: <span className="text-slate-700 font-semibold">Bs {subtotal.toFixed(2)}</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
-                {cartLines.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-3 py-16">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                      <ShoppingCart className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs font-medium text-slate-500">Carrito vacío</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Selecciona un servicio para comenzar</p>
-                    </div>
-                  </div>
-                ) : (
-                  cartLines.map((line) => {
-                    const service = services.find((s) => String(s.id) === line.service_id);
-                    return (
-                      <div key={line.localId} className="group px-5 py-3.5 transition hover:bg-slate-50/70">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex items-center gap-2">
-                            {service?.image_url ? (
-                              <img
-                                src={service.image_url}
-                                alt={service?.name ?? "Servicio"}
-                                className="h-10 w-10 rounded-lg object-cover border border-slate-200 flex-none"
-                              />
-                            ) : null}
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-800 truncate">{service?.name ?? "Servicio"}</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">Configura horario y profesional para este ticket</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className="text-xs font-semibold text-slate-900 block">Bs {line.price.toFixed(2)}</span>
-                              <div className="flex items-center justify-end gap-1 text-xs text-slate-500 mt-0.5">
-                                <Clock className="h-3 w-3" />{line.duration_minutes}m
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => removeLine(line.localId)}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-100 hover:text-red-600"
-                              title="Quitar ticket"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_96px]">
-                          <div>
-                            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
-                            <div className="flex items-center gap-1.5">
-                              <div className="group relative inline-flex">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setAvailabilityPreviewLineId(line.localId);
-                                    setAvailabilityPreviewDate((line.date || saleBaseDate).trim());
-                                    setAvailabilitySearch("");
-                                  }}
-                                  aria-label="Ver reservas del día"
-                                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-gradient-to-b from-emerald-50 to-teal-50 text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:from-emerald-100 hover:to-teal-100 hover:text-emerald-800"
-                                >
-                                  <CalendarDays className="h-3.5 w-3.5" />
-                                </button>
-                                <span className="pointer-events-none absolute top-full left-1/2 z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                                  Ver reservas del día
-                                </span>
-                              </div>
-                              <input
-                                type="date"
-                                value={line.date}
-                                onChange={(e) => updateLine(line.localId, { date: e.target.value })}
-                                onBlur={(e) => {
-                                  if (!e.target.value) {
-                                    updateLine(line.localId, { date: getLocalDateInputValue() });
-                                  }
-                                }}
-                                className="h-7 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Hora</p>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="time"
-                                value={line.time}
-                                onChange={(e) => updateLine(line.localId, { time: e.target.value })}
-                                disabled={line.without_time}
-                                className="h-7 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              />
-                              <label className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-slate-500">
-                                <input
-                                  type="checkbox"
-                                  checked={line.without_time}
-                                  onChange={(e) =>
-                                    updateLine(line.localId, {
-                                      without_time: e.target.checked,
-                                      time: e.target.checked ? "" : getLocalTimeValue(),
-                                    })
-                                  }
-                                />
-                                Sin hora
-                              </label>
-                            </div>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Atendera</p>
-                            <select
-                              value={line.professional_id}
-                              onChange={(e) => updateLine(line.localId, { professional_id: e.target.value })}
-                              className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                            >
-                              <option value="">Seleccionar profesional...</option>
-                              {professionals.map((professional) => (
-                                <option key={professional.id} value={String(professional.id)}>
-                                  {professional.username}
-                                </option>
-                              ))}
-                            </select>
-                            <p
-                              className={`mt-1 text-[10px] font-medium ${
-                                !line.professional_id
-                                  ? "text-slate-400"
-                                  : lineAvailability[line.localId]?.available
-                                    ? "text-emerald-600"
-                                    : "text-red-500"
-                              }`}
-                            >
-                              {!line.professional_id
-                                ? "Selecciona operaria para validar disponibilidad"
-                                : lineAvailability[line.localId]?.available
-                                  ? "Operaria disponible en este horario"
-                                  : `Operaria ocupada (${lineAvailability[line.localId]?.conflictCount ?? 1} conflicto${
-                                      (lineAvailability[line.localId]?.conflictCount ?? 1) > 1 ? "s" : ""
-                                    })`}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Estado</p>
-                            <select
-                              value={line.status}
-                              onChange={(e) =>
-                                updateLine(line.localId, {
-                                  status: e.target.value === "in_service" ? "in_service" : "pending",
-                                })
-                              }
-                              className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                            >
-                              {TICKET_STATUS_OPTIONS.map((statusOption) => (
-                                <option key={statusOption.value} value={statusOption.value}>
-                                  {statusOption.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT SIDEBAR */}
-          <aside className="w-full md:sticky md:top-24">
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-
-              {/* Client */}
-              <div className="px-5 pt-5 pb-4 border-b border-slate-100">
-                <p className={labelClass}>Cliente</p>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <div className="relative" ref={clientComboboxRef}>
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                      <input
-                        value={clientSearch}
-                        onChange={(e) => {
-                          setClientSearch(e.target.value);
-                          setClientId("");
-                          setIsClientMenuOpen(true);
-                        }}
-                        onFocus={() => setIsClientMenuOpen(true)}
-                        placeholder="Buscar por nombre, apellido o telefono..."
-                        className={`${fieldClass} pl-10`}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setIsClientMenuOpen((prev) => !prev)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                        aria-label="Mostrar clientes"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-
-                      {isClientMenuOpen && (
-                        <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                          <div className="max-h-56 overflow-y-auto py-1">
-                            {filteredClients.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-slate-500">No se encontraron clientes.</p>
-                            ) : (
-                              filteredClients.map((c) => {
-                                const fullName = `${c.nombre} ${c.apellido}`.trim();
-                                return (
-                                  <button
-                                    key={c.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setClientId(String(c.id));
-                                      setClientSearch(fullName);
-                                      setIsClientMenuOpen(false);
-                                    }}
-                                    className="flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-slate-50"
-                                  >
-                                    <span className="truncate text-sm text-slate-700">{fullName}</span>
-                                    <span className="ml-3 shrink-0 text-xs text-slate-400">{c.phone || "Sin telefono"}</span>
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* ✦ Botón nuevo cliente */}
-                  <button
-                    type="button"
-                    onClick={() => setIsRegisterClientOpen(true)}
-                    title="Registrar nuevo cliente"
-                    className="h-10 w-10 flex-none flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {selectedClient && (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[11px] text-slate-400 mb-1">Teléfono</p>
-                      <p className="text-xs font-medium text-slate-700 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">{clientPhone || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-slate-400 mb-1">Dirección</p>
-                      <p className="text-xs font-medium text-slate-700 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100 truncate">{clientAddress}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Seller */}
-              <div className="px-5 py-4 border-b border-slate-100">
-                <label className={labelClass}>Vendedor</label>
-                <div className="relative">
-                  <select
-                    value={sellerId}
-                    onChange={(e) => setSellerId(e.target.value)}
-                    className={`${fieldClass} appearance-none cursor-pointer`}
-                  >
-                    <option value="">Seleccionar vendedor…</option>
-                    {professionals.map((p) => (
-                      <option key={p.id} value={p.id}>{p.username}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Discount + payment + notes */}
-              <div className="px-5 py-4 border-b border-slate-100 space-y-4">
-                <div>
-                  <label className={labelClass}>Descuento</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                      <input
-                        type="number" min={0}
-                        className={`${fieldClass} pl-10`}
-                        value={discountValue}
-                        onChange={(e) => setDiscountValue(e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="relative w-24">
-                      <select
-                        value={discountType}
-                        onChange={(e) => setDiscountType(e.target.value as "amount" | "percent")}
-                        className={`${fieldClass} appearance-none text-center cursor-pointer pr-7`}
-                      >
-                        <option value="amount">Bs</option>
-                        <option value="percent">%</option>
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Método de Pago</label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
-                      <button
-                        key={value}
-                        onClick={() => setPaymentMethod(value)}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border py-2.5 px-1 text-[11px] font-semibold transition-all ${
-                          paymentMethod === value
-                            ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                            : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Notas</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    className={`${fieldClass} resize-none`}
-                    placeholder="Observaciones opcionales…"
-                  />
-                </div>
-              </div>
-
-              {/* Totals + CTA */}
-              <div className="px-5 py-4">
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-slate-500">
-                    <span>Subtotal</span>
-                    <span className="font-medium text-slate-700">Bs {subtotal.toFixed(2)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Descuento</span>
-                      <span className="font-medium">− Bs {discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center pt-3 mt-1 border-t border-slate-100">
-                    <span className="text-sm font-bold text-slate-900">Total</span>
-                    <span className="text-xl font-black text-slate-900 tracking-tight">Bs {total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => void handleCheckout()}
-                  disabled={isSubmitting || cartLines.length === 0}
-                  className={`mt-4 w-full flex items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold tracking-wide transition-all duration-200 ${
-                    isSubmitting || cartLines.length === 0
-                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                      : "bg-slate-900 text-white shadow-md hover:bg-slate-800 hover:shadow-lg active:scale-[0.98]"
-                  }`}
-                >
-                  {isSubmitting ? (
-                    <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Procesando…</>
-                  ) : (
-                    <><CheckCircle2 className="h-4 w-4" />Confirmar Venta<ArrowRight className="h-4 w-4 ml-auto" /></>
-                  )}
-                </button>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-      ) : (
-        <HistorySection />
-      )}
-
-      {/* ══ RECEIPT MODAL ════════════════════════════════════════════════════ */}
-      <GenericModal
-        isOpen={Boolean(receiptSale)}
-        onClose={() => {
-          setReceiptSale(null);
-          setActiveTab(section ?? "sale");
-        }}
-        title="Comprobante de Pago"
-      >
-        {receiptSale && (
-          <div className="space-y-5 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
-                <ReceiptText className="h-7 w-7" />
-              </div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bs {receiptSale.total.toFixed(2)}</h2>
-              <p className="text-sm text-slate-500">
-                Venta <span className="font-mono font-semibold text-slate-700">{receiptSale.sale_code}</span> completada
-              </p>
-            </div>
-
-            {receiptSale.payment_method === "qr" && (
-              <div ref={qrRef} className="bg-white p-4 inline-block rounded-2xl border border-slate-100 shadow-sm">
-                <QRCodeCanvas value={receiptSale.sale_code} size={180} />
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-left">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Tickets generados</h3>
-              <div className="space-y-2">
-                {receiptSale.appointments.length === 0 ? (
-                  <p className="text-sm text-slate-400">Sin tickets asociados.</p>
-                ) : (
-                  receiptSale.appointments.map((appointment) => {
-                    const edit = receiptTicketEdits[appointment.id];
-
-                    return (
-                      <div key={appointment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {appointment.ticket_code ?? `#${appointment.id}`}
-                              <span className="ml-2 text-xs font-normal text-slate-400">
-                                {appointment.status === "in_service" ? "En atencion" : "En espera"}
-                              </span>
-                            </p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
-                              {(appointment.services ?? []).length > 0
-                                ? (appointment.services ?? []).map((s: any) => s.name).join(" · ")
-                                : appointment.service?.name ?? "Servicio"}
-                            </p>
-                          </div>
-                          <span className="text-[11px] text-slate-400 flex items-center gap-1 flex-none">
-                            <Clock className="h-3 w-3" />
-                            {new Date(appointment.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </div>
-
-                        {edit && (
-                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
-                              <input
-                                type="date"
-                                value={edit.date}
-                                onChange={(e) => updateReceiptTicketEdit(appointment.id, { date: e.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              />
-                            </div>
-
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Hora</p>
-                              <input
-                                type="time"
-                                value={edit.time}
-                                disabled={edit.without_time}
-                                onChange={(e) => updateReceiptTicketEdit(appointment.id, { time: e.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              />
-                              <label className="mt-1 inline-flex items-center gap-1 text-[10px] text-slate-500">
-                                <input
-                                  type="checkbox"
-                                  checked={edit.without_time}
-                                  onChange={(e) =>
-                                    updateReceiptTicketEdit(appointment.id, {
-                                      without_time: e.target.checked,
-                                      time: e.target.checked ? "" : "09:00",
-                                    })
-                                  }
-                                />
-                                Sin hora
-                              </label>
-                            </div>
-
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Operaria</p>
-                              <select
-                                value={edit.professional_id}
-                                onChange={(e) => updateReceiptTicketEdit(appointment.id, { professional_id: e.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              >
-                                <option value="">Sin operaria</option>
-                                {professionals.map((professional) => (
-                                  <option key={professional.id} value={String(professional.id)}>
-                                    {professional.username}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Estado</p>
-                              <select
-                                value={edit.status}
-                                onChange={(e) => {
-                                  const nextStatus = e.target.value === "in_service" ? "in_service" : "pending";
-                                  if (nextStatus === "in_service" && !edit.professional_id) {
-                                    toast.warning("Para poner 'En atencion' debes seleccionar una operaria.");
-                                    return;
-                                  }
-                                  updateReceiptTicketEdit(appointment.id, { status: nextStatus });
-                                }}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                              >
-                                {TICKET_STATUS_OPTIONS.map((statusOption) => (
-                                  <option key={statusOption.value} value={statusOption.value}>
-                                    {statusOption.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {receiptSale.appointments.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => void saveReceiptTicketEdits()}
-                  disabled={isSavingReceiptTickets}
-                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingReceiptTickets ? "Guardando cambios..." : "Guardar cambios de tickets"}
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                onClick={() => setReceiptSale(null)}
-              >
-                Cerrar
-              </button>
-              <button
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                onClick={handleOpenPrintPreview}
-              >
-                <Printer className="h-4 w-4" />Imprimir ticket
-              </button>
-            </div>
-          </div>
+          ) : (
+            <PosSaleStepTwo
+              labelClass={labelClass}
+              fieldClass={fieldClass}
+              cartLines={cartLines}
+              services={services}
+              subtotal={subtotal}
+              total={total}
+              onRemoveLine={removeLine}
+              professionals={professionals}
+              lineAvailability={lineAvailability}
+              saleBaseDate={saleBaseDate}
+              updateLine={updateLine}
+              setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
+              setAvailabilityPreviewDate={setAvailabilityPreviewDate}
+              setAvailabilitySearch={setAvailabilitySearch}
+              clientComboboxRef={clientComboboxRef}
+              clientSearch={clientSearch}
+              setClientSearch={setClientSearch}
+              setClientId={setClientId}
+              isClientMenuOpen={isClientMenuOpen}
+              setIsClientMenuOpen={setIsClientMenuOpen}
+              filteredClients={filteredClients}
+              selectedClient={selectedClient}
+              clientPhone={clientPhone}
+              clientAddress={clientAddress}
+              sellerId={sellerId}
+              setSellerId={setSellerId}
+              discountValue={discountValue}
+              setDiscountValue={setDiscountValue}
+              discountType={discountType}
+              setDiscountType={setDiscountType}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              notes={notes}
+              setNotes={setNotes}
+              onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
+              isSubmitting={isSubmitting}
+              onCheckout={() => void handleCheckout()}
+            />
+          )
+        ) : (
+          <HistorySection />
         )}
-      </GenericModal>
 
-      {/* ══ PRINT PREVIEW MODAL ══════════════════════════════════════════════ */}
-      {isPrintPreviewOpen && receiptSale && (
-        <>
-          {/* @media print styles injected inline */}
-          <style>{`
-            @media print {
-              @page {
-                size: ${printFormat === "thermal" ? "80mm auto" : "A4 portrait"};
-                margin: ${printFormat === "thermal" ? "4mm" : "12mm"};
-              }
+        <PosReceiptModals
+          receiptSale={receiptSale}
+          onCloseReceipt={() => {
+            setReceiptSale(null);
+            setActiveTab(section ?? "sale");
+          }}
+          receiptTicketEdits={receiptTicketEdits}
+          professionals={professionals}
+          onUpdateReceiptTicketEdit={updateReceiptTicketEdit}
+          onSaveReceiptTicketEdits={() => void saveReceiptTicketEdits()}
+          isSavingReceiptTickets={isSavingReceiptTickets}
+          onOpenPrintPreview={handleOpenPrintPreview}
+          isPrintPreviewOpen={isPrintPreviewOpen}
+          onClosePrintPreview={() => setIsPrintPreviewOpen(false)}
+          onPrint={handlePrint}
+          printFormat={printFormat}
+          setPrintFormat={setPrintFormat}
+          qrRef={qrRef}
+          availabilityPreviewLineId={availabilityPreviewLineId}
+          availabilityPreviewDate={availabilityPreviewDate}
+          saleBaseDate={saleBaseDate}
+          activeAvailabilityLine={activeAvailabilityLine}
+          setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
+          setAvailabilityPreviewDate={setAvailabilityPreviewDate}
+          setAvailabilitySearch={setAvailabilitySearch}
+          availabilitySearch={availabilitySearch}
+          occupiedTicketsForPreview={occupiedTicketsForPreview}
+          previewHourSlots={previewHourSlots}
+          onSelectHourFromPreview={handleSelectHourFromPreview}
+          onCloseAvailabilityPreview={() => {
+            setAvailabilityPreviewLineId(null);
+            setAvailabilityPreviewDate("");
+            setAvailabilitySearch("");
+          }}
+          formatHourMinute={formatHourMinute}
+          toDateAndTimeInputValues={toDateAndTimeInputValues}
+        />
 
-              html, body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
+        <RegisterClientModal
+          isOpen={isRegisterClientOpen}
+          onClose={() => setIsRegisterClientOpen(false)}
+          onSubmit={handleRegisterClientSubmit}
+          eyeTypes={eyeTypes}
+          branches={branches}
+          eyeTypesError={eyeTypesError}
+          isLoadingEyeTypes={isLoadingEyeTypes}
+          onRetryEyeTypes={() => void loadEyeTypes()}
+          mode="create"
+          initialClient={null}
+          defaultBranchId={activeBranchId}
+        />
 
-              body > *:not(#print-ticket-portal) { display: none !important; }
-              #print-ticket-portal { display: block !important; position: fixed; inset: 0; background: white; z-index: 99999; }
-              #print-ticket-portal .no-print { display: none !important; }
-
-              #print-ticket-card {
-                margin: 0 auto !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                border: ${printFormat === "thermal" ? "0" : "1px solid #e2e8f0"} !important;
-                max-width: ${printFormat === "thermal" ? "80mm" : "190mm"} !important;
-                width: 100% !important;
-              }
+        <CategorySelectionModal
+          isOpen={isCategoryModalOpen}
+          onClose={() => setIsCategoryModalOpen(false)}
+          fieldClass={fieldClass}
+          serviceCategories={serviceCategories}
+          categoryModalSearch={categoryModalSearch}
+          onCategoryModalSearchChange={setCategoryModalSearch}
+          categoryModalFilterId={categoryModalFilterId}
+          onCategoryModalFilterChange={setCategoryModalFilterId}
+          onClear={() => {
+            setCategoryModalFilterId("all");
+            setCategoryModalSearch("");
+            setCategoryModalSelectionCounts({});
+          }}
+          filteredModalServices={filteredModalServices}
+          selectionCounts={categoryModalSelectionCounts}
+          onIncrementSelection={(serviceId) => {
+            const service = services.find((item) => String(item.id) === serviceId);
+            if (service) {
+              addServiceToCart(service);
             }
-          `}</style>
 
-          {/* Overlay backdrop */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div
-              id="print-ticket-portal"
-              className={`relative bg-white shadow-2xl w-full overflow-hidden ${
-                printFormat === "thermal" ? "max-w-sm rounded-2xl" : "max-w-2xl rounded-2xl"
-              }`}
-            >
-              {/* Header bar */}
-              <div className="no-print flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                <p className="text-sm font-semibold text-slate-700">Vista previa del ticket</p>
-                <button
-                  onClick={() => setIsPrintPreviewOpen(false)}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Print format selector */}
-              <div className="no-print px-5 pt-3 pb-1 border-b border-slate-100">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Formato de impresión</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPrintFormat("a4")}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                      printFormat === "a4"
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Hoja grande (A4)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPrintFormat("thermal")}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                      printFormat === "thermal"
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Impresora térmica
-                  </button>
-                </div>
-              </div>
-
-              {/* Ticket body — this is what gets printed */}
-              <div
-                id="print-ticket-card"
-                className={`font-mono text-slate-800 ${
-                  printFormat === "thermal" ? "px-4 py-4 text-xs" : "px-8 py-7 text-sm"
-                }`}
-              >
-                {/* Store header */}
-                <div className="text-center mb-4">
-                  <p className={`${printFormat === "thermal" ? "text-sm" : "text-lg"} font-bold tracking-widest uppercase`}>
-                    Comprobante
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {new Date(receiptSale.created_at).toLocaleDateString("es-BO", {
-                      day: "2-digit", month: "long", year: "numeric",
-                    })}
-                    {" · "}
-                    {new Date(receiptSale.created_at).toLocaleTimeString("es-BO", {
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-dashed border-slate-300 my-3" />
-
-                {/* Sale info */}
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-500">Código venta</span>
-                  <span className="font-bold text-emerald-600">{receiptSale.sale_code}</span>
-                </div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-500">Cliente</span>
-                  <span className="font-semibold">{receiptSale.client?.name} {receiptSale.client?.last_name}</span>
-                </div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-500">Método de pago</span>
-                  <span className="font-semibold capitalize">{receiptSale.payment_method}</span>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-dashed border-slate-300 my-3" />
-
-                {/* Tickets */}
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Servicios</p>
-                <div className="space-y-2">
-                  {receiptSale.appointments.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center">Sin tickets asociados.</p>
-                  ) : (
-                    receiptSale.appointments.map((appointment) => {
-                      const edit = receiptTicketEdits[appointment.id];
-                      const displayTime = (() => {
-                        if (edit?.without_time) return "Sin hora";
-                        if (edit?.time?.trim()) return edit.time;
-                        const fallback = toDateAndTimeInputValues(appointment.start_time);
-                        return fallback.without_time ? "Sin hora" : fallback.time;
-                      })();
-                      return (
-                        <div key={appointment.id} className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-xs font-bold text-slate-800">
-                              {appointment.ticket_code ?? `#${appointment.id}`}
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              {(appointment.services ?? []).length > 0
-                                ? (appointment.services ?? []).map((s: any) => s.name).join(", ")
-                                : appointment.service?.name ?? "Servicio"}
-                            </p>
-                            <p className="text-[10px] text-slate-400">
-                              {appointment.professional?.username ? `Operaria: ${appointment.professional.username}` : "Operaria: Sin asignar"}
-                              {" · "}
-                              {appointment.status === "in_service" ? "En atencion" : "En espera"}
-                            </p>
-                          </div>
-                          <span className="text-[11px] text-slate-400 flex-none flex items-center gap-1 mt-0.5">
-                            <Clock className="h-3 w-3" />
-                            {displayTime}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-dashed border-slate-300 my-3" />
-
-                {/* Total */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-700">TOTAL</span>
-                  <span className="text-xl font-black text-slate-900">Bs {receiptSale.total.toFixed(2)}</span>
-                </div>
-
-                {/* QR if applicable */}
-                {receiptSale.payment_method === "qr" && (
-                  <div ref={qrRef} className="flex justify-center mt-4">
-                    <QRCodeCanvas value={receiptSale.sale_code} size={100} />
-                  </div>
-                )}
-
-                {/* Footer */}
-                <div className="border-t border-dashed border-slate-300 mt-4 pt-3 text-center">
-                  <p className="text-[11px] text-slate-400">¡Gracias por su compra!</p>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="no-print flex gap-2 px-5 pb-5">
-                <button
-                  onClick={() => setIsPrintPreviewOpen(false)}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handlePrint}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 active:scale-[0.98]"
-                >
-                  <Printer className="h-4 w-4" />
-                  Imprimir / Guardar PDF
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-            {/* ══ REGISTER CLIENT MODAL ════════════════════════════════════════════ */}
-      <RegisterClientModal
-        isOpen={isRegisterClientOpen}
-        onClose={() => setIsRegisterClientOpen(false)}
-        onSubmit={handleRegisterClientSubmit}
-        eyeTypes={eyeTypes}
-        branches={branches}
-        eyeTypesError={eyeTypesError}
-        isLoadingEyeTypes={isLoadingEyeTypes}
-        onRetryEyeTypes={() => void loadEyeTypes()}
-        mode="create"
-        initialClient={null}
-        defaultBranchId={activeBranchId}
-      />
-
-      <CategorySelectionModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        fieldClass={fieldClass}
-        serviceCategories={serviceCategories}
-        categoryModalSearch={categoryModalSearch}
-        onCategoryModalSearchChange={setCategoryModalSearch}
-        categoryModalFilterId={categoryModalFilterId}
-        onCategoryModalFilterChange={setCategoryModalFilterId}
-        onClear={() => {
-          setCategoryModalFilterId("all");
-          setCategoryModalSearch("");
-          setCategoryModalSelectionCounts({});
-        }}
-        filteredModalServices={filteredModalServices}
-        selectionCounts={categoryModalSelectionCounts}
-        onIncrementSelection={(serviceId) => {
-          const service = services.find((item) => String(item.id) === serviceId);
-          if (service) {
-            addServiceToCart(service);
-          }
-
-          setCategoryModalSelectionCounts((prev) => ({
-            ...prev,
-            [serviceId]: (prev[serviceId] ?? 0) + 1,
-          }));
-        }}
-      />
-
-      <GenericModal
-        isOpen={Boolean(availabilityPreviewLineId)}
-        onClose={() => {
-          setAvailabilityPreviewLineId(null);
-          setAvailabilityPreviewDate("");
-        }}
-        title={`Reservas del dia ${
-          availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate
-        }`}
-        size="lg"
-      >
-        <div className="space-y-3">
-          <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
-            <input
-              type="date"
-              value={availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}
-              onChange={(e) => setAvailabilityPreviewDate(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-            />
-          </div>
-
-          <input
-            type="text"
-            value={availabilitySearch}
-            onChange={(e) => setAvailabilitySearch(e.target.value)}
-            placeholder="Buscar operaria, cliente o servicio"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-          />
-
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              Horas disponibles y ocupadas
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-              {previewHourSlots.map((slot) => (
-                <button
-                  key={slot.hourLabel}
-                  type="button"
-                  onClick={() => void handleSelectHourFromPreview(slot.hourLabel)}
-                  className={`rounded-lg border px-3 py-3 text-left text-xs transition ${
-                    slot.isBusy
-                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-base font-bold leading-none">{slot.hourLabel}</p>
-                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold">
-                      {slot.isBusy ? `${slot.count} ocupada(s)` : "Libre"}
-                    </span>
-                  </div>
-
-                  {slot.isBusy && (
-                    <div className="mt-2 space-y-1.5 rounded-md border border-rose-100 bg-white/70 p-2 text-[11px] text-slate-700">
-                      {slot.entries.map((entry) => (
-                        <div key={`${slot.hourLabel}-${entry.ticketId}`} className="rounded border border-slate-100 bg-white px-2 py-1">
-                          <p className="truncate text-[10px] font-semibold text-rose-700">Ticket #{entry.ticketId}</p>
-                          <p className="truncate"><span className="font-semibold">Operaria:</span> {entry.professionalName}</p>
-                          <p className="truncate"><span className="font-semibold">Cliente:</span> {entry.clientName}</p>
-                          <p className="truncate"><span className="font-semibold">Servicio:</span> {entry.serviceName}</p>
-                        </div>
-                      ))}
-
-                      {slot.extraCount > 0 && (
-                        <p className="text-[10px] font-semibold text-slate-500">
-                          +{slot.extraCount} ticket(s) más en esta hora
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] text-slate-500">
-              Al tocar una hora, se guarda directamente en el ticket seleccionado.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              Reservas del dia
-            </p>
-            <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-              {occupiedTicketsForPreview.length === 0 ? (
-                <p className="text-xs text-slate-400">No hay reservas ocupadas para ese día con este filtro.</p>
-              ) : (
-                occupiedTicketsForPreview.map((ticket) => {
-                  const professionalName =
-                    ticket.professional_name ??
-                    professionals.find((professional) => professional.id === ticket.professional_id)?.username ??
-                    "Sin operaria";
-
-                  return (
-                    <div
-                      key={ticket.id}
-                      className="flex items-start justify-between gap-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-slate-700">{professionalName}</p>
-                        <p className="truncate text-[11px] text-slate-500">
-                          {ticket.client_name} · {(ticket.service_name ?? (ticket.service_names ?? []).join(" · ")) || "Servicio"}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-[11px] font-semibold text-slate-500">
-                        {formatHourMinute(ticket.start_time)} - {formatHourMinute(ticket.end_time)}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </GenericModal>
+            setCategoryModalSelectionCounts((prev) => ({
+              ...prev,
+              [serviceId]: (prev[serviceId] ?? 0) + 1,
+            }));
+          }}
+        />
       </div>
     </Layout>
   );

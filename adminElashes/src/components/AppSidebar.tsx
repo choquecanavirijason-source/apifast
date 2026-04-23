@@ -46,7 +46,9 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const lastSyncedPathRef = useRef<string | null>(null);
   const lastCollapsedRef = useRef<boolean>(collapsed);
   const asideRef = useRef<HTMLElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
   const flyoutRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const expandedSubmenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const { user, hasPermissionByName, isAdmin } = useAuth();
   const location = useLocation();
@@ -326,103 +328,174 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     setOpenMenu(null);
   }, [location.pathname, collapsed]);
 
-  const getFlyoutLinks = (menuName: string) => {
-    const flyout = flyoutRefs.current[menuName];
-    if (!flyout) return [];
-    return Array.from(flyout.querySelectorAll<HTMLAnchorElement>("a"));
+  const getSubmenuLinks = (menuName: string) => {
+    if (collapsed) {
+      const flyout = flyoutRefs.current[menuName];
+      if (!flyout) return [];
+      return Array.from(flyout.querySelectorAll<HTMLAnchorElement>("a"));
+    }
+    const container = expandedSubmenuRefs.current[menuName];
+    if (!container) return [];
+    return Array.from(container.querySelectorAll<HTMLAnchorElement>("a"));
   };
 
-  const focusFlyoutLink = (menuName: string, index: number) => {
-    const links = getFlyoutLinks(menuName);
+  const focusSubmenuLink = (menuName: string, index: number) => {
+    const links = getSubmenuLinks(menuName);
     if (!links.length) return;
 
     const nextIndex = ((index % links.length) + links.length) % links.length;
     links[nextIndex]?.focus();
   };
 
-  const handleCollapsedMenuKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, menuName: string) => {
-    if (!collapsed) return;
+  const focusMenuButton = (menuName: string) => {
+    const menuButtons = asideRef.current?.querySelectorAll<HTMLButtonElement>("button[data-menu-name]");
+    const button = Array.from(menuButtons ?? []).find((node) => node.dataset.menuName === menuName);
+    button?.focus();
+  };
 
-    const isOpen = openMenu === menuName;
-    const links = getFlyoutLinks(menuName);
+  /** Ítems “raíz” del sidebar: botones de grupo y enlaces hoja (excluye enlaces dentro de submenús). */
+  const getRootFocusables = (): HTMLElement[] => {
+    const nav = navRef.current;
+    if (!nav) return [];
+    const all = Array.from(nav.querySelectorAll<HTMLElement>("button[data-menu-name], a[href]"));
+    return all.filter((el) => !el.closest("[data-sidebar-submenu]"));
+  };
 
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      setOpenMenu(menuName);
-      requestAnimationFrame(() => focusFlyoutLink(menuName, 0));
-      return;
-    }
+  /** Enfoca un enlace del submenú tras el commit de React (evita refs/DOM aún vacíos). */
+  const focusSubmenuAfterPaint = (menuName: string, index: number) => {
+    window.setTimeout(() => focusSubmenuLink(menuName, index), 0);
+  };
 
+  const focusAdjacentRoot = (current: HTMLElement, delta: 1 | -1) => {
+    const roots = getRootFocusables();
+    const idx = roots.indexOf(current);
+    if (idx === -1) return;
+    const next = roots[idx + delta];
+    if (!next) return;
+    if (openMenu) setOpenMenu(null);
+    next.focus();
+  };
+
+  const focusRootAfterSubmenu = (menuName: string) => {
+    const roots = getRootFocusables();
+    const buttonIdx = roots.findIndex((el) => el.tagName === "BUTTON" && el.dataset.menuName === menuName);
+    if (buttonIdx === -1) return;
+    const next = roots[buttonIdx + 1];
+    if (openMenu === menuName) setOpenMenu(null);
+    window.setTimeout(() => next?.focus(), 0);
+  };
+
+  const handleLeafLinkKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (!isOpen) {
-        setOpenMenu(menuName);
-        requestAnimationFrame(() => focusFlyoutLink(menuName, 0));
-      } else {
-        focusFlyoutLink(menuName, 0);
-      }
+      event.stopPropagation();
+      focusAdjacentRoot(event.currentTarget, 1);
       return;
     }
-
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      if (!isOpen) {
-        setOpenMenu(menuName);
-        requestAnimationFrame(() => {
-          const currentLinks = getFlyoutLinks(menuName);
-          if (currentLinks.length) focusFlyoutLink(menuName, currentLinks.length - 1);
-        });
-      } else if (links.length) {
-        focusFlyoutLink(menuName, links.length - 1);
-      }
-      return;
-    }
-
-    if (event.key === "Escape" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      setOpenMenu(null);
+      event.stopPropagation();
+      focusAdjacentRoot(event.currentTarget, -1);
     }
   };
 
-  const handleFlyoutLinkKeyDown = (
+  const handleMenuButtonKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, menuName: string) => {
+    const isOpen = openMenu === menuName;
+    const links = getSubmenuLinks(menuName);
+
+    // Navegación vertical entre secciones
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      event.stopPropagation();
+      focusAdjacentRoot(event.currentTarget, 1);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopPropagation();
+      focusAdjacentRoot(event.currentTarget, -1);
+      return;
+    }
+
+    // Entrar a submenú con flecha derecha o Enter
+    if ((event.key === "ArrowRight" || event.key === "Enter") && links.length) {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenMenu(menuName);
+      focusSubmenuAfterPaint(menuName, 0);
+      return;
+    }
+
+    // Salir de submenú con flecha izquierda o Escape
+    if ((event.key === "ArrowLeft" || event.key === "Escape") && isOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenMenu(null);
+      focusMenuButton(menuName);
+      return;
+    }
+  };
+
+  const handleSubmenuLinkKeyDown = (
     event: React.KeyboardEvent<HTMLAnchorElement>,
     menuName: string,
     linkIndex: number
   ) => {
-    const links = getFlyoutLinks(menuName);
+    const links = getSubmenuLinks(menuName);
     if (!links.length) return;
 
+    // Navegación vertical dentro del submenú
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusFlyoutLink(menuName, linkIndex + 1);
+      event.stopPropagation();
+      if (linkIndex < links.length - 1) {
+        focusSubmenuLink(menuName, linkIndex + 1);
+      } else {
+        focusSubmenuLink(menuName, 0); // Cicla al inicio
+      }
       return;
     }
-
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      focusFlyoutLink(menuName, linkIndex - 1);
+      event.stopPropagation();
+      if (linkIndex > 0) {
+        focusSubmenuLink(menuName, linkIndex - 1);
+      } else {
+        focusSubmenuLink(menuName, links.length - 1); // Cicla al final
+      }
       return;
     }
 
-    if (event.key === "Home") {
-      event.preventDefault();
-      focusFlyoutLink(menuName, 0);
-      return;
-    }
-
-    if (event.key === "End") {
-      event.preventDefault();
-      focusFlyoutLink(menuName, links.length - 1);
-      return;
-    }
-
+    // Salir del submenú con flecha izquierda o Escape
     if (event.key === "ArrowLeft" || event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       setOpenMenu(null);
+      focusMenuButton(menuName);
+      return;
+    }
 
-      const menuButtons = asideRef.current?.querySelectorAll<HTMLButtonElement>("button[data-menu-name]");
-      const button = Array.from(menuButtons ?? []).find((node) => node.dataset.menuName === menuName);
-      button?.focus();
+    // Home/End para ir al inicio/final
+    if (event.key === "Home") {
+      event.preventDefault();
+      event.stopPropagation();
+      focusSubmenuLink(menuName, 0);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      event.stopPropagation();
+      focusSubmenuLink(menuName, links.length - 1);
+      return;
+    }
+
+    // Salir del submenú y pasar al siguiente root con flecha derecha
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenMenu(null);
+      focusAdjacentRoot(event.currentTarget, 1);
+      return;
     }
   };
 
@@ -442,6 +515,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
 
       {/* Nav */}
       <nav
+        ref={navRef}
         className={`
           flex-1 py-4 px-3 space-y-1 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
           [&::-webkit-scrollbar]:w-1
@@ -461,10 +535,12 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                 <button
                   type="button"
                   onClick={() => setOpenMenu(openMenu === item.name ? null : item.name)}
-                  onKeyDown={(event) => handleCollapsedMenuKeyDown(event, item.name)}
+                  onKeyDown={(event) => handleMenuButtonKeyDown(event, item.name)}
                   data-menu-name={item.name}
                   title={item.name}
                   aria-label={item.name}
+                  aria-expanded={openMenu === item.name}
+                  aria-haspopup="true"
                   className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all ${
                     (item.path && location.pathname.includes(item.path)) ||
                     item.subItems?.some((sub) => location.pathname.startsWith(sub.path))
@@ -482,12 +558,21 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                 </button>
 
                 {openMenu === item.name && !collapsed && (
-                  <div className="ml-4 pl-4 border-l border-emerald-800/50 space-y-1">
-                    {item.subItems.map((sub) => (
+                  <div
+                    ref={(node) => {
+                      expandedSubmenuRefs.current[item.name] = node;
+                    }}
+                    data-sidebar-submenu
+                    role="group"
+                    aria-label={item.name}
+                    className="ml-4 pl-4 border-l border-emerald-800/50 space-y-1"
+                  >
+                    {item.subItems.map((sub, subIndex) => (
                       <NavLink
                         key={sub.path}
                         to={sub.path}
                         end
+                        onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
                         title={sub.name}
                         aria-label={sub.name}
                         className={({ isActive }) =>
@@ -507,6 +592,9 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                     ref={(node) => {
                       flyoutRefs.current[item.name] = node;
                     }}
+                    data-sidebar-submenu
+                    role="group"
+                    aria-label={item.name}
                     className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/40 bg-[#062f23] shadow-2xl shadow-black/40"
                   >
                     <div className="border-b border-emerald-800/40 px-3 py-2">
@@ -519,7 +607,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                           to={sub.path}
                           end
                           onClick={() => setOpenMenu(null)}
-                          onKeyDown={(event) => handleFlyoutLinkKeyDown(event, item.name, subIndex)}
+                          onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
                           title={sub.name}
                           aria-label={sub.name}
                           className={({ isActive }) =>
@@ -540,6 +628,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
             ) : (
               <NavLink
                 to={item.path!}
+                onKeyDown={handleLeafLinkKeyDown}
                 title={item.name}
                 aria-label={item.name}
                 className={({ isActive }) =>

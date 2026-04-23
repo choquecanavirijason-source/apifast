@@ -1,13 +1,15 @@
 import { ActionDropdownMenu } from "./ActionDropdownMenu";
 import { isValidElement, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import {
+  ArrowUpDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   MoreHorizontal,
   Search,
+  X,
 } from "lucide-react";
 import TableSkeleton from "../feedback/TableSkeleton";
 import EmptyState from "../EmptyState";
@@ -91,6 +93,8 @@ function DataTable<T extends { id: number | string }>({
   const [internalSort, setInternalSort] = useState<{ key: string; direction: SortDirection } | undefined>(sort);
   const [openActionRowId, setOpenActionRowId] = useState<number | string | null>(null);
   const [actionAnchorRect, setActionAnchorRect] = useState<DOMRect | null>(null);
+  /** Columna cuyo filtro por campo está visible (se abre al pulsar el título de la columna). */
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState<string | null>(null);
 
   const isServerPagination = pagination?.mode === "server";
   const activeSort = sort ?? internalSort;
@@ -218,178 +222,318 @@ function DataTable<T extends { id: number | string }>({
     onPageChange?.(boundedPage);
   };
 
+  const sortButtonKeyHandler =
+    (column: DataTableColumn<T>) => (e: KeyboardEvent<HTMLButtonElement>) => {
+      if (!column.sortable) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleHeaderClick(column);
+      }
+    };
+
+  const cellBorder = "border-b border-r border-slate-200/90 last:border-r-0";
+  const headerCell =
+    "align-top border-b border-r border-slate-300/90 bg-[#eef2f6] px-2 py-2 text-left text-[11px] font-semibold tracking-wide text-slate-700 last:border-r-0";
+
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-slate-200 bg-white font-sans">
-      <div className="border-b border-slate-100 bg-slate-50/50 px-2 py-1.5">
-        {renderTopToolbar && <div className="mb-1.5">{renderTopToolbar()}</div>}
-        <div className="flex flex-col justify-between gap-1.5 md:flex-row md:items-center">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-slate-300/80 bg-white font-sans shadow-sm ring-1 ring-slate-200/60">
+      {/* Barra tipo list page (BC): búsqueda + tamaño de página */}
+      <div className="shrink-0 border-b border-slate-300/70 bg-gradient-to-b from-slate-100 to-slate-50/95 px-3 py-2">
+        {renderTopToolbar && <div className="mb-2 border-b border-slate-200/80 pb-2">{renderTopToolbar()}</div>}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {enableGlobalSearch && (
-            <div className="relative flex-1 md:max-w-sm">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={globalSearch}
                 onChange={(e) => handleGlobalSearchChange(e.target.value)}
                 placeholder={globalSearchPlaceholder}
-                aria-label="Buscar"
-                className="w-full rounded border border-slate-200 bg-white py-1 pl-8 pr-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
+                aria-label="Buscar en la tabla"
+                className="h-8 w-full rounded border border-slate-300/90 bg-white pl-8 pr-8 text-xs text-slate-800 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/25"
               />
+              {globalSearch ? (
+                <button
+                  type="button"
+                  aria-label="Limpiar búsqueda"
+                  title="Limpiar"
+                  onClick={() => handleGlobalSearchChange("")}
+                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
             </div>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2">
+            <label className="hidden text-[11px] font-medium text-slate-500 sm:inline" htmlFor="datatable-page-size">
+              Filas
+            </label>
             <select
+              id="datatable-page-size"
               value={rowsPerPage}
               onChange={(e) => handleLimitChange(Number(e.target.value))}
               aria-label="Filas por página"
               title="Filas por página"
-              className="block rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-blue-500"
+              className="h-8 cursor-pointer rounded border border-slate-300/90 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm outline-none transition hover:border-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             >
               {availableLimits.map((limit) => (
-                <option key={limit} value={limit}>{limit}</option>
+                <option key={limit} value={limit}>
+                  {limit}
+                </option>
               ))}
             </select>
           </div>
         </div>
       </div>
 
-      <div className="relative z-0 flex-1 overflow-x-auto overflow-y-visible">
-        <table className={`w-full ${tableMinWidth} border-separate border-spacing-0 text-left text-xs`}>
-          <thead className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-sm">
+      <div className="relative z-0 min-h-0 flex-1 overflow-auto overscroll-contain">
+        <table className={`w-full ${tableMinWidth} border-collapse text-left text-[12px] leading-snug`}>
+          <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_rgb(203_213_225)]">
             <tr>
-              <th className="w-16 border-b border-slate-200 px-2.5 py-2 text-center text-[10px] font-semibold uppercase text-slate-600">#</th>
+              <th scope="col" className={`${headerCell} w-11 text-center text-slate-500`}>
+                <span className="inline-block pt-0.5">#</span>
+              </th>
               {columns.map((col) => {
                 const isSorted = activeSort?.key === col.key;
+                const showColFilter = enableColumnFilters && col.filterable !== false;
+                const filterPanelOpen = showColFilter && openColumnFilterKey === col.key;
                 return (
                   <th
                     key={col.key}
-                    onClick={() => handleHeaderClick(col)}
-                    className={`border-b border-slate-200 px-3 py-2 text-[10px] font-semibold uppercase tracking-tight transition-colors ${
-                      col.sortable ? "cursor-pointer hover:bg-slate-100/50 hover:text-blue-600 select-none" : "text-slate-600"
-                    }`}
+                    scope="col"
+                    aria-sort={
+                      isSorted
+                        ? activeSort!.direction === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : col.sortable
+                          ? "none"
+                          : undefined
+                    }
+                    className={`${headerCell} min-w-0`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className={isSorted ? "text-blue-600" : ""}>{col.header}</span>
-                      {col.sortable && (
-                        <span className="flex flex-col">
-                          <ChevronUp className={`h-3 w-3 -mb-1 ${isSorted && activeSort.direction === "asc" ? "text-blue-600" : "text-slate-300"}`} />
-                          <ChevronDown className={`h-3 w-3 ${isSorted && activeSort.direction === "desc" ? "text-blue-600" : "text-slate-300"}`} />
+                    <div className="flex items-start justify-between gap-1">
+                      {showColFilter ? (
+                        <button
+                          type="button"
+                          className={`min-w-0 flex-1 rounded-sm px-0.5 py-0.5 text-left leading-snug transition-colors hover:bg-slate-200/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-500 ${
+                            isSorted ? "text-sky-800" : "text-slate-700"
+                          }`}
+                          aria-expanded={filterPanelOpen}
+                          aria-controls={`column-filter-${col.key}`}
+                          title="Mostrar u ocultar filtro de esta columna"
+                          onClick={() => setOpenColumnFilterKey((k) => (k === col.key ? null : col.key))}
+                        >
+                          <span className="flex items-start gap-1">
+                            <span className="min-w-0 flex-1 font-semibold">{col.header}</span>
+                            {!filterPanelOpen ? (
+                              <Search className="mt-0.5 h-3 w-3 shrink-0 text-slate-400 opacity-70" aria-hidden />
+                            ) : null}
+                          </span>
+                        </button>
+                      ) : (
+                        <span
+                          className={`min-w-0 flex-1 px-0.5 py-0.5 font-semibold leading-snug ${
+                            isSorted ? "text-sky-800" : "text-slate-700"
+                          }`}
+                        >
+                          {col.header}
                         </span>
                       )}
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          tabIndex={0}
+                          aria-label={`Ordenar por ${col.header}`}
+                          title="Ordenar"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleHeaderClick(col);
+                          }}
+                          onKeyDown={sortButtonKeyHandler(col)}
+                          className="flex shrink-0 flex-col items-center justify-center rounded-sm border border-transparent p-0.5 leading-none text-slate-400 hover:border-slate-300/80 hover:bg-white hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-500"
+                        >
+                          {isSorted ? (
+                            activeSort!.direction === "asc" ? (
+                              <ChevronUp className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-70" aria-hidden />
+                          )}
+                        </button>
+                      ) : null}
                     </div>
+                    {filterPanelOpen ? (
+                      <div
+                        id={`column-filter-${col.key}`}
+                        className="mt-1.5 border-t border-slate-300/60 pt-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <div className="relative">
+                          <Search
+                            className="pointer-events-none absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-slate-400"
+                            aria-hidden
+                          />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={columnFilters[col.key] ?? ""}
+                            onChange={(e) => handleColumnFilterChange(col.key, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setOpenColumnFilterKey(null);
+                                return;
+                              }
+                              e.stopPropagation();
+                            }}
+                            aria-label={`Filtrar ${col.header}`}
+                            placeholder="Filtrar…"
+                            title={`Filtrar ${col.header}`}
+                            className="h-6 w-full min-w-0 rounded border border-slate-300/80 bg-white py-0 pl-5 pr-1 text-[10px] font-normal text-slate-800 shadow-sm outline-none placeholder:text-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                   </th>
                 );
               })}
-              {actions && actions.length > 0 && (
-                <th className="border-b border-slate-200 px-3 py-2 text-right text-[10px] font-semibold uppercase text-slate-600">Acción</th>
-              )}
+              {actions && actions.length > 0 ? (
+                <th scope="col" className={`${headerCell} w-14 text-right text-slate-500`}>
+                  <span className="inline-block pt-0.5">···</span>
+                </th>
+              ) : null}
             </tr>
-
-            {enableColumnFilters && (
-              <tr className="bg-white">
-                <th className="border-b border-slate-100 px-2.5 py-1.5" />
-                {columns.map((col) => (
-                  <th key={`f-${col.key}`} className="border-b border-slate-100 px-3 py-1.5">
-                    {col.filterable !== false && (
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-300" />
-                        <input
-                          type="text"
-                          value={columnFilters[col.key] ?? ""}
-                          onChange={(e) => handleColumnFilterChange(col.key, e.target.value)}
-                          aria-label={`Filtrar ${col.header}`}
-                          title={`Filtrar ${col.header}`}
-                          className="w-full rounded border border-slate-200 bg-white py-1 pl-6 pr-2 text-[11px] text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                        />
-                      </div>
-                    )}
-                  </th>
-                ))}
-                {actions && actions.length > 0 && <th className="border-b border-slate-100" />}
-              </tr>
-            )}
           </thead>
 
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {loading ? (
               <TableSkeleton rows={5} columns={columns.length + 1} showActions={Boolean(actions?.length)} />
             ) : visibleData.length === 0 ? (
               <tr>
-                <td colSpan={tableColSpan} className="p-0">
-                  <EmptyState title="No hay datos" description="Intenta cambiar los filtros." />
+                <td colSpan={tableColSpan} className="border-b border-slate-200 p-0">
+                  <EmptyState title="No hay datos" description="Intenta cambiar los filtros o la búsqueda." />
                 </td>
               </tr>
             ) : (
-              visibleData.map((item, index) => (
-                <tr key={item.id} className="group transition-colors hover:bg-blue-50/30">
-                  <td className="px-3 py-3 text-center text-xs font-semibold text-slate-500">
-                    {(currentPage - 1) * rowsPerPage + index + 1}
-                  </td>
-                  {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-slate-700">
-                      {renderCellContent(item, col)}
+              visibleData.map((item, index) => {
+                const stripe = index % 2 === 0 ? "bg-white" : "bg-slate-50/70";
+                return (
+                  <tr
+                    key={item.id}
+                    className={`group transition-colors duration-75 hover:bg-sky-50/80 ${stripe}`}
+                  >
+                    <td
+                      className={`${cellBorder} px-2 py-2 text-center text-[11px] font-medium tabular-nums text-slate-500`}
+                    >
+                      {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
-                  ))}
-                  {actions && actions.length > 0 && (
-                    <td className="px-4 py-3 text-right">
-                      <div className="relative inline-block text-left">
-                        <button
-                          onClick={(event) => {
-                            if (openActionRowId === item.id) {
-                              setOpenActionRowId(null);
-                              setActionAnchorRect(null);
-                              return;
-                            }
-                            setOpenActionRowId(item.id);
-                            setActionAnchorRect(event.currentTarget.getBoundingClientRect());
-                          }}
-                          className="cursor-pointer rounded-md p-2 text-slate-600 hover:bg-slate-100"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                        {openActionRowId === item.id && (
-                          <ActionDropdownMenu
-                            actions={actions}
-                            item={item}
-                            anchorRect={actionAnchorRect}
-                            onClose={() => {
-                              setOpenActionRowId(null);
-                              setActionAnchorRect(null);
+                    {columns.map((col) => (
+                      <td
+                        key={col.key}
+                        className={`${cellBorder} px-2.5 py-2 align-middle text-slate-800`}
+                      >
+                        {renderCellContent(item, col)}
+                      </td>
+                    ))}
+                    {actions && actions.length > 0 ? (
+                      <td className={`${cellBorder} px-1.5 py-1 text-right align-middle`}>
+                        <div className="relative inline-flex">
+                          <button
+                            type="button"
+                            aria-label="Acciones"
+                            title="Acciones"
+                            aria-expanded={openActionRowId === item.id}
+                            onClick={(event) => {
+                              if (openActionRowId === item.id) {
+                                setOpenActionRowId(null);
+                                setActionAnchorRect(null);
+                                return;
+                              }
+                              setOpenActionRowId(item.id);
+                              setActionAnchorRect(event.currentTarget.getBoundingClientRect());
                             }}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
+                            className="rounded border border-transparent p-1.5 text-slate-500 opacity-70 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:opacity-100 group-hover:opacity-100"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          {openActionRowId === item.id ? (
+                            <ActionDropdownMenu
+                              actions={actions}
+                              item={item}
+                              anchorRect={actionAnchorRect}
+                              onClose={() => {
+                                setOpenActionRowId(null);
+                                setActionAnchorRect(null);
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/50 px-4 py-2 sm:flex-row">
-        <div className="text-xs text-slate-500">
-          <strong>{fromItem}</strong>–<strong>{toItem}</strong> / <strong>{totalItems}</strong>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-col items-stretch justify-between gap-2 border-t border-slate-300/80 bg-gradient-to-b from-slate-50 to-slate-100/90 px-3 py-2 sm:flex-row sm:items-center">
+        <p className="text-center text-[11px] text-slate-600 sm:text-left">
+          <span className="tabular-nums font-medium text-slate-800">
+            {fromItem} – {toItem}
+          </span>
+          <span className="mx-1 text-slate-400">de</span>
+          <span className="tabular-nums font-semibold text-slate-800">{totalItems}</span>
+          <span className="ml-1.5 text-slate-500">registros</span>
+        </p>
+        <div className="flex items-center justify-center gap-1.5 sm:justify-end">
           <button
+            type="button"
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage <= 1 || loading}
+            className="hidden h-8 rounded border border-slate-300/90 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
+          >
+            Primera
+          </button>
+          <button
+            type="button"
+            aria-label="Página anterior"
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage <= 1 || loading}
-            className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:opacity-30"
+            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-1 text-sm font-medium">
-            <span className="bg-blue-600 text-white px-3 py-1 rounded-md">{currentPage}</span>
-            <span className="text-slate-400 mx-1">/</span>
-            <span className="text-slate-700">{totalPages}</span>
+          <div className="flex min-w-[7rem] items-center justify-center gap-1 rounded border border-slate-200/90 bg-white px-2 py-1 text-xs shadow-inner">
+            <span className="text-slate-500">Pág.</span>
+            <span className="font-semibold tabular-nums text-sky-800">{currentPage}</span>
+            <span className="text-slate-400">/</span>
+            <span className="tabular-nums text-slate-700">{totalPages}</span>
           </div>
           <button
+            type="button"
+            aria-label="Página siguiente"
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage >= totalPages || loading}
-            className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:opacity-30"
+            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage >= totalPages || loading}
+            className="hidden h-8 rounded border border-slate-300/90 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
+          >
+            Última
           </button>
         </div>
       </div>
