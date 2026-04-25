@@ -16,7 +16,7 @@ export default function PosSaleStepTwo({
   services,
   subtotal,
   total,
-  onRemoveLine,
+  onRemoveLine: _onRemoveLine,
   professionals,
   lineAvailability,
   saleBaseDate,
@@ -58,7 +58,7 @@ export default function PosSaleStepTwo({
           <div className="flex shrink-0 items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-[#0078d4]" />
-              <span className="text-sm font-semibold text-[#323130]">Líneas del pedido</span>
+              <span className="text-sm font-semibold text-[#323130]">Tickets y agenda</span>
               {cartLines.length > 0 ? (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0078d4] px-1.5 text-[10px] font-bold text-white">
                   {cartLines.length}
@@ -74,8 +74,8 @@ export default function PosSaleStepTwo({
                   <ShoppingCart className="h-6 w-6 opacity-40" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium">Sin tickets</p>
-                  <p className="mt-0.5 text-xs">Vuelve al paso anterior y agrega servicios</p>
+                  <p className="text-sm font-medium">Sin tickets en agenda</p>
+                  <p className="mt-0.5 text-xs">Vuelve al paso anterior y agrega servicios para planificarlos</p>
                 </div>
               </div>
             ) : (
@@ -107,9 +107,9 @@ export default function PosSaleStepTwo({
                         </div>
                         <button
                           type="button"
-                          onClick={() => onRemoveLine(line.localId)}
-                          className="flex h-9 w-9 flex-none items-center justify-center rounded-sm text-[#d13438] transition hover:bg-[#fde7e9]"
-                          title="Quitar ticket"
+                          disabled
+                          className="flex h-9 w-9 flex-none items-center justify-center rounded-sm text-[#a19f9d] transition"
+                          title="En este paso no se pueden eliminar tickets"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

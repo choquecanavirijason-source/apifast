@@ -11,6 +11,7 @@ export type DayTicketsPanelProps = {
   selectedDayTickets: TicketItem[];
   onSelectedDateChange: (isoDate: string) => void;
   onOpenAgendaModal: () => void;
+  onOpenQuickSale: () => void;
   searchStartDate: string;
   searchEndDate: string;
   onSearchStartDateChange: (isoDate: string) => void;
@@ -24,6 +25,7 @@ export default function DayTicketsPanel({
   selectedDayTickets,
   onSelectedDateChange,
   onOpenAgendaModal,
+  onOpenQuickSale,
   searchStartDate,
   searchEndDate,
   onSearchStartDateChange,
@@ -54,6 +56,10 @@ export default function DayTicketsPanel({
             <Clock className="h-4 w-4" />
             Agenda por horas
           </Button>
+          <Button type="button" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap" onClick={onOpenQuickSale}>
+            <Ticket className="h-4 w-4" />
+            Asignar ticket
+          </Button>
           <div className="flex flex-wrap items-center gap-1 sm:ml-2">
             <input
               type="date"
@@ -81,7 +87,12 @@ export default function DayTicketsPanel({
         {isLoading ? (
           <p className="py-10 text-center text-slate-500">Cargando citas...</p>
         ) : selectedDayTickets.length === 0 ? (
-          <p className="py-6 text-center text-slate-500">Sin citas para este día.</p>
+          <div className="flex flex-col items-center gap-3 py-6 text-center text-slate-500">
+            <p>Sin citas para este día.</p>
+            <Button type="button" size="sm" onClick={onOpenQuickSale}>
+              Crear y asignar ticket
+            </Button>
+          </div>
         ) : (
           selectedDayTickets.map((ticket) => (
             <div

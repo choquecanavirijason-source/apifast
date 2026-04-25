@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import case, distinct, func
+from sqlalchemy import String, case, cast, distinct, func
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.core.dependencies import get_db, require_any_permission
@@ -46,8 +46,11 @@ def _parse_date_range(from_date: Optional[str], to_date: Optional[str]) -> tuple
 
 
 def _bucket_expression(column, group_by: DashboardGroupBy):
-    fmt = "%Y-%m-%d" if group_by == "day" else "%Y-%m"
-    return func.strftime(fmt, column)
+    # Cross-DB bucket formatting (sqlite/mysql/postgres): cast datetime to text and slice.
+    # day -> YYYY-MM-DD, month -> YYYY-MM
+    text_column = cast(column, String)
+    length = 10 if group_by == "day" else 7
+    return func.substr(text_column, 1, length)
 
 
 def _apply_appointment_filters(query, start_at: Optional[datetime], end_at: Optional[datetime], branch_id: Optional[int], service_id: Optional[int]):

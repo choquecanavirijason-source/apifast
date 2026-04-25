@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { CalendarDays, Maximize2, Minimize2, ShoppingCart } from "lucide-react";
+import { CalendarDays, Maximize2, Minimize2, ShoppingCart, TicketPlus } from "lucide-react";
 import { toast } from "react-toastify";
 import { AgendaService, type TicketItem } from "../../../core/services/agenda/agenda.service";
 import Layout from "../../../components/common/layout";
@@ -39,6 +39,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   });
   const [agendaModalOpen, setAgendaModalOpen] = useState(false);
   const [quickSaleOpen, setQuickSaleOpen] = useState(false);
+  const [didAutoOpenQuickSale, setDidAutoOpenQuickSale] = useState(false);
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -143,6 +144,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
     if (agendaStatusFilter === "all") return selectedDaySchedule;
     return selectedDaySchedule.filter((slot) => slot.status === agendaStatusFilter);
   }, [agendaStatusFilter, selectedDaySchedule]);
+  const selectedDateTicketCount = ticketsByDay[selectedDate]?.length ?? 0;
 
   const handleFullscreen = () => {
     if (fullscreenRef.current) {
@@ -162,6 +164,15 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    if (embedded || didAutoOpenQuickSale) return;
+    const timer = window.setTimeout(() => {
+      setQuickSaleOpen(true);
+      setDidAutoOpenQuickSale(true);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [embedded, didAutoOpenQuickSale]);
+
   const layoutPageClass = embedded
     ? "!min-h-0 flex flex-1 flex-col !bg-transparent !p-0 h-full"
     : undefined;
@@ -178,21 +189,25 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
         pageClassName={layoutPageClass}
         containerClassName={layoutContainerClass}
         topContent={
-          <SectionCard className="border border-emerald-100 bg-emerald-50/60">
+          <SectionCard className="border border-[#d2d0ce] bg-[#faf9f8]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-emerald-100 p-2 text-[#094732]">
+                <div className="rounded-sm border border-[#edebe9] bg-white p-2 text-[#0078d4]">
                   <CalendarDays className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800">Calendario operativo</p>
-                  <p className="text-sm text-slate-600">
-                    Toca un día en el calendario para abrir la agenda por horas en pantalla grande. Los indicadores L / O / C son libres, ocupados y
-                    cancelados.
+                  <p className="font-semibold text-[#323130]">Calendario operativo</p>
+                  <p className="text-sm text-[#605e5c]">
+                    Selecciona una fecha, revisa disponibilidad y asigna tickets en un solo flujo. Los indicadores L / O / C son libres, ocupados y
+                    cancelados. Al entrar al calendario se abre el ticket rápido automáticamente.
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={() => setQuickSaleOpen(true)}>
+                  <TicketPlus className="h-4 w-4" />
+                  Asignar ticket ({selectedDateTicketCount})
+                </Button>
                 <Button type="button" size="sm" onClick={() => setQuickSaleOpen(true)}>
                   <ShoppingCart className="h-4 w-4" />
                   Venta rapida
@@ -207,7 +222,11 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                 </Button>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-emerald-200/60 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600">
+            <div className="mt-4 grid gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-2 sm:grid-cols-[auto,1fr] sm:items-center">
+              <div className="inline-flex items-center rounded-sm border border-[#c7e0f4] bg-[#deecf9] px-2 py-1 text-[11px] font-semibold text-[#004578]">
+                Fecha activa: {selectedDate}
+              </div>
+              <div className="flex flex-wrap gap-3 text-[11px] font-semibold text-[#605e5c]">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 Libre
@@ -220,6 +239,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                 Cancelado
               </span>
+              </div>
             </div>
           </SectionCard>
         }
@@ -250,6 +270,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                   setCurrentMonth(new Date(pickedDate.getFullYear(), pickedDate.getMonth(), 1));
                 }}
                 onOpenAgendaModal={() => setAgendaModalOpen(true)}
+                onOpenQuickSale={() => setQuickSaleOpen(true)}
                 searchStartDate={searchStartDate}
                 searchEndDate={searchEndDate}
                 onSearchStartDateChange={setSearchStartDate}
@@ -307,7 +328,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
       <GenericModal
         isOpen={quickSaleOpen}
         onClose={() => setQuickSaleOpen(false)}
-        title={`Venta rapida y reserva · ${selectedDate}`}
+        title={`Asignar ticket y venta rápida · ${selectedDate}`}
         size="xl"
         contentClassName="!max-w-[96vw] xl:!max-w-[92vw] !max-h-[95vh]"
         bodyClassName="!overflow-y-auto"

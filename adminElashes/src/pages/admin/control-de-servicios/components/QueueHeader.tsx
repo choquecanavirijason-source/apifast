@@ -27,7 +27,7 @@ export default function QueueHeader({
   onToggleFullscreen,
 }: QueueHeaderProps) {
   return (
-    <div className="flex w-full flex-wrap items-start justify-between gap-3">
+    <div className="flex w-full flex-wrap items-start justify-between gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3">
       <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-3">
         <StatCard label="En espera" value={waitingCount} icon={<Users className="h-4 w-4" />} tone="amber" />
         <StatCard label="En servicio" value={inServiceCount} icon={<UserCheck className="h-4 w-4" />} tone="emerald" />
@@ -41,7 +41,7 @@ export default function QueueHeader({
         <select
           value={callProfessionalId}
           onChange={(event) => onCallProfessionalIdChange(event.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
+          className="h-10 rounded-sm border border-[#8a8886] bg-white px-3 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
         >
           <option value="">Auto asignar</option>
           {professionals.map((professional) => (

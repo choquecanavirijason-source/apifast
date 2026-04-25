@@ -724,6 +724,8 @@ def create_appointment(
     sale_id: Optional[int] = None,
     is_ia: bool = False,
     status_value: str = "pending",
+    *,
+    skip_availability_check: bool = False,
 ) -> Appointment:
     _validate_appointment_relations(
         db=db,
@@ -734,12 +736,13 @@ def create_appointment(
         branch_id=branch_id,
     )
     _validate_appointment_times(start_time, end_time)
-    _validate_professional_availability(
-        db=db,
-        professional_id=professional_id,
-        start_time=start_time,
-        end_time=end_time,
-    )
+    if not skip_availability_check:
+        _validate_professional_availability(
+            db=db,
+            professional_id=professional_id,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     primary_service_id = service_id
     if primary_service_id is None and service_ids:

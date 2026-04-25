@@ -106,6 +106,7 @@ def seed_roles(db: Session):
             permission_map["tracking:manage"],
             permission_map["forms:view"],
             permission_map["services:view"],
+            permission_map["services:manage"],
             permission_map["appointments:view"],
             permission_map["appointments:manage"],
             permission_map["payments:view"],
@@ -119,6 +120,7 @@ def seed_roles(db: Session):
             permission_map["payments:view"],
             permission_map["payments:manage"],
             permission_map["services:view"],
+            permission_map["services:manage"],
             permission_map["appointments:view"],
             permission_map["appointments:manage"],
             permission_map["branches:view"],
@@ -717,6 +719,7 @@ def seed_appointments(db: Session, clients: dict, users: dict, branches: dict, s
             start_time=item["start_time"],
             end_time=item["end_time"],
             status_value=item["status"],
+            skip_availability_check=True,
         )
         appointments[f"{item['client_key']}|{item['start_time'].isoformat()}"] = created
 

@@ -14,7 +14,8 @@ from app.schemas.user import UserSummary
 class ServiceCategoryBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     description: Optional[str] = Field(default=None, max_length=255)
-    image_url: Optional[str] = Field(default=None)
+    # data:image/...;base64,... puede ser grande; límite ~7M caracteres (~5MB binario)
+    image_url: Optional[str] = Field(default=None, max_length=7_500_000)
     is_mobile: bool = False
 
 
@@ -25,7 +26,7 @@ class ServiceCategoryCreate(ServiceCategoryBase):
 class ServiceCategoryUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=100)
     description: Optional[str] = Field(default=None, max_length=255)
-    image_url: Optional[str] = Field(default=None)
+    image_url: Optional[str] = Field(default=None, max_length=7_500_000)
     is_mobile: Optional[bool] = None
 
 

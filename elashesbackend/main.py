@@ -14,9 +14,9 @@ from app.controllers import (
     client_controller, dashboard_controller, pos_sale_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
-    service_categories_controller, services_controller,
-    agenda_select_controller, appointments_controller,
+    service_agenda_controller,
 )
+from app.controllers.service_categories_controller import router as service_categories_router
 
 # 2. Definir el ciclo de vida (LIFESPAN)
 @asynccontextmanager
@@ -85,19 +85,23 @@ def create_app() -> FastAPI:
             content={"detail": str(exc), "type": type(exc).__name__},
         )
 
+    # Authorization + Allow-Origin: * no es válido en navegadores. Si .env fija ALLOWED_ORIGINS solo a producción,
+    # Vite (localhost:5173) queda fuera y Axios muestra ERR_NETWORK; por eso el regex de localhost va siempre.
+    _cors = settings.allowed_origins or []
+    _open = not _cors or _cors == ["*"]
+    _list = [] if _open else list(_cors)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=_list,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # Registro de Rutas
-    app.include_router(service_categories_controller.router)
-    app.include_router(services_controller.router)
-    app.include_router(agenda_select_controller.router)
-    app.include_router(appointments_controller.router)
+    # Categorías de servicio: /services/categories (no bajo /agenda)
+    app.include_router(service_categories_router)
+    app.include_router(service_agenda_controller.router)
     app.include_router(catalog_controller.router)
     app.include_router(tracking_controller.router)
     app.include_router(branch_controller.router)

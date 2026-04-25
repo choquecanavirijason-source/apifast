@@ -5,7 +5,6 @@ import { QRCodeCanvas } from "qrcode.react";
 import GenericModal from "../../../../components/common/modal/GenericModal";
 import { type PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
-import { TICKET_STATUS_OPTIONS } from "../pos.constants";
 import type { ReceiptTicketEdit } from "../pos.types";
 
 type PosReceiptModalsProps = {
@@ -53,11 +52,11 @@ type PosReceiptModalsProps = {
 export default function PosReceiptModals({
   receiptSale,
   onCloseReceipt,
-  receiptTicketEdits,
+  receiptTicketEdits: _receiptTicketEdits,
   professionals,
-  onUpdateReceiptTicketEdit,
-  onSaveReceiptTicketEdits,
-  isSavingReceiptTickets,
+  onUpdateReceiptTicketEdit: _onUpdateReceiptTicketEdit,
+  onSaveReceiptTicketEdits: _onSaveReceiptTicketEdits,
+  isSavingReceiptTickets: _isSavingReceiptTickets,
   onOpenPrintPreview,
   isPrintPreviewOpen,
   onClosePrintPreview,
@@ -81,6 +80,24 @@ export default function PosReceiptModals({
   toDateAndTimeInputValues,
 }: PosReceiptModalsProps) {
   void setAvailabilityPreviewLineId;
+
+  const handleDirectPrintReceipt = () => {
+    onOpenPrintPreview();
+    // Espera a que el portal de impresión monte en el DOM antes de llamar a print.
+    let attempts = 0;
+    const tryPrint = () => {
+      const card = document.getElementById("print-ticket-card");
+      if (card) {
+        onPrint();
+        return;
+      }
+      attempts += 1;
+      if (attempts < 20) {
+        window.setTimeout(tryPrint, 50);
+      }
+    };
+    window.setTimeout(tryPrint, 50);
+  };
 
   const availabilityTitle = useMemo(
     () => `Reservas del dia ${availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}`,
@@ -119,7 +136,11 @@ export default function PosReceiptModals({
                   <p className="text-sm text-slate-400">Sin tickets asociados.</p>
                 ) : (
                   receiptSale.appointments.map((appointment) => {
-                    const edit = receiptTicketEdits[appointment.id];
+                    const dateInfo = toDateAndTimeInputValues(appointment.start_time);
+                    const professionalName =
+                      appointment.professional?.username ??
+                      "Sin operaria";
+                    const statusLabel = appointment.status === "in_service" ? "En atención" : "En espera";
                     return (
                       <div key={appointment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
                         <div className="flex items-center justify-between gap-2">
@@ -127,7 +148,7 @@ export default function PosReceiptModals({
                             <p className="text-sm font-semibold text-slate-800">
                               {appointment.ticket_code ?? `#${appointment.id}`}
                               <span className="ml-2 text-xs font-normal text-slate-400">
-                                {appointment.status === "in_service" ? "En atencion" : "En espera"}
+                                {statusLabel}
                               </span>
                             </p>
                             <p className="mt-0.5 text-[11px] text-slate-500">
@@ -142,102 +163,34 @@ export default function PosReceiptModals({
                           </span>
                         </div>
 
-                        {edit && (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Fecha</p>
-                              <input
-                                type="date"
-                                value={edit.date}
-                                onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { date: event.target.value })}
-                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
-                              />
-                            </div>
-
-                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                              <div className="mb-1 flex items-center justify-between gap-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Hora</p>
-                                <label className="inline-flex items-center gap-1 text-[10px] text-[#605e5c]">
-                                  <input
-                                    type="checkbox"
-                                    checked={edit.without_time}
-                                    onChange={(event) =>
-                                      onUpdateReceiptTicketEdit(appointment.id, {
-                                        without_time: event.target.checked,
-                                        time: event.target.checked ? "" : "09:00",
-                                      })
-                                    }
-                                    className="rounded-sm border-[#8a8886] text-[#0078d4] focus:ring-[#0078d4]"
-                                  />
-                                  Sin hora
-                                </label>
-                              </div>
-                              <input
-                                type="time"
-                                value={edit.time}
-                                disabled={edit.without_time}
-                                onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { time: event.target.value })}
-                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
-                              />
-                            </div>
-
-                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Operaria</p>
-                              <select
-                                value={edit.professional_id}
-                                onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { professional_id: event.target.value })}
-                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
-                              >
-                                <option value="">Sin operaria</option>
-                                {professionals.map((professional) => (
-                                  <option key={professional.id} value={String(professional.id)}>
-                                    {professional.username}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Estado</p>
-                              <select
-                                value={edit.status}
-                                onChange={(event) => {
-                                  const nextStatus = event.target.value === "in_service" ? "in_service" : "pending";
-                                  if (nextStatus === "in_service" && !edit.professional_id) {
-                                    return;
-                                  }
-                                  onUpdateReceiptTicketEdit(appointment.id, { status: nextStatus });
-                                }}
-                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
-                              >
-                                {TICKET_STATUS_OPTIONS.map((statusOption) => (
-                                  <option key={statusOption.value} value={statusOption.value}>
-                                    {statusOption.label}
-                                  </option>
-                                ))}
-                              </select>
-                              {!edit.professional_id ? (
-                                <p className="mt-1 text-[10px] text-[#a19f9d]">Para “En atención”, selecciona operaria.</p>
-                              ) : null}
-                            </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Fecha</p>
+                            <p className="text-xs font-semibold text-[#323130]">{dateInfo.date || "Sin fecha"}</p>
                           </div>
-                        )}
+
+                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Hora</p>
+                            <p className="text-xs font-semibold text-[#323130]">
+                              {dateInfo.without_time ? "Sin hora" : dateInfo.time || "Sin hora"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Operaria</p>
+                            <p className="text-xs font-semibold text-[#323130]">{professionalName}</p>
+                          </div>
+
+                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Estado</p>
+                            <p className="text-xs font-semibold text-[#323130]">{statusLabel}</p>
+                          </div>
+                        </div>
                       </div>
                     );
                   })
                 )}
               </div>
-
-              {receiptSale.appointments.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onSaveReceiptTicketEdits}
-                  disabled={isSavingReceiptTickets}
-                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingReceiptTickets ? "Guardando cambios..." : "Guardar cambios de tickets"}
-                </button>
-              )}
             </div>
 
             <div className="flex gap-3">
@@ -251,9 +204,9 @@ export default function PosReceiptModals({
               <button
                 type="button"
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                onClick={onOpenPrintPreview}
+                onClick={handleDirectPrintReceipt}
               >
-                <Printer className="h-4 w-4" />Imprimir ticket
+                <Printer className="h-4 w-4" />Imprimir comprobante
               </button>
             </div>
           </div>
@@ -380,13 +333,8 @@ export default function PosReceiptModals({
                     <p className="text-center text-xs text-slate-400">Sin tickets asociados.</p>
                   ) : (
                     receiptSale.appointments.map((appointment) => {
-                      const edit = receiptTicketEdits[appointment.id];
-                      const displayTime = (() => {
-                        if (edit?.without_time) return "Sin hora";
-                        if (edit?.time?.trim()) return edit.time;
-                        const fallback = toDateAndTimeInputValues(appointment.start_time);
-                        return fallback.without_time ? "Sin hora" : fallback.time;
-                      })();
+                      const fallback = toDateAndTimeInputValues(appointment.start_time);
+                      const displayTime = fallback.without_time ? "Sin hora" : fallback.time;
 
                       return (
                         <div key={appointment.id} className="flex items-start justify-between gap-2">

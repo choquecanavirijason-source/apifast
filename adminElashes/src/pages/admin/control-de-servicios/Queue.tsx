@@ -18,7 +18,7 @@ import DroppableColumn from "./components/DroppableColumn";
 import QueueHeader from "./components/QueueHeader";
 
 const fieldClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
+  "h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
 
 const Main = () => {
   const fullscreenRef = useRef<HTMLDivElement>(null);
@@ -50,6 +50,7 @@ const Main = () => {
   const [callProfessionalId, setCallProfessionalId] = useState("");
   const [filterService, setFilterService] = useState("");
   const [isServiceFilterMenuOpen, setIsServiceFilterMenuOpen] = useState(false);
+  const [filterClient, setFilterClient] = useState("");
   const [filterDate, setFilterDate] = useState(todayDate());
   const [filterTime, setFilterTime] = useState("");
   const [filterProfessionalId, setFilterProfessionalId] = useState("");
@@ -85,6 +86,13 @@ const Main = () => {
 
   useEffect(() => {
     void loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadTickets();
+    }, 30000);
+    return () => window.clearInterval(interval);
   }, [loadTickets]);
 
   useEffect(() => {
@@ -179,21 +187,24 @@ const Main = () => {
 
   const filteredTickets = useMemo(() => {
     const serviceTerm = filterService.trim().toLowerCase();
+    const clientTerm = filterClient.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
       const servicesText = `${ticket.service_name ?? ""} ${(ticket.service_names ?? []).join(" ")}`.toLowerCase();
+      const clientText = `${ticket.client_name ?? ""}`.toLowerCase();
       const ticketDate = getTicketDate(ticket.start_time);
       const ticketTime = getTicketTime(ticket.start_time);
 
       const matchesService = !serviceTerm || servicesText.includes(serviceTerm);
+      const matchesClient = !clientTerm || clientText.includes(clientTerm);
       const matchesDate = !filterDate || ticketDate === filterDate;
       const matchesTime = !filterTime || ticketTime === filterTime;
       const matchesProfessional =
         !filterProfessionalId || String(ticket.professional_id ?? "") === filterProfessionalId;
 
-      return matchesService && matchesDate && matchesTime && matchesProfessional;
+      return matchesService && matchesClient && matchesDate && matchesTime && matchesProfessional;
     });
-  }, [tickets, filterService, filterDate, filterTime, filterProfessionalId]);
+  }, [tickets, filterService, filterClient, filterDate, filterTime, filterProfessionalId]);
 
   const serviceFilterOptions = useMemo(() => {
     const names = new Set<string>();
@@ -516,6 +527,14 @@ const Main = () => {
     return minutes <= 0 ? "Finalizando" : `≈ ${minutes} min`;
   };
 
+  const isRecentlyCreated = (ticket: TicketItem) => {
+    const raw = (ticket as unknown as { created_at?: string }).created_at;
+    if (!raw) return false;
+    const createdAt = new Date(raw).getTime();
+    if (!Number.isFinite(createdAt)) return false;
+    return now - createdAt <= 30 * 60 * 1000;
+  };
+
   const renderQuestion = (question: NonNullable<QuestionnaireItem["questions"]>[number]) => {
     const key = String(question.id);
     const value = questionnaireResponses[key];
@@ -600,8 +619,8 @@ const Main = () => {
   return (
     <div ref={fullscreenRef} style={{ height: "100%", overflowY: "auto" }}>
       <Layout
-        title="Tablero de atencion"
-        subtitle="Visualiza clientas por estado en el dia actual"
+        title="Tablero de atención"
+        subtitle="Vista operativa estilo Business Central"
         variant="cards"
         topContent={
           <QueueHeader
@@ -623,10 +642,10 @@ const Main = () => {
           </SectionCard>
         ) : null}
 
-        <SectionCard bodyClassName="!p-5">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <SectionCard className="border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4 sm:!p-5">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-7">
             <div className="lg:col-span-2">
-              <label className="text-xs font-semibold text-slate-500">Servicio</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Servicio</label>
               <div className="flex gap-2 mt-1" ref={serviceFilterRef}>
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -645,14 +664,14 @@ const Main = () => {
                   <button
                     type="button"
                     onClick={() => setIsServiceFilterMenuOpen((prev) => !prev)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-sm text-[#605e5c] transition hover:bg-[#f3f2f1] hover:text-[#323130]"
                     aria-label="Mostrar servicios"
                   >
                     <ChevronDown className="h-4 w-4" />
                   </button>
 
                   {isServiceFilterMenuOpen && (
-                    <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-sm border border-[#d2d0ce] bg-white shadow-lg">
                       <div className="max-h-56 overflow-y-auto py-1">
                         {filteredServiceFilterOptions.length === 0 ? (
                           <p className="px-3 py-2 text-xs text-slate-500">No se encontraron servicios.</p>
@@ -665,9 +684,9 @@ const Main = () => {
                                 setFilterService(option);
                                 setIsServiceFilterMenuOpen(false);
                               }}
-                              className="flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-slate-50"
+                              className="flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-[#f3f2f1]"
                             >
-                              <span className="truncate text-sm text-slate-700">{option}</span>
+                              <span className="truncate text-sm text-[#323130]">{option}</span>
                             </button>
                           ))
                         )}
@@ -678,32 +697,46 @@ const Main = () => {
               </div>
             </div>
 
+            <div className="lg:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Cliente</label>
+              <div className="relative mt-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={filterClient}
+                  onChange={(event) => setFilterClient(event.target.value)}
+                  placeholder="Buscar por nombre de clienta..."
+                  className={`${fieldClass} pl-9`}
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="text-xs font-semibold text-slate-500">Fecha</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
               <input
                 type="date"
                 value={filterDate}
                 onChange={(event) => setFilterDate(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                className={`${fieldClass} mt-1`}
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-500">Hora</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Hora</label>
               <input
                 type="time"
                 value={filterTime}
                 onChange={(event) => setFilterTime(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                className={`${fieldClass} mt-1`}
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-500">Atendiendo</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Atendiendo</label>
               <select
                 value={filterProfessionalId}
                 onChange={(event) => setFilterProfessionalId(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                className={`${fieldClass} mt-1`}
               >
                 <option value="">Todas</option>
                 {professionals.map((professional) => (
@@ -715,9 +748,9 @@ const Main = () => {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-            <p className="text-xs text-slate-500">
-              Tickets filtrados: <span className="font-semibold text-slate-700">{filteredTickets.length}</span>
+          <div className="mt-4 flex items-center justify-between border-t border-[#edebe9] pt-3">
+            <p className="text-xs text-[#605e5c]">
+              Tickets filtrados: <span className="font-semibold text-[#323130]">{filteredTickets.length}</span>
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -727,7 +760,7 @@ const Main = () => {
                 onClick={() => void loadTickets()}
                 disabled={isLoading}
               >
-                {isLoading ? "Actualizando..." : "Actualizar tabla"}
+                {isLoading ? "Actualizando..." : "Actualizar"}
               </Button>
               <Button
                 type="button"
@@ -735,6 +768,7 @@ const Main = () => {
                 size="sm"
                 onClick={() => {
                   setFilterService("");
+                  setFilterClient("");
                   setFilterDate(todayDate());
                   setFilterTime("");
                   setFilterProfessionalId("");
@@ -756,6 +790,7 @@ const Main = () => {
                   subtitle="Todos los tickets generados por IA se agrupan aqui."
                   tickets={iaTickets}
                   isEmptyLabel="No hay tickets con IA para los filtros actuales."
+                  highlightTicket={isRecentlyCreated}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
@@ -813,6 +848,7 @@ const Main = () => {
                   subtitle="Tickets pendientes del dia"
                   tickets={waitingTickets}
                   isEmptyLabel="Sin clientas en espera."
+                  highlightTicket={isRecentlyCreated}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
@@ -846,6 +882,7 @@ const Main = () => {
                   subtitle="Atenciones en curso"
                   tickets={inServiceTickets}
                   isEmptyLabel="Sin servicios activos."
+                  highlightTicket={isRecentlyCreated}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
@@ -879,6 +916,7 @@ const Main = () => {
                   subtitle="Atenciones completadas"
                   tickets={completedTickets}
                   isEmptyLabel="Sin finalizadas hoy."
+                  highlightTicket={isRecentlyCreated}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
