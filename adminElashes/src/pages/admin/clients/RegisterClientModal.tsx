@@ -157,6 +157,11 @@ export default function RegisterClientModal({
     apellido: "",
     edad: "",
   });
+  const bcLabelClass = "block text-xs font-semibold uppercase tracking-wide text-[#605e5c]";
+  const bcSelectClass =
+    "h-10 w-full rounded-md border border-[#d2d0ce] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20";
+  const bcInputClass =
+    "!h-10 !rounded-md !border-[#d2d0ce] !text-[#323130] focus:!border-[#0078d4] focus:!ring-[#0078d4]/20";
 
   useEffect(() => {
     if (!isOpen) {
@@ -287,6 +292,8 @@ export default function RegisterClientModal({
             value={formValues.nombre}
             onChange={handleInputChange}
             error={fieldErrors.nombre || undefined}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
           />
           <InputField
             name="apellido"
@@ -296,6 +303,8 @@ export default function RegisterClientModal({
             value={formValues.apellido}
             onChange={handleInputChange}
             error={fieldErrors.apellido || undefined}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
           />
 
           <InputField
@@ -308,16 +317,18 @@ export default function RegisterClientModal({
             value={formValues.edad}
             onChange={handleInputChange}
             error={fieldErrors.edad || undefined}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
           />
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="sexo-registro">
+          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+            <label className={bcLabelClass} htmlFor="sexo-registro">
               Sexo
             </label>
             <select
               id="sexo-registro"
               name="sexo"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+              className={bcSelectClass}
               value={formValues.sexo}
               onChange={handleInputChange}
             >
@@ -328,15 +339,15 @@ export default function RegisterClientModal({
             </select>
           </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="phone-registro">
+          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2">
+            <label className={bcLabelClass} htmlFor="phone-registro">
               Telefono
             </label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,260px)_1fr]">
               <select
                 id="phone-country-code"
                 name="phone_country_code"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+                className={bcSelectClass}
                 value={formValues.phone_country_code}
                 onChange={handleInputChange}
               >
@@ -355,18 +366,19 @@ export default function RegisterClientModal({
                 onChange={handleInputChange}
                 inputMode="numeric"
                 maxLength={15}
+                className={bcInputClass}
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="tipo-ojos-registro">
+          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+            <label className={bcLabelClass} htmlFor="tipo-ojos-registro">
               Tipo de Ojos
             </label>
             <select
               id="tipo-ojos-registro"
               name="eye_type_id"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+              className={bcSelectClass}
               value={formValues.eye_type_id}
               onChange={handleInputChange}
               disabled={isLoadingEyeTypes}
@@ -385,7 +397,7 @@ export default function RegisterClientModal({
                 <button
                   type="button"
                   onClick={onRetryEyeTypes}
-                  className="text-xs font-semibold text-[#094732] hover:underline"
+                  className="text-xs font-semibold text-[#0078d4] hover:underline"
                 >
                   Reintentar
                 </button>
@@ -393,14 +405,14 @@ export default function RegisterClientModal({
             ) : null}
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="branch-registro">
+          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+            <label className={bcLabelClass} htmlFor="branch-registro">
               Sucursal
             </label>
             <select
               id="branch-registro"
               name="branch_id"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+              className={bcSelectClass}
               value={formValues.branch_id}
               onChange={handleInputChange}
             >
@@ -414,7 +426,7 @@ export default function RegisterClientModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end gap-3 border-t border-[#edebe9] pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

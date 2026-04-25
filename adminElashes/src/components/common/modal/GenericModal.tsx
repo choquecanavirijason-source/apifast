@@ -24,6 +24,8 @@ interface GenericModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Pantalla completa (estilo panel Dynamics / Business Central). */
+  fullScreen?: boolean;
   closeOnBackdrop?: boolean;
   showCloseButton?: boolean;
   contentClassName?: string;
@@ -47,6 +49,7 @@ export default function GenericModal({
   children,
   footer,
   size = "md",
+  fullScreen = false,
   closeOnBackdrop = true,
   showCloseButton = true,
   contentClassName = "",
@@ -106,9 +109,35 @@ export default function GenericModal({
 
   if (!isOpen) return null;
 
+  const shellFormClass = fullScreen
+    ? `h-[100dvh] w-full max-w-none max-h-none rounded-none border-0 border-[#edebe9] bg-[#f3f2f1] p-0 shadow-none flex flex-col min-h-0 ${contentClassName}`
+    : `w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-lg border border-slate-200 bg-white p-4 shadow-xl animate-in fade-in duration-150 flex flex-col ${contentClassName}`;
+
+  const shellDivClass = shellFormClass;
+
+  const headerRowClass = fullScreen
+    ? "mb-0 flex shrink-0 items-center justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
+    : "mb-3 flex items-center justify-between gap-3";
+
+  const titleClass = fullScreen
+    ? "min-w-0 truncate text-lg font-semibold text-[#323130]"
+    : "min-w-0 truncate text-base font-semibold text-slate-800";
+
+  const closeBtnClass = fullScreen
+    ? "rounded-sm p-2 text-[#605e5c] transition-colors hover:bg-[#edebe9] hover:text-[#323130]"
+    : "rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700";
+
+  const bodyWrapClass = fullScreen
+    ? `flex-1 min-h-0 overflow-hidden flex flex-col ${bodyClassName}`
+    : `flex-1 min-h-0 overflow-y-auto ${bodyClassName}`;
+
+  const backdropClass = fullScreen
+    ? "fixed inset-0 z-50 flex items-stretch justify-stretch bg-[#323130]/45 p-0 backdrop-blur-[1px]"
+    : "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-3 py-2 backdrop-blur-sm";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-3 py-2 backdrop-blur-sm"
+      className={backdropClass}
       onClick={closeOnBackdrop ? handleClose : undefined}
       role="presentation"
     >
@@ -116,56 +145,46 @@ export default function GenericModal({
         <form
           onSubmit={handleSubmit}
           onClick={(event) => event.stopPropagation()}
-          className={`w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-lg border border-slate-200 bg-white p-4 shadow-xl animate-in fade-in duration-150 flex flex-col ${contentClassName}`}
+          className={shellFormClass}
           role="dialog"
           aria-modal="true"
         >
           {(title || showCloseButton) && (
-            <div className="mb-3 flex items-center justify-between gap-3">
-              {title ? <h3 className="min-w-0 truncate text-base font-semibold text-slate-800">{title}</h3> : <div />}
+            <div className={headerRowClass}>
+              {title ? <h3 className={titleClass}>{title}</h3> : <div />}
               {showCloseButton && (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                  aria-label="Cerrar"
-                >
+                <button type="button" onClick={handleClose} className={closeBtnClass} aria-label="Cerrar">
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
           )}
 
-          <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName}`}>{children}</div>
+          <div className={bodyWrapClass}>{children}</div>
 
-          {footer ? <div className="mt-4 flex items-center justify-end gap-2">{footer}</div> : null}
+          {footer ? <div className={`mt-4 flex items-center justify-end gap-2 ${fullScreen ? "shrink-0 border-t border-[#edebe9] bg-white px-4 py-3" : ""}`}>{footer}</div> : null}
         </form>
       ) : (
         <div
           onClick={(event) => event.stopPropagation()}
-          className={`w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-lg border border-slate-200 bg-white p-4 shadow-xl animate-in fade-in duration-150 flex flex-col ${contentClassName}`}
+          className={shellDivClass}
           role="dialog"
           aria-modal="true"
         >
           {(title || showCloseButton) && (
-            <div className="mb-3 flex items-center justify-between gap-3">
-              {title ? <h3 className="min-w-0 truncate text-base font-semibold text-slate-800">{title}</h3> : <div />}
+            <div className={headerRowClass}>
+              {title ? <h3 className={titleClass}>{title}</h3> : <div />}
               {showCloseButton && (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                  aria-label="Cerrar"
-                >
+                <button type="button" onClick={handleClose} className={closeBtnClass} aria-label="Cerrar">
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
           )}
 
-          <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName}`}>{children}</div>
+          <div className={bodyWrapClass}>{children}</div>
 
-          {footer ? <div className="mt-4 flex items-center justify-end gap-2">{footer}</div> : null}
+          {footer ? <div className={`mt-4 flex items-center justify-end gap-2 ${fullScreen ? "shrink-0 border-t border-[#edebe9] bg-white px-4 py-3" : ""}`}>{footer}</div> : null}
         </div>
       )}
     </div>

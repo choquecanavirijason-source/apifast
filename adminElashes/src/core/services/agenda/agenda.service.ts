@@ -1,5 +1,10 @@
 import api from "../api";
 
+/** Categorías de servicio (API REST bajo `/services/categories`, no `/agenda/...`). */
+const SERVICE_CATEGORIES_PATH = "/services/categories";
+
+/** Cliente del módulo agenda: citas, selectores y servicios bajo `/agenda`; categorías bajo `/services/categories`. */
+
 export interface ServiceOption {
   id: number;
   name: string;
@@ -56,6 +61,37 @@ export interface ServiceCategoryUpdatePayload {
   description?: string | null;
   image_url?: string | null;
   is_mobile?: boolean;
+}
+
+/**
+ * Cuando GET /services/categories falla (404, etc.), reconstruye categorías desde el listado de servicios.
+ */
+export function deriveServiceCategoriesFromServices(serviceList: ServiceOption[]): ServiceCategoryOption[] {
+  const map = new Map<number, ServiceCategoryOption>();
+  for (const s of serviceList) {
+    if (s.category && typeof s.category.id === "number") {
+      const c = s.category;
+      map.set(c.id, {
+        id: c.id,
+        name: c.name,
+        description: c.description ?? null,
+        image_url: c.image_url ?? null,
+        is_mobile: Boolean(c.is_mobile),
+      });
+    } else if (s.category_id != null && Number.isFinite(Number(s.category_id))) {
+      const id = Number(s.category_id);
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name: `Categoría ${id}`,
+          description: null,
+          image_url: null,
+          is_mobile: false,
+        });
+      }
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
 export interface AppointmentCreatePayload {
@@ -157,29 +193,37 @@ export const AgendaService = {
   async uploadServiceCategoryImage(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.post<ServiceImageUploadResponse>("/agenda/service-categories/upload-image", formData, {
+    const response = await api.post<ServiceImageUploadResponse>(`${SERVICE_CATEGORIES_PATH}/upload-image`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data.image_url;
   },
 
   async listServiceCategories(): Promise<ServiceCategoryOption[]> {
-    const response = await api.get<ServiceCategoryOption[]>("/agenda/service-categories");
+    const response = await api.get<ServiceCategoryOption[]>(SERVICE_CATEGORIES_PATH);
     return response.data;
   },
 
   async createServiceCategory(payload: ServiceCategoryCreatePayload): Promise<ServiceCategoryOption> {
-    const response = await api.post<ServiceCategoryOption>("/agenda/service-categories", payload);
+    const response = await api.post<ServiceCategoryOption>(SERVICE_CATEGORIES_PATH, payload, {
+      timeout: 120_000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
     return response.data;
   },
 
   async updateServiceCategory(id: number, payload: ServiceCategoryUpdatePayload): Promise<ServiceCategoryOption> {
-    const response = await api.put<ServiceCategoryOption>(`/agenda/service-categories/${id}`, payload);
+    const response = await api.put<ServiceCategoryOption>(`${SERVICE_CATEGORIES_PATH}/${id}`, payload, {
+      timeout: 120_000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
     return response.data;
   },
 
   async deleteServiceCategory(id: number): Promise<void> {
-    await api.delete(`/agenda/service-categories/${id}`);
+    await api.delete(`${SERVICE_CATEGORIES_PATH}/${id}`);
   },
 
   async uploadServiceImage(file: File): Promise<string> {

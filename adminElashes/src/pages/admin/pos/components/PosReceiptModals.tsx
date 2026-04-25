@@ -80,6 +80,8 @@ export default function PosReceiptModals({
   formatHourMinute,
   toDateAndTimeInputValues,
 }: PosReceiptModalsProps) {
+  void setAvailabilityPreviewLineId;
+
   const availabilityTitle = useMemo(
     () => `Reservas del dia ${availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}`,
     [availabilityPreviewDate, activeAvailabilityLine, saleBaseDate]
@@ -141,47 +143,50 @@ export default function PosReceiptModals({
                         </div>
 
                         {edit && (
-                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Fecha</p>
                               <input
                                 type="date"
                                 value={edit.date}
                                 onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { date: event.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
+                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                               />
                             </div>
 
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Hora</p>
+                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                              <div className="mb-1 flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Hora</p>
+                                <label className="inline-flex items-center gap-1 text-[10px] text-[#605e5c]">
+                                  <input
+                                    type="checkbox"
+                                    checked={edit.without_time}
+                                    onChange={(event) =>
+                                      onUpdateReceiptTicketEdit(appointment.id, {
+                                        without_time: event.target.checked,
+                                        time: event.target.checked ? "" : "09:00",
+                                      })
+                                    }
+                                    className="rounded-sm border-[#8a8886] text-[#0078d4] focus:ring-[#0078d4]"
+                                  />
+                                  Sin hora
+                                </label>
+                              </div>
                               <input
                                 type="time"
                                 value={edit.time}
                                 disabled={edit.without_time}
                                 onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { time: event.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
+                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
                               />
-                              <label className="mt-1 inline-flex items-center gap-1 text-[10px] text-slate-500">
-                                <input
-                                  type="checkbox"
-                                  checked={edit.without_time}
-                                  onChange={(event) =>
-                                    onUpdateReceiptTicketEdit(appointment.id, {
-                                      without_time: event.target.checked,
-                                      time: event.target.checked ? "" : "09:00",
-                                    })
-                                  }
-                                />
-                                Sin hora
-                              </label>
                             </div>
 
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Operaria</p>
+                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Operaria</p>
                               <select
                                 value={edit.professional_id}
                                 onChange={(event) => onUpdateReceiptTicketEdit(appointment.id, { professional_id: event.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
+                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                               >
                                 <option value="">Sin operaria</option>
                                 {professionals.map((professional) => (
@@ -192,8 +197,8 @@ export default function PosReceiptModals({
                               </select>
                             </div>
 
-                            <div>
-                              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Estado</p>
+                            <div className="rounded-sm border border-[#edebe9] bg-white p-2">
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Estado</p>
                               <select
                                 value={edit.status}
                                 onChange={(event) => {
@@ -203,7 +208,7 @@ export default function PosReceiptModals({
                                   }
                                   onUpdateReceiptTicketEdit(appointment.id, { status: nextStatus });
                                 }}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
+                                className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                               >
                                 {TICKET_STATUS_OPTIONS.map((statusOption) => (
                                   <option key={statusOption.value} value={statusOption.value}>
@@ -211,6 +216,9 @@ export default function PosReceiptModals({
                                   </option>
                                 ))}
                               </select>
+                              {!edit.professional_id ? (
+                                <p className="mt-1 text-[10px] text-[#a19f9d]">Para “En atención”, selecciona operaria.</p>
+                              ) : null}
                             </div>
                           </div>
                         )}
@@ -449,53 +457,65 @@ export default function PosReceiptModals({
         isOpen={Boolean(availabilityPreviewLineId)}
         onClose={onCloseAvailabilityPreview}
         title={availabilityTitle}
-        size="lg"
+        size="xl"
+        contentClassName="!max-w-6xl"
       >
-        <div className="space-y-3">
-          <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
-            <input
-              type="date"
-              value={availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}
-              onChange={(event) => setAvailabilityPreviewDate(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-            />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3 sm:grid-cols-[260px_minmax(0,1fr)]">
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Fecha</p>
+              <input
+                type="date"
+                value={availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}
+                onChange={(event) => setAvailabilityPreviewDate(event.target.value)}
+                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              />
+            </div>
+
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Buscar</p>
+              <input
+                type="text"
+                value={availabilitySearch}
+                onChange={(event) => setAvailabilitySearch(event.target.value)}
+                placeholder="Operaria, cliente o servicio"
+                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              />
+            </div>
           </div>
 
-          <input
-            type="text"
-            value={availabilitySearch}
-            onChange={(event) => setAvailabilitySearch(event.target.value)}
-            placeholder="Buscar operaria, cliente o servicio"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-          />
-
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">Horas disponibles y ocupadas</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
+            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Horas disponibles y ocupadas</p>
+                <span className="rounded-full border border-[#d2d0ce] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#605e5c]">
+                  {previewHourSlots.length} hora(s)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {previewHourSlots.map((slot) => (
                 <button
                   key={slot.hourLabel}
                   type="button"
                   onClick={() => onSelectHourFromPreview(slot.hourLabel)}
-                  className={`rounded-lg border px-3 py-3 text-left text-xs transition ${
+                  className={`rounded-sm border px-3 py-3 text-left text-xs shadow-sm transition ${
                     slot.isBusy
-                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      ? "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
+                      : "border-[#b7dfbe] bg-[#f1fbf3] text-[#0f6c2f] hover:bg-[#dff6dd]"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-base font-bold leading-none">{slot.hourLabel}</p>
-                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold">
+                    <p className="text-xl font-bold leading-none">{slot.hourLabel}</p>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#323130]">
                       {slot.isBusy ? `${slot.count} ocupada(s)` : "Libre"}
                     </span>
                   </div>
 
                   {slot.isBusy && (
-                    <div className="mt-2 space-y-1.5 rounded-md border border-rose-100 bg-white/70 p-2 text-[11px] text-slate-700">
+                    <div className="mt-2 space-y-1.5 rounded-sm border border-[#f3d2d6] bg-white p-2 text-[11px] text-[#323130]">
                       {slot.entries.map((entry) => (
-                        <div key={`${slot.hourLabel}-${entry.ticketId}`} className="rounded border border-slate-100 bg-white px-2 py-1">
-                          <p className="truncate text-[10px] font-semibold text-rose-700">Ticket #{entry.ticketId}</p>
+                        <div key={`${slot.hourLabel}-${entry.ticketId}`} className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2 py-1">
+                          <p className="truncate text-[10px] font-semibold text-[#a4262c]">Ticket #{entry.ticketId}</p>
                           <p className="truncate">
                             <span className="font-semibold">Operaria:</span> {entry.professionalName}
                           </p>
@@ -509,46 +529,52 @@ export default function PosReceiptModals({
                       ))}
 
                       {slot.extraCount > 0 && (
-                        <p className="text-[10px] font-semibold text-slate-500">+{slot.extraCount} ticket(s) más en esta hora</p>
+                        <p className="text-[10px] font-semibold text-[#605e5c]">+{slot.extraCount} ticket(s) más en esta hora</p>
                       )}
                     </div>
                   )}
                 </button>
               ))}
+              </div>
+              <p className="mt-3 text-[11px] text-[#605e5c]">Al tocar una hora, se guarda directamente en el ticket seleccionado.</p>
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">Al tocar una hora, se guarda directamente en el ticket seleccionado.</p>
-          </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">Reservas del dia</p>
-            <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-              {occupiedTicketsForPreview.length === 0 ? (
-                <p className="text-xs text-slate-400">No hay reservas ocupadas para ese día con este filtro.</p>
-              ) : (
-                occupiedTicketsForPreview.map((ticket) => {
-                  const professionalName =
-                    ticket.professional_name ??
-                    professionals.find((professional) => professional.id === ticket.professional_id)?.username ??
-                    "Sin operaria";
+            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Reservas del día</p>
+                <span className="rounded-full border border-[#d2d0ce] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#605e5c]">
+                  {occupiedTicketsForPreview.length}
+                </span>
+              </div>
+              <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                {occupiedTicketsForPreview.length === 0 ? (
+                  <p className="text-xs text-slate-500">No hay reservas ocupadas para ese día con este filtro.</p>
+                ) : (
+                  occupiedTicketsForPreview.map((ticket) => {
+                    const professionalName =
+                      ticket.professional_name ??
+                      professionals.find((professional) => professional.id === ticket.professional_id)?.username ??
+                      "Sin operaria";
 
-                  return (
-                    <div
-                      key={ticket.id}
-                      className="flex items-start justify-between gap-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-slate-700">{professionalName}</p>
-                        <p className="truncate text-[11px] text-slate-500">
-                          {ticket.client_name} · {(ticket.service_name ?? (ticket.service_names ?? []).join(" · ")) || "Servicio"}
-                        </p>
+                    return (
+                      <div
+                        key={ticket.id}
+                        className="flex items-start justify-between gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-[#323130]">{professionalName}</p>
+                          <p className="truncate text-[11px] text-[#605e5c]">
+                            {ticket.client_name} · {(ticket.service_name ?? (ticket.service_names ?? []).join(" · ")) || "Servicio"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[11px] font-semibold text-[#0078d4]">
+                          {formatHourMinute(ticket.start_time)} - {formatHourMinute(ticket.end_time)}
+                        </span>
                       </div>
-                      <span className="shrink-0 text-[11px] font-semibold text-slate-500">
-                        {formatHourMinute(ticket.start_time)} - {formatHourMinute(ticket.end_time)}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>

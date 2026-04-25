@@ -387,7 +387,6 @@ export default function LashDesignsPage() {
         </form>
       </SimpleModal>
 
-      {/* Confirmar Eliminación */}
       {dialogConfig && (
         <ConfirmDialog
           isOpen={dialogConfig.isOpen}

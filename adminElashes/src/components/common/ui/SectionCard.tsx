@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+export type SectionCardVariant = "default" | "business";
+
 interface SectionCardProps {
   title?: string;
   subtitle?: string;
@@ -7,7 +9,36 @@ interface SectionCardProps {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** "business" = estilo tipo Dynamics/Business Central (paneles lisos, cabecera gris suave). */
+  variant?: SectionCardVariant;
 }
+
+const shellClass: Record<SectionCardVariant, string> = {
+  default: "rounded-2xl border border-slate-200 bg-white shadow-sm",
+  business:
+    "rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]",
+};
+
+const headerClass: Record<SectionCardVariant, string> = {
+  default: "flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4",
+  business:
+    "flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3",
+};
+
+const titleClass: Record<SectionCardVariant, string> = {
+  default: "text-base font-bold text-slate-800",
+  business: "text-sm font-semibold text-[#323130]",
+};
+
+const subtitleClass: Record<SectionCardVariant, string> = {
+  default: "mt-1 text-sm text-slate-500",
+  business: "mt-0.5 text-xs text-[#605e5c]",
+};
+
+const bodyPad: Record<SectionCardVariant, string> = {
+  default: "p-5",
+  business: "p-4",
+};
 
 export default function SectionCard({
   title,
@@ -16,19 +47,21 @@ export default function SectionCard({
   children,
   className = "",
   bodyClassName = "",
+  variant = "default",
 }: SectionCardProps) {
+  const v = variant;
   return (
-    <section className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>
+    <section className={`${shellClass[v]} ${className}`}>
       {(title || subtitle || actions) && (
-        <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <header className={headerClass[v]}>
           <div>
-            {title ? <h3 className="text-base font-bold text-slate-800">{title}</h3> : null}
-            {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+            {title ? <h3 className={titleClass[v]}>{title}</h3> : null}
+            {subtitle ? <p className={subtitleClass[v]}>{subtitle}</p> : null}
           </div>
           {actions ? <div className="shrink-0">{actions}</div> : null}
         </header>
       )}
-      <div className={`p-5 ${bodyClassName}`}>{children}</div>
+      <div className={`${bodyPad[v]} ${bodyClassName}`}>{children}</div>
     </section>
   );
 }

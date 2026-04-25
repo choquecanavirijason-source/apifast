@@ -49,7 +49,8 @@ interface BranchOption {
 type ExportFormat = "excel" | "pdf";
 type ExportSection = "overview" | "revenue" | "services" | "inventory" | "quicklinks";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1"];
+/** Paleta inspirada en Dynamics / Business Central (Fluent). */
+const BC_COLORS = ["#0078d4", "#00a4ef", "#8764b8", "#107c10", "#ca5010", "#038387", "#881798", "#5c2d91"];
 
 const getLocalDateInputValue = (date = new Date()) => {
   const year = date.getFullYear();
@@ -363,110 +364,106 @@ export default function Dashboard() {
     doc.save(`${safeTitle}-${timestamp}.pdf`);
   };
 
+  const bcInput =
+    "rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]";
+
   return (
     <Layout
-      title="Panel Administrativo"
-      subtitle="Dashboard operativo con métricas reales, filtros globales y reportes descargables."
-      variant="table"
+      title="Centro de rol"
+      subtitle="Panel principal · operaciones y finanzas"
+      variant="cards"
+      pageClassName="min-h-0 bg-[#f3f2f1]"
+      containerClassName="!rounded-none !border-0 !bg-transparent !p-0 !shadow-none"
       toolbar={
-        <FilterActionBar
-          left={
-            <div className="flex flex-wrap items-end gap-3">
-              <FilterField label="Desde">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
-                />
-              </FilterField>
-              <FilterField label="Hasta">
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
-                />
-              </FilterField>
-              <FilterField label="Sucursal">
-                <select
-                  value={branchFilter}
-                  onChange={(e) => setBranchFilter(e.target.value)}
-                  className="min-w-[180px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+        <div className="rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <FilterActionBar
+            left={
+              <div className="flex flex-wrap items-end gap-3">
+                <FilterField label="Desde">
+                  <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={bcInput} />
+                </FilterField>
+                <FilterField label="Hasta">
+                  <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={bcInput} />
+                </FilterField>
+                <FilterField label="Sucursal">
+                  <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+                    <option value="">Todas las sucursales</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField label="Servicio">
+                  <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+                    <option value="">Todos los servicios</option>
+                    {services.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+              </div>
+            }
+            right={
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<RefreshCw className="h-4 w-4" />}
+                  onClick={() => void loadDashboard()}
+                  disabled={isLoading}
                 >
-                  <option value="">Todas las sucursales</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-              <FilterField label="Servicio">
-                <select
-                  value={serviceFilter}
-                  onChange={(e) => setServiceFilter(e.target.value)}
-                  className="min-w-[180px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+                  {isLoading ? "Actualizando..." : "Actualizar"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Download className="h-4 w-4" />}
+                  onClick={() => void handleDownload("tickets")}
+                  disabled={isDownloading}
                 >
-                  <option value="">Todos los servicios</option>
-                  {services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-            </div>
-          }
-          right={
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<RefreshCw className="h-4 w-4" />}
-                onClick={() => void loadDashboard()}
-                disabled={isLoading}
-              >
-                {isLoading ? "Actualizando..." : "Actualizar"}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Download className="h-4 w-4" />}
-                onClick={() => void handleDownload("tickets")}
-                disabled={isDownloading}
-              >
-                Tickets CSV
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Download className="h-4 w-4" />}
-                onClick={() => void handleDownload("payments")}
-                disabled={isDownloading}
-              >
-                Pagos CSV
-              </Button>
-              <Button
-                size="sm"
-                leftIcon={<Download className="h-4 w-4" />}
-                onClick={() => void handleDownload("pos")}
-                disabled={isDownloading}
-              >
-                Ventas POS CSV
-              </Button>
-            </>
-          }
-        />
+                  Tickets CSV
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Download className="h-4 w-4" />}
+                  onClick={() => void handleDownload("payments")}
+                  disabled={isDownloading}
+                >
+                  Pagos CSV
+                </Button>
+                <Button
+                  size="sm"
+                  leftIcon={<Download className="h-4 w-4" />}
+                  onClick={() => void handleDownload("pos")}
+                  disabled={isDownloading}
+                >
+                  Ventas POS CSV
+                </Button>
+              </>
+            }
+          />
+        </div>
       }
     >
       {error ? (
-        <SectionCard className="mb-5 border border-rose-200 bg-rose-50" bodyClassName="!p-4">
-          <p className="text-sm font-medium text-rose-700">{error}</p>
+        <SectionCard variant="business" className="mb-4 border-rose-200 bg-[#fef6f6]" bodyClassName="!py-3">
+          <p className="text-sm font-medium text-[#a4262c]">{error}</p>
         </SectionCard>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <SectionCard
+        variant="business"
+        title="Indicadores clave"
+        subtitle="Métricas del periodo y alcance seleccionados (clientes, tickets, ingresos e inventario)."
+        bodyClassName="!pt-3"
+        className="mb-4"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Clientes"
           value={overview.cards.clients_total}
@@ -523,12 +520,14 @@ export default function Dashboard() {
           icon={<CalendarDays className="h-4 w-4" />}
           tone="emerald"
         />
-      </div>
+        </div>
+      </SectionCard>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <SectionCard
+          variant="business"
           title="Ingresos por periodo"
-          subtitle="Pagos cobrados agrupados por día según los filtros activos."
+          subtitle="Pagos cobrados por día (misma lógica que listas y informes)."
           actions={
             <DownloadActions
               onExcel={() => downloadSectionReport("revenue", "excel")}
@@ -538,18 +537,18 @@ export default function Dashboard() {
         >
           <div className="h-52">
             {revenueChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
                 No hay datos de ingresos para el rango seleccionado.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                <BarChart data={revenueChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                <BarChart data={revenueChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edebe9" />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#605e5c", fontSize: 11 }} />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: "#64748b", fontSize: 12 }}
+                    tick={{ fill: "#605e5c", fontSize: 11 }}
                     tickFormatter={(value) => `Bs ${value}`}
                   />
                   <Tooltip
@@ -559,13 +558,14 @@ export default function Dashboard() {
                         ? [formatCurrency(numericValue), "Ingresos"]
                         : [numericValue, "Pagos"];
                     }}
-                    cursor={{ fill: "#f8fafc" }}
+                    cursor={{ fill: "#faf9f8" }}
+                    contentStyle={{
+                      borderRadius: 2,
+                      border: "1px solid #edebe9",
+                      fontSize: 12,
+                    }}
                   />
-                  <Bar dataKey="total" radius={[10, 10, 0, 0]} barSize={34}>
-                    {revenueChartData.map((entry, index) => (
-                      <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
+                  <Bar dataKey="total" radius={[2, 2, 0, 0]} barSize={28} fill="#0078d4" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -573,8 +573,9 @@ export default function Dashboard() {
         </SectionCard>
 
         <SectionCard
-          title="Servicios Más Solicitados"
-          subtitle="Tickets generados por servicio y su ingreso estimado."
+          variant="business"
+          title="Servicios más solicitados"
+          subtitle="Volumen de tickets e ingreso estimado por servicio."
           actions={
             <DownloadActions
               onExcel={() => downloadSectionReport("services", "excel")}
@@ -584,21 +585,21 @@ export default function Dashboard() {
         >
           <div className="h-72">
             {serviceChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
                 No hay tickets para el filtro actual.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                <BarChart data={serviceChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" tickLine={false} axisLine={false} />
+                <BarChart data={serviceChartData} layout="vertical" margin={{ left: 4, right: 12, top: 4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edebe9" />
+                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fill: "#605e5c", fontSize: 11 }} />
                   <YAxis
                     dataKey="name"
                     type="category"
                     tickLine={false}
                     axisLine={false}
-                    width={110}
-                    tick={{ fill: "#64748b", fontSize: 12 }}
+                    width={118}
+                    tick={{ fill: "#605e5c", fontSize: 11 }}
                   />
                   <Tooltip
                     formatter={(value, name) => {
@@ -607,10 +608,15 @@ export default function Dashboard() {
                         ? [numericValue, "Tickets"]
                         : [formatCurrency(numericValue), "Ingreso estimado"];
                     }}
+                    contentStyle={{
+                      borderRadius: 2,
+                      border: "1px solid #edebe9",
+                      fontSize: 12,
+                    }}
                   />
-                  <Bar dataKey="tickets" radius={[0, 10, 10, 0]}>
+                  <Bar dataKey="tickets" radius={[0, 2, 2, 0]} barSize={22}>
                     {serviceChartData.map((entry, index) => (
-                      <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`${entry.name}-${index}`} fill={BC_COLORS[index % BC_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -620,10 +626,11 @@ export default function Dashboard() {
         </SectionCard>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <SectionCard
-          title="Resumen Operativo"
-          subtitle="Una vista rápida del flujo de tickets, caja y atención."
+          variant="business"
+          title="Resumen operativo"
+          subtitle="Estados de ticket y actividad de caja en el periodo."
           actions={
             <DownloadActions
               onExcel={() => downloadSectionReport("overview", "excel")}
@@ -632,45 +639,45 @@ export default function Dashboard() {
           }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estados de ticket</p>
-              <div className="mt-3 space-y-2 text-sm text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span>Pendientes</span>
-                  <strong>{overview.cards.appointments_pending}</strong>
+            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Estados de ticket</p>
+              <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Pendientes</span>
+                  <strong className="tabular-nums">{overview.cards.appointments_pending}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Confirmados</span>
-                  <strong>{overview.cards.appointments_confirmed}</strong>
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Confirmados</span>
+                  <strong className="tabular-nums">{overview.cards.appointments_confirmed}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Completados</span>
-                  <strong>{overview.cards.appointments_completed}</strong>
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Completados</span>
+                  <strong className="tabular-nums">{overview.cards.appointments_completed}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Cancelados</span>
-                  <strong>{overview.cards.appointments_cancelled}</strong>
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-[#605e5c]">Cancelados</span>
+                  <strong className="tabular-nums">{overview.cards.appointments_cancelled}</strong>
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Caja y ventas</p>
-              <div className="mt-3 space-y-2 text-sm text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span>Pagos registrados</span>
-                  <strong>{overview.cards.payments_count}</strong>
+            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Caja y ventas</p>
+              <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Pagos registrados</span>
+                  <strong className="tabular-nums">{overview.cards.payments_count}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Promedio por pago</span>
-                  <strong>{formatCurrency(overview.cards.avg_payment)}</strong>
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Promedio por pago</span>
+                  <strong className="tabular-nums">{formatCurrency(overview.cards.avg_payment)}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Ventas POS</span>
-                  <strong>{overview.cards.pos_sales_count}</strong>
+                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
+                  <span className="text-[#605e5c]">Ventas POS</span>
+                  <strong className="tabular-nums">{overview.cards.pos_sales_count}</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Clientes activos</span>
-                  <strong>{overview.cards.clients_with_activity}</strong>
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-[#605e5c]">Clientes activos</span>
+                  <strong className="tabular-nums">{overview.cards.clients_with_activity}</strong>
                 </div>
               </div>
             </div>
@@ -678,8 +685,9 @@ export default function Dashboard() {
         </SectionCard>
 
         <SectionCard
-          title="Inventario Relevante"
-          subtitle="Productos con más unidades disponibles según la sucursal filtrada."
+          variant="business"
+          title="Inventario relevante"
+          subtitle="Stock disponible por producto (sucursal seleccionada)."
           actions={
             <DownloadActions
               onExcel={() => downloadSectionReport("inventory", "excel")}
@@ -689,7 +697,7 @@ export default function Dashboard() {
         >
           <div className="h-72">
             {inventoryChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
                 No hay datos de inventario para mostrar.
               </div>
             ) : (
@@ -699,15 +707,24 @@ export default function Dashboard() {
                     data={inventoryChartData}
                     dataKey="value"
                     nameKey="name"
-                    innerRadius={55}
-                    outerRadius={88}
-                    paddingAngle={4}
+                    innerRadius={52}
+                    outerRadius={86}
+                    paddingAngle={2}
+                    stroke="#fff"
+                    strokeWidth={1}
                   >
                     {inventoryChartData.map((entry, index) => (
-                      <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`${entry.name}-${index}`} fill={BC_COLORS[index % BC_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`${Number(value ?? 0)}`, "Stock"]} />
+                  <Tooltip
+                    formatter={(value) => [`${Number(value ?? 0)}`, "Stock"]}
+                    contentStyle={{
+                      borderRadius: 2,
+                      border: "1px solid #edebe9",
+                      fontSize: 12,
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -715,10 +732,11 @@ export default function Dashboard() {
         </SectionCard>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <SectionCard
-          title="Accesos Directos"
-          subtitle="Flujos rápidos para operar tickets, agenda, caja y clientes."
+          variant="business"
+          title="Accesos directos"
+          subtitle="Enlaces frecuentes (similar a accesos de área de trabajo)."
           actions={
             <DownloadActions
               onExcel={() => downloadSectionReport("quicklinks", "excel")}
@@ -732,14 +750,14 @@ export default function Dashboard() {
                 key={item.path}
                 type="button"
                 onClick={() => navigate(item.path)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-4 py-3.5 text-left outline-none transition hover:border-[#0078d4] hover:bg-white focus-visible:ring-2 focus-visible:ring-[#0078d4] focus-visible:ring-offset-2"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.helper}</p>
+                    <p className="text-sm font-semibold text-[#323130]">{item.label}</p>
+                    <p className="mt-1 text-xs text-[#605e5c]">{item.helper}</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[#0078d4]" />
                 </div>
               </button>
             ))}

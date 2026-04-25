@@ -46,6 +46,10 @@ export function getApiErrorMessage(error: unknown, fallback = "Error en la solic
       return "Recurso no encontrado.";
     }
 
+    if (!error.response && (error.code === "ERR_NETWORK" || error.message === "Network Error")) {
+      return "Sin respuesta del servidor (API caída, CORS o VITE_API_URL mal). Reinicia el backend y prueba de nuevo.";
+    }
+
     return error.message || fallback;
   }
 

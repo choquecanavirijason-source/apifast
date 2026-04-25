@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { CalendarDays } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AgendaService,
+  deriveServiceCategoriesFromServices,
   type TicketItem,
   type ServiceCategoryOption,
   type ProfessionalForSelect,
@@ -187,7 +188,6 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryModalSearch, setCategoryModalSearch] = useState("");
   const [categoryModalFilterId, setCategoryModalFilterId] = useState("all");
-  const [categoryModalSelectionCounts, setCategoryModalSelectionCounts] = useState<Record<string, number>>({});
   const [availabilityPreviewLineId, setAvailabilityPreviewLineId] = useState<string | null>(null);
   const [availabilityPreviewDate, setAvailabilityPreviewDate] = useState("");
   const [availabilitySearch, setAvailabilitySearch] = useState("");
@@ -305,8 +305,19 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     if (!isCategoryModalOpen) return;
     setCategoryModalFilterId(selectedServiceCategoryId || "all");
     setCategoryModalSearch("");
-    setCategoryModalSelectionCounts({});
   }, [isCategoryModalOpen, selectedServiceCategoryId]);
+
+  /** Conteos por servicio en el carrito (sincronizado con las líneas de venta mientras el modal está abierto). */
+  const categoryModalSelectionCounts = useMemo(() => {
+    if (!isCategoryModalOpen) return {};
+    const counts: Record<string, number> = {};
+    for (const line of cartLines) {
+      const sid = line.service_id;
+      if (!sid) continue;
+      counts[sid] = (counts[sid] ?? 0) + 1;
+    }
+    return counts;
+  }, [isCategoryModalOpen, cartLines]);
 
   const subtotal = useMemo(() => cartLines.reduce((s, l) => s + l.price, 0), [cartLines]);
   const numericDiscount = Number(discountValue) || 0;
@@ -406,7 +417,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     try {
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
-        AgendaService.listClientsForSelect({ limit: 1000 }),
+        AgendaService.listClientsForSelect({ limit: 200 }),
         AgendaService.listServices({ limit: 200, branch_id: branchFilter }),
         AgendaService.listServiceCategories(),
         AgendaService.listProfessionalsForSelect({ limit: 200 }),
@@ -423,8 +434,18 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
       if (settled[1].status === "fulfilled") setServices(settled[1].value);
       else failures.push(`${labels[1]}: ${getApiErrorMessage(settled[1].reason, "Error al cargar servicios.")}`);
 
-      if (settled[2].status === "fulfilled") setServiceCategories(settled[2].value);
-      else failures.push(`${labels[2]}: ${getApiErrorMessage(settled[2].reason, "Error al cargar categorias.")}`);
+      if (settled[2].status === "fulfilled") {
+        setServiceCategories(settled[2].value);
+      } else {
+        const servicesData = settled[1].status === "fulfilled" ? settled[1].value : [];
+        const derived = deriveServiceCategoriesFromServices(servicesData);
+        if (derived.length > 0) {
+          setServiceCategories(derived);
+        } else {
+          setServiceCategories([]);
+          failures.push(`${labels[2]}: ${getApiErrorMessage(settled[2].reason, "Error al cargar categorias.")}`);
+        }
+      }
 
       if (settled[3].status === "fulfilled") setProfessionals(settled[3].value);
       else failures.push(`${labels[3]}: ${getApiErrorMessage(settled[3].reason, "Error al cargar profesionales.")}`);
@@ -620,6 +641,15 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
 
   const addServiceToCart = (service: ServiceOption) =>
     setCartLines((prev) => [...prev, { ...createDefaultLine(service), date: saleBaseDate }]);
+
+  const removeLastCartLineForService = (serviceId: string) => {
+    setCartLines((prev) => {
+      const revIdx = [...prev].reverse().findIndex((l) => l.service_id === serviceId);
+      if (revIdx === -1) return prev;
+      const removeIdx = prev.length - 1 - revIdx;
+      return prev.filter((_, i) => i !== removeIdx);
+    });
+  };
 
   const getLineDateRange = (line: CartLine) => {
     const safeDate = line.date?.trim() || saleBaseDate;
@@ -1207,12 +1237,12 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
         embedded ? undefined : (
           <span className="flex w-full items-center justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-base font-semibold leading-tight text-slate-800">Caja Registradora</span>
-              <span className="block text-[11px] leading-tight text-slate-500">Punto de venta rápido y gestión de servicios</span>
+              <span className="block text-base font-semibold leading-tight text-[#323130]">Caja registradora</span>
+              <span className="block text-[11px] leading-tight text-[#605e5c]">Punto de venta · Dynamics-style</span>
             </span>
-            <span className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
-              <CalendarDays className="h-4 w-4 text-slate-400" />
-              <span className="font-medium text-slate-600">
+            <span className="flex shrink-0 items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+              <CalendarDays className="h-4 w-4 text-[#0078d4]" />
+              <span className="font-medium text-[#323130]">
                 {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
               </span>
             </span>
@@ -1223,28 +1253,31 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
       pageClassName={
         embedded
           ? "!min-h-0 flex h-full flex-1 flex-col !bg-transparent !p-0 overflow-hidden"
-          : "bg-[#f5f5f7] flex h-[100dvh] flex-col overflow-hidden"
+          : "flex h-[100dvh] flex-col overflow-hidden bg-[#f3f2f1] !px-0 md:!px-0"
       }
       containerClassName={
         embedded
           ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent !p-0 max-w-none"
-          : "border-0 bg-transparent shadow-none max-w-[1520px] flex min-h-0 flex-1 flex-col overflow-hidden"
+          : "border-0 bg-transparent shadow-none w-full max-w-none !rounded-none !p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       }
       toolbar={
-        <div className="flex items-center justify-between w-full mt-1 mb-1">
-          <div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
+        <div className="mb-1 mt-1 flex w-full items-center justify-between">
+          <div className="inline-flex gap-0.5 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             {(["sale", "history"] as const).map((tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => {
                   setActiveTab(tab);
                   setStep(1);
                 }}
-                className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                  activeTab === tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                className={`rounded-sm px-5 py-2 text-sm font-semibold transition-colors ${
+                  activeTab === tab
+                    ? "border border-[#edebe9] bg-white text-[#323130] shadow-sm"
+                    : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
                 }`}
               >
-                {tab === "sale" ? "Nueva Venta" : "Historial"}
+                {tab === "sale" ? "Nueva venta" : "Historial"}
               </button>
             ))}
           </div>
@@ -1259,7 +1292,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               fieldClass={fieldClass}
               isLoading={isLoading}
               serviceSearch={serviceSearch}
-              onServiceSearchChange={(value: any) => {
+              onServiceSearchChange={(value: string) => {
                 setServiceSearch(value);
                 updateServiceMenuPosition();
                 setIsServiceMenuOpen(true);
@@ -1277,7 +1310,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               filteredServices={filteredServices}
               onServiceSelect={handleServiceSelect}
               selectedServiceCategoryId={selectedServiceCategoryId}
-              onCategoryFilterChange={(value: SetStateAction<string>) => {
+              onCategoryFilterChange={(value: string) => {
                 setSelectedServiceCategoryId(value);
                 updateServiceMenuPosition();
                 setIsServiceMenuOpen(true);
@@ -1291,25 +1324,9 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               cartLines={cartLines}
               services={services}
               subtotal={subtotal}
-              onRemoveLine={removeLine}
-              onContinue={() => setStep(2)}
-            />
-          ) : (
-            <PosSaleStepTwo
-              labelClass={labelClass}
-              fieldClass={fieldClass}
-              cartLines={cartLines}
-              services={services}
-              subtotal={subtotal}
               total={total}
               onRemoveLine={removeLine}
-              professionals={professionals}
-              lineAvailability={lineAvailability}
-              saleBaseDate={saleBaseDate}
-              updateLine={updateLine}
-              setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
-              setAvailabilityPreviewDate={setAvailabilityPreviewDate}
-              setAvailabilitySearch={setAvailabilitySearch}
+              onContinueToAgenda={() => setStep(2)}
               clientComboboxRef={clientComboboxRef}
               clientSearch={clientSearch}
               setClientSearch={setClientSearch}
@@ -1331,8 +1348,25 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               notes={notes}
               setNotes={setNotes}
               onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
+              professionals={professionals}
+            />
+          ) : (
+            <PosSaleStepTwo
+              cartLines={cartLines}
+              services={services}
+              subtotal={subtotal}
+              total={total}
+              onRemoveLine={removeLine}
+              professionals={professionals}
+              lineAvailability={lineAvailability}
+              saleBaseDate={saleBaseDate}
+              updateLine={updateLine}
+              setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
+              setAvailabilityPreviewDate={setAvailabilityPreviewDate}
+              setAvailabilitySearch={setAvailabilitySearch}
               isSubmitting={isSubmitting}
               onCheckout={() => void handleCheckout()}
+              onBack={() => setStep(1)}
             />
           )
         ) : (
@@ -1403,21 +1437,15 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
           onClear={() => {
             setCategoryModalFilterId("all");
             setCategoryModalSearch("");
-            setCategoryModalSelectionCounts({});
           }}
           filteredModalServices={filteredModalServices}
           selectionCounts={categoryModalSelectionCounts}
+          servicesCatalog={services}
           onIncrementSelection={(serviceId) => {
             const service = services.find((item) => String(item.id) === serviceId);
-            if (service) {
-              addServiceToCart(service);
-            }
-
-            setCategoryModalSelectionCounts((prev) => ({
-              ...prev,
-              [serviceId]: (prev[serviceId] ?? 0) + 1,
-            }));
+            if (service) addServiceToCart(service);
           }}
+          onDecrementSelection={removeLastCartLineForService}
         />
       </div>
     </Layout>

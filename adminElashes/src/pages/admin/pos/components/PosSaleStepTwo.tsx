@@ -1,62 +1,17 @@
-import type { RefObject } from "react";
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, Clock, Plus, Search, ShoppingCart, Tag, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  ShoppingCart,
+  Trash2,
+} from "lucide-react";
 
-import type { ProfessionalForSelect, ServiceOption } from "../../../../core/services/agenda/agenda.service";
-import { PAYMENT_METHODS, TICKET_STATUS_OPTIONS } from "../pos.constants";
-import type { CartLine } from "../pos.types";
-
-type LineAvailability = Record<string, { available: boolean; conflictCount: number }>;
-
-type ClientOption = {
-  id: string | number;
-  nombre: string;
-  apellido: string;
-  phone?: string | null;
-};
-
-type PosSaleStepTwoProps = {
-  labelClass: string;
-  fieldClass: string;
-  cartLines: CartLine[];
-  services: ServiceOption[];
-  subtotal: number;
-  total: number;
-  onRemoveLine: (localId: string) => void;
-  professionals: ProfessionalForSelect[];
-  lineAvailability: LineAvailability;
-  saleBaseDate: string;
-  updateLine: (localId: string, patch: Partial<CartLine>) => void;
-  setAvailabilityPreviewLineId: (value: string | null) => void;
-  setAvailabilityPreviewDate: (value: string) => void;
-  setAvailabilitySearch: (value: string) => void;
-  clientComboboxRef: RefObject<HTMLDivElement | null>;
-  clientSearch: string;
-  setClientSearch: (value: string) => void;
-  setClientId: (value: string) => void;
-  isClientMenuOpen: boolean;
-  setIsClientMenuOpen: (value: boolean | ((current: boolean) => boolean)) => void;
-  filteredClients: ClientOption[];
-  selectedClient: ClientOption | null;
-  clientPhone: string;
-  clientAddress: string;
-  sellerId: string;
-  setSellerId: (value: string) => void;
-  discountValue: string;
-  setDiscountValue: (value: string) => void;
-  discountType: "amount" | "percent";
-  setDiscountType: (value: "amount" | "percent") => void;
-  paymentMethod: string;
-  setPaymentMethod: (value: string) => void;
-  notes: string;
-  setNotes: (value: string) => void;
-  onOpenRegisterClient: () => void;
-  isSubmitting: boolean;
-  onCheckout: () => void;
-};
+import { TICKET_STATUS_OPTIONS } from "../pos.constants";
+import type { PosSaleStepTwoProps } from "../pos.types";
 
 export default function PosSaleStepTwo({
-  labelClass,
-  fieldClass,
   cartLines,
   services,
   subtotal,
@@ -69,415 +24,251 @@ export default function PosSaleStepTwo({
   setAvailabilityPreviewLineId,
   setAvailabilityPreviewDate,
   setAvailabilitySearch,
-  clientComboboxRef,
-  clientSearch,
-  setClientSearch,
-  setClientId,
-  isClientMenuOpen,
-  setIsClientMenuOpen,
-  filteredClients,
-  selectedClient,
-  clientPhone,
-  clientAddress,
-  sellerId,
-  setSellerId,
-  discountValue,
-  setDiscountValue,
-  discountType,
-  setDiscountType,
-  paymentMethod,
-  setPaymentMethod,
-  notes,
-  setNotes,
-  onOpenRegisterClient,
   isSubmitting,
   onCheckout,
+  onBack,
 }: PosSaleStepTwoProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 min-w-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-900">Configura los tickets</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Asigna profesional, horario y estado</p>
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#edebe9] bg-white px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2 text-sm font-semibold text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
+          >
+            <ArrowLeft className="h-4 w-4 text-[#0078d4]" />
+            Volver a la venta
+          </button>
+          <div className="hidden h-6 w-px bg-[#edebe9] sm:block" aria-hidden />
+          <div>
+            <h2 className="text-lg font-semibold text-[#323130]">Tickets y agenda</h2>
+            <p className="text-xs text-[#605e5c]">Fecha, hora, operaria y estado por cada servicio</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Subtotal</p>
+          <p className="text-sm font-semibold text-[#323130]">Bs {subtotal.toFixed(2)}</p>
+          <p className="text-[11px] text-[#605e5c]">{cartLines.length} ticket(s)</p>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-slate-500" />
-            <span className="text-xs font-semibold text-slate-700">Tickets</span>
-            {cartLines.length > 0 && (
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-                {cartLines.length}
-              </span>
-            )}
-          </div>
-          {cartLines.length > 0 && (
-            <span className="text-xs font-medium text-slate-400">
-              Subtotal: <span className="font-semibold text-slate-700">Bs {subtotal.toFixed(2)}</span>
-            </span>
-          )}
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-hidden divide-y divide-slate-100">
-          {cartLines.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                <ShoppingCart className="h-6 w-6 text-slate-400" />
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-medium text-slate-500">Carrito vacío</p>
-                <p className="mt-0.5 text-xs text-slate-400">Selecciona un servicio para comenzar</p>
-              </div>
+      <div className="min-h-0 flex-1 overflow-hidden p-4">
+      <div className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <div className="flex shrink-0 items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-[#0078d4]" />
+              <span className="text-sm font-semibold text-[#323130]">Líneas del pedido</span>
+              {cartLines.length > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0078d4] px-1.5 text-[10px] font-bold text-white">
+                  {cartLines.length}
+                </span>
+              ) : null}
             </div>
-          ) : (
-            cartLines.map((line) => {
-              const service = services.find((item) => String(item.id) === line.service_id);
-              return (
-                <div key={line.localId} className="group px-5 py-3.5 transition hover:bg-slate-50/70">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      {service?.image_url ? (
-                        <img
-                          src={service.image_url}
-                          alt={service?.name ?? "Servicio"}
-                          className="h-10 w-10 flex-none rounded-lg border border-slate-200 object-cover"
-                        />
-                      ) : null}
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-slate-800">{service?.name ?? "Servicio"}</p>
-                        <p className="mt-0.5 text-[11px] text-slate-400">Configura horario y profesional para este ticket</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className="block text-xs font-semibold text-slate-900">Bs {line.price.toFixed(2)}</span>
-                        <div className="mt-0.5 flex items-center justify-end gap-1 text-xs text-slate-500">
-                          <Clock className="h-3 w-3" />{line.duration_minutes}m
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveLine(line.localId)}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-100 hover:text-red-600"
-                        title="Quitar ticket"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
+          </div>
 
-                  <div className="mt-2 grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_96px]">
-                    <div>
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fecha</p>
-                      <div className="flex items-center gap-1.5">
-                        <div className="group relative inline-flex">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAvailabilityPreviewLineId(line.localId);
-                              setAvailabilityPreviewDate((line.date || saleBaseDate).trim());
-                              setAvailabilitySearch("");
-                            }}
-                            aria-label="Ver reservas del día"
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 bg-gradient-to-b from-emerald-50 to-teal-50 text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:from-emerald-100 hover:to-teal-100 hover:text-emerald-800"
-                          >
-                            <CalendarDays className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                            Ver reservas del día
-                          </span>
-                        </div>
-                        <input
-                          type="date"
-                          value={line.date}
-                          onChange={(event) => updateLine(line.localId, { date: event.target.value })}
-                          onBlur={(event) => {
-                            if (!event.target.value) {
-                              updateLine(line.localId, { date: saleBaseDate });
-                            }
-                          }}
-                          className="h-7 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Hora</p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="time"
-                          value={line.time}
-                          onChange={(event) => updateLine(line.localId, { time: event.target.value })}
-                          disabled={line.without_time}
-                          className="h-7 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                        />
-                        <label className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-slate-500">
-                          <input
-                            type="checkbox"
-                            checked={line.without_time}
-                            onChange={(event) =>
-                              updateLine(line.localId, {
-                                without_time: event.target.checked,
-                                time: event.target.checked ? "" : "09:00",
-                              })
-                            }
-                          />
-                          Sin hora
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Atendera</p>
-                      <select
-                        value={line.professional_id}
-                        onChange={(event) => updateLine(line.localId, { professional_id: event.target.value })}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                      >
-                        <option value="">Seleccionar profesional...</option>
-                        {professionals.map((professional) => (
-                          <option key={professional.id} value={String(professional.id)}>
-                            {professional.username}
-                          </option>
-                        ))}
-                      </select>
-                      <p
-                        className={`mt-1 text-[10px] font-medium ${
-                          !line.professional_id
-                            ? "text-slate-400"
-                            : lineAvailability[line.localId]?.available
-                              ? "text-emerald-600"
-                              : "text-red-500"
-                        }`}
-                      >
-                        {!line.professional_id
-                          ? "Selecciona operaria para validar disponibilidad"
-                          : lineAvailability[line.localId]?.available
-                            ? "Operaria disponible en este horario"
-                            : `Operaria ocupada (${lineAvailability[line.localId]?.conflictCount ?? 1} conflicto${
-                                (lineAvailability[line.localId]?.conflictCount ?? 1) > 1 ? "s" : ""
-                              })`}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Estado</p>
-                      <select
-                        value={line.status}
-                        onChange={(event) =>
-                          updateLine(line.localId, {
-                            status: event.target.value === "in_service" ? "in_service" : "pending",
-                          })
-                        }
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-100"
-                      >
-                        {TICKET_STATUS_OPTIONS.map((statusOption) => (
-                          <option key={statusOption.value} value={statusOption.value}>
-                            {statusOption.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+          <div className="min-h-0 flex-1 divide-y divide-[#edebe9] overflow-y-auto">
+            {cartLines.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-[#605e5c]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8]">
+                  <ShoppingCart className="h-6 w-6 opacity-40" />
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">Sin tickets</p>
+                  <p className="mt-0.5 text-xs">Vuelve al paso anterior y agrega servicios</p>
+                </div>
+              </div>
+            ) : (
+              cartLines.map((line) => {
+                const service = services.find((item) => String(item.id) === line.service_id);
+                return (
+                  <div key={line.localId} className="px-4 py-4 transition-colors hover:bg-[#faf9f8]/80 sm:px-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {service?.image_url ? (
+                          <img
+                            src={service.image_url}
+                            alt={service?.name ?? "Servicio"}
+                            className="h-10 w-10 flex-none rounded-sm border border-[#edebe9] object-cover"
+                          />
+                        ) : null}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[#323130]">{service?.name ?? "Servicio"}</p>
+                          <p className="mt-0.5 text-[11px] text-[#605e5c]">Asignación a la agenda</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="block text-sm font-semibold text-[#323130]">Bs {line.price.toFixed(2)}</span>
+                          <div className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-[#605e5c]">
+                            <Clock className="h-3 w-3" />
+                            {line.duration_minutes}m
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveLine(line.localId)}
+                          className="flex h-9 w-9 flex-none items-center justify-center rounded-sm text-[#d13438] transition hover:bg-[#fde7e9]"
+                          title="Quitar ticket"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
 
-      <aside className="w-full md:sticky md:top-24">
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-5 pt-5 pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900">Total</span>
-              <span className="text-xl font-black tracking-tight text-slate-900">Bs {total.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="border-b border-slate-100 px-5 pb-4 pt-0">
-            <p className={labelClass}>Cliente</p>
-            <div className="flex gap-2">
-              <div className="relative flex-1" ref={clientComboboxRef}>
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={clientSearch}
-                  onChange={(event) => {
-                    setClientSearch(event.target.value);
-                    setClientId("");
-                    setIsClientMenuOpen(true);
-                  }}
-                  onFocus={() => setIsClientMenuOpen(true)}
-                  placeholder="Buscar por nombre, apellido o telefono..."
-                  className={`${fieldClass} pl-10`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsClientMenuOpen((current) => !current)}
-                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                  aria-label="Mostrar clientes"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                {isClientMenuOpen && (
-                  <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                    <div className="max-h-56 overflow-y-auto py-1">
-                      {filteredClients.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-slate-500">No se encontraron clientes.</p>
-                      ) : (
-                        filteredClients.map((client) => {
-                          const fullName = `${client.nombre} ${client.apellido}`.trim();
-                          return (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_96px]">
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="group relative inline-flex">
                             <button
-                              key={client.id}
                               type="button"
                               onClick={() => {
-                                setClientId(String(client.id));
-                                setClientSearch(fullName);
-                                setIsClientMenuOpen(false);
+                                setAvailabilityPreviewLineId(line.localId);
+                                setAvailabilityPreviewDate((line.date || saleBaseDate).trim());
+                                setAvailabilitySearch("");
                               }}
-                              className="flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-slate-50"
+                              aria-label="Ver reservas del día"
+                              className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8] text-[#0078d4] shadow-sm transition hover:border-[#0078d4]/40 hover:bg-[#f3f2f1]"
                             >
-                              <span className="truncate text-sm text-slate-700">{fullName}</span>
-                              <span className="ml-3 shrink-0 text-xs text-slate-400">{client.phone || "Sin telefono"}</span>
+                              <CalendarDays className="h-3.5 w-3.5" />
                             </button>
-                          );
-                        })
-                      )}
+                            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-sm bg-[#323130] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100">
+                              Ver reservas del día
+                            </span>
+                          </div>
+                          <input
+                            type="date"
+                            value={line.date}
+                            onChange={(event) => updateLine(line.localId, { date: event.target.value })}
+                            onBlur={(event) => {
+                              if (!event.target.value) {
+                                updateLine(line.localId, { date: saleBaseDate });
+                              }
+                            }}
+                            className="h-8 w-full min-w-0 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Hora</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="time"
+                            value={line.time}
+                            onChange={(event) => updateLine(line.localId, { time: event.target.value })}
+                            disabled={line.without_time}
+                            className="h-8 min-w-0 flex-1 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1]"
+                          />
+                          <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-[#605e5c]">
+                            <input
+                              type="checkbox"
+                              checked={line.without_time}
+                              onChange={(event) =>
+                                updateLine(line.localId, {
+                                  without_time: event.target.checked,
+                                  time: event.target.checked ? "" : "09:00",
+                                })
+                              }
+                              className="rounded-sm border-[#8a8886] text-[#0078d4] focus:ring-[#0078d4]"
+                            />
+                            Sin hora
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</p>
+                        <select
+                          value={line.professional_id}
+                          onChange={(event) => updateLine(line.localId, { professional_id: event.target.value })}
+                          className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                        >
+                          <option value="">Seleccionar…</option>
+                          {professionals.map((professional) => (
+                            <option key={professional.id} value={String(professional.id)}>
+                              {professional.username}
+                            </option>
+                          ))}
+                        </select>
+                        <p
+                          className={`mt-1 text-[10px] font-medium ${
+                            !line.professional_id
+                              ? "text-[#605e5c]"
+                              : lineAvailability[line.localId]?.available
+                                ? "text-[#107c10]"
+                                : "text-[#d13438]"
+                          }`}
+                        >
+                          {!line.professional_id
+                            ? "Selecciona operaria para validar disponibilidad"
+                            : lineAvailability[line.localId]?.available
+                              ? "Disponible en este horario"
+                              : `Ocupada (${lineAvailability[line.localId]?.conflictCount ?? 1} conflicto${
+                                  (lineAvailability[line.localId]?.conflictCount ?? 1) > 1 ? "s" : ""
+                                })`}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Estado</p>
+                        <select
+                          value={line.status}
+                          onChange={(event) =>
+                            updateLine(line.localId, {
+                              status: event.target.value === "in_service" ? "in_service" : "pending",
+                            })
+                          }
+                          className="h-8 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                        >
+                          {TICKET_STATUS_OPTIONS.map((statusOption) => (
+                            <option key={statusOption.value} value={statusOption.value}>
+                              {statusOption.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={onOpenRegisterClient}
-                title="Registrar nuevo cliente"
-                className="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            {selectedClient && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div>
-                  <p className="mb-1 text-[11px] text-slate-400">Teléfono</p>
-                  <p className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700">{clientPhone || "-"}</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-[11px] text-slate-400">Dirección</p>
-                  <p className="truncate rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700">{clientAddress}</p>
-                </div>
-              </div>
+                );
+              })
             )}
           </div>
-
-          <div className="border-b border-slate-100 px-5 py-4">
-            <label className={labelClass}>Vendedor</label>
-            <div className="relative">
-              <select
-                value={sellerId}
-                onChange={(event) => setSellerId(event.target.value)}
-                className={`${fieldClass} appearance-none cursor-pointer`}
-              >
-                <option value="">Seleccionar vendedor…</option>
-                {professionals.map((professional) => (
-                  <option key={professional.id} value={professional.id}>
-                    {professional.username}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
-
-          <div className="space-y-4 border-b border-slate-100 px-5 py-4">
-            <div>
-              <label className={labelClass}>Descuento</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Tag className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="number"
-                    min={0}
-                    className={`${fieldClass} pl-10`}
-                    value={discountValue}
-                    onChange={(event) => setDiscountValue(event.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="relative w-24">
-                  <select
-                    value={discountType}
-                    onChange={(event) => setDiscountType(event.target.value as "amount" | "percent")}
-                    className={`${fieldClass} appearance-none cursor-pointer pr-7 text-center`}
-                  >
-                    <option value="amount">Bs</option>
-                    <option value="percent">%</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Método de Pago</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPaymentMethod(value)}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border px-1 py-2.5 text-[11px] font-semibold transition-all ${
-                      paymentMethod === value
-                        ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Notas</label>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={2}
-                className={`${fieldClass} resize-none`}
-                placeholder="Observaciones opcionales…"
-              />
-            </div>
-          </div>
-
-          <div className="px-5 py-4">
-            <button
-              type="button"
-              onClick={onCheckout}
-              disabled={isSubmitting || cartLines.length === 0}
-              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold tracking-wide transition-all duration-200 ${
-                isSubmitting || cartLines.length === 0
-                  ? "cursor-not-allowed bg-slate-200 text-slate-400"
-                  : "bg-slate-900 text-white shadow-md hover:bg-slate-800 hover:shadow-lg active:scale-[0.98]"
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Procesando…
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />Confirmar Venta<ArrowRight className="ml-auto h-4 w-4" />
-                </>
-              )}
-            </button>
-          </div>
         </div>
-      </aside>
+      </div>
+
+      <div className="shrink-0 border-t border-[#edebe9] bg-white px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Total a cobrar</p>
+            <p className="text-2xl font-bold text-[#0078d4]">Bs {total.toFixed(2)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCheckout}
+            disabled={isSubmitting || cartLines.length === 0}
+            className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-sm px-6 text-sm font-semibold transition sm:w-auto ${
+              isSubmitting || cartLines.length === 0
+                ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
+                : "bg-[#0078d4] text-white shadow-sm hover:bg-[#005a9e] active:bg-[#004578]"
+            }`}
+          >
+            {isSubmitting ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Procesando…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Confirmar venta
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

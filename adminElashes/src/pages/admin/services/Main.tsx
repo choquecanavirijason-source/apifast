@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { MoreVertical, Trash2 } from "lucide-react";
+import axios from "axios";
+import { MoreVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, SectionCard } from "../../../components/common/ui";
-import { AgendaService, type ServiceCategoryOption, type ServiceOption } from "../../../core/services/agenda/agenda.service";
+import {
+  AgendaService,
+  deriveServiceCategoriesFromServices,
+  type ServiceCategoryOption,
+  type ServiceOption,
+} from "../../../core/services/agenda/agenda.service";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
 
 import DeleteServiceModal from "./components/DeleteServiceModal";
@@ -38,37 +44,60 @@ export default function ServicesPage() {
   const [isDeleteServiceModalOpen, setIsDeleteServiceModalOpen] = useState(false);
   const [isUploadingServiceImage, setIsUploadingServiceImage] = useState(false);
 
-  const loadCategories = async () => {
+  const loadCatalog = async () => {
     setIsLoadingCategories(true);
-    try {
-      const data = await AgendaService.listServiceCategories();
-      setCategories(data);
-    } catch (error) {
-      console.error("Error cargando categorias:", error);
-      toast.error("No se pudieron cargar las categorias.");
-      setCategories([]);
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  };
-
-  const loadServices = async () => {
     setIsLoadingServices(true);
     try {
-      const data = await AgendaService.listServices({ limit: 300 });
-      setServices(data);
-    } catch (error) {
-      console.error("Error cargando servicios:", error);
-      toast.error("No se pudieron cargar los servicios.");
-      setServices([]);
+      let serviceList: ServiceOption[] = [];
+      try {
+        serviceList = await AgendaService.listServices({ limit: 300 });
+        setServices(serviceList);
+      } catch (reason) {
+        console.error("Error cargando servicios:", reason);
+        setServices([]);
+        toast.error(getApiErrorMessage(reason, "No se pudieron cargar los servicios."));
+      }
+
+      const derivedFromServices = deriveServiceCategoriesFromServices(serviceList);
+
+      try {
+        const apiCategories = await AgendaService.listServiceCategories();
+        setCategories(apiCategories.length > 0 ? apiCategories : derivedFromServices);
+        if (apiCategories.length === 0 && derivedFromServices.length > 0) {
+          toast.info(
+            "No hay categorías en el endpoint; se muestran las inferidas desde los servicios hasta que el backend exponga GET /services/categories."
+          );
+        }
+      } catch (reason) {
+        const is404 = axios.isAxiosError(reason) && reason.response?.status === 404;
+        setCategories(derivedFromServices);
+        if (is404) {
+          if (derivedFromServices.length > 0) {
+            toast.warning(
+              "El backend respondió 404 en /services/categories. Usando categorías deducidas de los servicios. Reinicia la API con service_categories_controller actualizado."
+            );
+          } else if (serviceList.length === 0) {
+            toast.error(
+              "No se pudieron cargar categorías (404) ni servicios para deducirlas. Revisa la API y VITE_API_URL."
+            );
+          } else {
+            toast.warning(
+              "Categorías no disponibles (404) y los servicios no incluyen datos de categoría. Crea categorías en BD o despliega el backend actualizado."
+            );
+          }
+        } else {
+          console.error("Error cargando categorías:", reason);
+          toast.error(getApiErrorMessage(reason, "No se pudieron cargar las categorías."));
+        }
+      }
     } finally {
+      setIsLoadingCategories(false);
       setIsLoadingServices(false);
     }
   };
 
   useEffect(() => {
-    void loadCategories();
-    void loadServices();
+    void loadCatalog();
   }, []);
 
   const totalWithImage = useMemo(
@@ -164,9 +193,10 @@ export default function ServicesPage() {
       setCategories((prev) => [created, ...prev]);
       toast.success("Categoria creada correctamente.");
       handleCloseModal();
+      void loadCatalog();
     } catch (error) {
       console.error("Error creando categoria:", error);
-      toast.error("No se pudo crear la categoria.");
+      toast.error(getApiErrorMessage(error, "No se pudo crear la categoria."));
     }
   };
 
@@ -188,9 +218,10 @@ export default function ServicesPage() {
       setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)));
       toast.success("Categoria actualizada correctamente.");
       handleCloseModal();
+      void loadCatalog();
     } catch (error) {
       console.error("Error actualizando categoria:", error);
-      toast.error("No se pudo actualizar la categoria.");
+      toast.error(getApiErrorMessage(error, "No se pudo actualizar la categoria."));
     }
   };
 
@@ -342,11 +373,11 @@ export default function ServicesPage() {
 
   return (
     <Layout
-      title={isCategoriesView ? "Categorias de servicios" : "Catalogo de servicios"}
+      title={isCategoriesView ? "Categorías de servicio" : "Catálogo de servicios"}
       subtitle={
         isCategoriesView
-          ? "Gestiona las categorias de tus servicios"
-          : "Gestiona el catalogo de servicios y asigna su categoria"
+          ? "Gestiona las categorías; cada servicio del catálogo pertenece a una."
+          : "Gestiona servicios y asigna a cada uno su categoría de servicio."
       }
       variant="cards"
       topContent={
@@ -358,16 +389,25 @@ export default function ServicesPage() {
         />
       }
     >
-      <ServicesToolbar
-        mode={isCategoriesView ? "categories" : "services"}
-        onCreateCategory={handleOpenCreate}
-        onCreateService={handleOpenCreateService}
-      />
+      {isCategoriesView ? (
+        <ServicesToolbar onCreateCategory={handleOpenCreate} />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
+            <p className="text-xs text-slate-500">Cada servicio tiene una categoría de servicio asignada.</p>
+          </div>
+          <Button onClick={handleOpenCreateService}>
+            <Plus className="h-4 w-4" />
+            Nuevo servicio
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <SectionCard className="mt-4" bodyClassName="!p-6">
           <p className="text-sm text-slate-500">
-            {isCategoriesView ? "Cargando categorias de servicio..." : "Cargando catalogo de servicios..."}
+            {isCategoriesView ? "Cargando categorías de servicio..." : "Cargando catálogo de servicios..."}
           </p>
         </SectionCard>
       ) : null}
@@ -375,7 +415,7 @@ export default function ServicesPage() {
       {isCategoriesView ? (
         <>
           <SectionCard className="mt-4" bodyClassName="!p-4">
-            <h3 className="text-sm font-semibold text-slate-800">Categorias de servicio</h3>
+            <h3 className="text-sm font-semibold text-slate-800">Categorías de servicio</h3>
           </SectionCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

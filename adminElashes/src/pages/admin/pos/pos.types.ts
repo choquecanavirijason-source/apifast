@@ -1,3 +1,11 @@
+import type { RefObject } from "react";
+
+import type {
+  ProfessionalForSelect,
+  ServiceCategoryOption,
+  ServiceOption,
+} from "../../../core/services/agenda/agenda.service";
+
 export type CartLine = {
   localId: string;
   service_id: string;
@@ -8,6 +16,83 @@ export type CartLine = {
   status: "pending" | "in_service";
   duration_minutes: number;
   price: number;
+};
+
+export type PosSaleClientOption = {
+  id: string | number;
+  nombre: string;
+  apellido: string;
+  phone?: string | null;
+};
+
+export type LineAvailabilityState = Record<string, { available: boolean; conflictCount: number }>;
+
+export type PosSaleStepOneProps = {
+  labelClass: string;
+  fieldClass: string;
+  isLoading: boolean;
+  serviceSearch: string;
+  onServiceSearchChange: (value: string) => void;
+  onServiceInputFocus: () => void;
+  onToggleServiceMenu: () => void;
+  isServiceMenuOpen: boolean;
+  serviceMenuPosition: { top: number; left: number; width: number } | null;
+  filteredServices: ServiceOption[];
+  onServiceSelect: (serviceId: string) => void;
+  selectedServiceCategoryId: string;
+  onCategoryFilterChange: (value: string) => void;
+  serviceCategories: ServiceCategoryOption[];
+  onOpenCategoryModal: () => void;
+  quickServices: ServiceOption[];
+  onAddServiceToCart: (service: ServiceOption) => void;
+  serviceComboboxRef: RefObject<HTMLDivElement | null>;
+  serviceMenuRef: RefObject<HTMLDivElement | null>;
+  cartLines: CartLine[];
+  services: ServiceOption[];
+  subtotal: number;
+  total: number;
+  onRemoveLine: (localId: string) => void;
+  onContinueToAgenda: () => void;
+  clientComboboxRef: RefObject<HTMLDivElement | null>;
+  clientSearch: string;
+  setClientSearch: (value: string) => void;
+  setClientId: (value: string) => void;
+  isClientMenuOpen: boolean;
+  setIsClientMenuOpen: (value: boolean | ((current: boolean) => boolean)) => void;
+  filteredClients: PosSaleClientOption[];
+  selectedClient: PosSaleClientOption | null;
+  clientPhone: string;
+  clientAddress: string;
+  sellerId: string;
+  setSellerId: (value: string) => void;
+  discountValue: string;
+  setDiscountValue: (value: string) => void;
+  discountType: "amount" | "percent";
+  setDiscountType: (value: "amount" | "percent") => void;
+  paymentMethod: string;
+  setPaymentMethod: (value: string) => void;
+  notes: string;
+  setNotes: (value: string) => void;
+  onOpenRegisterClient: () => void;
+  professionals: ProfessionalForSelect[];
+};
+
+export type PosSaleStepTwoProps = {
+  cartLines: CartLine[];
+  services: ServiceOption[];
+  subtotal: number;
+  total: number;
+  onRemoveLine: (localId: string) => void;
+  professionals: ProfessionalForSelect[];
+  lineAvailability: LineAvailabilityState;
+  saleBaseDate: string;
+  updateLine: (localId: string, patch: Partial<CartLine>) => void;
+  setAvailabilityPreviewLineId: (value: string | null) => void;
+  setAvailabilityPreviewDate: (value: string) => void;
+  setAvailabilitySearch: (value: string) => void;
+  isSubmitting: boolean;
+  onCheckout: () => void;
+  onBack: () => void;
 };
 
 export type ReceiptTicketEdit = {

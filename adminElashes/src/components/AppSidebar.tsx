@@ -41,6 +41,14 @@ function normalizePerm(name: unknown): string | null {
   return name.trim();
 }
 
+function submenuRegionId(menuName: string) {
+  return `sidebar-submenu-${menuName.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+/** Anillo de foco visible (el preflight suele quitar outline en botones). */
+const navFocusRing =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#031910]";
+
 export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const lastSyncedPathRef = useRef<string | null>(null);
@@ -115,6 +123,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           "forms:view",
           "catalog:view",
           "services:view",
+          "services:manage",
           "appointments:view",
           "appointments:manage",
           "branches:view"
@@ -128,6 +137,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           "payments:view",
           "payments:manage",
           "services:view",
+          "services:manage",
           "appointments:view",
           "appointments:manage",
           "branches:view"
@@ -206,7 +216,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         permission: ["services:view", "services:manage"],
         subItems: [
           { name: "Catálogo", path: "/admin/services", permission: ["services:view", "services:manage"] },
-          { name: "Servicios categorias", path: "/admin/services/categories", permission: ["services:view", "services:manage"] },
+          { name: "Categorías de servicio", path: "/admin/services/categories", permission: ["services:view", "services:manage"] },
           // si “queue” requiere citas, puedes añadir appointments:* también
           {
             name: "Control de servicios",
@@ -344,13 +354,16 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     if (!links.length) return;
 
     const nextIndex = ((index % links.length) + links.length) % links.length;
-    links[nextIndex]?.focus();
+    const el = links[nextIndex];
+    el?.focus();
+    el?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
   const focusMenuButton = (menuName: string) => {
     const menuButtons = asideRef.current?.querySelectorAll<HTMLButtonElement>("button[data-menu-name]");
     const button = Array.from(menuButtons ?? []).find((node) => node.dataset.menuName === menuName);
     button?.focus();
+    button?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
   /** Ítems “raíz” del sidebar: botones de grupo y enlaces hoja (excluye enlaces dentro de submenús). */
@@ -361,9 +374,19 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     return all.filter((el) => !el.closest("[data-sidebar-submenu]"));
   };
 
-  /** Enfoca un enlace del submenú tras el commit de React (evita refs/DOM aún vacíos). */
+  /** Enfoca un enlace del submenú tras el commit de React (reintenta si el submenú aún no está en el DOM). */
   const focusSubmenuAfterPaint = (menuName: string, index: number) => {
-    window.setTimeout(() => focusSubmenuLink(menuName, index), 0);
+    const tryFocus = (attempt: number) => {
+      window.requestAnimationFrame(() => {
+        const links = getSubmenuLinks(menuName);
+        if (links[index]) {
+          links[index].focus();
+        } else if (attempt < 8) {
+          tryFocus(attempt + 1);
+        }
+      });
+    };
+    tryFocus(0);
   };
 
   const focusAdjacentRoot = (current: HTMLElement, delta: 1 | -1) => {
@@ -376,13 +399,18 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     next.focus();
   };
 
-  const focusRootAfterSubmenu = (menuName: string) => {
-    const roots = getRootFocusables();
-    const buttonIdx = roots.findIndex((el) => el.tagName === "BUTTON" && el.dataset.menuName === menuName);
-    if (buttonIdx === -1) return;
-    const next = roots[buttonIdx + 1];
-    if (openMenu === menuName) setOpenMenu(null);
-    window.setTimeout(() => next?.focus(), 0);
+  const menuHasVisibleSubitems = (menuName: string) => {
+    const item = authorizedMenu.find((i) => i.name === menuName);
+    return Boolean(item?.subItems?.length);
+  };
+
+  const enterSubmenuFromButton = (menuName: string, isOpen: boolean) => {
+    if (!isOpen) {
+      setOpenMenu(menuName);
+      focusSubmenuAfterPaint(menuName, 0);
+    } else {
+      focusSubmenuLink(menuName, 0);
+    }
   };
 
   const handleLeafLinkKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>) => {
@@ -401,28 +429,38 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
 
   const handleMenuButtonKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, menuName: string) => {
     const isOpen = openMenu === menuName;
-    const links = getSubmenuLinks(menuName);
+    const hasSubmenu = menuHasVisibleSubitems(menuName);
 
-    // Navegación vertical entre secciones
+    // Flechas arriba/abajo: con submenú abierto, entran/salen de la subsección; si no, entre ítems raíz
     if (event.key === "ArrowDown") {
       event.preventDefault();
       event.stopPropagation();
+      if (isOpen && hasSubmenu) {
+        focusSubmenuLink(menuName, 0);
+        return;
+      }
       focusAdjacentRoot(event.currentTarget, 1);
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       event.stopPropagation();
+      if (isOpen && hasSubmenu) {
+        const subLinks = getSubmenuLinks(menuName);
+        if (subLinks.length) {
+          focusSubmenuLink(menuName, subLinks.length - 1);
+          return;
+        }
+      }
       focusAdjacentRoot(event.currentTarget, -1);
       return;
     }
 
-    // Entrar a submenú con flecha derecha o Enter
-    if ((event.key === "ArrowRight" || event.key === "Enter") && links.length) {
+    // Entrar a submenú con flecha derecha o Enter (no depende del DOM: el submenú aún no está montado si está cerrado)
+    if ((event.key === "ArrowRight" || event.key === "Enter") && hasSubmenu) {
       event.preventDefault();
       event.stopPropagation();
-      setOpenMenu(menuName);
-      focusSubmenuAfterPaint(menuName, 0);
+      enterSubmenuFromButton(menuName, isOpen);
       return;
     }
 
@@ -444,25 +482,26 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     const links = getSubmenuLinks(menuName);
     if (!links.length) return;
 
-    // Navegación vertical dentro del submenú
+    const idxFromDom = links.indexOf(event.currentTarget);
+    const idx = idxFromDom >= 0 ? idxFromDom : Math.min(Math.max(0, linkIndex), links.length - 1);
+
+    // Navegación solo dentro de la subsección: arriba/abajo de extremo a extremo (da la vuelta)
     if (event.key === "ArrowDown") {
       event.preventDefault();
       event.stopPropagation();
-      if (linkIndex < links.length - 1) {
-        focusSubmenuLink(menuName, linkIndex + 1);
-      } else {
-        focusSubmenuLink(menuName, 0); // Cicla al inicio
-      }
+      const next = idx >= links.length - 1 ? 0 : idx + 1;
+      const el = links[next];
+      el?.focus();
+      el?.scrollIntoView({ block: "nearest", inline: "nearest" });
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       event.stopPropagation();
-      if (linkIndex > 0) {
-        focusSubmenuLink(menuName, linkIndex - 1);
-      } else {
-        focusSubmenuLink(menuName, links.length - 1); // Cicla al final
-      }
+      const prev = idx <= 0 ? links.length - 1 : idx - 1;
+      const el = links[prev];
+      el?.focus();
+      el?.scrollIntoView({ block: "nearest", inline: "nearest" });
       return;
     }
 
@@ -488,21 +527,12 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       focusSubmenuLink(menuName, links.length - 1);
       return;
     }
-
-    // Salir del submenú y pasar al siguiente root con flecha derecha
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      event.stopPropagation();
-      setOpenMenu(null);
-      focusAdjacentRoot(event.currentTarget, 1);
-      return;
-    }
   };
 
   return (
     <aside
       ref={asideRef}
-      className={`relative h-screen flex flex-col transition-all duration-300 border-r border-emerald-900/30 shrink-0 [&_button]:cursor-pointer [&_a]:cursor-pointer ${
+      className={`relative z-20 isolate h-screen flex flex-col transition-all duration-300 border-r border-emerald-900/30 shrink-0 [&_button]:cursor-pointer [&_a]:cursor-pointer ${
         collapsed ? "w-20" : "w-64"
       }`}
       style={{ background: "linear-gradient(180deg, #063324 0%, #021a12 100%)" }}
@@ -516,6 +546,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       {/* Nav */}
       <nav
         ref={navRef}
+        aria-label="Menú principal"
         className={`
           flex-1 py-4 px-3 space-y-1 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
           [&::-webkit-scrollbar]:w-1
@@ -541,7 +572,8 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                   aria-label={item.name}
                   aria-expanded={openMenu === item.name}
                   aria-haspopup="true"
-                  className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all ${
+                  aria-controls={openMenu === item.name ? submenuRegionId(item.name) : undefined}
+                  className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all ${navFocusRing} ${
                     (item.path && location.pathname.includes(item.path)) ||
                     item.subItems?.some((sub) => location.pathname.startsWith(sub.path))
                       ? "bg-emerald-800/40 text-white"
@@ -562,6 +594,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                     ref={(node) => {
                       expandedSubmenuRefs.current[item.name] = node;
                     }}
+                    id={submenuRegionId(item.name)}
                     data-sidebar-submenu
                     role="group"
                     aria-label={item.name}
@@ -576,8 +609,10 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                         title={sub.name}
                         aria-label={sub.name}
                         className={({ isActive }) =>
-                          `block px-3 py-2 text-xs rounded-lg ${
-                            isActive ? "text-white bg-emerald-800" : "text-emerald-100/50 hover:text-white"
+                          `block px-3 py-2 text-xs rounded-lg outline-none ${navFocusRing} ${
+                            isActive
+                              ? "text-white bg-emerald-800 ring-offset-[#031910]"
+                              : "text-emerald-100/80 hover:bg-emerald-900/40 hover:text-white"
                           }`
                         }
                       >
@@ -592,6 +627,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                     ref={(node) => {
                       flyoutRefs.current[item.name] = node;
                     }}
+                    id={submenuRegionId(item.name)}
                     data-sidebar-submenu
                     role="group"
                     aria-label={item.name}
@@ -611,9 +647,9 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                           title={sub.name}
                           aria-label={sub.name}
                           className={({ isActive }) =>
-                            `mb-1 block rounded-lg px-3 py-2 text-xs transition ${
+                            `mb-1 block rounded-lg px-3 py-2 text-xs outline-none transition ${navFocusRing} ${
                               isActive
-                                ? "bg-emerald-700/70 text-white"
+                                ? "bg-emerald-700/70 text-white ring-offset-[#062f23]"
                                 : "text-emerald-100/80 hover:bg-emerald-800/50 hover:text-white"
                             }`
                           }
@@ -632,7 +668,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                 title={item.name}
                 aria-label={item.name}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
+                  `flex items-center gap-3 px-3 py-3 rounded-xl outline-none transition-all ${navFocusRing} ${
                     isActive
                       ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40"
                       : "text-emerald-100/70 hover:bg-emerald-900/30 hover:text-white"
