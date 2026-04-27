@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { MoreVertical, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../components/common/layout";
@@ -43,6 +43,12 @@ export default function ServicesPage() {
   const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
   const [isDeleteServiceModalOpen, setIsDeleteServiceModalOpen] = useState(false);
   const [isUploadingServiceImage, setIsUploadingServiceImage] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryPage, setCategoryPage] = useState(1);
+  const categoriesPerPage = 9;
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [servicePage, setServicePage] = useState(1);
+  const servicesPerPage = 9;
 
   const loadCatalog = async () => {
     setIsLoadingCategories(true);
@@ -110,9 +116,87 @@ export default function ServicesPage() {
     [categories]
   );
 
+  const filteredCategories = useMemo(() => {
+    const term = categorySearch.trim().toLowerCase();
+    if (!term) return categories;
+    return categories.filter((category) => {
+      const name = category.name?.toLowerCase() ?? "";
+      const description = category.description?.toLowerCase() ?? "";
+      return name.includes(term) || description.includes(term);
+    });
+  }, [categories, categorySearch]);
+
+  const totalCategoryPages = Math.max(1, Math.ceil(filteredCategories.length / categoriesPerPage));
+
+  const paginatedCategories = useMemo(() => {
+    const safePage = Math.min(categoryPage, totalCategoryPages);
+    const start = (safePage - 1) * categoriesPerPage;
+    return filteredCategories.slice(start, start + categoriesPerPage);
+  }, [filteredCategories, categoryPage, totalCategoryPages]);
+
+  const categoryPageNumbers = useMemo(() => {
+    const maxButtons = 5;
+    const half = Math.floor(maxButtons / 2);
+    let start = Math.max(1, categoryPage - half);
+    let end = Math.min(totalCategoryPages, start + maxButtons - 1);
+    start = Math.max(1, end - maxButtons + 1);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [categoryPage, totalCategoryPages]);
+
   const categoryById = useMemo(() => {
     return new Map(categories.map((category) => [category.id, category]));
   }, [categories]);
+
+  const filteredServices = useMemo(() => {
+    const term = serviceSearch.trim().toLowerCase();
+    if (!term) return services;
+    return services.filter((service) => {
+      const name = service.name?.toLowerCase() ?? "";
+      const description = service.description?.toLowerCase() ?? "";
+      const categoryName =
+        service.category?.name?.toLowerCase() ??
+        (service.category_id ? categoryById.get(service.category_id)?.name?.toLowerCase() : "") ??
+        "";
+      return name.includes(term) || description.includes(term) || categoryName.includes(term);
+    });
+  }, [services, serviceSearch, categoryById]);
+
+  const totalServicePages = Math.max(1, Math.ceil(filteredServices.length / servicesPerPage));
+
+  const paginatedServices = useMemo(() => {
+    const safePage = Math.min(servicePage, totalServicePages);
+    const start = (safePage - 1) * servicesPerPage;
+    return filteredServices.slice(start, start + servicesPerPage);
+  }, [filteredServices, servicePage, totalServicePages]);
+
+  const servicePageNumbers = useMemo(() => {
+    const maxButtons = 5;
+    const half = Math.floor(maxButtons / 2);
+    let start = Math.max(1, servicePage - half);
+    let end = Math.min(totalServicePages, start + maxButtons - 1);
+    start = Math.max(1, end - maxButtons + 1);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [servicePage, totalServicePages]);
+
+  useEffect(() => {
+    setCategoryPage(1);
+  }, [categorySearch]);
+
+  useEffect(() => {
+    if (categoryPage > totalCategoryPages) {
+      setCategoryPage(totalCategoryPages);
+    }
+  }, [categoryPage, totalCategoryPages]);
+
+  useEffect(() => {
+    setServicePage(1);
+  }, [serviceSearch]);
+
+  useEffect(() => {
+    if (servicePage > totalServicePages) {
+      setServicePage(totalServicePages);
+    }
+  }, [servicePage, totalServicePages]);
 
   const handleFormChange = <K extends keyof ServiceFormState>(field: K, value: ServiceFormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -414,12 +498,34 @@ export default function ServicesPage() {
 
       {isCategoriesView ? (
         <>
-          <SectionCard className="mt-4" bodyClassName="!p-4">
-            <h3 className="text-sm font-semibold text-slate-800">Categorías de servicio</h3>
+          <SectionCard className="mt-4 border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-[#323130]">Categorías de servicio</h3>
+                  <p className="text-xs text-[#605e5c]">Vista estilo Dynamics 365 con búsqueda y paginación</p>
+                </div>
+                <div className="text-xs text-[#605e5c]">
+                  Mostrando <span className="font-semibold text-[#323130]">{paginatedCategories.length}</span> de{" "}
+                  <span className="font-semibold text-[#323130]">{filteredCategories.length}</span>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onChange={(event) => setCategorySearch(event.target.value)}
+                  placeholder="Buscar categoría por nombre o descripción..."
+                  className="h-10 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                />
+              </div>
+            </div>
           </SectionCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {categories.map((category) => {
+            {paginatedCategories.map((category) => {
               return (
                 <ServiceCard
                   key={category.id}
@@ -432,15 +538,91 @@ export default function ServicesPage() {
               );
             })}
           </div>
+
+          {filteredCategories.length === 0 ? (
+            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-6">
+              <p className="text-sm text-[#605e5c]">No se encontraron categorías con ese criterio de búsqueda.</p>
+            </SectionCard>
+          ) : null}
+
+          {filteredCategories.length > categoriesPerPage ? (
+            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[#605e5c]">
+                  Página <span className="font-semibold text-[#323130]">{categoryPage}</span> de{" "}
+                  <span className="font-semibold text-[#323130]">{totalCategoryPages}</span>
+                </p>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setCategoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={categoryPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  {categoryPageNumbers.map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setCategoryPage(pageNumber)}
+                      className={`h-8 min-w-8 rounded-sm border px-2 text-xs font-semibold transition ${
+                        pageNumber === categoryPage
+                          ? "border-[#0078d4] bg-[#0078d4] text-white"
+                          : "border-[#d2d0ce] bg-white text-[#323130] hover:bg-[#f3f2f1]"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setCategoryPage((prev) => Math.min(totalCategoryPages, prev + 1))}
+                    disabled={categoryPage >= totalCategoryPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </SectionCard>
+          ) : null}
         </>
       ) : (
         <>
-          <SectionCard className="mt-4" bodyClassName="!p-4">
-            <h3 className="text-sm font-semibold text-slate-800">Servicios</h3>
+          <SectionCard className="mt-4 border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-[#323130]">Servicios</h3>
+                  <p className="text-xs text-[#605e5c]">Vista estilo Dynamics 365 con búsqueda y paginación</p>
+                </div>
+                <div className="text-xs text-[#605e5c]">
+                  Mostrando <span className="font-semibold text-[#323130]">{paginatedServices.length}</span> de{" "}
+                  <span className="font-semibold text-[#323130]">{filteredServices.length}</span>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+                <input
+                  type="text"
+                  value={serviceSearch}
+                  onChange={(event) => setServiceSearch(event.target.value)}
+                  placeholder="Buscar servicio por nombre, descripción o categoría..."
+                  className="h-10 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                />
+              </div>
+            </div>
           </SectionCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {services.map((service) => {
+            {paginatedServices.map((service) => {
               const categoryName =
                 service.category?.name ??
                 (service.category_id ? categoryById.get(service.category_id)?.name : undefined) ??
@@ -500,6 +682,60 @@ export default function ServicesPage() {
               );
             })}
           </div>
+
+          {filteredServices.length === 0 ? (
+            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-6">
+              <p className="text-sm text-[#605e5c]">No se encontraron servicios con ese criterio de búsqueda.</p>
+            </SectionCard>
+          ) : null}
+
+          {filteredServices.length > servicesPerPage ? (
+            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[#605e5c]">
+                  Página <span className="font-semibold text-[#323130]">{servicePage}</span> de{" "}
+                  <span className="font-semibold text-[#323130]">{totalServicePages}</span>
+                </p>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setServicePage((prev) => Math.max(1, prev - 1))}
+                    disabled={servicePage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  {servicePageNumbers.map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setServicePage(pageNumber)}
+                      className={`h-8 min-w-8 rounded-sm border px-2 text-xs font-semibold transition ${
+                        pageNumber === servicePage
+                          ? "border-[#0078d4] bg-[#0078d4] text-white"
+                          : "border-[#d2d0ce] bg-white text-[#323130] hover:bg-[#f3f2f1]"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setServicePage((prev) => Math.min(totalServicePages, prev + 1))}
+                    disabled={servicePage >= totalServicePages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </SectionCard>
+          ) : null}
         </>
       )}
 

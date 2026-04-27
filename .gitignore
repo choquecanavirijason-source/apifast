@@ -34,3 +34,6 @@ elashesbackend/build/
 # Ignora los assets generados con hash para no ensuciar el historial
 server/public/app/assets/index-*.js
 server/public/app/assets/index-*.css
+
+# Uploads de servicios (imágenes generadas/subidas)
+elashesbackend/uploads/services/

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ShoppingCart,
@@ -63,10 +63,39 @@ export default function PosSaleStepOne({
   professionals,
 }: PosSaleStepOneProps) {
   const [isSaleDrawerOpen, setIsSaleDrawerOpen] = useState(false);
+  const [addToCartMessage, setAddToCartMessage] = useState("");
   const cartCount = cartLines.length;
 
   const bcField =
     "w-full h-9 rounded-sm border border-[#8a8886] bg-white px-2.5 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
+
+  useEffect(() => {
+    if (!addToCartMessage) return;
+    const timer = window.setTimeout(() => setAddToCartMessage(""), 2200);
+    return () => window.clearTimeout(timer);
+  }, [addToCartMessage]);
+
+  const showAddedMessage = (serviceName: string) => {
+    const safeName = serviceName.trim() || "Servicio";
+    setAddToCartMessage(`Se agregó "${safeName}" al carrito.`);
+  };
+
+  const handleAddServiceToCart = (service: (typeof quickServices)[number]) => {
+    onAddServiceToCart(service);
+    showAddedMessage(service.name || "Servicio");
+  };
+
+  const handleServiceSelect = (serviceId: string) => {
+    onServiceSelect(serviceId);
+    const selectedService =
+      filteredServices.find((service) => String(service.id) === serviceId) ||
+      services.find((service) => String(service.id) === serviceId);
+    if (selectedService?.name) {
+      showAddedMessage(selectedService.name);
+    } else {
+      showAddedMessage("Servicio");
+    }
+  };
 
   const cartLinesSection = (
     <div className="border-b border-[#edebe9]">
@@ -92,10 +121,17 @@ export default function PosSaleStepOne({
             <tbody className="divide-y divide-[#f3f2f1]">
               {cartLines.map((line) => {
                 const service = services.find((s) => String(s.id) === line.service_id);
+                const serviceName = service?.name?.trim() || "Servicio";
                 return (
                   <tr key={line.localId} className="transition-colors hover:bg-[#f3f2f1]">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-[#323130]">{service?.name}</p>
+                      <p
+                        className="truncate text-sm font-medium text-[#323130]"
+                        title={serviceName}
+                        aria-label={`Servicio agregado: ${serviceName}`}
+                      >
+                        {serviceName}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-sm font-semibold text-[#323130]">Bs {line.price.toFixed(2)}</span>
@@ -312,6 +348,13 @@ export default function PosSaleStepOne({
     <div
       className={`relative flex h-[80dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col bg-[#f3f2f1] text-[#323130] ${isLoading ? "pointer-events-none opacity-60" : ""}`}
     >
+      {addToCartMessage ? (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-[60] flex justify-center px-4">
+          <div className="rounded-sm border border-[#b7dfbe] bg-[#f1fbf3] px-3 py-2 text-xs font-semibold text-[#0f6c2f] shadow-sm">
+            {addToCartMessage}
+          </div>
+        </div>
+      ) : null}
 
 
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden px-2 pb-24 pt-2 sm:px-3 sm:pb-28 sm:pt-3">
@@ -327,13 +370,13 @@ export default function PosSaleStepOne({
               isServiceMenuOpen={isServiceMenuOpen}
               serviceMenuPosition={serviceMenuPosition}
               filteredServices={filteredServices}
-              onServiceSelect={onServiceSelect}
+              onServiceSelect={handleServiceSelect}
               selectedServiceCategoryId={selectedServiceCategoryId}
               onCategoryFilterChange={onCategoryFilterChange}
               serviceCategories={serviceCategories}
               onOpenCategoryModal={onOpenCategoryModal}
               quickServices={quickServices}
-              onAddServiceToCart={onAddServiceToCart}
+              onAddServiceToCart={handleAddServiceToCart}
               serviceComboboxRef={serviceComboboxRef}
               serviceMenuRef={serviceMenuRef}
             />
@@ -396,6 +439,21 @@ export default function PosSaleStepOne({
                 <span className="text-xs font-semibold text-[#605e5c]">Total a cobrar</span>
                 <span className="text-lg font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  cartLines.forEach((line) => onRemoveLine(line.localId));
+                }}
+                disabled={cartCount === 0}
+                className={`mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-sm border text-sm font-semibold transition-all ${
+                  cartCount === 0
+                    ? "cursor-not-allowed border-[#edebe9] bg-[#f3f2f1] text-[#a19f9d]"
+                    : "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
+                }`}
+              >
+                <Trash2 className="h-4 w-4" />
+                Vaciar carrito
+              </button>
               <button
                 type="button"
                 onClick={() => {

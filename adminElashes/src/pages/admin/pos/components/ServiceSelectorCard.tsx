@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { ServiceCategoryOption, ServiceOption } from "../../../../core/services/agenda/agenda.service";
 
@@ -44,6 +45,46 @@ export default function ServiceSelectorCard({
   serviceComboboxRef,
   serviceMenuRef,
 }: ServiceSelectorCardProps) {
+  const quickServicesTrackRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateQuickScrollState = () => {
+    const track = quickServicesTrackRef.current;
+    if (!track) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+
+    const maxScrollLeft = track.scrollWidth - track.clientWidth;
+    setCanScrollLeft(track.scrollLeft > 4);
+    setCanScrollRight(maxScrollLeft - track.scrollLeft > 4);
+  };
+
+  useEffect(() => {
+    const track = quickServicesTrackRef.current;
+    if (!track) return;
+
+    updateQuickScrollState();
+    track.addEventListener("scroll", updateQuickScrollState, { passive: true });
+    window.addEventListener("resize", updateQuickScrollState);
+
+    return () => {
+      track.removeEventListener("scroll", updateQuickScrollState);
+      window.removeEventListener("resize", updateQuickScrollState);
+    };
+  }, [quickServices.length]);
+
+  const scrollQuickServices = (direction: "left" | "right") => {
+    const track = quickServicesTrackRef.current;
+    if (!track) return;
+    track.scrollBy({
+      left: direction === "left" ? -320 : 320,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col rounded-sm border border-[#edebe9] bg-white shadow-sm">
       <div className="shrink-0 p-4 sm:p-5">
@@ -139,8 +180,37 @@ export default function ServiceSelectorCard({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[#f3f2f1]">
           <div className="min-h-0 flex-1 overflow-hidden px-4 pb-5 pt-4 sm:px-5">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#605e5c]">Sugerencias rápidas</p>
-            <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden">
-              <div className="flex h-full min-h-0 snap-x snap-mandatory items-stretch gap-3 pb-2">
+            <div className="relative">
+              {canScrollLeft ? (
+                <button
+                  type="button"
+                  onClick={() => scrollQuickServices("left")}
+                  className="absolute left-1 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#d2d0ce] bg-white/95 text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
+                  aria-label="Desplazar a la izquierda"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              ) : null}
+              {canScrollRight ? (
+                <button
+                  type="button"
+                  onClick={() => scrollQuickServices("right")}
+                  className="absolute right-1 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#d2d0ce] bg-white/95 text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
+                  aria-label="Desplazar a la derecha"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : null}
+
+              {canScrollLeft ? (
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-white to-transparent" />
+              ) : null}
+              {canScrollRight ? (
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-white to-transparent" />
+              ) : null}
+
+              <div ref={quickServicesTrackRef} className="overflow-x-auto overflow-y-hidden scroll-smooth pb-1">
+                <div className="flex snap-x snap-mandatory items-stretch gap-3 pb-2">
                 {quickServices.map((service) => (
                   <button
                     key={service.id}
@@ -168,6 +238,7 @@ export default function ServiceSelectorCard({
                     </div>
                   </button>
                 ))}
+                </div>
               </div>
             </div>
           </div>
