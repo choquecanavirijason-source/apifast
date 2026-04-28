@@ -7,9 +7,19 @@ import {
   ShoppingCart,
   Trash2,
 } from "lucide-react";
+// Use parent-provided availability preview state in Main.tsx
 
 import { TICKET_STATUS_OPTIONS } from "../pos.constants";
-import type { PosSaleStepTwoProps } from "../pos.types";
+import type { PosSaleStepTwoProps as BasePosSaleStepTwoProps } from "../pos.types";
+
+// Extiende el tipo de props para incluir las nuevas props
+interface PosSaleStepTwoExtraProps {
+  setIsSaleDrawerOpen: (open: boolean) => void;
+  cartCount: number;
+  animateCart: boolean;
+}
+
+type PosSaleStepTwoProps = BasePosSaleStepTwoProps & PosSaleStepTwoExtraProps;
 
 export default function PosSaleStepTwo({
   cartLines,
@@ -27,7 +37,11 @@ export default function PosSaleStepTwo({
   isSubmitting,
   onCheckout,
   onBack,
+  setIsSaleDrawerOpen,
+  cartCount,
+  animateCart,
 }: PosSaleStepTwoProps) {
+  // No local preview state — use the parent's `setAvailabilityPreview*` setters
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#edebe9] bg-white px-4 py-3 sm:px-6">
@@ -124,6 +138,7 @@ export default function PosSaleStepTwo({
                             <button
                               type="button"
                               onClick={() => {
+                                // open the parent's availability preview modal
                                 setAvailabilityPreviewLineId(line.localId);
                                 setAvailabilityPreviewDate((line.date || saleBaseDate).trim());
                                 setAvailabilitySearch("");
@@ -269,6 +284,21 @@ export default function PosSaleStepTwo({
           </button>
         </div>
       </div>
+
+      {/* Botón flotante de carrito */}
+      <button
+        type="button"
+        onClick={() => setIsSaleDrawerOpen(true)}
+        className={`fixed bottom-6 right-6 z-[42] flex h-14 min-w-14 items-center justify-center rounded-full bg-[#0078d4] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#005a9e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] ${
+          animateCart ? "scale-125 bg-emerald-500" : "scale-100"
+        }`}
+        aria-label={`Detalle de la venta: ${cartCount} servicios seleccionados`}
+      >
+        <ShoppingCart className="h-6 w-6" />
+        <span className="absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-xs font-bold text-white ring-2 ring-white">
+          {cartCount}
+        </span>
+      </button>
     </div>
   );
 }

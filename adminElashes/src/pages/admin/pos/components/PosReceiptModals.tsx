@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import { Clock, Printer, ReceiptText } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -54,7 +54,7 @@ export default function PosReceiptModals({
   onCloseReceipt,
   receiptTicketEdits: _receiptTicketEdits,
   professionals,
-  onUpdateReceiptTicketEdit: _onUpdateReceiptTicketEdit,
+  onUpdateReceiptTicketEdit,
   onSaveReceiptTicketEdits: _onSaveReceiptTicketEdits,
   isSavingReceiptTickets: _isSavingReceiptTickets,
   onOpenPrintPreview,
@@ -80,6 +80,7 @@ export default function PosReceiptModals({
   toDateAndTimeInputValues,
 }: PosReceiptModalsProps) {
   void setAvailabilityPreviewLineId;
+  const [dragOverDayIndex, setDragOverDayIndex] = useState<number | null>(null);
 
   const handleDirectPrintReceipt = () => {
     onOpenPrintPreview();
@@ -103,6 +104,25 @@ export default function PosReceiptModals({
     () => `Reservas del dia ${availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}`,
     [availabilityPreviewDate, activeAvailabilityLine, saleBaseDate]
   );
+
+  const weekDays = useMemo(() => {
+    const base = new Date(availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate);
+    const day = base.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(base);
+    monday.setDate(base.getDate() + diffToMonday);
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }, [availabilityPreviewDate, activeAvailabilityLine, saleBaseDate]);
+
+  const calendarHours = useMemo(() => {
+    const arr: number[] = [];
+    for (let h = 7; h <= 20; h++) arr.push(h);
+    return arr;
+  }, []);
 
   return (
     <>
@@ -434,57 +454,99 @@ export default function PosReceiptModals({
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Horas disponibles y ocupadas</p>
-                <span className="rounded-full border border-[#d2d0ce] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#605e5c]">
-                  {previewHourSlots.length} hora(s)
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {previewHourSlots.map((slot) => (
-                <button
-                  key={slot.hourLabel}
-                  type="button"
-                  onClick={() => onSelectHourFromPreview(slot.hourLabel)}
-                  className={`rounded-sm border px-3 py-3 text-left text-xs shadow-sm transition ${
-                    slot.isBusy
-                      ? "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
-                      : "border-[#b7dfbe] bg-[#f1fbf3] text-[#0f6c2f] hover:bg-[#dff6dd]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xl font-bold leading-none">{slot.hourLabel}</p>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#323130]">
-                      {slot.isBusy ? `${slot.count} ocupada(s)` : "Libre"}
-                    </span>
-                  </div>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-[#605e5c]">Calendario semanal</p>
+                  <span className="rounded-full border border-[#d2d0ce] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#605e5c]">Semana</span>
+                </div>
 
-                  {slot.isBusy && (
-                    <div className="mt-2 space-y-1.5 rounded-sm border border-[#f3d2d6] bg-white p-2 text-[11px] text-[#323130]">
-                      {slot.entries.map((entry) => (
-                        <div key={`${slot.hourLabel}-${entry.ticketId}`} className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2 py-1">
-                          <p className="truncate text-[10px] font-semibold text-[#a4262c]">Ticket #{entry.ticketId}</p>
-                          <p className="truncate">
-                            <span className="font-semibold">Operaria:</span> {entry.professionalName}
-                          </p>
-                          <p className="truncate">
-                            <span className="font-semibold">Cliente:</span> {entry.clientName}
-                          </p>
-                          <p className="truncate">
-                            <span className="font-semibold">Servicio:</span> {entry.serviceName}
-                          </p>
+                <div className="overflow-auto">
+                  <div className="inline-block min-w-full">
+                    <div className="grid grid-cols-[56px_repeat(7,1fr)] items-center bg-white">
+                      <div />
+                      {weekDays.map((d) => (
+                        <div key={d.toISOString()} className="border-l border-b px-3 py-2 text-center text-sm font-semibold">
+                          <div>{d.toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                          <div className="text-xs text-[#605e5c]">{d.toLocaleDateString()}</div>
                         </div>
                       ))}
-
-                      {slot.extraCount > 0 && (
-                        <p className="text-[10px] font-semibold text-[#605e5c]">+{slot.extraCount} ticket(s) más en esta hora</p>
-                      )}
                     </div>
-                  )}
-                </button>
-              ))}
-              </div>
-              <p className="mt-3 text-[11px] text-[#605e5c]">Al tocar una hora, se guarda directamente en el ticket seleccionado.</p>
+
+                    <div className="grid grid-cols-[56px_repeat(7,1fr)]">
+                      <div className="flex flex-col">
+                        {calendarHours.map((h) => (
+                          <div key={h} className="h-12 border-b pr-2 text-right text-xs text-[#605e5c]">{`${String(h).padStart(2,'0')}:00`}</div>
+                        ))}
+                      </div>
+
+                      {weekDays.map((d, dayIndex) => (
+                        <div
+                          key={d.toISOString()}
+                          className={`relative ${dragOverDayIndex === dayIndex ? 'bg-[#f3fbff]' : ''}`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            setDragOverDayIndex(dayIndex);
+                          }}
+                          onDragLeave={() => setDragOverDayIndex(null)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDragOverDayIndex(null);
+                            const id = e.dataTransfer.getData('application/ticket-id') || e.dataTransfer.getData('text/ticket-id');
+                            if (!id) return;
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            const y = e.clientY - rect.top;
+                            const hourHeight = 48; // px per hour as used above
+                            const dayStartHour = calendarHours[0];
+                            let hourIndex = Math.floor(y / hourHeight);
+                            if (hourIndex < 0) hourIndex = 0;
+                            if (hourIndex >= calendarHours.length) hourIndex = calendarHours.length - 1;
+                            const hour = dayStartHour + hourIndex;
+                            const minutesFloat = ((y % hourHeight) / hourHeight) * 60;
+                            const minutes = Math.max(0, Math.min(59, Math.round(minutesFloat / 5) * 5));
+                            const hh = String(hour).padStart(2, '0');
+                            const mm = String(minutes).padStart(2, '0');
+                            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                            // call parent handler to update this ticket
+                            onUpdateReceiptTicketEdit(Number(id), { date: dateStr, time: `${hh}:${mm}`, without_time: false });
+                          }}
+                        >
+                          {calendarHours.map((h) => (
+                            <div key={h} className="h-12 border-b border-l" />
+                          ))}
+
+                          {/* render events that match this date */}
+                          {occupiedTicketsForPreview
+                            .filter((ticket) => {
+                              const t = new Date(ticket.start_time);
+                              return (
+                                t.getFullYear() === d.getFullYear() &&
+                                t.getMonth() === d.getMonth() &&
+                                t.getDate() === d.getDate()
+                              );
+                            })
+                            .map((ticket) => {
+                              const s = new Date(ticket.start_time);
+                              const e = new Date(ticket.end_time);
+                              const dayStartHour = calendarHours[0];
+                              const top = ((s.getHours() + s.getMinutes()/60) - dayStartHour) * 48; // 48px per hour
+                              const height = Math.max(24, ((e.getTime() - s.getTime()) / (1000*60*60)) * 48);
+                              return (
+                                <div
+                                  key={ticket.id}
+                                  className="absolute left-2 right-2 rounded px-2 py-1 text-xs text-white shadow"
+                                  style={{ top, height, background: '#d13438' }}
+                                  title={`${ticket.client_name} · ${ticket.professional_name || ''}`}
+                                >
+                                  <div className="truncate font-semibold">{ticket.client_name ?? 'Reservado'}</div>
+                                  <div className="truncate text-[10px]">{formatHourMinute(ticket.start_time)} - {formatHourMinute(ticket.end_time)}</div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
             </div>
 
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
@@ -507,6 +569,11 @@ export default function PosReceiptModals({
                     return (
                       <div
                         key={ticket.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/ticket-id', String(ticket.id));
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
                         className="flex items-start justify-between gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-2"
                       >
                         <div className="min-w-0">

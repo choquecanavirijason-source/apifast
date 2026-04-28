@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // 1. Añadido useEffect
 import {
   ArrowRight,
   ShoppingCart,
@@ -63,7 +63,24 @@ export default function PosSaleStepOne({
   professionals,
 }: PosSaleStepOneProps) {
   const [isSaleDrawerOpen, setIsSaleDrawerOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false); // 2. Estado para el aviso
+  const [animateCart, setAnimateCart] = useState(false); // 3. Estado para animar el botón
   const cartCount = cartLines.length;
+
+  // Efecto para disparar feedback cuando se agrega algo
+  useEffect(() => {
+    if (cartCount > 0) {
+      setShowToast(true);
+      setAnimateCart(true);
+      
+      const timer = setTimeout(() => {
+        setShowToast(false);
+        setAnimateCart(false);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [cartCount]);
 
   const bcField =
     "w-full h-9 rounded-sm border border-[#8a8886] bg-white px-2.5 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
@@ -93,9 +110,13 @@ export default function PosSaleStepOne({
               {cartLines.map((line) => {
                 const service = services.find((s) => String(s.id) === line.service_id);
                 return (
-                  <tr key={line.localId} className="transition-colors hover:bg-[#f3f2f1]">
-                    <td className="px-4 py-3">
+                  <tr key={line.localId} className="group transition-colors hover:bg-[#f3f2f1]">
+                    <td className="relative px-4 py-3">
                       <p className="text-sm font-medium text-[#323130]">{service?.name}</p>
+                      {/* TOOLTIP: Aparece al hacer hover en la fila */}
+                      <span className="pointer-events-none absolute left-4 -top-2 z-50 origin-bottom scale-0 rounded bg-[#323130] px-2 py-1 text-[10px] text-white transition-all group-hover:scale-100">
+                        Servicio en lista
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-sm font-semibold text-[#323130]">Bs {line.price.toFixed(2)}</span>
@@ -312,7 +333,13 @@ export default function PosSaleStepOne({
     <div
       className={`relative flex h-[80dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col bg-[#f3f2f1] text-[#323130] ${isLoading ? "pointer-events-none opacity-60" : ""}`}
     >
-
+      {/* 4. TOAST NOTIFICATION */}
+      {showToast && (
+        <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-top-4">
+          <ShoppingCart className="h-4 w-4" />
+          ¡Servicio añadido!
+        </div>
+      )}
 
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden px-2 pb-24 pt-2 sm:px-3 sm:pb-28 sm:pt-3">
         <div className="h-full min-h-0 w-full min-w-0 max-w-none">
@@ -341,17 +368,32 @@ export default function PosSaleStepOne({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setIsSaleDrawerOpen(true)}
-        className="fixed bottom-6 right-6 z-[42] flex h-14 min-w-14 items-center justify-center rounded-full bg-[#0078d4] text-white shadow-lg shadow-slate-900/25 transition hover:bg-[#005a9e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] focus-visible:ring-offset-2"
-        aria-label={`Detalle de la venta: ${cartCount} servicios seleccionados`}
-      >
-        <ShoppingCart className="h-6 w-6" />
-        <span className="absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-xs font-bold text-white ring-2 ring-white">
-          {cartCount}
-        </span>
-      </button>
+      <div className="fixed bottom-6 right-6 z-[42] flex gap-3">
+        <button
+          type="button"
+          onClick={() => setIsSaleDrawerOpen(true)}
+          className={`flex h-14 min-w-14 items-center justify-center rounded-full bg-[#0078d4] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#005a9e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] ${
+            animateCart ? "scale-125 bg-emerald-500" : "scale-100"
+          }`}
+          aria-label={`Detalle de la venta: ${cartCount} servicios seleccionados`}
+        >
+          <ShoppingCart className="h-6 w-6" />
+          <span className="absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-xs font-bold text-white ring-2 ring-white">
+            {cartCount}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+                  setIsSaleDrawerOpen(false);
+                  onContinueToAgenda();
+                }}
+          className="flex h-14 min-w-14 items-center justify-center rounded-full bg-[#323130] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#605e5c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#323130]"
+          aria-label="Ir a agenda/tickets"
+        >
+          <ArrowRight className="h-6 w-6" />
+        </button>
+      </div>
 
       {isSaleDrawerOpen ? (
         <>

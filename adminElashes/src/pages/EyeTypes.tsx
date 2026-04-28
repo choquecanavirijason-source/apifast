@@ -5,11 +5,11 @@ import {
 import { toast } from "react-toastify";
 import api from "../core/services/api";
 
-// --- 1. Tipos y Datos Mock ---
+
 type EyeType = {
   id: number;
   name: string;
-  image: string; // Base64 o URL
+  image: string; 
 };
 
 const emptyForm = { name: "", image: "" };
@@ -27,9 +27,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-// --- 2. Componentes UI Reutilizables (Internos) ---
 
-// Modal Genérico
 const SimpleModal = ({ isOpen, onClose, title, children }: any) => {
   if (!isOpen) return null;
   return (
@@ -47,7 +45,7 @@ const SimpleModal = ({ isOpen, onClose, title, children }: any) => {
   );
 };
 
-// Diálogo de Confirmación
+
 const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, isProcessing, variant = "primary" }: any) => {
     if (!isOpen) return null;
     return (
@@ -311,9 +309,7 @@ export default function EyeTypesPage() {
         </div>
       </div>
 
-      {/* --- Modales --- */}
-
-      {/* Formulario Crear/Editar */}
+    
       <SimpleModal
         isOpen={isModalOpen}
         onClose={closeModal}
@@ -387,7 +383,6 @@ export default function EyeTypesPage() {
         </form>
       </SimpleModal>
 
-      {/* Confirmar Eliminación */}
       {dialogConfig && (
         <ConfirmDialog
           isOpen={dialogConfig.isOpen}
