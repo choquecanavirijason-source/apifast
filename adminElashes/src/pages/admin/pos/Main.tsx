@@ -142,14 +142,14 @@ const labelClass =
 export type PosPageProps = {
   embedded?: boolean;
   initialDate?: string;
-  section?: "sale" | "history";
+  section?: "sale" | "history" | "tickets";
 };
 
 export default function PosPage({ embedded = false, initialDate, section }: PosPageProps) {
   const navigate = useNavigate();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
 
-  const [activeTab, setActiveTab] = useState<"sale" | "history">(section ?? "sale");
+  const [activeTab, setActiveTab] = useState<"sale" | "history" | "tickets">(section ?? "sale");
   // Nuevo: estado para el paso del wizard
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -161,7 +161,13 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
   const [sales,        setSales]        = useState<PosSaleItem[]>([]);
   const [existingTickets, setExistingTickets] = useState<TicketItem[]>([]);
   const [eyeTypes,     setEyeTypes]     = useState<EyeTypeOption[]>([]);
-  const [branches,     setBranches]     = useState<Array<{ id: number; name: string }>>([]);
+  const [branches,     setBranches]     = useState<
+    Array<{
+      id: number;
+      name: string;
+      opening_hours?: Array<{ day: string; ranges: Array<{ open_time: string; close_time: string }> }> | null;
+    }>
+  >([]);
   const [eyeTypesError,setEyeTypesError]= useState<string | null>(null);
   const [isLoadingEyeTypes, setIsLoadingEyeTypes] = useState(false);
 
@@ -181,6 +187,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [isLoading,           setIsLoading]           = useState(false);
   const [receiptSale,         setReceiptSale]         = useState<PosSaleItem | null>(null);
+  const [editingSale,         setEditingSale]         = useState<PosSaleItem | null>(null);
   const [isRegisterClientOpen,setIsRegisterClientOpen]= useState(false);
   const [isClientMenuOpen,    setIsClientMenuOpen]    = useState(false);
   const [isServiceMenuOpen,   setIsServiceMenuOpen]   = useState(false);
@@ -659,6 +666,11 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     return { start, end };
   };
 
+  const editingAppointmentIds = useMemo(() => {
+    if (!editingSale) return new Set<number>();
+    return new Set(editingSale.appointments.map((appointment) => appointment.id));
+  }, [editingSale]);
+
   const lineAvailability = useMemo(() => {
     const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
       aStart.getTime() < bEnd.getTime() && aEnd.getTime() > bStart.getTime();
@@ -699,6 +711,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
 
       for (const ticket of existingTickets) {
         if ((ticket.status ?? "") === "cancelled") continue;
+        if (editingAppointmentIds.has(ticket.id)) continue;
         if (Number(ticket.professional_id) !== professionalId) continue;
 
         const ticketStart = new Date(ticket.start_time);
@@ -719,7 +732,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     }
 
     return result;
-  }, [cartLines, existingTickets, saleBaseDate]);
+  }, [cartLines, editingAppointmentIds, existingTickets, saleBaseDate]);
 
   const activeAvailabilityLine = useMemo(
     () => cartLines.find((line) => line.localId === availabilityPreviewLineId) ?? null,
@@ -824,10 +837,53 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
   };
 
   const updateLine = (localId: string, patch: Partial<CartLine>) => {
-    setCartLines((prev) => prev.map((line) => (line.localId === localId ? { ...line, ...patch } : line)));
+    setCartLines((prev) =>
+      prev.map((line) => {
+        if (line.localId !== localId) return line;
+
+        const nextLine: CartLine = { ...line, ...patch };
+
+        // Si cambian el servicio, sincroniza precio y duración reales del catálogo.
+        if (patch.service_id && patch.service_id !== line.service_id) {
+          const selectedService = services.find((service) => String(service.id) === patch.service_id);
+          if (selectedService) {
+            nextLine.price = Number(selectedService.price ?? 0);
+            nextLine.duration_minutes = Math.max(1, Number(selectedService.duration_minutes ?? 60));
+          }
+        }
+
+        return nextLine;
+      })
+    );
   };
+
+  useEffect(() => {
+    if (services.length === 0) return;
+
+    // Mantiene tickets sincronizados si el catálogo cambia (precios/duraciones).
+    setCartLines((prev) =>
+      prev.map((line) => {
+        const selectedService = services.find((service) => String(service.id) === line.service_id);
+        if (!selectedService) return line;
+
+        const syncedPrice = Number(selectedService.price ?? line.price);
+        const syncedDuration = Math.max(1, Number(selectedService.duration_minutes ?? line.duration_minutes));
+
+        if (line.price === syncedPrice && line.duration_minutes === syncedDuration) {
+          return line;
+        }
+
+        return {
+          ...line,
+          price: syncedPrice,
+          duration_minutes: syncedDuration,
+        };
+      })
+    );
+  }, [services]);
   const removeLine        = (localId: string) => setCartLines((prev) => prev.filter((l) => l.localId !== localId));
   const resetSaleForm     = () => {
+    setEditingSale(null);
     setClientId("");
     setClientSearch("");
     setServiceSearch("");
@@ -1040,6 +1096,67 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
 
     setIsSubmitting(true);
     try {
+      if (editingSale) {
+        const appointmentIdsSeen = new Set<number>();
+
+        for (const line of cartLines) {
+          const safeDate = line.date?.trim() || getLocalDateInputValue();
+          const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
+          const start = new Date(`${safeDate}T${safeTime}:00`);
+          const end = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
+
+          if (line.appointment_id) {
+            appointmentIdsSeen.add(line.appointment_id);
+            await AgendaService.updateAppointment(line.appointment_id, {
+              client_id: Number(clientId),
+              service_id: Number(line.service_id),
+              professional_id: line.professional_id ? Number(line.professional_id) : null,
+              branch_id: activeBranchId,
+              start_time: formatLocalDateTime(start),
+              end_time: formatLocalDateTime(end),
+              status: line.status,
+            });
+          } else {
+            await AgendaService.createAppointment({
+              client_id: Number(clientId),
+              service_id: Number(line.service_id),
+              professional_id: line.professional_id ? Number(line.professional_id) : null,
+              branch_id: activeBranchId,
+              sale_id: editingSale.id,
+              start_time: formatLocalDateTime(start),
+              end_time: formatLocalDateTime(end),
+              status: line.status,
+            });
+          }
+        }
+
+        await Promise.all(
+          editingSale.appointments
+            .filter((appointment) => !appointmentIdsSeen.has(appointment.id))
+            .map((appointment) => AgendaService.deleteAppointment(appointment.id))
+        );
+
+        const updatedSale = await PosSaleService.update(editingSale.id, {
+          client_id: Number(clientId),
+          payment_method: paymentMethod,
+          discount_type: discountType,
+          discount_value: numericDiscount,
+          notes: notes.trim() || "",
+        });
+
+        const refreshedSale = await PosSaleService.getById(updatedSale.id);
+        setSales((prev) => prev.map((sale) => (sale.id === refreshedSale.id ? refreshedSale : sale)));
+        setReceiptSale(refreshedSale);
+        localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+        toast.success(`Venta ${refreshedSale.sale_code} actualizada.`);
+        resetSaleForm();
+        await loadContext();
+        if (!embedded) {
+          navigate("/admin/pos/history");
+        }
+        return;
+      }
+
       const payload = {
         client_id: Number(clientId),
         branch_id: activeBranchId,
@@ -1201,6 +1318,103 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     }
   };
 
+  const handleEditSaleFromHistory = async (sale: PosSaleItem) => {
+    try {
+      const saleForEdit = await PosSaleService.getById(sale.id);
+    const saleClientName = `${saleForEdit.client?.name ?? ""} ${saleForEdit.client?.last_name ?? ""}`.trim();
+    const nextLines: CartLine[] = saleForEdit.appointments.map((appointment) => {
+      const when = toDateAndTimeInputValues(appointment.start_time);
+      const start = new Date(appointment.start_time);
+      const end = new Date(appointment.end_time);
+      const durationMinutes = Math.max(
+        1,
+        Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+          ? 60
+          : Math.round((end.getTime() - start.getTime()) / 60000)
+      );
+      const serviceId = String(appointment.service?.id ?? "");
+      const serviceFromCatalog = services.find((serviceItem) => String(serviceItem.id) === serviceId);
+      const fallbackPrice = Number(appointment.service?.price ?? 0);
+
+      return {
+        localId: `edit-sale-${saleForEdit.id}-appt-${appointment.id}`,
+        appointment_id: appointment.id,
+        service_id: serviceId,
+        professional_id: appointment.professional?.id ? String(appointment.professional.id) : "",
+        date: when.date || saleBaseDate,
+        time: when.time || "09:00",
+        without_time: when.without_time,
+        status: appointment.status === "in_service" ? "in_service" : "pending",
+        duration_minutes: durationMinutes,
+        price: serviceFromCatalog?.price ?? fallbackPrice,
+      };
+    });
+
+      setEditingSale(saleForEdit);
+      setClientId(String(saleForEdit.client.id));
+      setClientSearch(saleClientName || "");
+      setPaymentMethod((saleForEdit.payment_method || "cash").toLowerCase());
+      setDiscountType(saleForEdit.discount_type === "percent" ? "percent" : "amount");
+      setDiscountValue(String(saleForEdit.discount_value ?? 0));
+      setNotes(saleForEdit.notes ?? "");
+      setCartLines(nextLines);
+      setServiceSearch("");
+      setSelectedServiceCategoryId("all");
+      setAvailabilityPreviewLineId(null);
+      setAvailabilityPreviewDate("");
+      setAvailabilitySearch("");
+      setReceiptSale(null);
+      setActiveTab("sale");
+      setStep(1);
+      toast.success(`Editando venta ${saleForEdit.sale_code}.`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo cargar la venta para edicion."));
+    }
+  };
+
+  const handleCancelSaleFromHistory = async (sale: PosSaleItem) => {
+    if (sale.status === "cancelled") {
+      toast.info("Esta venta ya esta cancelada.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `¿Cancelar la venta ${sale.sale_code}? Esto cancelara tambien sus tickets y pagos.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const cancelledSale = await PosSaleService.cancel(sale.id);
+      setSales((prev) => prev.map((item) => (item.id === cancelledSale.id ? cancelledSale : item)));
+      if (receiptSale?.id === cancelledSale.id) {
+        setReceiptSale(cancelledSale);
+      }
+      void loadContext();
+      toast.success("Venta cancelada correctamente.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo cancelar la venta."));
+    }
+  };
+
+  const handleDeleteSaleFromHistory = async (sale: PosSaleItem) => {
+    const confirmed = window.confirm(
+      `¿Eliminar definitivamente la venta ${sale.sale_code}? Esta accion borrara tickets y pagos asociados.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await PosSaleService.remove(sale.id);
+      setSales((prev) => prev.filter((item) => item.id !== sale.id));
+      if (receiptSale?.id === sale.id) {
+        setReceiptSale(null);
+      }
+      void loadContext();
+      toast.success("Venta eliminada correctamente.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo eliminar la venta."));
+    }
+  };
+
   const HistorySection = () => (
     <SalesHistoryTable
       historySearch={historySearch}
@@ -1228,6 +1442,64 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
       filteredSalesCount={filteredSales.length}
       onPageChange={setCurrentPage}
       onViewDetail={setReceiptSale}
+      onEditSale={(sale) => void handleEditSaleFromHistory(sale)}
+      onCancelSale={(sale) => void handleCancelSaleFromHistory(sale)}
+      onDeleteSale={(sale) => void handleDeleteSaleFromHistory(sale)}
+    />
+  );
+
+  const renderSaleTicketsSection = (onBack: () => void) => (
+    <PosSaleStepTwo
+      branchOpeningHours={branches.find((branch) => branch.id === activeBranchId)?.opening_hours ?? null}
+      
+      cartLines={cartLines}
+      existingTickets={existingTickets}
+      services={services}
+      clientDisplayName={
+        selectedClient
+          ? `${selectedClient.nombre} ${selectedClient.apellido}`.trim()
+          : (clientSearch.trim() || "Sin cliente")
+      }
+      editingSaleCode={editingSale?.sale_code ?? null}
+      subtotal={subtotal}
+      total={total}
+      onRemoveLine={removeLine}
+      professionals={professionals}
+      lineAvailability={lineAvailability}
+      saleBaseDate={saleBaseDate}
+      updateLine={updateLine}
+      setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
+      setAvailabilityPreviewDate={setAvailabilityPreviewDate}
+      setAvailabilitySearch={setAvailabilitySearch}
+      isSubmitting={isSubmitting}
+      onCheckout={() => void handleCheckout()}
+      onBack={onBack}
+      onOpenSalesHistory={() => {
+        setActiveTab("history");
+        setStep(1);
+      }}
+      clientComboboxRef={clientComboboxRef}
+      clientSearch={clientSearch}
+      setClientSearch={setClientSearch}
+      setClientId={setClientId}
+      isClientMenuOpen={isClientMenuOpen}
+      setIsClientMenuOpen={setIsClientMenuOpen}
+      filteredClients={filteredClients}
+      selectedClient={selectedClient}
+      clientPhone={clientPhone}
+      clientAddress={clientAddress}
+      sellerId={sellerId}
+      setSellerId={setSellerId}
+      discountValue={discountValue}
+      setDiscountValue={setDiscountValue}
+      discountType={discountType}
+      setDiscountType={setDiscountType}
+      paymentMethod={paymentMethod}
+      setPaymentMethod={setPaymentMethod}
+      notes={notes}
+      setNotes={setNotes}
+      onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
+      onAddServiceToCart={addServiceToCart}
     />
   );
 
@@ -1262,8 +1534,8 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
       }
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
-          <div className="inline-flex gap-0.5 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            {(["sale", "history"] as const).map((tab) => (
+          <div className="inline-flex  rounded-sm border border-[#edebe9] bg-[#faf9f8]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+            {(["sale", "history", "tickets"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -1277,10 +1549,24 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
                     : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
                 }`}
               >
-                {tab === "sale" ? "Nueva venta" : "Historial"}
+                {tab === "sale" ? "Nueva venta" : tab === "history" ? "Historial" : "Ticket de la venta"}
               </button>
             ))}
           </div>
+          {editingSale ? (
+            <div className="flex items-center gap-2">
+              <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
+                Editando venta: {editingSale.sale_code}
+              </span>
+              <button
+                type="button"
+                onClick={resetSaleForm}
+                className="rounded-sm border border-[#edebe9] bg-white px-3 py-1 text-xs font-semibold text-[#605e5c] hover:bg-[#f3f2f1]"
+              >
+                Salir edicion
+              </button>
+            </div>
+          ) : null}
         </div>
       }
     >
@@ -1351,26 +1637,15 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               professionals={professionals}
             />
           ) : (
-            <PosSaleStepTwo
-              cartLines={cartLines}
-              services={services}
-              subtotal={subtotal}
-              total={total}
-              onRemoveLine={removeLine}
-              professionals={professionals}
-              lineAvailability={lineAvailability}
-              saleBaseDate={saleBaseDate}
-              updateLine={updateLine}
-              setAvailabilityPreviewLineId={setAvailabilityPreviewLineId}
-              setAvailabilityPreviewDate={setAvailabilityPreviewDate}
-              setAvailabilitySearch={setAvailabilitySearch}
-              isSubmitting={isSubmitting}
-              onCheckout={() => void handleCheckout()}
-              onBack={() => setStep(1)}
-            />
+            renderSaleTicketsSection(() => setStep(1))
           )
-        ) : (
+        ) : activeTab === "history" ? (
           <HistorySection />
+        ) : (
+          renderSaleTicketsSection(() => {
+              setActiveTab("sale");
+              setStep(1);
+            })
         )}
 
         <PosReceiptModals

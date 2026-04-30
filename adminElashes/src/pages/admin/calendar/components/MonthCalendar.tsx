@@ -13,6 +13,8 @@ export type MonthCalendarProps = {
   onNextMonth: () => void;
   onOpenAgendaModalForDate: (dateKey: string) => void;
   ticketsByDay: Record<string, TicketItem[]>;
+  draggingTicketId?: number | null;
+  onDropTicket?: (ticketId: number, dateKey: string) => void;
 };
 
 export default function MonthCalendar({
@@ -24,6 +26,8 @@ export default function MonthCalendar({
   onNextMonth,
   onOpenAgendaModalForDate,
   ticketsByDay,
+  draggingTicketId = null,
+  onDropTicket,
 }: MonthCalendarProps) {
   const todayKey = getLocalDateInputValue();
 
@@ -71,9 +75,23 @@ export default function MonthCalendar({
               key={key}
               type="button"
               onClick={() => onOpenAgendaModalForDate(key)}
+              onDragOver={(event) => {
+                if (!draggingTicketId) return;
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (!onDropTicket) return;
+                const raw = event.dataTransfer.getData("text/plain");
+                const droppedId = Number(raw || draggingTicketId);
+                if (!Number.isFinite(droppedId)) return;
+                onDropTicket(droppedId, key);
+              }}
               className={`min-h-[104px] rounded-2xl border p-2 text-left transition bg-gradient-to-br ${heat} ${
                 isSelected ? "border-[#0078d4] ring-2 ring-[#0078d4]/25 shadow-sm" : "border-[#d2d0ce] hover:border-[#8a8886]"
-              } ${isCurrentMonth ? "text-[#323130]" : "text-[#a19f9d] opacity-80"}`}
+              } ${isCurrentMonth ? "text-[#323130]" : "text-[#a19f9d] opacity-80"} ${
+                draggingTicketId ? "cursor-copy hover:ring-2 hover:ring-[#0078d4]/35" : ""
+              }`}
             >
               <div className="flex items-center justify-between gap-1">
                 <span
@@ -108,8 +126,24 @@ export default function MonthCalendar({
                       ticket.status === "cancelled" ? "bg-[#fff4ce] text-[#8a6d00]" : "bg-[#f3f2f1] text-[#323130]"
                     }`}
                   >
-                    <p className="font-bold">{formatTime(ticket.start_time)}</p>
-                    <p className="truncate">{ticket.client_name}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="font-bold">{formatTime(ticket.start_time)}</p>
+                      <span
+                        className={`rounded-sm px-1 py-[1px] text-[8px] font-bold ${
+                          ticket.status === "cancelled"
+                            ? "bg-amber-200 text-amber-900"
+                            : ticket.status === "in_service"
+                              ? "bg-emerald-200 text-emerald-900"
+                              : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {ticket.status}
+                      </span>
+                    </div>
+                    <p className="truncate font-semibold">{ticket.client_name}</p>
+                    <p className="truncate text-[8px] text-[#605e5c]">
+                      {ticket.service_names?.length ? ticket.service_names.join(" · ") : ticket.service_name ?? "Sin servicio"}
+                    </p>
                   </div>
                 ))}
                 {(ticketsByDay[key]?.length ?? 0) > 2 ? (

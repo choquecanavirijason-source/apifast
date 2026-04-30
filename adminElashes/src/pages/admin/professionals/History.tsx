@@ -3,10 +3,13 @@ import { Search } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
-import { Button, SectionCard } from "@/components/common/ui";
+import Layout from "@/components/common/layout";
+import FilterActionBar from "@/components/common/FilterActionBar";
+import { Button, SectionCard, StatCard } from "@/components/common/ui";
+import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 
 const fieldClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
+  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] placeholder:text-[#a19f9d] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
 
 export default function ProfessionalServiceHistory() {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -129,38 +132,135 @@ export default function ProfessionalServiceHistory() {
     });
   }, [tickets, search]);
 
+  const columns = useMemo<DataTableColumn<TicketItem>[]>(() => {
+    return [
+      {
+        key: "client_name",
+        header: "Cliente",
+        sortable: true,
+        render: (ticket) => (
+          <span className="font-semibold text-slate-800">{ticket.client_name || "Sin cliente"}</span>
+        ),
+      },
+      {
+        key: "service_label",
+        header: "Servicio",
+        sortable: true,
+        getValue: (ticket) =>
+          ticket.service_names?.length ? ticket.service_names.join(" · ") : (ticket.service_name ?? "Servicio"),
+        render: (ticket) =>
+          ticket.service_names?.length ? ticket.service_names.join(" · ") : (ticket.service_name ?? "Servicio"),
+      },
+      {
+        key: "professional_name",
+        header: "Operaria",
+        sortable: true,
+        render: (ticket) => ticket.professional_name ?? "Sin asignar",
+      },
+      {
+        key: "start_time",
+        header: "Fecha",
+        sortable: true,
+        getValue: (ticket) => ticket.start_time ?? "",
+        render: (ticket) =>
+          ticket.start_time
+            ? new Date(ticket.start_time).toLocaleString("es-BO", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "—",
+      },
+      {
+        key: "status",
+        header: "Estado",
+        sortable: true,
+        render: (ticket) => ticket.status ?? "—",
+      },
+      {
+        key: "notes",
+        header: "Comentarios",
+        getValue: (ticket) => trackingByAppointment.get(ticket.id)?.design_notes?.trim() || "Sin comentarios",
+        render: (ticket) => trackingByAppointment.get(ticket.id)?.design_notes?.trim() || "Sin comentarios",
+      },
+      {
+        key: "questionnaire",
+        header: "Cuestionario",
+        getValue: (ticket) => trackingByAppointment.get(ticket.id)?.questionnaire?.title || "Sin cuestionario",
+        render: (ticket) => trackingByAppointment.get(ticket.id)?.questionnaire?.title || "Sin cuestionario",
+      },
+    ];
+  }, [trackingByAppointment]);
+
+  const renderToolbar = () => (
+    <FilterActionBar
+      left={
+        <div className="text-xs font-semibold text-slate-600">
+          Historial por operaria
+        </div>
+      }
+      right={
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>
+            Actualizar
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setFromDate("");
+              setToDate("");
+              setSearch("");
+              setProfessionalFilter("");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
+      }
+    />
+  );
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <Layout
+      title="Historial de servicios por operaria"
+      subtitle="Servicios finalizados con detalle de seguimiento."
+      variant="table"
+      topContent={
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard label="Tickets finalizados" value={filteredTickets.length} tone="emerald" />
+          <StatCard label="Operarias disponibles" value={professionals.length} tone="slate" />
+        </div>
+      }
+      toolbar={renderToolbar()}
+    >
       <SectionCard bodyClassName="!p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Historial de servicios por operaria</h2>
-            <p className="text-xs text-slate-500">Servicios finalizados con detalle de seguimiento.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>
-              Actualizar
-            </Button>
+            <h2 className="text-lg font-semibold text-[#323130]">Historial de servicios por operaria</h2>
+            <p className="text-xs text-[#605e5c]">Servicios finalizados con detalle de seguimiento.</p>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <label className="text-xs font-semibold text-slate-500">Buscar</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Buscar</label>
             <div className="relative mt-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cliente, servicio, estado o codigo"
-                className={`${fieldClass} pl-10`}
+                className={`${fieldClass} pl-9`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500">Operaria</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
             <select
               value={professionalFilter}
               onChange={(event) => setProfessionalFilter(event.target.value)}
@@ -176,7 +276,7 @@ export default function ProfessionalServiceHistory() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500">Desde</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
             <input
               type="date"
               value={fromDate}
@@ -186,7 +286,7 @@ export default function ProfessionalServiceHistory() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500">Hasta</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
             <input
               type="date"
               value={toDate}
@@ -196,85 +296,23 @@ export default function ProfessionalServiceHistory() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setFromDate("");
-              setToDate("");
-              setSearch("");
-              setProfessionalFilter("");
-            }}
-          >
-            Limpiar filtros
-          </Button>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#605e5c]">
           <span>{filteredTickets.length} resultados</span>
         </div>
       </SectionCard>
 
       <SectionCard bodyClassName="!p-0">
-        {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando historial...</div>
-        ) : error ? (
-          <div className="p-6 text-sm text-rose-600">{error}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Servicio</th>
-                  <th className="px-4 py-3">Operaria</th>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Comentarios</th>
-                  <th className="px-4 py-3">Cuestionario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredTickets.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                      Sin servicios para los filtros actuales.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTickets.map((ticket) => {
-                    const tracking = trackingByAppointment.get(ticket.id);
-                    const serviceLabel = ticket.service_names?.length
-                      ? ticket.service_names.join(" · ")
-                      : ticket.service_name ?? "Servicio";
-                    const notes = tracking?.design_notes?.trim() || "Sin comentarios";
-                    const questionnaire = tracking?.questionnaire?.title || "Sin cuestionario";
-                    const displayDate = ticket.start_time
-                      ? new Date(ticket.start_time).toLocaleString("es-BO", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "";
-
-                    return (
-                      <tr key={ticket.id} className="hover:bg-slate-50/70">
-                        <td className="px-4 py-3 font-semibold text-slate-800">{ticket.client_name}</td>
-                        <td className="px-4 py-3 text-slate-600">{serviceLabel}</td>
-                        <td className="px-4 py-3 text-slate-600">{ticket.professional_name ?? "Sin asignar"}</td>
-                        <td className="px-4 py-3 text-slate-500">{displayDate}</td>
-                        <td className="px-4 py-3 text-slate-500">{ticket.status}</td>
-                        <td className="px-4 py-3 text-slate-500">{notes}</td>
-                        <td className="px-4 py-3 text-slate-500">{questionnaire}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {error ? <div className="border-b border-[#edebe9] p-4 text-sm text-rose-600">{error}</div> : null}
+        <DataTable
+          data={filteredTickets}
+          columns={columns}
+          loading={isLoading}
+          enableGlobalSearch={false}
+          enableColumnFilters={false}
+          defaultLimit={20}
+          tableMinWidth="min-w-[980px]"
+        />
       </SectionCard>
-    </div>
+    </Layout>
   );
 }

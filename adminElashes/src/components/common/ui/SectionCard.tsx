@@ -36,7 +36,7 @@ const subtitleClass: Record<SectionCardVariant, string> = {
 };
 
 const bodyPad: Record<SectionCardVariant, string> = {
-  default: "p-5",
+  default: "p-1",
   business: "p-4",
 };
 

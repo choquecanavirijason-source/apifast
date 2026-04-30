@@ -4,8 +4,19 @@ export type Salon = {
   address: string;
   city: string;
   department: string;
+  opening_hours: SalonDayScheduleForm[];
   active: boolean;
   createdAt: string;
+};
+
+export type SalonTimeRangeForm = {
+  open_time: string;
+  close_time: string;
+};
+
+export type SalonDayScheduleForm = {
+  day: string;
+  ranges: SalonTimeRangeForm[];
 };
 
 export type SalonForm = {
@@ -13,6 +24,7 @@ export type SalonForm = {
   address: string;
   city: string;
   department: string;
+  opening_hours: SalonDayScheduleForm[];
 };
 
 export interface BackendBranch {
@@ -21,13 +33,76 @@ export interface BackendBranch {
   address?: string | null;
   city?: string | null;
   department?: string | null;
+  opening_hours?: SalonDayScheduleForm[] | string | null;
 }
+
+export const WEEK_DAYS = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
+
+export const createDefaultOpeningHours = (): SalonDayScheduleForm[] =>
+  WEEK_DAYS.map((day) => ({
+    day,
+    ranges: [{ open_time: "", close_time: "" }],
+  }));
+
+const normalizeOpeningHours = (rawValue: BackendBranch["opening_hours"]): SalonDayScheduleForm[] => {
+  const fallback = createDefaultOpeningHours();
+  if (!rawValue) return fallback;
+
+  let parsedValue: unknown = rawValue;
+  if (typeof rawValue === "string") {
+    try {
+      parsedValue = JSON.parse(rawValue);
+    } catch {
+      return fallback;
+    }
+  }
+
+  if (!Array.isArray(parsedValue)) return fallback;
+
+  const byDay = new Map(
+    fallback.map((item) => [item.day, { ...item, ranges: [...item.ranges] }])
+  );
+
+  parsedValue.forEach((item) => {
+    if (!item || typeof item !== "object") return;
+    const day = "day" in item && typeof item.day === "string" ? item.day.toLowerCase().trim() : "";
+    if (!byDay.has(day)) return;
+    const rawRanges = "ranges" in item && Array.isArray(item.ranges) ? item.ranges : [];
+    const ranges = rawRanges
+      .map((range) => {
+        if (!range || typeof range !== "object") return null;
+        const open_time =
+          "open_time" in range && typeof range.open_time === "string" ? range.open_time.trim() : "";
+        const close_time =
+          "close_time" in range && typeof range.close_time === "string" ? range.close_time.trim() : "";
+        return { open_time, close_time };
+      })
+      .filter((range): range is SalonTimeRangeForm => range !== null)
+      .slice(0, 2);
+
+    byDay.set(day, {
+      day,
+      ranges: ranges.length > 0 ? ranges : [{ open_time: "", close_time: "" }],
+    });
+  });
+
+  return WEEK_DAYS.map((day) => byDay.get(day) ?? { day, ranges: [{ open_time: "", close_time: "" }] });
+};
 
 export const emptyForm: SalonForm = {
   name: "",
   address: "",
   city: "",
   department: "",
+  opening_hours: createDefaultOpeningHours(),
 };
 
 export const mapBranchToSalon = (branch: BackendBranch): Salon => ({
@@ -36,6 +111,7 @@ export const mapBranchToSalon = (branch: BackendBranch): Salon => ({
   address: branch.address ?? "",
   city: branch.city ?? "",
   department: branch.department ?? "",
+  opening_hours: normalizeOpeningHours(branch.opening_hours),
   active: true,
   createdAt: "",
 });

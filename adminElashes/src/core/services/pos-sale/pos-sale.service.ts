@@ -20,6 +20,15 @@ export interface PosSaleCreatePayload {
   items: PosSaleItemPayload[];
 }
 
+export interface PosSaleUpdatePayload {
+  client_id?: number;
+  discount_type?: "amount" | "percent";
+  discount_value?: number;
+  payment_method?: string;
+  notes?: string;
+  status?: "paid" | "cancelled";
+}
+
 export interface PosSaleAppointment {
   id: number;
   ticket_code: string | null;
@@ -117,6 +126,44 @@ export const PosSaleService = {
       return response.data;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, "No se pudo cargar la venta."));
+    }
+  },
+
+  async update(id: number, payload: PosSaleUpdatePayload): Promise<PosSaleItem> {
+    try {
+      const response = await api.patch<PosSaleItem>(`/pos-sales/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "No se pudo actualizar la venta."));
+    }
+  },
+
+  async cancel(id: number): Promise<PosSaleItem> {
+    try {
+      const response = await api.post<PosSaleItem>(`/pos-sales/${id}/cancel`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "No se pudo cancelar la venta."));
+    }
+  },
+
+  async remove(id: number): Promise<void> {
+    try {
+      await api.delete(`/pos-sales/${id}`);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "No se pudo eliminar la venta."));
+    }
+  },
+
+  async getReceiptPdf(id: number, format: "a4" | "thermal"): Promise<Blob> {
+    try {
+      const response = await api.get(`/pos-sales/${id}/receipt/pdf`, {
+        params: { format },
+        responseType: "blob",
+      });
+      return response.data as Blob;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "No se pudo generar el PDF del comprobante."));
     }
   },
 };

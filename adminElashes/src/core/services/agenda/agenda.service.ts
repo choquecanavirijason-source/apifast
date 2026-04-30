@@ -100,6 +100,7 @@ export interface AppointmentCreatePayload {
   service_id?: number | null;
   service_ids?: number[] | null;
   branch_id?: number | null;
+  sale_id?: number | null;
   is_ia?: boolean;
   start_time: string; // ISO datetime
   end_time: string; // ISO datetime
@@ -337,6 +338,7 @@ export const AgendaService = {
       ...(payload.service_id != null && { service_id: payload.service_id }),
       ...(payload.service_ids != null && { service_ids: payload.service_ids }),
       ...(payload.branch_id != null && { branch_id: payload.branch_id }),
+      ...(payload.sale_id != null && { sale_id: payload.sale_id }),
     };
     const response = await api.post<BackendAppointment>("/agenda/appointments", body);
     return mapToTicket(response.data);

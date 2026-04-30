@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { toast } from "react-toastify";
 
 import Layout from "../../../components/common/layout";
@@ -58,6 +58,8 @@ const Main = () => {
   const [deleteConfirmationCode, setDeleteConfirmationCode] = useState("");
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
   const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
+  const [isIaDrawerOpen, setIsIaDrawerOpen] = useState(true);
+  const [isCompactBoard, setIsCompactBoard] = useState(false);
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -642,7 +644,10 @@ const Main = () => {
           </SectionCard>
         ) : null}
 
-        <SectionCard className="border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4 sm:!p-5">
+        <SectionCard
+          className={isCompactBoard ? "border-[#edebe9] bg-white shadow-none" : "border-[#d2d0ce] bg-[#faf9f8]"}
+          bodyClassName={isCompactBoard ? "!p-2.5 sm:!p-3" : "!p-4 sm:!p-5"}
+        >
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-7">
             <div className="lg:col-span-2">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Servicio</label>
@@ -748,11 +753,28 @@ const Main = () => {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-[#edebe9] pt-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#edebe9] pt-3">
             <p className="text-xs text-[#605e5c]">
               Tickets filtrados: <span className="font-semibold text-[#323130]">{filteredTickets.length}</span>
             </p>
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsIaDrawerOpen((prev) => !prev)}
+              >
+                {isIaDrawerOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                {isIaDrawerOpen ? "Ocultar IA" : "Mostrar IA"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsCompactBoard((prev) => !prev)}
+              >
+                {isCompactBoard ? "Modo normal" : "Modo compacto"}
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
@@ -783,64 +805,67 @@ const Main = () => {
         <div className="mt-5">
           <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
             <div className="space-y-5">
-              <div className="grid gap-5 xl:gap-6 lg:grid-cols-2 xl:grid-cols-4 items-start">
-                <DroppableColumn
-                  id="ia"
-                  title={`Tickets con IA (${iaTickets.length})`}
-                  subtitle="Todos los tickets generados por IA se agrupan aqui."
-                  tickets={iaTickets}
-                  isEmptyLabel="No hay tickets con IA para los filtros actuales."
-                  highlightTicket={isRecentlyCreated}
-                  renderCard={(ticket) => (
-                    <DraggableTicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      professionals={professionals}
-                      onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                      isSavingEdit={editingTicketId === ticket.id}
-                      actions={
-                        ["pending", "waiting", "confirmed"].includes(ticket.status) ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleStartService(ticket);
-                            }}
-                          >
-                            Iniciar atencion
-                          </Button>
-                        ) : ticket.status === "in_service" ? (
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleMarkCompleted(ticket);
-                            }}
-                          >
-                            Finalizar
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenFinishModal(ticket);
-                            }}
-                          >
-                            Completar
-                          </Button>
-                        )
-                      }
-                      showRemaining={ticket.status === "in_service"}
-                      statusColors={statusColors}
-                      getRemainingLabel={getRemainingLabel}
-                      onDelete={handleDeleteClick}
-                    />
-                  )}
-                />
+              <div className={`grid items-start gap-3 ${isCompactBoard ? "xl:gap-3" : "xl:gap-6"} lg:grid-cols-2 ${isIaDrawerOpen ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+                {isIaDrawerOpen ? (
+                  <DroppableColumn
+                    id="ia"
+                    title={`Tickets con IA (${iaTickets.length})`}
+                    subtitle="Todos los tickets generados por IA se agrupan aqui."
+                    tickets={iaTickets}
+                    isEmptyLabel="No hay tickets con IA para los filtros actuales."
+                    highlightTicket={isRecentlyCreated}
+                    compact={isCompactBoard}
+                    renderCard={(ticket) => (
+                      <DraggableTicketCard
+                        key={ticket.id}
+                        ticket={ticket}
+                        professionals={professionals}
+                        onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
+                        isSavingEdit={editingTicketId === ticket.id}
+                        actions={
+                          ["pending", "waiting", "confirmed"].includes(ticket.status) ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleStartService(ticket);
+                              }}
+                            >
+                              Iniciar atencion
+                            </Button>
+                          ) : ticket.status === "in_service" ? (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleMarkCompleted(ticket);
+                              }}
+                            >
+                              Finalizar
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenFinishModal(ticket);
+                              }}
+                            >
+                              Completar
+                            </Button>
+                          )
+                        }
+                        showRemaining={ticket.status === "in_service"}
+                        statusColors={statusColors}
+                        getRemainingLabel={getRemainingLabel}
+                        onDelete={handleDeleteClick}
+                      />
+                    )}
+                  />
+                ) : null}
 
                 <DroppableColumn
                   id="waiting"
@@ -849,6 +874,7 @@ const Main = () => {
                   tickets={waitingTickets}
                   isEmptyLabel="Sin clientas en espera."
                   highlightTicket={isRecentlyCreated}
+                  compact={isCompactBoard}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
@@ -883,6 +909,7 @@ const Main = () => {
                   tickets={inServiceTickets}
                   isEmptyLabel="Sin servicios activos."
                   highlightTicket={isRecentlyCreated}
+                  compact={isCompactBoard}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}
@@ -917,6 +944,7 @@ const Main = () => {
                   tickets={completedTickets}
                   isEmptyLabel="Sin finalizadas hoy."
                   highlightTicket={isRecentlyCreated}
+                  compact={isCompactBoard}
                   renderCard={(ticket) => (
                     <DraggableTicketCard
                       key={ticket.id}

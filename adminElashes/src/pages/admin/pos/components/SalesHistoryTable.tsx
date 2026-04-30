@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react";
+import { useMemo } from "react";
+import { Search } from "lucide-react";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
-import ColFilter from "./ColFilter";
+import DataTable, { type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
 import StatusBadge from "./StatusBadge";
 
 type SalesColFilters = {
@@ -37,6 +38,9 @@ type SalesHistoryTableProps = {
   filteredSalesCount: number;
   onPageChange: (page: number) => void;
   onViewDetail: (sale: PosSaleItem) => void;
+  onEditSale: (sale: PosSaleItem) => void;
+  onCancelSale: (sale: PosSaleItem) => void;
+  onDeleteSale: (sale: PosSaleItem) => void;
 };
 
 export default function SalesHistoryTable({
@@ -57,7 +61,7 @@ export default function SalesHistoryTable({
   rowsPerPage,
   rowsPerPageOptions,
   onRowsPerPageChange,
-  colFilters,
+  colFilters: _colFilters,
   onColFilterChange,
   pagedSales,
   currentPage,
@@ -65,7 +69,117 @@ export default function SalesHistoryTable({
   filteredSalesCount,
   onPageChange,
   onViewDetail,
+  onEditSale,
+  onCancelSale,
+  onDeleteSale,
 }: SalesHistoryTableProps) {
+  const columns = useMemo<DataTableColumn<PosSaleItem>[]>(
+    () => [
+      {
+        key: "sale_code",
+        header: "Codigo",
+        sortable: true,
+        render: (sale) => <span className="font-mono text-xs font-bold text-emerald-600">{sale.sale_code}</span>,
+        getValue: (sale) => sale.sale_code ?? "",
+      },
+      {
+        key: "client",
+        header: "Cliente",
+        sortable: true,
+        render: (sale) => (
+          <span className="font-semibold text-slate-800">
+            {sale.client?.name} {sale.client?.last_name}
+          </span>
+        ),
+        getValue: (sale) => `${sale.client?.name ?? ""} ${sale.client?.last_name ?? ""}`,
+      },
+      {
+        key: "payment_method",
+        header: "Metodo",
+        sortable: true,
+        render: (sale) => <StatusBadge status={sale.payment_method ?? "-"} />,
+        getValue: (sale) => sale.payment_method ?? "",
+      },
+      {
+        key: "total",
+        header: "Total",
+        sortable: true,
+        render: (sale) => <span className="font-black text-slate-900">Bs {sale.total?.toFixed(2)}</span>,
+        getValue: (sale) => sale.total ?? 0,
+      },
+      {
+        key: "tickets",
+        header: "Tickets",
+        sortable: true,
+        filterable: false,
+        searchable: false,
+        render: (sale) => (
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+            {sale.appointments?.length ?? 0} tickets
+          </span>
+        ),
+        getValue: (sale) => sale.appointments?.length ?? 0,
+      },
+      {
+        key: "created_at",
+        header: "Fecha",
+        sortable: true,
+        render: (sale) => (
+          <span className="text-xs text-slate-400">
+            {new Date(sale.created_at).toLocaleDateString("es-BO", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        ),
+        getValue: (sale) => sale.created_at ?? "",
+      },
+      {
+        key: "action",
+        header: "Acciones",
+        sortable: false,
+        filterable: false,
+        searchable: false,
+        render: (sale) => (
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => onViewDetail(sale)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Ver detalle
+            </button>
+            <button
+              onClick={() => onEditSale(sale)}
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
+            >
+              Editar
+            </button>
+            <button
+              onClick={() => onCancelSale(sale)}
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-100"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => onDeleteSale(sale)}
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-100"
+            >
+              Eliminar
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [onCancelSale, onDeleteSale, onEditSale, onViewDetail]
+  );
+
+  const handleColumnFilters = (filters: DataTableColumnFilters) => {
+    (["sale_code", "client", "payment_method", "total"] as const).forEach((key) => {
+      onColFilterChange(key, filters[key] ?? "");
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -149,143 +263,25 @@ export default function SalesHistoryTable({
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="px-4 py-3 text-left w-10">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">#</span>
-                </th>
-                {[
-                  { key: "sale_code", label: "Codigo" },
-                  { key: "client", label: "Cliente" },
-                  { key: "payment_method", label: "Metodo" },
-                  { key: "total", label: "Total" },
-                ].map(({ key, label }) => (
-                  <th key={key} className="px-4 py-3 text-left">
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
-                    <ColFilter
-                      value={colFilters[key as keyof SalesColFilters]}
-                      onChange={(value) => onColFilterChange(key as keyof SalesColFilters, value)}
-                    />
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-left">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tickets</span>
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Fecha</span>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Accion</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pagedSales.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-400 text-sm">
-                    Sin resultados para los filtros aplicados.
-                  </td>
-                </tr>
-              ) : (
-                pagedSales.map((sale, idx) => (
-                  <tr key={sale.id} className="group transition hover:bg-slate-50/60">
-                    <td className="px-4 py-3.5 text-slate-400 text-xs font-medium">{(currentPage - 1) * rowsPerPage + idx + 1}</td>
-                    <td className="px-4 py-3.5">
-                      <span className="font-mono text-xs font-bold text-emerald-600">{sale.sale_code}</span>
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-800">
-                      {sale.client?.name} {sale.client?.last_name}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={sale.payment_method ?? "-"} />
-                    </td>
-                    <td className="px-4 py-3.5 font-black text-slate-900">Bs {sale.total?.toFixed(2)}</td>
-                    <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                        {sale.appointments?.length ?? 0} tickets
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-400">
-                      {new Date(sale.created_at).toLocaleDateString("es-BO", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <button
-                        onClick={() => onViewDetail(sale)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900 opacity-0 group-hover:opacity-100"
-                      >
-                        Ver detalle
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-          <p className="text-xs text-slate-400">
-            Mostrando <span className="font-semibold text-slate-600">{filteredSalesCount === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}</span> a{" "}
-            <span className="font-semibold text-slate-600">{Math.min(currentPage * rowsPerPage, filteredSalesCount)}</span> de{" "}
-            <span className="font-semibold text-slate-600">{filteredSalesCount}</span>
-          </p>
-
-          <div className="flex items-center gap-1">
-            {[
-              { Icon: ChevronsLeft, onClick: () => onPageChange(1), disabled: currentPage === 1 },
-              { Icon: ArrowLeft, onClick: () => onPageChange(currentPage - 1), disabled: currentPage === 1 },
-            ].map(({ Icon, onClick, disabled }, i) => (
-              <button
-                key={i}
-                disabled={disabled}
-                onClick={onClick}
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </button>
-            ))}
-
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const offset = Math.max(0, Math.min(currentPage - 3, totalPages - 5));
-              const page = offset + i + 1;
-              return page <= totalPages ? (
-                <button
-                  key={page}
-                  onClick={() => onPageChange(page)}
-                  className={`h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold transition ${
-                    currentPage === page
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                  }`}
-                >
-                  {page}
-                </button>
-              ) : null;
-            })}
-
-            {[
-              { Icon: ArrowRight, onClick: () => onPageChange(currentPage + 1), disabled: currentPage === totalPages },
-              { Icon: ChevronsRight, onClick: () => onPageChange(totalPages), disabled: currentPage === totalPages },
-            ].map(({ Icon, onClick, disabled }, i) => (
-              <button
-                key={i}
-                disabled={disabled}
-                onClick={onClick}
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <DataTable
+        data={pagedSales}
+        columns={columns}
+        enableGlobalSearch={false}
+        globalSearchPlaceholder="Buscar ventas..."
+        enableColumnFilters
+        onFilterChange={handleColumnFilters}
+        pagination={{
+          mode: "server",
+          page: currentPage,
+          limit: rowsPerPage,
+          total: filteredSalesCount,
+          totalPages,
+        }}
+        onPageChange={onPageChange}
+        onLimitChange={onRowsPerPageChange}
+        availableLimits={rowsPerPageOptions}
+        tableMinWidth="min-w-[980px]"
+      />
     </div>
   );
 }

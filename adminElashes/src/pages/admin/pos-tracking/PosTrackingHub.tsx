@@ -18,7 +18,6 @@ function tabClass(active: boolean) {
 
 const HUB_TABS: { id: HubSection; label: string; icon: LucideIcon }[] = [
   { id: "pos", label: "Caja POS", icon: ReceiptText },
-  { id: "tracking", label: "Seguimiento", icon: ClipboardList },
   { id: "queue", label: "Control de servicios", icon: Users },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
 ];

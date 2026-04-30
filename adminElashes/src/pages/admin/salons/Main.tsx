@@ -8,9 +8,11 @@ import { BranchService } from "../../../core/services/branch/branch.service.ts";
 import {
   COUNTRY_CITY_OPTIONS,
   COUNTRY_OPTIONS,
+  createDefaultOpeningHours,
   emptyForm,
   mapBranchToSalon,
   type Salon,
+  type SalonDayScheduleForm,
   type SalonForm,
 } from "./utils";
 import SalonsFormModal from "./SalonsFormModal";
@@ -59,6 +61,19 @@ export default function SalonsPage() {
 
     if (address.length > 255) {
       errors.address = "La direccion no puede superar los 255 caracteres.";
+    }
+
+    const hasInvalidSchedule = form.opening_hours.some((dayItem) =>
+      dayItem.ranges.some((range) => {
+        const open = range.open_time.trim();
+        const close = range.close_time.trim();
+        if (!open && !close) return false;
+        if (!open || !close) return true;
+        return open >= close;
+      })
+    );
+    if (hasInvalidSchedule) {
+      errors.opening_hours = "Revisa horarios: completa apertura/cierre y que cierre sea mayor.";
     }
 
     return errors;
@@ -166,6 +181,7 @@ export default function SalonsPage() {
       address: salon.address,
       city: salon.city,
       department: salon.department,
+      opening_hours: salon.opening_hours?.length ? salon.opening_hours : createDefaultOpeningHours(),
     });
     setIsModalOpen(true);
   };
@@ -179,6 +195,51 @@ export default function SalonsPage() {
 
   const handleTextChange = (field: keyof SalonForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleOpeningHoursChange = (
+    dayIndex: number,
+    rangeIndex: number,
+    field: "open_time" | "close_time",
+    value: string
+  ) => {
+    setForm((prev) => {
+      const nextHours = prev.opening_hours.map((item, idx) => {
+        if (idx !== dayIndex) return item;
+        return {
+          ...item,
+          ranges: item.ranges.map((range, rIdx) => (rIdx === rangeIndex ? { ...range, [field]: value } : range)),
+        };
+      });
+      return { ...prev, opening_hours: nextHours };
+    });
+  };
+
+  const handleAddScheduleRange = (dayIndex: number) => {
+    setForm((prev) => {
+      const nextHours = prev.opening_hours.map((item, idx) => {
+        if (idx !== dayIndex || item.ranges.length >= 2) return item;
+        return {
+          ...item,
+          ranges: [...item.ranges, { open_time: "", close_time: "" }],
+        };
+      });
+      return { ...prev, opening_hours: nextHours };
+    });
+  };
+
+  const handleRemoveScheduleRange = (dayIndex: number, rangeIndex: number) => {
+    setForm((prev) => {
+      const nextHours = prev.opening_hours.map((item, idx) => {
+        if (idx !== dayIndex) return item;
+        const nextRanges = item.ranges.filter((_, rIdx) => rIdx !== rangeIndex);
+        return {
+          ...item,
+          ranges: nextRanges.length > 0 ? nextRanges : [{ open_time: "", close_time: "" }],
+        };
+      });
+      return { ...prev, opening_hours: nextHours };
+    });
   };
 
   const handleCountryChange = (value: string) => {
@@ -218,7 +279,21 @@ export default function SalonsPage() {
       address: form.address.trim(),
       city: form.city.trim(),
       department: form.department.trim(),
+      opening_hours: form.opening_hours.map((item: SalonDayScheduleForm) => ({
+        ...item,
+        ranges: item.ranges.map((range) => ({
+          open_time: range.open_time.trim(),
+          close_time: range.close_time.trim(),
+        })),
+      })),
     };
+
+    const openingHoursPayload = normalized.opening_hours
+      .map((item) => ({
+        day: item.day,
+        ranges: item.ranges.filter((range) => range.open_time && range.close_time),
+      }))
+      .filter((item) => item.ranges.length > 0);
 
     setIsMutating(true);
     try {
@@ -228,6 +303,7 @@ export default function SalonsPage() {
           address: normalized.address || undefined,
           city: normalized.city || undefined,
           department: normalized.department || undefined,
+          opening_hours: openingHoursPayload,
         });
         toast.success("Sucursal actualizada correctamente.");
       } else {
@@ -236,6 +312,7 @@ export default function SalonsPage() {
           address: normalized.address || undefined,
           city: normalized.city || undefined,
           department: normalized.department || undefined,
+          opening_hours: openingHoursPayload,
         });
         toast.success("Sucursal creada correctamente.");
       }
@@ -272,15 +349,15 @@ export default function SalonsPage() {
         variant="cards"
         toolbar={renderToolbar()}
       >
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-4">
           <div className="relative w-full md:w-96">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
             <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por salon, direccion, ciudad o departamento"
-              className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none ring-0 transition focus:border-slate-900"
+              className="w-full rounded-sm border border-[#8a8886] bg-white py-2.5 pl-9 pr-3 text-sm text-[#323130] outline-none ring-0 transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
             />
           </div>
 
@@ -288,7 +365,7 @@ export default function SalonsPage() {
             <select
               value={departmentFilter}
               onChange={(event) => handleDepartmentFilterChange(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-900"
+              className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
             >
               <option value="">Todos los paises</option>
               {COUNTRY_OPTIONS.map((country) => (
@@ -301,7 +378,7 @@ export default function SalonsPage() {
             <select
               value={cityFilter}
               onChange={(event) => setCityFilter(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-900"
+              className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
             >
               <option value="">Todas las ciudades</option>
               {availableFilterCities.map((city) => (
@@ -314,32 +391,32 @@ export default function SalonsPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
-              <div className="col-span-full rounded-xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+              <div className="col-span-full rounded-sm border border-dashed border-[#c8c6c4] bg-white py-10 text-center text-sm text-[#605e5c]">
                 Cargando sucursales...
               </div>
             ) : null}
 
             {!isLoading && filteredSalons.length === 0 ? (
-              <div className="col-span-full rounded-xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+              <div className="col-span-full rounded-sm border border-dashed border-[#c8c6c4] bg-white py-10 text-center text-sm text-[#605e5c]">
                 No se encontraron salones.
               </div>
             ) : null}
 
             {!isLoading && filteredSalons.map((salon) => (
-              <div key={salon.id} className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div key={salon.id} className="rounded-sm border border-[#d2d0ce] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="flex items-center gap-2 text-lg font-black text-slate-900">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold text-[#323130]">
                       <Store className="h-4 w-4" /> {salon.name}
                     </h3>
-                    <p className="text-sm text-slate-500">Sucursal registrada</p>
+                    <p className="text-sm text-[#605e5c]">Sucursal registrada</p>
                   </div>
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  <span className="rounded-sm border border-[#b7dfb0] bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2d7d2a]">
                     Activo
                   </span>
                 </div>
 
-                <div className="mt-3 space-y-1 text-sm text-slate-600">
+                <div className="mt-3 space-y-1 text-sm text-[#605e5c]">
                   <p>Direccion: {salon.address || "-"}</p>
                   <p>Ciudad: {salon.city || "-"}</p>
                   <p>Pais: {salon.department || "-"}</p>
@@ -349,14 +426,14 @@ export default function SalonsPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(salon)}
-                    className="inline-flex items-center gap-1 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    className="inline-flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
                   >
                     <Pencil className="h-3.5 w-3.5" /> Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => requestRemoveSalon(salon)}
-                    className="inline-flex items-center gap-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                    className="inline-flex items-center gap-1 rounded-sm border border-[#f1b6b8] bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#a4262c] transition hover:bg-[#fde7e9]"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Eliminar
                   </button>
@@ -376,6 +453,9 @@ export default function SalonsPage() {
         countryOptions={COUNTRY_OPTIONS}
         availableCities={availableCities}
         onTextChange={handleTextChange}
+        onOpeningHoursChange={handleOpeningHoursChange}
+        onAddScheduleRange={handleAddScheduleRange}
+        onRemoveScheduleRange={handleRemoveScheduleRange}
         onCountryChange={handleCountryChange}
         onSubmit={(event) => void saveSalon(event)}
         onClose={closeModal}

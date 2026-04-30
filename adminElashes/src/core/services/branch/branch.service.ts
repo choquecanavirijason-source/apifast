@@ -6,6 +6,10 @@ interface BackendBranch {
   address?: string | null;
   city?: string | null;
   department?: string | null;
+  opening_hours?: Array<{
+    day: string;
+    ranges: Array<{ open_time: string; close_time: string }>;
+  }> | null;
 }
 
 interface MessageResponse {
@@ -17,6 +21,10 @@ export interface BranchPayload {
   address?: string;
   city?: string;
   department?: string;
+  opening_hours?: Array<{
+    day: string;
+    ranges: Array<{ open_time: string; close_time: string }>;
+  }>;
 }
 
 export const BranchService = {

@@ -4,10 +4,12 @@ import type {
   ProfessionalForSelect,
   ServiceCategoryOption,
   ServiceOption,
+  TicketItem,
 } from "../../../core/services/agenda/agenda.service";
 
 export type CartLine = {
   localId: string;
+  appointment_id?: number;
   service_id: string;
   professional_id: string;
   date: string;
@@ -79,7 +81,10 @@ export type PosSaleStepOneProps = {
 
 export type PosSaleStepTwoProps = {
   cartLines: CartLine[];
+  existingTickets: TicketItem[];
   services: ServiceOption[];
+  clientDisplayName: string;
+  editingSaleCode?: string | null;
   subtotal: number;
   total: number;
   onRemoveLine: (localId: string) => void;
@@ -93,6 +98,33 @@ export type PosSaleStepTwoProps = {
   isSubmitting: boolean;
   onCheckout: () => void;
   onBack: () => void;
+  onOpenSalesHistory: () => void;
+  clientComboboxRef: RefObject<HTMLDivElement | null>;
+  clientSearch: string;
+  setClientSearch: (value: string) => void;
+  setClientId: (value: string) => void;
+  isClientMenuOpen: boolean;
+  setIsClientMenuOpen: (value: boolean | ((current: boolean) => boolean)) => void;
+  filteredClients: PosSaleClientOption[];
+  selectedClient: PosSaleClientOption | null;
+  clientPhone: string;
+  clientAddress: string;
+  sellerId: string;
+  setSellerId: (value: string) => void;
+  discountValue: string;
+  setDiscountValue: (value: string) => void;
+  discountType: "amount" | "percent";
+  setDiscountType: (value: "amount" | "percent") => void;
+  paymentMethod: string;
+  setPaymentMethod: (value: string) => void;
+  notes: string;
+  setNotes: (value: string) => void;
+  onOpenRegisterClient: () => void;
+  onAddServiceToCart: (service: ServiceOption) => void;
+  branchOpeningHours?: Array<{
+    day: string;
+    ranges: Array<{ open_time: string; close_time: string }>;
+  }> | null;
 };
 
 export type ReceiptTicketEdit = {
