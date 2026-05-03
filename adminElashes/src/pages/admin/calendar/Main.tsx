@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { CalendarDays, Printer } from "lucide-react";
+import { CalendarDays, PanelLeftClose, PanelLeftOpen, Printer } from "lucide-react";
 import { toast } from "react-toastify";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "../../../core/services/agenda/agenda.service";
 import Layout from "../../../components/common/layout";
@@ -391,13 +391,27 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
         topContent={
           <SectionCard className="border border-[#d2d0ce] bg-[#faf9f8]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center">
+              <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#c7e0f4] bg-[#deecf9] text-[#005a9e] shadow-sm">
                   <CalendarDays className="h-4 w-4" />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPendingDrawerOpen((prev) => !prev)}
+                  title={isPendingDrawerOpen ? "Ocultar panel de tickets" : "Mostrar panel de tickets"}
+                  className={`flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    isPendingDrawerOpen
+                      ? "border-[#0078d4] bg-[#deecf9] text-[#0050a0]"
+                      : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+                  }`}
+                >
+                  {isPendingDrawerOpen
+                    ? <PanelLeftClose className="h-3.5 w-3.5" />
+                    : <PanelLeftOpen className="h-3.5 w-3.5" />}
+                  {isPendingDrawerOpen ? "Ocultar panel" : "Mostrar panel"}
+                </button>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[#edebe9] bg-white/80 p-1">
-               
                 <Button type="button" variant="secondary" size="sm" onClick={handlePrintCalendar} className="h-8 px-2.5 text-xs shadow-sm">
                   <Printer className="h-3.5 w-3.5" />
                   Imprimir calendario
@@ -408,7 +422,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
         }
       >
         <div
-          className={`grid min-h-[72vh] ${isPendingDrawerOpen ? "gap-4 xl:grid-cols-[360px_minmax(0,1fr)]" : "gap-2 xl:grid-cols-[0px_minmax(0,1fr)]"}`}
+          className={`grid min-h-[72vh] gap-3 ${isPendingDrawerOpen ? "xl:grid-cols-[360px_minmax(0,1fr)]" : "xl:grid-cols-[0px_minmax(0,1fr)]"}`}
         >
           <PendingTicketsPanel
             isOpen={isPendingDrawerOpen}
@@ -439,7 +453,6 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
             <CalendarControlsBar
               jumpSearch={jumpSearch}
               ticketSearchSuggestions={ticketSearchSuggestions}
-              isPendingDrawerOpen={isPendingDrawerOpen}
               slotMinutes={slotMinutes}
               visibleStartHour={visibleStartHour}
               visibleEndHour={visibleEndHour}
@@ -447,7 +460,6 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
               onClearJumpSearch={() => {
                 setJumpSearch("");
               }}
-              onTogglePendingDrawer={() => setIsPendingDrawerOpen((prev) => !prev)}
               onGoPrevWeek={() => {
                 const previous = new Date(weekStart);
                 previous.setDate(weekStart.getDate() - 7);

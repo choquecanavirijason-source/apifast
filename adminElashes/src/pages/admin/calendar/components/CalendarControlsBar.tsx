@@ -1,15 +1,11 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
 type CalendarControlsBarProps = {
   jumpSearch: string;
   ticketSearchSuggestions: string[];
-  isPendingDrawerOpen: boolean;
   slotMinutes: 60 | 30 | 15;
   visibleStartHour: number;
   visibleEndHour: number;
   onJumpSearchChange: (value: string) => void;
   onClearJumpSearch: () => void;
-  onTogglePendingDrawer: () => void;
   onGoPrevWeek: () => void;
   onGoNextWeek: () => void;
   onSlotMinutesChange: (value: 60 | 30 | 15) => void;
@@ -20,13 +16,11 @@ type CalendarControlsBarProps = {
 export default function CalendarControlsBar({
   jumpSearch,
   ticketSearchSuggestions,
-  isPendingDrawerOpen,
   slotMinutes,
   visibleStartHour,
   visibleEndHour,
   onJumpSearchChange,
   onClearJumpSearch,
-  onTogglePendingDrawer,
   onGoPrevWeek,
   onGoNextWeek,
   onSlotMinutesChange,
@@ -56,12 +50,6 @@ export default function CalendarControlsBar({
             ))}
           </datalist>
         </div>
-        <button type="button" onClick={onTogglePendingDrawer} className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs">
-          <span className="inline-flex items-center gap-1">
-            {isPendingDrawerOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            {isPendingDrawerOpen ? "Ocultar tickets" : "Mostrar tickets"}
-          </span>
-        </button>
         <button type="button" onClick={onGoPrevWeek} className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs">
           Semana anterior
         </button>

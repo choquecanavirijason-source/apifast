@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
 
 import { useDroppable } from "@dnd-kit/core";
-import { Dot } from "lucide-react";
 
-import { SectionCard } from "../../../../components/common/ui";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
+
+const ACCENT_HEX: Record<string, string> = {
+  orange: "#D83B01",
+  blue:   "#0078D4",
+  green:  "#107C10",
+};
 
 export default function DroppableColumn({
   id,
@@ -14,7 +18,7 @@ export default function DroppableColumn({
   isEmptyLabel,
   renderCard,
   highlightTicket,
-  compact = false,
+  accentColor = "blue",
 }: {
   id: string;
   title: string;
@@ -23,40 +27,45 @@ export default function DroppableColumn({
   isEmptyLabel: string;
   renderCard: (ticket: TicketItem) => ReactNode;
   highlightTicket?: (ticket: TicketItem) => boolean;
-  compact?: boolean;
+  accentColor?: "orange" | "blue" | "green";
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const color = ACCENT_HEX[accentColor];
   const hasTickets = tickets.length > 0;
 
   return (
-    <SectionCard
-      className={`h-full overflow-hidden border ${compact ? "border-[#e1dfdd] bg-white shadow-none" : "border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]"}`}
-      bodyClassName={compact ? "!p-1.5" : "!p-2"}
-    >
-      <div className="mb-2 border border-[#edebe9] bg-[#f3f2f1] px-2 py-1.5">
-        <div className="flex items-start justify-between gap-2">
+    <div className="flex h-full flex-col border border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+      {/* Accent stripe */}
+      <div style={{ height: 3, backgroundColor: color }} />
+
+      {/* Column header */}
+      <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#f3f2f1] px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div style={{ width: 3, height: 20, backgroundColor: color, flexShrink: 0 }} />
           <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#323130]">{title}</h3>
-            <p className="mt-0.5 text-[10px] text-[#605e5c]">{subtitle}</p>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>
+            <p className="text-[10px] text-[#605e5c]">{subtitle}</p>
           </div>
-          <span className="inline-flex min-w-[28px] items-center justify-center rounded-sm border border-[#8a8886] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#201f1e]">
-            {tickets.length}
-          </span>
         </div>
+        <span className="inline-flex min-w-[24px] items-center justify-center border border-[#8a8886] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#201f1e]">
+          {tickets.length}
+        </span>
       </div>
+
+      {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className={`min-h-[220px] space-y-2 border border-[#d2d0ce] bg-[#fbfbfb] ${compact ? "p-1 lg:min-h-[420px]" : "p-2 lg:min-h-[440px]"} transition-all ${
-          isOver ? "border-[#0078d4] bg-[#eff6fc] ring-1 ring-[#0078d4]/25" : ""
-        }`}
+        className="flex-1 space-y-2 overflow-y-auto p-2 transition-colors lg:min-h-[500px]"
+        style={
+          isOver
+            ? { backgroundColor: "#EFF6FC", outline: "1px solid #0078D4", outlineOffset: "-2px" }
+            : { backgroundColor: "#FAF9F8" }
+        }
       >
         {!hasTickets ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center border border-dashed border-[#c8c6c4] bg-white px-4 text-center">
-            <span className="mb-1 inline-flex h-6 w-6 items-center justify-center rounded-sm bg-[#f3f2f1] text-[#605e5c]">
-              <Dot className="h-5 w-5" />
-            </span>
-            <p className="text-xs font-medium text-[#605e5c]">{isEmptyLabel}</p>
-            <p className="mt-1 text-[11px] text-[#a19f9d]">Arrastra un ticket aquí para continuar el flujo.</p>
+            <p className="text-xs font-medium text-[#8a8886]">{isEmptyLabel}</p>
+            <p className="mt-0.5 text-[11px] text-[#a19f9d]">Arrastra un ticket aquí para continuar el flujo.</p>
           </div>
         ) : (
           tickets.map((ticket) => (
@@ -64,12 +73,15 @@ export default function DroppableColumn({
               key={ticket.id}
               className={
                 highlightTicket?.(ticket)
-                  ? "relative border border-[#9dc4e6] bg-[#f5f9fd] p-[3px] ring-1 ring-[#0078d4]/20"
+                  ? "relative border border-[#9dc4e6] bg-[#f0f6fb] p-[2px]"
                   : ""
               }
             >
               {highlightTicket?.(ticket) ? (
-                <span className="absolute right-2 top-2 z-10 inline-flex items-center border border-[#005a9e] bg-[#0078d4] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                <span
+                  className="absolute right-2 top-2 z-10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: "#0078D4" }}
+                >
                   Nuevo
                 </span>
               ) : null}
@@ -78,6 +90,6 @@ export default function DroppableColumn({
           ))
         )}
       </div>
-    </SectionCard>
+    </div>
   );
 }

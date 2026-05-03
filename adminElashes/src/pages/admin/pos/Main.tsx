@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ShoppingCart } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AgendaService,
@@ -1235,6 +1235,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
 
   // ── Print preview ─────────────────────────────────────────────────────────
 
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [receiptTicketEdits, setReceiptTicketEdits] = useState<Record<number, ReceiptTicketEdit>>({});
   const [isSavingReceiptTickets, setIsSavingReceiptTickets] = useState(false);
@@ -1553,20 +1554,42 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               </button>
             ))}
           </div>
-          {editingSale ? (
-            <div className="flex items-center gap-2">
-              <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
-                Editando venta: {editingSale.sale_code}
-              </span>
+          <div className="flex items-center gap-2">
+            {activeTab === "sale" && step === 1 ? (
               <button
                 type="button"
-                onClick={resetSaleForm}
-                className="rounded-sm border border-[#edebe9] bg-white px-3 py-1 text-xs font-semibold text-[#605e5c] hover:bg-[#f3f2f1]"
+                onClick={() => setIsCartOpen((prev) => !prev)}
+                title={isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
+                className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  isCartOpen
+                    ? "border-[#0078d4] bg-[#deecf9] text-[#0050a0]"
+                    : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+                }`}
               >
-                Salir edicion
+                <ShoppingCart className="h-3.5 w-3.5" />
+                {isCartOpen ? "Cerrar carrito" : "Ver carrito"}
+                {cartLines.length > 0 ? (
+                  <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${isCartOpen ? "bg-[#0078d4] text-white" : "bg-[#323130] text-white"}`}>
+                    {cartLines.length}
+                  </span>
+                ) : null}
               </button>
-            </div>
-          ) : null}
+            ) : null}
+            {editingSale ? (
+              <>
+                <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
+                  Editando venta: {editingSale.sale_code}
+                </span>
+                <button
+                  type="button"
+                  onClick={resetSaleForm}
+                  className="rounded-sm border border-[#edebe9] bg-white px-3 py-1 text-xs font-semibold text-[#605e5c] hover:bg-[#f3f2f1]"
+                >
+                  Salir edicion
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       }
     >
@@ -1635,6 +1658,8 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               setNotes={setNotes}
               onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
               professionals={professionals}
+              isCartOpen={isCartOpen}
+              setIsCartOpen={setIsCartOpen}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))

@@ -1,5 +1,5 @@
-import { Dispatch, SetStateAction } from "react";
-import { Button, SectionCard } from "../../../components/common/ui";
+import type { Dispatch, SetStateAction } from "react";
+import { Button, SectionCard } from "../../../../components/common/ui";
 import { ChevronDown, Search } from "lucide-react";
 import { todayDate } from "../control.constants";
 

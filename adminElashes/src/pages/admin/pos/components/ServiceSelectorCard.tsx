@@ -175,7 +175,7 @@ export default function ServiceSelectorCard({
         </div>
       </div>
 
-    
+
       {quickServices.length > 0 && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[#f3f2f1]">
           <div className="min-h-0 flex-1 overflow-hidden px-4 pb-5 pt-4 sm:px-5">

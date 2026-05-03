@@ -54,7 +54,7 @@ export default function PendingTicketsPanel({
   return (
     <aside
       className={`min-h-0 overflow-y-auto rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3 transition-all duration-200 ${
-        isOpen ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0 pointer-events-none p-0 border-transparent"
+        isOpen ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0 pointer-events-none"
       }`}
     >
       <div className="mb-3 grid gap-2">

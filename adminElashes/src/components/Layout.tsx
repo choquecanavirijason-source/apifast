@@ -10,7 +10,7 @@ export default function Layout(){
   const isPosTrackingFullscreen = location.pathname.startsWith('/admin/pos-tracking')
 
   // Estado para el botón flotante
-  const [pos, setPos] = React.useState({ x: 30, y: 30 })
+  const [pos, setPos] = React.useState({ x: 1450, y: 650 })
   const [dragging, setDragging] = React.useState(false)
   const [offset, setOffset] = React.useState({ x: 0, y: 0 })
   const [showTooltip, setShowTooltip] = React.useState(false)
@@ -90,7 +90,7 @@ export default function Layout(){
             transition: dragging ? 'none' : 'box-shadow 0.2s',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
             borderRadius: '50%',
-            background: '#2563eb',
+            background: '#06420f',
             width: 42,
             height: 42,
             display: 'flex',

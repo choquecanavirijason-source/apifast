@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { toast } from "react-toastify";
 
 import Layout from "../../../components/common/layout";
-import { Button, SectionCard } from "../../../components/common/ui";
+import { Button } from "../../../components/common/ui";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "../../../core/services/agenda/agenda.service";
@@ -15,15 +14,8 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/bra
 import { COLUMN_TO_STATUS, getColumnForStatus, STATUS_LABELS, todayDate } from "./control.constants";
 import DraggableTicketCard from "./components/DraggableTicketCard";
 import DroppableColumn from "./components/DroppableColumn";
-import QueueHeader from "./components/QueueHeader";
-
-const fieldClass =
-  "h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
 
 const Main = () => {
-  const fullscreenRef = useRef<HTMLDivElement>(null);
-  const serviceFilterRef = useRef<HTMLDivElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
@@ -47,19 +39,15 @@ const Main = () => {
   const [isQuestionnaireModalOpen, setIsQuestionnaireModalOpen] = useState(false);
   const [isSubmittingTracking, setIsSubmittingTracking] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [callProfessionalId, setCallProfessionalId] = useState("");
-  const [filterService, setFilterService] = useState("");
-  const [isServiceFilterMenuOpen, setIsServiceFilterMenuOpen] = useState(false);
-  const [filterClient, setFilterClient] = useState("");
-  const [filterDate, setFilterDate] = useState(todayDate());
-  const [filterTime, setFilterTime] = useState("");
-  const [filterProfessionalId, setFilterProfessionalId] = useState("");
+  const [filterService] = useState("");
+  const [filterClient] = useState("");
+  const [filterDate] = useState(todayDate());
+  const [filterTime] = useState("");
+  const [filterProfessionalId] = useState("");
   const [ticketToDelete, setTicketToDelete] = useState<TicketItem | null>(null);
   const [deleteConfirmationCode, setDeleteConfirmationCode] = useState("");
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
   const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
-  const [isIaDrawerOpen, setIsIaDrawerOpen] = useState(true);
-  const [isCompactBoard, setIsCompactBoard] = useState(false);
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -100,17 +88,6 @@ const Main = () => {
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 60000);
     return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const onClickOutside = (event: MouseEvent) => {
-      if (serviceFilterRef.current && !serviceFilterRef.current.contains(event.target as Node)) {
-        setIsServiceFilterMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
   useEffect(() => {
@@ -208,30 +185,6 @@ const Main = () => {
     });
   }, [tickets, filterService, filterClient, filterDate, filterTime, filterProfessionalId]);
 
-  const serviceFilterOptions = useMemo(() => {
-    const names = new Set<string>();
-
-    tickets.forEach((ticket) => {
-      if (ticket.service_name?.trim()) {
-        names.add(ticket.service_name.trim());
-      }
-
-      (ticket.service_names ?? []).forEach((name) => {
-        if (name?.trim()) {
-          names.add(name.trim());
-        }
-      });
-    });
-
-    return Array.from(names).sort((a, b) => a.localeCompare(b, "es"));
-  }, [tickets]);
-
-  const filteredServiceFilterOptions = useMemo(() => {
-    const term = filterService.trim().toLowerCase();
-    if (!term) return serviceFilterOptions;
-    return serviceFilterOptions.filter((option) => option.toLowerCase().includes(term));
-  }, [serviceFilterOptions, filterService]);
-
   const waitingTickets = useMemo(
     () => filteredTickets.filter((ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status)),
     [filteredTickets]
@@ -244,11 +197,6 @@ const Main = () => {
 
   const completedTickets = useMemo(
     () => filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed"),
-    [filteredTickets]
-  );
-
-  const iaTickets = useMemo(
-    () => filteredTickets.filter((ticket) => Boolean(ticket.is_ia)),
     [filteredTickets]
   );
 
@@ -356,22 +304,6 @@ const Main = () => {
       toast.error("No se pudo finalizar la atencion.");
     } finally {
       setIsSubmittingTracking(false);
-    }
-  };
-
-  const handleCallNext = async () => {
-    if (!activeBranchId) return;
-
-    try {
-      await AgendaService.callNextAppointment({
-        branch_id: activeBranchId,
-        professional_id: callProfessionalId ? Number(callProfessionalId) : undefined,
-      });
-      toast.success("Siguiente ticket llamado.");
-      void loadTickets();
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      toast.info(detail || "No hay tickets disponibles.");
     }
   };
 
@@ -591,392 +523,117 @@ const Main = () => {
     );
   };
 
-  const statusColors: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700",
-    in_service: "bg-emerald-100 text-emerald-700",
-    completed: "bg-slate-200 text-slate-700",
-    cancelled: "bg-red-100 text-red-700",
-    confirmed: "bg-blue-100 text-blue-700",
-  };
-
-  const handleFullscreen = () => {
-    if (!fullscreenRef.current) return;
-
-    if (isFullscreen) {
-      void document.exitFullscreen();
-    } else {
-      void fullscreenRef.current.requestFullscreen();
-    }
-  };
-
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
-
   return (
-    <div ref={fullscreenRef} style={{ height: "100%", overflowY: "auto" }}>
-      <Layout
-        title="Tablero de atención"
-        subtitle="Vista operativa estilo Business Central"
-        variant="cards"
-        topContent={
-          <QueueHeader
-            waitingCount={waitingTickets.length}
-            inServiceCount={inServiceTickets.length}
-            completedCount={completedTickets.length}
-            professionals={professionals}
-            callProfessionalId={callProfessionalId}
-            onCallProfessionalIdChange={setCallProfessionalId}
-            onCallNext={() => void handleCallNext()}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={handleFullscreen}
-          />
-        }
-      >
-        {isLoading ? (
-          <SectionCard bodyClassName="!p-6">
-            <p className="text-sm text-slate-500">Cargando tablero...</p>
-          </SectionCard>
-        ) : null}
+    <Layout
+      title="Tablero de atención"
+      subtitle="Vista operativa del día"
+      variant="cards"
+    >
+      {isLoading ? (
+        <p className="text-sm text-slate-400">Cargando tablero...</p>
+      ) : null}
 
-        <SectionCard
-          className={isCompactBoard ? "border-[#edebe9] bg-white shadow-none" : "border-[#d2d0ce] bg-[#faf9f8]"}
-          bodyClassName={isCompactBoard ? "!p-2.5 sm:!p-3" : "!p-4 sm:!p-5"}
-        >
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-7">
-            <div className="lg:col-span-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Servicio</label>
-              <div className="flex gap-2 mt-1" ref={serviceFilterRef}>
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={filterService}
-                    onChange={(event) => {
-                      setFilterService(event.target.value);
-                      setIsServiceFilterMenuOpen(true);
-                    }}
-                    onFocus={() => setIsServiceFilterMenuOpen(true)}
-                    placeholder="Buscar producto o servicio..."
-                    className={`${fieldClass} pl-10 pr-10`}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setIsServiceFilterMenuOpen((prev) => !prev)}
-                    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-sm text-[#605e5c] transition hover:bg-[#f3f2f1] hover:text-[#323130]"
-                    aria-label="Mostrar servicios"
+      <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
+        <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+          <DroppableColumn
+            id="waiting"
+            title="En espera"
+            subtitle="Tickets pendientes del día"
+            tickets={waitingTickets}
+            isEmptyLabel="Sin clientas en espera."
+            highlightTicket={isRecentlyCreated}
+            accentColor="orange"
+            renderCard={(ticket) => (
+              <DraggableTicketCard
+                key={ticket.id}
+                ticket={ticket}
+                professionals={professionals}
+                onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
+                isSavingEdit={editingTicketId === ticket.id}
+                actions={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-
-                  {isServiceFilterMenuOpen && (
-                    <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-sm border border-[#d2d0ce] bg-white shadow-lg">
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        {filteredServiceFilterOptions.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-slate-500">No se encontraron servicios.</p>
-                        ) : (
-                          filteredServiceFilterOptions.map((option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => {
-                                setFilterService(option);
-                                setIsServiceFilterMenuOpen(false);
-                              }}
-                              className="flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-[#f3f2f1]"
-                            >
-                              <span className="truncate text-sm text-[#323130]">{option}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Cliente</label>
-              <div className="relative mt-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={filterClient}
-                  onChange={(event) => setFilterClient(event.target.value)}
-                  placeholder="Buscar por nombre de clienta..."
-                  className={`${fieldClass} pl-9`}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(event) => setFilterDate(event.target.value)}
-                className={`${fieldClass} mt-1`}
+                    Iniciar atención
+                  </Button>
+                }
+                showRemaining={false}
+                statusColors={{}}
+                getRemainingLabel={getRemainingLabel}
+                onDelete={handleDeleteClick}
               />
-            </div>
+            )}
+          />
 
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Hora</label>
-              <input
-                type="time"
-                value={filterTime}
-                onChange={(event) => setFilterTime(event.target.value)}
-                className={`${fieldClass} mt-1`}
+          <DroppableColumn
+            id="in_service"
+            title="En servicio"
+            subtitle="Atenciones en curso"
+            tickets={inServiceTickets}
+            isEmptyLabel="Sin servicios activos."
+            highlightTicket={isRecentlyCreated}
+            accentColor="blue"
+            renderCard={(ticket) => (
+              <DraggableTicketCard
+                key={ticket.id}
+                ticket={ticket}
+                professionals={professionals}
+                onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
+                isSavingEdit={editingTicketId === ticket.id}
+                actions={
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
+                  >
+                    Finalizar
+                  </Button>
+                }
+                showRemaining
+                statusColors={{}}
+                getRemainingLabel={getRemainingLabel}
+                onDelete={handleDeleteClick}
               />
-            </div>
+            )}
+          />
 
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Atendiendo</label>
-              <select
-                value={filterProfessionalId}
-                onChange={(event) => setFilterProfessionalId(event.target.value)}
-                className={`${fieldClass} mt-1`}
-              >
-                <option value="">Todas</option>
-                {professionals.map((professional) => (
-                  <option key={professional.id} value={String(professional.id)}>
-                    {professional.username}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#edebe9] pt-3">
-            <p className="text-xs text-[#605e5c]">
-              Tickets filtrados: <span className="font-semibold text-[#323130]">{filteredTickets.length}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsIaDrawerOpen((prev) => !prev)}
-              >
-                {isIaDrawerOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-                {isIaDrawerOpen ? "Ocultar IA" : "Mostrar IA"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsCompactBoard((prev) => !prev)}
-              >
-                {isCompactBoard ? "Modo normal" : "Modo compacto"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void loadTickets()}
-                disabled={isLoading}
-              >
-                {isLoading ? "Actualizando..." : "Actualizar"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setFilterService("");
-                  setFilterClient("");
-                  setFilterDate(todayDate());
-                  setFilterTime("");
-                  setFilterProfessionalId("");
-                }}
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-          </div>
-        </SectionCard>
-
-        <div className="mt-5">
-          <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
-            <div className="space-y-5">
-              <div className={`grid items-start gap-3 ${isCompactBoard ? "xl:gap-3" : "xl:gap-6"} lg:grid-cols-2 ${isIaDrawerOpen ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
-                {isIaDrawerOpen ? (
-                  <DroppableColumn
-                    id="ia"
-                    title={`Tickets con IA (${iaTickets.length})`}
-                    subtitle="Todos los tickets generados por IA se agrupan aqui."
-                    tickets={iaTickets}
-                    isEmptyLabel="No hay tickets con IA para los filtros actuales."
-                    highlightTicket={isRecentlyCreated}
-                    compact={isCompactBoard}
-                    renderCard={(ticket) => (
-                      <DraggableTicketCard
-                        key={ticket.id}
-                        ticket={ticket}
-                        professionals={professionals}
-                        onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                        isSavingEdit={editingTicketId === ticket.id}
-                        actions={
-                          ["pending", "waiting", "confirmed"].includes(ticket.status) ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleStartService(ticket);
-                              }}
-                            >
-                              Iniciar atencion
-                            </Button>
-                          ) : ticket.status === "in_service" ? (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleMarkCompleted(ticket);
-                              }}
-                            >
-                              Finalizar
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenFinishModal(ticket);
-                              }}
-                            >
-                              Completar
-                            </Button>
-                          )
-                        }
-                        showRemaining={ticket.status === "in_service"}
-                        statusColors={statusColors}
-                        getRemainingLabel={getRemainingLabel}
-                        onDelete={handleDeleteClick}
-                      />
-                    )}
-                  />
-                ) : null}
-
-                <DroppableColumn
-                  id="waiting"
-                  title="En espera"
-                  subtitle="Tickets pendientes del dia"
-                  tickets={waitingTickets}
-                  isEmptyLabel="Sin clientas en espera."
-                  highlightTicket={isRecentlyCreated}
-                  compact={isCompactBoard}
-                  renderCard={(ticket) => (
-                    <DraggableTicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      professionals={professionals}
-                      onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                      isSavingEdit={editingTicketId === ticket.id}
-                      actions={
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleStartService(ticket);
-                          }}
-                        >
-                          Iniciar atencion
-                        </Button>
-                      }
-                      showRemaining={false}
-                      statusColors={statusColors}
-                      getRemainingLabel={getRemainingLabel}
-                      onDelete={handleDeleteClick}
-                    />
-                  )}
-                />
-
-                <DroppableColumn
-                  id="in_service"
-                  title="En servicio"
-                  subtitle="Atenciones en curso"
-                  tickets={inServiceTickets}
-                  isEmptyLabel="Sin servicios activos."
-                  highlightTicket={isRecentlyCreated}
-                  compact={isCompactBoard}
-                  renderCard={(ticket) => (
-                    <DraggableTicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      professionals={professionals}
-                      onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                      isSavingEdit={editingTicketId === ticket.id}
-                      actions={
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleMarkCompleted(ticket);
-                          }}
-                        >
-                          Finalizar
-                        </Button>
-                      }
-                      showRemaining
-                      statusColors={statusColors}
-                      getRemainingLabel={getRemainingLabel}
-                      onDelete={handleDeleteClick}
-                    />
-                  )}
-                />
-
-                <DroppableColumn
-                  id="completed"
-                  title="Finalizadas"
-                  subtitle="Atenciones completadas"
-                  tickets={completedTickets}
-                  isEmptyLabel="Sin finalizadas hoy."
-                  highlightTicket={isRecentlyCreated}
-                  compact={isCompactBoard}
-                  renderCard={(ticket) => (
-                    <DraggableTicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      professionals={professionals}
-                      onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
-                      isSavingEdit={editingTicketId === ticket.id}
-                      actions={
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenFinishModal(ticket);
-                          }}
-                        >
-                          Completar
-                        </Button>
-                      }
-                      showRemaining={false}
-                      statusColors={statusColors}
-                      getRemainingLabel={getRemainingLabel}
-                      onDelete={handleDeleteClick}
-                    />
-                  )}
-                />
-              </div>
-            </div>
-          </DndContext>
+          <DroppableColumn
+            id="completed"
+            title="Finalizadas"
+            subtitle="Atenciones completadas"
+            tickets={completedTickets}
+            isEmptyLabel="Sin finalizadas hoy."
+            highlightTicket={isRecentlyCreated}
+            accentColor="green"
+            renderCard={(ticket) => (
+              <DraggableTicketCard
+                key={ticket.id}
+                ticket={ticket}
+                professionals={professionals}
+                onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
+                isSavingEdit={editingTicketId === ticket.id}
+                actions={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
+                  >
+                    Completar
+                  </Button>
+                }
+                showRemaining={false}
+                statusColors={{}}
+                getRemainingLabel={getRemainingLabel}
+                onDelete={handleDeleteClick}
+              />
+            )}
+          />
         </div>
+      </DndContext>
 
-        <ConfirmDialog
+      <ConfirmDialog
           isOpen={Boolean(ticketToDelete)}
           title="Eliminar ticket"
           message={
@@ -1182,8 +839,7 @@ const Main = () => {
             </Button>
           </div>
         </GenericModal>
-      </Layout>
-    </div>
+    </Layout>
   );
 };
 

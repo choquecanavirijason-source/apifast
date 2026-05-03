@@ -77,6 +77,8 @@ export type PosSaleStepOneProps = {
   setNotes: (value: string) => void;
   onOpenRegisterClient: () => void;
   professionals: ProfessionalForSelect[];
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
 };
 
 export type PosSaleStepTwoProps = {
