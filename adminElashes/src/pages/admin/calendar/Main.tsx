@@ -414,7 +414,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
               <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[#edebe9] bg-white/80 p-1">
                 <Button type="button" variant="secondary" size="sm" onClick={handlePrintCalendar} className="h-8 px-2.5 text-xs shadow-sm">
                   <Printer className="h-3.5 w-3.5" />
-                  Imprimir calendario
+                  Imprimir calendario 
                 </Button>
               </div>
             </div>
