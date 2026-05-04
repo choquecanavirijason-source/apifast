@@ -14,29 +14,29 @@ interface SectionCardProps {
 }
 
 const shellClass: Record<SectionCardVariant, string> = {
-  default: "rounded-2xl border border-slate-200 bg-white shadow-sm",
+  default: "rounded-xl border border-slate-200 bg-white shadow-sm",
   business:
     "rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]",
 };
 
 const headerClass: Record<SectionCardVariant, string> = {
-  default: "flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4",
+  default: "flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5",
   business:
     "flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3",
 };
 
 const titleClass: Record<SectionCardVariant, string> = {
-  default: "text-base font-bold text-slate-800",
+  default: "text-sm font-semibold text-slate-700",
   business: "text-sm font-semibold text-[#323130]",
 };
 
 const subtitleClass: Record<SectionCardVariant, string> = {
-  default: "mt-1 text-sm text-slate-500",
+  default: "mt-0.5 text-xs text-slate-400",
   business: "mt-0.5 text-xs text-[#605e5c]",
 };
 
 const bodyPad: Record<SectionCardVariant, string> = {
-  default: "p-1",
+  default: "p-4",
   business: "p-4",
 };
 

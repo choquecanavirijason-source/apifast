@@ -231,14 +231,14 @@ function DataTable<T extends { id: number | string }>({
       }
     };
 
-  const cellBorder = "border-b border-r border-slate-200/90 last:border-r-0";
+  const cellBorder = "border-b border-slate-100 last:border-r-0";
   const headerCell =
-    "align-top border-b border-r border-slate-300/90 bg-[#eef2f6] px-2 py-2 text-left text-[11px] font-semibold tracking-wide text-slate-700 last:border-r-0";
+    "align-top border-b border-slate-200 bg-slate-50 px-2 py-2.5 text-left text-[11px] font-semibold tracking-wide text-slate-500 uppercase last:border-r-0";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-slate-300/80 bg-white font-sans shadow-sm ring-1 ring-slate-200/60">
-      {/* Barra tipo list page (BC): búsqueda + tamaño de página */}
-      <div className="shrink-0 border-b border-slate-300/70 bg-gradient-to-b from-slate-100 to-slate-50/95 px-3 py-2">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white font-sans shadow-sm">
+      {/* Toolbar superior */}
+      <div className="shrink-0 border-b border-slate-100 bg-white px-3 py-2.5">
         {renderTopToolbar && <div className="mb-2 border-b border-slate-200/80 pb-2">{renderTopToolbar()}</div>}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {enableGlobalSearch && (
@@ -423,11 +423,11 @@ function DataTable<T extends { id: number | string }>({
               </tr>
             ) : (
               visibleData.map((item, index) => {
-                const stripe = index % 2 === 0 ? "bg-white" : "bg-slate-50/70";
+                const stripe = index % 2 === 0 ? "bg-white" : "bg-slate-50/40";
                 return (
                   <tr
                     key={item.id}
-                    className={`group transition-colors duration-75 hover:bg-sky-50/80 ${stripe}`}
+                    className={`group transition-colors duration-75 hover:bg-emerald-50/40 ${stripe}`}
                   >
                     <td
                       className={`${cellBorder} px-2 py-2 text-center text-[11px] font-medium tabular-nums text-slate-500`}
@@ -485,7 +485,7 @@ function DataTable<T extends { id: number | string }>({
         </table>
       </div>
 
-      <div className="flex shrink-0 flex-col items-stretch justify-between gap-2 border-t border-slate-300/80 bg-gradient-to-b from-slate-50 to-slate-100/90 px-3 py-2 sm:flex-row sm:items-center">
+      <div className="flex shrink-0 flex-col items-stretch justify-between gap-2 border-t border-slate-100 bg-white px-3 py-2.5 sm:flex-row sm:items-center">
         <p className="text-center text-[11px] text-slate-600 sm:text-left">
           <span className="tabular-nums font-medium text-slate-800">
             {fromItem} – {toItem}

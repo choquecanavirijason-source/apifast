@@ -32,7 +32,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import Layout from "../components/common/layout";
-import FilterActionBar from "../components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "../components/common/ui";
 import DownloadActions from "../components/common/ui/DownloadActions";
 import FilterField from "../components/common/ui/FilterField";
@@ -365,7 +364,7 @@ export default function Dashboard() {
   };
 
   const bcInput =
-    "rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]";
+    "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
 
   return (
     <Layout
@@ -375,78 +374,73 @@ export default function Dashboard() {
       pageClassName="min-h-0 bg-[#f3f2f1]"
       containerClassName="!rounded-none !border-0 !bg-transparent !p-0 !shadow-none"
       toolbar={
-        <div className="rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-          <FilterActionBar
-            left={
-              <div className="flex flex-wrap items-end gap-3">
-                <FilterField label="Desde">
-                  <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={bcInput} />
-                </FilterField>
-                <FilterField label="Hasta">
-                  <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={bcInput} />
-                </FilterField>
-                <FilterField label="Sucursal">
-                  <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
-                    <option value="">Todas las sucursales</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-                <FilterField label="Servicio">
-                  <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
-                    <option value="">Todos los servicios</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-              </div>
-            }
-            right={
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<RefreshCw className="h-4 w-4" />}
-                  onClick={() => void loadDashboard()}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Actualizando..." : "Actualizar"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Download className="h-4 w-4" />}
-                  onClick={() => void handleDownload("tickets")}
-                  disabled={isDownloading}
-                >
-                  Tickets CSV
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Download className="h-4 w-4" />}
-                  onClick={() => void handleDownload("payments")}
-                  disabled={isDownloading}
-                >
-                  Pagos CSV
-                </Button>
-                <Button
-                  size="sm"
-                  leftIcon={<Download className="h-4 w-4" />}
-                  onClick={() => void handleDownload("pos")}
-                  disabled={isDownloading}
-                >
-                  Ventas POS CSV
-                </Button>
-              </>
-            }
-          />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-5">
+            <FilterField label="Desde">
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={bcInput} />
+            </FilterField>
+            <FilterField label="Hasta">
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={bcInput} />
+            </FilterField>
+            <FilterField label="Sucursal">
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+                <option value="">Todas las sucursales</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+            <FilterField label="Servicio">
+              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+                <option value="">Todos los servicios</option>
+                {services.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+              onClick={() => void loadDashboard()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Actualizando..." : "Actualizar"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="h-4 w-4" />}
+              onClick={() => void handleDownload("tickets")}
+              disabled={isDownloading}
+            >
+              Tickets CSV
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="h-4 w-4" />}
+              onClick={() => void handleDownload("payments")}
+              disabled={isDownloading}
+            >
+              Pagos CSV
+            </Button>
+            <Button
+              size="sm"
+              leftIcon={<Download className="h-4 w-4" />}
+              onClick={() => void handleDownload("pos")}
+              disabled={isDownloading}
+            >
+              Ventas POS CSV
+            </Button>
+          </div>
         </div>
       }
     >

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Search } from "lucide-react";
+import { FileDown, Search } from "lucide-react";
+import { generateReceiptPdf } from "../utils/generateReceiptPdf";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import DataTable, { type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
@@ -144,6 +145,14 @@ export default function SalesHistoryTable({
         render: (sale) => (
           <div className="flex justify-end gap-2">
             <button
+              onClick={() => generateReceiptPdf(sale)}
+              title="Descargar PDF"
+              className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </button>
+            <button
               onClick={() => onViewDetail(sale)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
             >
@@ -182,22 +191,22 @@ export default function SalesHistoryTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
           <div className="relative xl:col-span-2">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <input
               value={historySearch}
               onChange={(e) => onHistorySearchChange(e.target.value)}
               placeholder="Buscar ventas, clientes o montos..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 placeholder-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
             />
           </div>
 
           <select
             value={historyClientFilter}
             onChange={(e) => onHistoryClientFilterChange(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-300"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
           >
             <option value="">Todos los clientes</option>
             {historyClientOptions.map((clientName) => (
@@ -210,7 +219,7 @@ export default function SalesHistoryTable({
           <select
             value={historyPaymentFilter}
             onChange={(e) => onHistoryPaymentFilterChange(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-300"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
           >
             <option value="all">Todos los metodos</option>
             {historyPaymentOptions.map((paymentMethod) => (
@@ -225,26 +234,26 @@ export default function SalesHistoryTable({
               type="date"
               value={historyDateFrom}
               onChange={(e) => onHistoryDateFromChange(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-300"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
               title="Fecha desde"
             />
             <input
               type="date"
               value={historyDateTo}
               onChange={(e) => onHistoryDateToChange(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-300"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
               title="Fecha hasta"
             />
           </div>
         </div>
 
-        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>Mostrar</span>
             <select
               value={rowsPerPage}
               onChange={(e) => onRowsPerPageChange(Number(e.target.value))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-300"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-300"
             >
               {rowsPerPageOptions.map((n) => (
                 <option key={n} value={n}>
@@ -254,11 +263,12 @@ export default function SalesHistoryTable({
             </select>
           </div>
 
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
-            <span className="text-emerald-700">Monto filtrado: </span>
-            <span className="font-bold text-emerald-800">Bs {filteredSalesTotalAmount.toFixed(2)}</span>
-            <span className="text-emerald-700"> / Total general: </span>
-            <span className="font-bold text-emerald-800">Bs {allSalesTotalAmount.toFixed(2)}</span>
+          <div className="text-sm text-slate-500">
+            <span>Filtrado: </span>
+            <span className="font-semibold text-emerald-700">Bs {filteredSalesTotalAmount.toFixed(2)}</span>
+            <span className="mx-1.5 text-slate-300">/</span>
+            <span>Total: </span>
+            <span className="font-semibold text-slate-700">Bs {allSalesTotalAmount.toFixed(2)}</span>
           </div>
         </div>
       </div>

@@ -30,18 +30,18 @@ export const ConfirmDialog = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px]"
       onClick={onCancel}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 w-full max-w-md"
+        className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 w-full max-w-sm mx-4"
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
-        <div className="py-4 text-gray-700 dark:text-gray-200">{message}</div>
+        <h3 className="text-base font-semibold text-slate-800">{title}</h3>
+        <div className="mt-2 mb-5 text-sm text-slate-500 leading-relaxed">{message}</div>
         <div className="flex justify-end gap-2">
           <button
-            className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 font-semibold transition"
+            className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 transition"
             onClick={onCancel}
             disabled={isProcessing}
           >
@@ -50,12 +50,12 @@ export const ConfirmDialog = ({
           <button
             className={
               variant === "danger"
-                ? "px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition"
+                ? "px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium transition"
                 : variant === "secondary"
-                  ? "px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white font-semibold transition"
+                  ? "px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium transition"
                   : variant === "success"
-                    ? "px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition"
-                    : "px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
+                    ? "px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition"
+                    : "px-4 py-2 rounded-lg bg-[#094732] hover:bg-[#063324] text-white text-sm font-medium transition"
             }
             onClick={onConfirm}
             disabled={isProcessing}

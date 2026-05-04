@@ -1,6 +1,7 @@
 import { useMemo, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Clock, Printer, ReceiptText } from "lucide-react";
+import { Clock, FileDown, Printer, ReceiptText } from "lucide-react";
+import { generateReceiptPdf } from "../utils/generateReceiptPdf";
 import { QRCodeCanvas } from "qrcode.react";
 
 import GenericModal from "../../../../components/common/modal/GenericModal";
@@ -224,20 +225,29 @@ export default function PosReceiptModals({
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 type="button"
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                 onClick={onCloseReceipt}
               >
                 Cerrar
               </button>
               <button
                 type="button"
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                onClick={() => generateReceiptPdf(receiptSale)}
+              >
+                <FileDown className="h-4 w-4" />
+                Descargar PDF
+              </button>
+              <button
+                type="button"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                 onClick={handleDirectPrintReceipt}
               >
-                <Printer className="h-4 w-4" />Imprimir comprobante
+                <Printer className="h-4 w-4" />
+                Imprimir
               </button>
             </div>
           </div>

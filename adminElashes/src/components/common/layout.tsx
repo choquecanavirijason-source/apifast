@@ -14,8 +14,8 @@ interface LayoutProps {
 }
 
 const VARIANT_STYLES: Record<LayoutVariant, string> = {
-  table: "bg-[#faf9f8] border border-[#d2d0ce]",
-  cards: "bg-white border border-[#d2d0ce]",
+  table: "bg-white border border-slate-200",
+  cards: "bg-white border border-slate-200",
 };
 
 export default function Layout({
@@ -31,21 +31,21 @@ export default function Layout({
   const variantClass = VARIANT_STYLES[variant] ?? VARIANT_STYLES.table;
 
   return (
-    <div className={`min-h-screen bg-[#f3f2f1] px-2 py-1 font-sans md:px-3 md:py-2 ${pageClassName}`}>
+    <div className={`min-h-screen bg-slate-50 px-4 py-4 font-sans md:px-6 md:py-5 ${pageClassName}`}>
       {(title || subtitle) && (
-        <div className="mb-2 flex min-w-0 items-baseline gap-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
-          {title && <h1 className="min-w-0 truncate text-base font-semibold leading-tight text-[#323130]">{title}</h1>}
-          {title && subtitle ? <span className="text-xs text-[#a19f9d]">/</span> : null}
+        <div className="mb-4 flex min-w-0 items-baseline gap-2.5">
+          {title && <h1 className="min-w-0 text-lg font-semibold leading-tight text-slate-800">{title}</h1>}
+          {title && subtitle ? <span className="text-slate-300">·</span> : null}
           {subtitle && (
-            <p className="min-w-0 truncate whitespace-nowrap text-[11px] leading-tight text-[#605e5c]">{subtitle}</p>
+            <p className="min-w-0 whitespace-nowrap text-sm leading-tight text-slate-400">{subtitle}</p>
           )}
         </div>
       )}
 
-      <section className={`rounded-sm p-2 md:p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${variantClass} ${containerClassName}`}>
-        {topContent ? <div className="mb-2">{topContent}</div> : null}
-        {toolbar ? <div className="mb-2">{toolbar}</div> : null}
-        {children}
+      <section className={`rounded-xl shadow-sm ${variantClass} ${containerClassName}`}>
+        {topContent ? <div className="border-b border-slate-100 px-4 py-3">{topContent}</div> : null}
+        {toolbar ? <div className="border-b border-slate-100 px-4 py-2.5">{toolbar}</div> : null}
+        <div className="p-3 md:p-4">{children}</div>
       </section>
     </div>
   );
