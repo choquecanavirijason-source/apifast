@@ -20,6 +20,7 @@ import {
 import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import Layout from "../../../components/common/layout";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
@@ -143,9 +144,12 @@ export type PosPageProps = {
   embedded?: boolean;
   initialDate?: string;
   section?: "sale" | "history" | "tickets";
+  onCartCountChange?: (count: number) => void;
+  cartDrawerSignal?: number;
+  onRequestSwitchToPos?: () => void;
 };
 
-export default function PosPage({ embedded = false, initialDate, section }: PosPageProps) {
+export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, cartDrawerSignal, onRequestSwitchToPos }: PosPageProps) {
   const navigate = useNavigate();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
 
@@ -188,6 +192,9 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
   const [isLoading,           setIsLoading]           = useState(false);
   const [receiptSale,         setReceiptSale]         = useState<PosSaleItem | null>(null);
   const [editingSale,         setEditingSale]         = useState<PosSaleItem | null>(null);
+  const [confirmCancelSale,   setConfirmCancelSale]   = useState<PosSaleItem | null>(null);
+  const [confirmDeleteSale,   setConfirmDeleteSale]   = useState<PosSaleItem | null>(null);
+  const [isProcessingConfirm, setIsProcessingConfirm] = useState(false);
   const [isRegisterClientOpen,setIsRegisterClientOpen]= useState(false);
   const [isClientMenuOpen,    setIsClientMenuOpen]    = useState(false);
   const [isServiceMenuOpen,   setIsServiceMenuOpen]   = useState(false);
@@ -643,6 +650,17 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
       setActiveTab(section);
     }
   }, [section]);
+
+  useEffect(() => {
+    onCartCountChange?.(cartLines.length);
+  }, [cartLines.length, onCartCountChange]);
+
+  useEffect(() => {
+    if (!cartDrawerSignal) return;
+    setActiveTab("sale");
+    setStep(1);
+    setIsCartOpen(true);
+  }, [cartDrawerSignal]);
 
   // ── Cart ──────────────────────────────────────────────────────────────────
 
@@ -1373,46 +1391,53 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
     }
   };
 
-  const handleCancelSaleFromHistory = async (sale: PosSaleItem) => {
+  const handleCancelSaleFromHistory = (sale: PosSaleItem) => {
     if (sale.status === "cancelled") {
       toast.info("Esta venta ya esta cancelada.");
       return;
     }
+    setConfirmCancelSale(sale);
+  };
 
-    const confirmed = window.confirm(
-      `¿Cancelar la venta ${sale.sale_code}? Esto cancelara tambien sus tickets y pagos.`
-    );
-    if (!confirmed) return;
-
+  const executeCancelSale = async () => {
+    if (!confirmCancelSale) return;
+    setIsProcessingConfirm(true);
     try {
-      const cancelledSale = await PosSaleService.cancel(sale.id);
+      const cancelledSale = await PosSaleService.cancel(confirmCancelSale.id);
       setSales((prev) => prev.map((item) => (item.id === cancelledSale.id ? cancelledSale : item)));
       if (receiptSale?.id === cancelledSale.id) {
         setReceiptSale(cancelledSale);
       }
       void loadContext();
       toast.success("Venta cancelada correctamente.");
+      setConfirmCancelSale(null);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "No se pudo cancelar la venta."));
+    } finally {
+      setIsProcessingConfirm(false);
     }
   };
 
-  const handleDeleteSaleFromHistory = async (sale: PosSaleItem) => {
-    const confirmed = window.confirm(
-      `¿Eliminar definitivamente la venta ${sale.sale_code}? Esta accion borrara tickets y pagos asociados.`
-    );
-    if (!confirmed) return;
+  const handleDeleteSaleFromHistory = (sale: PosSaleItem) => {
+    setConfirmDeleteSale(sale);
+  };
 
+  const executeDeleteSale = async () => {
+    if (!confirmDeleteSale) return;
+    setIsProcessingConfirm(true);
     try {
-      await PosSaleService.remove(sale.id);
-      setSales((prev) => prev.filter((item) => item.id !== sale.id));
-      if (receiptSale?.id === sale.id) {
+      await PosSaleService.remove(confirmDeleteSale.id);
+      setSales((prev) => prev.filter((item) => item.id !== confirmDeleteSale.id));
+      if (receiptSale?.id === confirmDeleteSale.id) {
         setReceiptSale(null);
       }
       void loadContext();
       toast.success("Venta eliminada correctamente.");
+      setConfirmDeleteSale(null);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "No se pudo eliminar la venta."));
+    } finally {
+      setIsProcessingConfirm(false);
     }
   };
 
@@ -1635,7 +1660,7 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
               subtotal={subtotal}
               total={total}
               onRemoveLine={removeLine}
-              onContinueToAgenda={() => setStep(2)}
+              onContinueToAgenda={() => { setStep(2); onRequestSwitchToPos?.(); }}
               clientComboboxRef={clientComboboxRef}
               clientSearch={clientSearch}
               setClientSearch={setClientSearch}
@@ -1677,7 +1702,6 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
           receiptSale={receiptSale}
           onCloseReceipt={() => {
             setReceiptSale(null);
-            setActiveTab(section ?? "sale");
           }}
           receiptTicketEdits={receiptTicketEdits}
           professionals={professionals}
@@ -1709,6 +1733,30 @@ export default function PosPage({ embedded = false, initialDate, section }: PosP
           }}
           formatHourMinute={formatHourMinute}
           toDateAndTimeInputValues={toDateAndTimeInputValues}
+        />
+
+        <ConfirmDialog
+          isOpen={!!confirmCancelSale}
+          title="Cancelar venta"
+          message={`¿Cancelar la venta ${confirmCancelSale?.sale_code}? Esto cancelará también sus tickets y pagos.`}
+          confirmText="Cancelar venta"
+          cancelText="No, volver"
+          variant="danger"
+          onConfirm={() => void executeCancelSale()}
+          onCancel={() => setConfirmCancelSale(null)}
+          isProcessing={isProcessingConfirm}
+        />
+
+        <ConfirmDialog
+          isOpen={!!confirmDeleteSale}
+          title="Eliminar venta"
+          message={`¿Eliminar definitivamente la venta ${confirmDeleteSale?.sale_code}? Esta acción borrará tickets y pagos asociados.`}
+          confirmText="Eliminar"
+          cancelText="No, volver"
+          variant="danger"
+          onConfirm={() => void executeDeleteSale()}
+          onCancel={() => setConfirmDeleteSale(null)}
+          isProcessing={isProcessingConfirm}
         />
 
         <RegisterClientModal

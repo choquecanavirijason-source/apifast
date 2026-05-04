@@ -22,6 +22,8 @@ from app.models.service_agenda import (
     BranchService,
     AppointmentService,
 )
+from app.models.tracking import Tracking
+from app.models.payment import Payment
 from app.services.client_service import update_client_status
 
 
@@ -882,6 +884,10 @@ def delete_appointment(db: Session, appointment_id: int) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cita no encontrada",
         )
+
+    # Nullify FK references before deleting to avoid constraint errors (FK enforcement is ON)
+    db.query(Tracking).filter(Tracking.appointment_id == appointment_id).update({"appointment_id": None})
+    db.query(Payment).filter(Payment.appointment_id == appointment_id).update({"appointment_id": None})
 
     db.delete(appointment)
     db.commit()

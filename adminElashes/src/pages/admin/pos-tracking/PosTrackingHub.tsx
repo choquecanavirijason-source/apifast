@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, CalendarDays, ClipboardList, Maximize2, Minimize2, ReceiptText, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Maximize2, Minimize2, ReceiptText, ShoppingCart, Users } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
 import CalendarPage from "@/pages/admin/calendar/Main";
+
 type HubSection = "pos" | "tracking" | "queue" | "calendar";
 
 function tabClass(active: boolean) {
-  return `flex shrink-0 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all ${
+  return `relative flex shrink-0 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all ${
     active
       ? "bg-white text-slate-900 shadow-sm"
       : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
@@ -26,6 +27,8 @@ export default function PosTrackingHub() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [posCartCount, setPosCartCount] = useState(0);
+  const [cartDrawerSignal, setCartDrawerSignal] = useState(0);
 
   const resolveSection = (pathname: string): HubSection => {
     const base = "/admin/pos-tracking";
@@ -45,24 +48,16 @@ export default function PosTrackingHub() {
   }, [location.pathname]);
 
   useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
   useEffect(() => {
     const className = "pos-hub-clean-fullscreen";
-    if (isFullscreen) {
-      document.body.classList.add(className);
-    } else {
-      document.body.classList.remove(className);
-    }
-
-    return () => {
-      document.body.classList.remove(className);
-    };
+    if (isFullscreen) document.body.classList.add(className);
+    else document.body.classList.remove(className);
+    return () => document.body.classList.remove(className);
   }, [isFullscreen]);
 
   const visible = HUB_TABS;
@@ -78,20 +73,22 @@ export default function PosTrackingHub() {
   };
 
   const handleFullscreen = () => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-      return;
-    }
-
-    // Fullscreen on the entire document keeps global overlays visible.
+    if (document.fullscreenElement) { void document.exitFullscreen(); return; }
     void document.documentElement.requestFullscreen();
   };
+
+  const openCartDrawer = () => {
+    setCartDrawerSignal((prev) => prev + 1);
+  };
+
+  const showCartFab = effectiveSection !== "pos" && posCartCount > 0;
 
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col gap-0 bg-[#f0f0f3] ${isFullscreen ? "h-screen overflow-hidden" : ""}`}
       style={{ minHeight: "100%", width: "100%" }}
     >
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className={`sticky top-0 z-20 border-b border-slate-200/80 bg-[#f0f0f3] ${isFullscreen ? "px-3 py-2" : ""}`}>
         <div className="mx-auto flex w-full flex-row items-center justify-between gap-2 px-3 sm:px-4">
           <div className="min-w-0">
@@ -119,25 +116,49 @@ export default function PosTrackingHub() {
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
             <div className="flex w-auto gap-1 overflow-x-auto rounded-lg bg-slate-200/80 p-0.5">
-            {visible.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => go(id)}
-                className={tabClass(effectiveSection === id)}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {label}
-              </button>
-            ))}
+              {visible.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => go(id)}
+                  className={tabClass(effectiveSection === id)}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {label}
+                  {id === "pos" && posCartCount > 0 && (
+                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
+                      {posCartCount}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`min-h-0 flex-1 overflow-hidden ${isFullscreen ? "px-4 pb-4 pt-3" : "pt-4"}`}>
+      {/* ── Content ────────────────────────────────────────────────────────── */}
+      <div className={`relative min-h-0 flex-1 overflow-hidden ${isFullscreen ? "px-4 pb-4 pt-3" : "pt-4"}`}>
         <div className={`mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-2 sm:px-4 ${isFullscreen ? "" : "min-h-[min(100%,calc(100vh-11rem))]"}`}>
-          {effectiveSection === "pos" ? <PosPage embedded /> : null}
+
+          {/*
+            PosPage is always mounted so cart state is preserved across tabs.
+            When not on "pos" tab its container collapses to 0x0 (overflow:hidden),
+            but fixed-position children (drawer backdrop + panel) escape and remain
+            interactive, allowing the cart drawer to open from any hub tab.
+          */}
+          <div
+            className={effectiveSection === "pos" ? "flex min-h-0 flex-1 flex-col" : ""}
+            style={effectiveSection !== "pos" ? { height: 0, overflow: "hidden" } : undefined}
+          >
+            <PosPage
+              embedded
+              onCartCountChange={setPosCartCount}
+              cartDrawerSignal={cartDrawerSignal}
+              onRequestSwitchToPos={() => go("pos")}
+            />
+          </div>
+
           {effectiveSection === "tracking" ? <FollowUpPage embedded /> : null}
           {effectiveSection === "queue" ? <QueuePage /> : null}
           {effectiveSection === "calendar" ? (

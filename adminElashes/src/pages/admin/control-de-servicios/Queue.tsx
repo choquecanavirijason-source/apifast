@@ -10,6 +10,7 @@ import { AgendaService, type ProfessionalForSelect, type TicketItem } from "../.
 import { CatalogService, type CatalogItem, type QuestionnaireItem } from "../../../core/services/catalog/catalog.service";
 import { TrackingService } from "../../../core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { getApiErrorMessage } from "../../../core/utils/apiError";
 
 import { COLUMN_TO_STATUS, getColumnForStatus, STATUS_LABELS, todayDate } from "./control.constants";
 import DraggableTicketCard from "./components/DraggableTicketCard";
@@ -211,7 +212,7 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       console.error("Error iniciando atencion:", error);
-      toast.error("No se pudo iniciar la atencion.");
+      toast.error(getApiErrorMessage(error, "No se pudo iniciar la atencion."));
     }
   };
 
@@ -301,7 +302,7 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       console.error("Error finalizando atencion:", error);
-      toast.error("No se pudo finalizar la atencion.");
+      toast.error(getApiErrorMessage(error, "No se pudo finalizar la atencion."));
     } finally {
       setIsSubmittingTracking(false);
     }
@@ -331,7 +332,7 @@ const Main = () => {
         void loadTickets();
       } catch (error) {
         console.error("Error moviendo ticket a IA:", error);
-        toast.error("No se pudo mover el ticket a IA.");
+        toast.error(getApiErrorMessage(error, "No se pudo mover el ticket a IA."));
       }
       return;
     }
@@ -359,7 +360,7 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       console.error("Error moviendo ticket:", error);
-      toast.error("No se pudo mover el ticket.");
+      toast.error(getApiErrorMessage(error, "No se pudo mover el ticket."));
     }
   };
 
@@ -375,7 +376,7 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       console.error("Error finalizando ticket:", error);
-      toast.error("No se pudo finalizar el ticket.");
+      toast.error(getApiErrorMessage(error, "No se pudo finalizar el ticket."));
     }
   };
 
@@ -448,7 +449,7 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       console.error("Error eliminando ticket:", error);
-      toast.error("No se pudo eliminar el ticket.");
+      toast.error(getApiErrorMessage(error, "No se pudo eliminar el ticket."));
     } finally {
       setIsDeletingTicket(false);
     }

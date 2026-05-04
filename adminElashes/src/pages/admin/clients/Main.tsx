@@ -249,7 +249,6 @@ export default function ClientListPage() {
       toast.success("Cliente eliminado correctamente.");
     } catch (error) {
       const message = getErrorMessage(error, "No se pudo eliminar el cliente.");
-      alert(message);
       toast.error(message);
     } finally {
       setIsDeletingClient(false);
@@ -277,7 +276,7 @@ export default function ClientListPage() {
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
 
     if (!nombre || !apellido) {
-      alert("Nombre y apellido son obligatorios.");
+      toast.warning("Nombre y apellido son obligatorios.");
       return;
     }
 
@@ -286,7 +285,6 @@ export default function ClientListPage() {
 
     if (edad !== undefined && (edad < 1 || edad > 100)) {
       const message = edad < 1 ? "La edad no puede ser 0." : "La edad no puede ser mayor a 100.";
-      alert(message);
       toast.warning(message);
       return;
     }
@@ -349,7 +347,6 @@ export default function ClientListPage() {
         error,
         clientToEdit ? "No se pudo actualizar el cliente." : "No se pudo registrar el cliente."
       );
-      alert(message);
       toast.error(message);
     }
   };
