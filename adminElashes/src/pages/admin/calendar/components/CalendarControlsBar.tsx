@@ -1,3 +1,5 @@
+import { Search, X } from "lucide-react";
+
 type CalendarControlsBarProps = {
   jumpSearch: string;
   ticketSearchSuggestions: string[];
@@ -30,18 +32,19 @@ export default function CalendarControlsBar({
   return (
     <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-2">
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 rounded-sm border border-[#edebe9] bg-white px-1.5 py-1">
+        <div className={`flex items-center gap-1 rounded-md border bg-white px-2 py-1 shadow-sm transition-colors ${jumpSearch ? "border-[#0078d4] ring-1 ring-[#0078d4]/30" : "border-[#8a8886] hover:border-[#0078d4]"}`}>
+          <Search className="h-3.5 w-3.5 shrink-0 text-[#605e5c]" />
           <input
             type="text"
             list="calendar-ticket-search-suggestions"
             value={jumpSearch}
             onChange={(event) => onJumpSearchChange(event.target.value)}
-            placeholder="Ir a ticket o cliente..."
-            className="h-6 w-[220px] border-0 bg-transparent px-1 text-xs text-[#323130] outline-none placeholder:text-[#8a8886]"
+            placeholder="Buscar ticket o cliente..."
+            className="h-6 w-[240px] border-0 bg-transparent px-1 text-xs text-[#323130] outline-none placeholder:text-[#8a8886]"
           />
           {jumpSearch ? (
-            <button type="button" onClick={onClearJumpSearch} className="h-6 rounded-sm px-1.5 text-[11px] text-[#605e5c] hover:bg-[#f3f2f1]">
-              Limpiar todo
+            <button type="button" onClick={onClearJumpSearch} className="flex h-5 w-5 items-center justify-center rounded-full text-[#605e5c] hover:bg-[#f3f2f1]">
+              <X className="h-3 w-3" />
             </button>
           ) : null}
           <datalist id="calendar-ticket-search-suggestions">

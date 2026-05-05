@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, CalendarDays, Maximize2, Minimize2, ReceiptText, ShoppingCart, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Maximize2, Minimize2, ReceiptText, ShoppingCart, TrendingUp, Users } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
 import CalendarPage from "@/pages/admin/calendar/Main";
+import CashFlowPage from "@/pages/admin/pos-tracking/CashFlowPage";
 
-type HubSection = "pos" | "tracking" | "queue" | "calendar";
+type HubSection = "pos" | "tracking" | "queue" | "calendar" | "cashflow";
 
 function tabClass(active: boolean) {
   return `relative flex shrink-0 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all ${
@@ -21,6 +22,7 @@ const HUB_TABS: { id: HubSection; label: string; icon: LucideIcon }[] = [
   { id: "pos", label: "Caja POS", icon: ReceiptText },
   { id: "queue", label: "Control de servicios", icon: Users },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
+  { id: "cashflow", label: "Flujo de Caja", icon: TrendingUp },
 ];
 
 export default function PosTrackingHub() {
@@ -38,6 +40,7 @@ export default function PosTrackingHub() {
     if (segment === "tracking") return "tracking";
     if (segment === "queue") return "queue";
     if (segment === "calendar") return "calendar";
+    if (segment === "cashflow") return "cashflow";
     return "pos";
   };
 
@@ -164,6 +167,11 @@ export default function PosTrackingHub() {
           {effectiveSection === "calendar" ? (
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <CalendarPage embedded />
+            </div>
+          ) : null}
+          {effectiveSection === "cashflow" ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 py-2">
+              <CashFlowPage />
             </div>
           ) : null}
         </div>

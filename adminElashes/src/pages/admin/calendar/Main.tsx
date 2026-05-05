@@ -65,6 +65,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   const [dragOverCellKey, setDragOverCellKey] = useState<string | null>(null);
   const [isUpdatingTicketId, setIsUpdatingTicketId] = useState<number | null>(null);
   const [isPendingDrawerOpen, setIsPendingDrawerOpen] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null);
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -233,9 +234,19 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
     });
   }, [filteredTickets]);
 
+  const calendarFilteredTickets = useMemo(() => {
+    const query = normalizeSearchText(jumpSearch);
+    if (!query) return tickets;
+    return tickets.filter((ticket) => {
+      const code = normalizeSearchText(ticket.ticket_code ?? "");
+      const client = normalizeSearchText(ticket.client_name ?? "");
+      return code.includes(query) || client.includes(query) || String(ticket.id).includes(query);
+    });
+  }, [tickets, jumpSearch]);
+
   const ticketsByCell = useMemo(() => {
     const grouped = new Map<string, TicketItem[]>();
-    tickets.forEach((ticket) => {
+    calendarFilteredTickets.forEach((ticket) => {
       const start = parseTicketDate(ticket.start_time);
       if (Number.isNaN(start.getTime())) return;
       const dateKey = toIsoDate(start);
@@ -252,7 +263,25 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
       grouped.set(key, [...existing, ticket].sort((a, b) => a.start_time.localeCompare(b.start_time)));
     });
     return grouped;
-  }, [tickets, slotMinutes, weekDays]);
+  }, [calendarFilteredTickets, slotMinutes, weekDays]);
+
+  const weekDailyRevenue = useMemo(() => {
+    const totals = new Map<string, number>();
+    weekDays.forEach((day) => totals.set(day.isoDate, 0));
+    tickets.forEach((ticket) => {
+      const start = parseTicketDate(ticket.start_time);
+      if (Number.isNaN(start.getTime())) return;
+      const dateKey = toIsoDate(start);
+      if (!totals.has(dateKey)) return;
+      const amount = ticket.service_prices?.length
+        ? ticket.service_prices.reduce((s, p) => s + (Number.isFinite(p) ? p : 0), 0)
+        : typeof ticket.service_price === "number" && Number.isFinite(ticket.service_price)
+          ? ticket.service_price
+          : 0;
+      totals.set(dateKey, (totals.get(dateKey) ?? 0) + amount);
+    });
+    return totals;
+  }, [tickets, weekDays]);
 
   const handlePrintCalendar = () => {
     window.print();
@@ -336,6 +365,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
 
   const getTicketStatusCardClass = (status?: string | null) => {
     const normalized = (status ?? "").toLowerCase();
+    if (normalized === "waiting") return "border-blue-200 bg-blue-50";
     if (normalized === "pending") return "border-amber-300 bg-amber-50";
     if (normalized === "completed") return "border-emerald-300 bg-emerald-50";
     if (normalized === "cancelled") return "border-rose-300 bg-rose-50";
@@ -344,6 +374,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
 
   const getTicketStatusTextClass = (status?: string | null) => {
     const normalized = (status ?? "").toLowerCase();
+    if (normalized === "waiting") return "text-blue-800";
     if (normalized === "pending") return "text-amber-800";
     if (normalized === "completed") return "text-emerald-800";
     if (normalized === "cancelled") return "text-rose-800";
@@ -560,7 +591,10 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                                   draggingTicketId === ticket.id ? "scale-[0.99] opacity-80 ring-1 ring-[#0078d4]/40" : ""
                                 }`}
                               >
-                                <div className="flex items-start justify-between gap-1">
+                                <div
+                                  className="flex cursor-pointer items-start justify-between gap-1 rounded-sm hover:opacity-80"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); }}
+                                >
                                   <p className={`truncate font-semibold ${getTicketStatusTextClass(ticket.status)}`}>
                                     {ticket.ticket_code ?? `#${ticket.id}`} · {ticket.client_name}
                                   </p>
@@ -624,10 +658,78 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                   })}
                 </div>
               ))}
+
+              {/* ── Daily revenue summary row ──────────────────────────── */}
+              <div className="contents">
+                <div className="border-t-2 border-[#0078d4]/30 bg-[#deecf9] px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-[#004578]">
+                  Total día
+                </div>
+                {weekDays.map((day) => {
+                  const total = weekDailyRevenue.get(day.isoDate) ?? 0;
+                  return (
+                    <div
+                      key={day.isoDate}
+                      className={`border-r border-t-2 border-[#0078d4]/30 px-2 py-2 text-right text-xs font-bold tabular-nums ${
+                        day.isoDate === todayKey
+                          ? "bg-[#c7e0f4] text-[#003366]"
+                          : "bg-[#deecf9] text-[#004578]"
+                      }`}
+                    >
+                      {total > 0 ? moneyFormatter.format(total) : <span className="font-normal text-[#a19f9d]">—</span>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </section>
         </div>
       </Layout>
+
+      <GenericModal
+        isOpen={selectedTicket !== null}
+        onClose={() => setSelectedTicket(null)}
+        title={selectedTicket ? `${selectedTicket.ticket_code ?? `#${selectedTicket.id}`} · ${selectedTicket.client_name}` : ""}
+        size="sm"
+      >
+        {selectedTicket && (
+          <div className="flex flex-col gap-4 py-1">
+            <div className="flex flex-col gap-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] px-4 py-3 text-sm text-[#323130]">
+              <p><span className="font-medium text-[#605e5c]">Servicio:</span> {getTicketServiceSummary(selectedTicket)}</p>
+              <p><span className="font-medium text-[#605e5c]">Precio:</span> {getTicketPriceLabel(selectedTicket)}</p>
+              <p><span className="font-medium text-[#605e5c]">Duración:</span> {getTicketDurationLabel(selectedTicket)}</p>
+              <p><span className="font-medium text-[#605e5c]">Operaria:</span> {professionalMap.get(selectedTicket.professional_id ?? -1) ?? "Sin operaria"}</p>
+              {selectedTicket.branch_name ? <p><span className="font-medium text-[#605e5c]">Sucursal:</span> {selectedTicket.branch_name}</p> : null}
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold text-[#605e5c]">Cambiar estado</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {([
+                  { status: "waiting",    label: "En espera",   color: "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100" },
+                  { status: "pending",    label: "Pendiente",   color: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" },
+                  { status: "in_service", label: "En servicio", color: "border-[#c7e0b4] bg-[#f3f9ec] text-[#094732] hover:bg-[#e8f5d8]" },
+                  { status: "completed",  label: "Completado",  color: "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" },
+                  { status: "cancelled",  label: "Cancelado",   color: "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100" },
+                ] as const).map(({ status, label, color }) => (
+                  <button
+                    key={status}
+                    type="button"
+                    disabled={isUpdatingTicketId === selectedTicket.id}
+                    onClick={() => {
+                      void updateTicket(selectedTicket.id, { status });
+                      setSelectedTicket(null);
+                    }}
+                    className={`rounded-md border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${color} ${
+                      selectedTicket.status === status ? "ring-2 ring-current ring-offset-1" : ""
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </GenericModal>
 
       <GenericModal
         isOpen={quickSaleOpen}
