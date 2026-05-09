@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyRound, Plus, Shield, Users as UsersIcon } from "lucide-react";
+import { FileDown, KeyRound, Plus, Shield, Users as UsersIcon } from "lucide-react";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { getRoleName } from "./types";
 import { toast } from "react-toastify";
 
 import Layout from "@/components/common/layout";
@@ -281,16 +283,57 @@ export default function UsersMain() {
     { id: "permissions", label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
   ];
 
+  const handleExportUsersPdf = () => {
+    generateTablePdf({
+      title: "Listado de Usuarios",
+      subtitle: "Usuarios registrados en el sistema",
+      filename: "usuarios",
+      orientation: "landscape",
+      meta: [{ label: "Total", value: String(users.length) }],
+      columns: [
+        { key: "id", header: "ID" },
+        { key: "username", header: "Usuario" },
+        { key: "email", header: "Correo" },
+        { key: "phone", header: "Teléfono" },
+        { key: "role", header: "Rol" },
+        { key: "branch", header: "Sucursal" },
+        { key: "status", header: "Estado" },
+        { key: "created_at", header: "Creado" },
+      ],
+      rows: users.map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        phone: u.phone ?? "—",
+        role: getRoleName(u.role),
+        branch: u.branch?.name ?? "—",
+        status: u.is_active ? "Activo" : "Inactivo",
+        created_at: u.created_at ? new Date(u.created_at).toLocaleDateString("es-BO") : "—",
+      })),
+    });
+  };
+
   const toolbarAction =
     sectionTab === "users" ? (
-      <button
-        type="button"
-        onClick={() => setIsCreateUserModalOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5b3f]"
-      >
-        <Plus className="h-4 w-4" />
-        Nuevo usuario
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleExportUsersPdf}
+          title="Descargar reporte PDF"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+        >
+          <FileDown className="h-4 w-4" />
+          PDF
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsCreateUserModalOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5b3f]"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo usuario
+        </button>
+      </div>
     ) : sectionTab === "roles" ? (
       <button
         type="button"

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Plus, Edit, Trash2, FileText, Users, Star, History, Wallet, BadgeCheck, Ban, ChevronUp
+import {
+  Plus, Edit, Trash2, FileText, FileDown, Users, Star, History, Wallet, BadgeCheck, Ban, ChevronUp
 } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
@@ -19,6 +19,7 @@ import RegisterClientModal from "./RegisterClientModal";
 import AssignTicketModal from "./AssignTicketModal";
 import ClientPaymentsModal from "./ClientPaymentsModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { generateTablePdf } from "../../../core/utils/generateTablePdf";
 
 const SEEDED_EYE_TYPES_FALLBACK: EyeTypeOption[] = [
   { id: -1, name: "Almendrado" },
@@ -623,6 +624,37 @@ export default function ClientListPage() {
     },
   ];
 
+  const handleExportClientsPdf = () => {
+    generateTablePdf({
+      title: "Listado de Clientes",
+      subtitle: "Clientes registrados en el sistema",
+      filename: "clientes",
+      orientation: "landscape",
+      meta: [
+        { label: "Total clientes", value: String(filteredItems.length) },
+        { label: "Vista", value: viewMode === "frequent" ? "Clientes Frecuentes" : "Lista General" },
+      ],
+      columns: [
+        { key: "nombre", header: "Nombre" },
+        { key: "apellido", header: "Apellido" },
+        { key: "edad", header: "Edad" },
+        { key: "tipoOjos", header: "Tipo de Ojos" },
+        { key: "visitas", header: "Visitas" },
+        { key: "status", header: "Estado" },
+        { key: "phone", header: "Teléfono" },
+      ],
+      rows: filteredItems.map((c) => ({
+        nombre: c.nombre ?? "—",
+        apellido: c.apellido ?? "—",
+        edad: c.edad != null ? `${c.edad} años` : "—",
+        tipoOjos: getEyeTypeLabel(c.tipoOjos),
+        visitas: c.visitas ?? 0,
+        status: c.status ?? "—",
+        phone: c.phone ?? "—",
+      })),
+    });
+  };
+
   // --- Renderizado del Toolbar ---
   const renderToolbar = () => (
     <FilterActionBar
@@ -658,9 +690,20 @@ export default function ClientListPage() {
         </div>
       }
       right={
-        <Button onClick={handleCreate} leftIcon={<Plus className="h-5 w-5" />} className="whitespace-nowrap">
-          Agregar Cliente
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleExportClientsPdf}
+            leftIcon={<FileDown className="h-4 w-4" />}
+            title="Descargar reporte PDF"
+            className="whitespace-nowrap"
+          >
+            PDF
+          </Button>
+          <Button onClick={handleCreate} leftIcon={<Plus className="h-5 w-5" />} className="whitespace-nowrap">
+            Agregar Cliente
+          </Button>
+        </div>
       }
     />
   );

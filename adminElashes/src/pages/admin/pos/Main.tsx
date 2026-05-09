@@ -1471,6 +1471,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       onEditSale={(sale) => void handleEditSaleFromHistory(sale)}
       onCancelSale={(sale) => void handleCancelSaleFromHistory(sale)}
       onDeleteSale={(sale) => void handleDeleteSaleFromHistory(sale)}
+      allFilteredSales={filteredSales}
     />
   );
 

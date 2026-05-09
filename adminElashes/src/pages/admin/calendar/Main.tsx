@@ -507,7 +507,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
             />
 
             <div
-              className="grid min-w-[1060px] bg-white"
+              className="grid min-w-265 bg-white"
               style={{ gridTemplateColumns: `88px repeat(${Math.max(1, weekDays.length)}, minmax(180px, 1fr))` }}
             >
               <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#f3f2f1] px-2 py-2 text-[11px] font-semibold uppercase text-[#605e5c]">
@@ -574,9 +574,9 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                               : isTodayColumn
                                 ? "bg-[#fafcff]"
                                 : "bg-white"
-                        } ${slotMinutes === 15 ? "min-h-[64px]" : slotMinutes === 30 ? "min-h-[82px]" : "min-h-[96px]"}`}
+                        } ${slotMinutes === 15 ? "min-h-16" : slotMinutes === 30 ? "min-h-20.5" : "min-h-24"}`}
                       >
-                        <div className={`flex flex-col gap-1 ${slotMinutes === 15 ? "min-h-[56px]" : slotMinutes === 30 ? "min-h-[70px]" : "min-h-[84px]"}`}>
+                        <div className={`flex flex-col gap-1 ${slotMinutes === 15 ? "min-h-14" : slotMinutes === 30 ? "min-h-17.5" : "min-h-21"}`}>
                           {cellTickets.map((ticket) => {
                             const start = parseTicketDate(ticket.start_time);
                             const timeText = Number.isNaN(start.getTime()) ? "--:--" : toTimeValue(start.getHours(), start.getMinutes());
