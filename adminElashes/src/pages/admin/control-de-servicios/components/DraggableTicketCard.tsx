@@ -71,6 +71,9 @@ export default function DraggableTicketCard({
   const popoverRef = useRef<HTMLDivElement>(null);
   const quickSaveTimerRef = useRef<number | null>(null);
   const lastAutoSubmitKeyRef = useRef<string>("");
+  const isSavingEditRef = useRef(isSavingEdit);
+
+  useEffect(() => { isSavingEditRef.current = isSavingEdit; }, [isSavingEdit]);
 
   useEffect(() => {
     setQuickDate(getDateInputValue(ticket.start_time));
@@ -81,18 +84,25 @@ export default function DraggableTicketCard({
   useEffect(() => {
     if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current);
 
-    const hasChanges = quickDate !== getDateInputValue(ticket.start_time) || 
-                       quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") || 
+    const hasChanges = quickDate !== getDateInputValue(ticket.start_time) ||
+                       quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
                        quickTime !== getTimeInputValue(ticket.start_time);
 
-    if (!hasChanges || isSavingEdit) return;
+    if (!hasChanges || isSavingEditRef.current) return;
+
+    // Evitar reenviar el mismo payload si ya se intentó (p.ej. después de un error)
+    const submitKey = `${quickDate}|${quickTime}|${quickProfessionalId}`;
+    if (submitKey === lastAutoSubmitKeyRef.current) return;
 
     quickSaveTimerRef.current = window.setTimeout(() => {
+      lastAutoSubmitKeyRef.current = submitKey;
       onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId: quickProfessionalId, isIa });
     }, 800);
 
     return () => { if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current); };
-  }, [quickDate, quickProfessionalId, quickTime, isSavingEdit]);
+  // isSavingEdit intencionalmente excluido: usamos el ref para no re-disparar el efecto al fallar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickDate, quickProfessionalId, quickTime]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
