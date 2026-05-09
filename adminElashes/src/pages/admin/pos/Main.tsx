@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { CalendarDays, ShoppingCart } from "lucide-react";
 import { toast } from "react-toastify";
@@ -151,6 +151,7 @@ export type PosPageProps = {
 
 export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, cartDrawerSignal, onRequestSwitchToPos }: PosPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
 
   const [activeTab, setActiveTab] = useState<"sale" | "history" | "tickets">(section ?? "sale");
@@ -223,6 +224,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDraftHydrated, setIsDraftHydrated] = useState(false);
+  /** Cobrar una reserva ya existente (desde agenda) sin duplicar la cita. */
+  const [linkAppointmentId, setLinkAppointmentId] = useState<number | null>(null);
+  const agendaHydrateDoneRef = useRef<number | null>(null);
 
   const saleBaseDate = initialDate || getLocalDateInputValue();
 
@@ -538,6 +542,86 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       setIsDraftHydrated(true);
     }
   }, [activeBranchId]);
+
+  useEffect(() => {
+    if (!isDraftHydrated || services.length === 0) return;
+    const navState = location.state as { fromAgendaReservation?: { appointmentId: number } } | null;
+    const appointmentId = navState?.fromAgendaReservation?.appointmentId;
+    if (!appointmentId || agendaHydrateDoneRef.current === appointmentId) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const ticket = await AgendaService.getAppointment(appointmentId);
+        if (cancelled) return;
+
+        if (ticket.sale_id) {
+          toast.warning("Esta reserva ya tiene una venta registrada.");
+          agendaHydrateDoneRef.current = appointmentId;
+          return;
+        }
+
+        const rawIds = ticket.service_ids?.filter((id) => id != null && Number(id) > 0).map(Number);
+        const serviceIds =
+          rawIds && rawIds.length > 0 ? rawIds : ticket.service_id ? [ticket.service_id] : [];
+
+        if (serviceIds.length === 0) {
+          toast.warning("La reserva no tiene servicios para cobrar.");
+          agendaHydrateDoneRef.current = appointmentId;
+          return;
+        }
+
+        const startMs = new Date(ticket.start_time).getTime();
+        const endMs = new Date(ticket.end_time).getTime();
+        const totalMs = Math.max(endMs - startMs, 60_000);
+        const perMs = totalMs / serviceIds.length;
+
+        const lines: CartLine[] = [];
+        for (let i = 0; i < serviceIds.length; i += 1) {
+          const svc = services.find((s) => s.id === serviceIds[i]);
+          const segStart = new Date(startMs + i * perMs);
+          const dt = toDateAndTimeInputValues(formatLocalDateTime(segStart));
+          const prices = ticket.service_prices;
+          const fallbackPrice =
+            prices != null && prices[i] !== undefined ? prices[i] : ticket.service_price;
+          lines.push(
+            normalizeCartLine({
+              localId: createLocalId(),
+              appointment_id: appointmentId,
+              service_id: String(serviceIds[i]),
+              professional_id:
+                ticket.professional_id != null ? String(ticket.professional_id) : "",
+              date: dt.date,
+              time: dt.time,
+              without_time: dt.without_time,
+              status: "pending",
+              duration_minutes: Math.max(15, Math.round(perMs / 60_000)),
+              price: svc?.price ?? fallbackPrice ?? 0,
+            })
+          );
+        }
+
+        agendaHydrateDoneRef.current = appointmentId;
+        setClientId(String(ticket.client_id));
+        setClientSearch("");
+        setCartLines(lines);
+        setLinkAppointmentId(appointmentId);
+        setStep(1);
+        toast.info("Reserva cargada en el carrito. Revisa montos y confirma en el paso 2.");
+      } catch {
+        toast.error("No se pudo cargar la reserva desde la agenda.");
+        agendaHydrateDoneRef.current = appointmentId;
+      } finally {
+        if (!cancelled) {
+          navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDraftHydrated, services, location.state, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (sellerId || professionals.length === 0 || !loggedUser) return;
@@ -902,6 +986,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const removeLine        = (localId: string) => setCartLines((prev) => prev.filter((l) => l.localId !== localId));
   const resetSaleForm     = () => {
     setEditingSale(null);
+    setLinkAppointmentId(null);
+    agendaHydrateDoneRef.current = null;
     setClientId("");
     setClientSearch("");
     setServiceSearch("");
@@ -1188,20 +1274,22 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           const start = new Date(`${safeDate}T${safeTime}:00`);
           const end   = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
           return {
-            service_id:      Number(line.service_id),
+            service_id: Number(line.service_id),
             professional_id: line.professional_id ? Number(line.professional_id) : null,
-            branch_id:       activeBranchId,
-            start_time:      formatLocalDateTime(start),
-            end_time:        formatLocalDateTime(end),
+            branch_id: activeBranchId,
+            start_time: formatLocalDateTime(start),
+            end_time: formatLocalDateTime(end),
           };
         }),
-      } as const;
+        ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
+      };
 
       const sale = await PosSaleService.create(payload);
 
       const updatedAppointments = await Promise.all(
         sale.appointments.map(async (appointment, index) => {
-          const line = cartLines[index];
+          const line =
+            cartLines.find((cartLine) => cartLine.appointment_id === appointment.id) ?? cartLines[index];
           if (!line) return appointment;
 
           const safeDate = line.date?.trim() || getLocalDateInputValue();
@@ -1236,6 +1324,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       const saleWithUpdatedAppointments = { ...sale, appointments: updatedAppointments };
       localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
       toast.success("Venta completada.");
+      setLinkAppointmentId(null);
       setReceiptSale(saleWithUpdatedAppointments);
       resetSaleForm();
       await loadContext();

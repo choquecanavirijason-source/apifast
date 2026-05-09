@@ -64,6 +64,7 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "section-servicios", label: "Servicios", href: "/admin/services" },
   { id: "section-control-servicios", label: "Control de servicios", href: "/admin/services/queue" },
   { id: "section-calendario", label: "Calendario", href: "/admin/calendar" },
+  { id: "section-agenda-dia", label: "Agenda del día", href: "/admin/calendar/agenda" },
   { id: "section-inventario", label: "Inventario", href: "/admin/products" },
   { id: "section-caja", label: "Caja & Seguimiento", href: "/admin/pos-tracking" },
 ];

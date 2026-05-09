@@ -25,6 +25,7 @@ import {
   Ticket,
   ReceiptText,
   CalendarDays,
+  CalendarClock,
   Download,
   RefreshCw,
 } from "lucide-react";
@@ -272,7 +273,8 @@ export default function Dashboard() {
   const quickLinks = [
     { label: "Clientes", helper: "Ver base de clientes", path: "/clients" },
     { label: "Tickets", helper: "Gestionar tickets y pagos", path: "/admin/tickets" },
-    { label: "Calendario", helper: "Revisar agenda diaria", path: "/admin/calendar" },
+    { label: "Calendario", helper: "Vista semanal de citas", path: "/admin/calendar" },
+    { label: "Agenda del día", helper: "Planilla diaria de reservas (sin venta POS)", path: "/admin/calendar/agenda" },
     { label: "Caja & Seguimiento", helper: "Ventas y seguimiento técnico", path: "/admin/pos-tracking" },
   ];
 
@@ -762,6 +764,9 @@ export default function Dashboard() {
             </Button>
             <Button variant="secondary" size="sm" leftIcon={<CalendarDays className="h-4 w-4" />} onClick={() => navigate("/admin/calendar")}>
               Ver calendario
+            </Button>
+            <Button variant="secondary" size="sm" leftIcon={<CalendarClock className="h-4 w-4" />} onClick={() => navigate("/admin/calendar/agenda")}>
+              Agenda del día
             </Button>
             <Button size="sm" leftIcon={<ClipboardList className="h-4 w-4" />} onClick={() => navigate("/admin/pos-tracking")}>
               Abrir Caja POS

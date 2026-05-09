@@ -113,6 +113,7 @@ export interface AppointmentUpdatePayload {
   service_id?: number | null;
   service_ids?: number[] | null;
   branch_id?: number | null;
+  sale_id?: number | null;
   is_ia?: boolean;
   start_time?: string;
   end_time?: string;
@@ -124,6 +125,8 @@ export interface TicketItem {
   ticket_code: string | null;
   is_ia?: boolean;
   client_id: number;
+  /** Teléfono de la clienta (si viene en la respuesta de la API). */
+  client_phone?: string | null;
   professional_id?: number | null;
   professional_name?: string | null;
   service_id: number | null;
@@ -136,6 +139,8 @@ export interface TicketItem {
   start_time: string;
   end_time: string;
   status: string;
+  /** Venta POS asociada, si ya se cobró la reserva. */
+  sale_id?: number | null;
   branch_name?: string | null;
 }
 
@@ -150,7 +155,8 @@ interface BackendAppointment {
   start_time: string;
   end_time: string;
   status: string;
-  client?: { id: number; name: string; last_name: string };
+  sale_id?: number | null;
+  client?: { id: number; name: string; last_name: string; phone?: string | null };
   professional?: { id: number; username: string; email?: string } | null;
   service?: { id: number; name: string; price?: number } | null;
   services?: Array<{ id: number; name: string; price?: number }> | null;
@@ -162,6 +168,7 @@ const mapToTicket = (a: BackendAppointment): TicketItem => ({
   ticket_code: a.ticket_code ?? null,
   is_ia: a.is_ia ?? false,
   client_id: a.client_id,
+  client_phone: a.client?.phone ?? null,
   professional_id: a.professional?.id ?? a.professional_id ?? null,
   professional_name: a.professional?.username ?? null,
   service_id: a.service_id ?? null,
@@ -174,6 +181,7 @@ const mapToTicket = (a: BackendAppointment): TicketItem => ({
   start_time: a.start_time,
   end_time: a.end_time,
   status: a.status,
+  sale_id: a.sale_id ?? null,
   branch_name: a.branch?.name ?? null,
 });
 
@@ -327,6 +335,11 @@ export const AgendaService = {
     return response.data.map(mapToTicket);
   },
 
+  async getAppointment(id: number): Promise<TicketItem> {
+    const response = await api.get<BackendAppointment>(`/agenda/appointments/${id}`);
+    return mapToTicket(response.data);
+  },
+
   async createAppointment(payload: AppointmentCreatePayload): Promise<TicketItem> {
     const body = {
       client_id: payload.client_id,
@@ -351,6 +364,7 @@ export const AgendaService = {
       ...(payload.service_id != null && { service_id: payload.service_id }),
       ...(payload.service_ids != null && { service_ids: payload.service_ids }),
       ...(payload.branch_id != null && { branch_id: payload.branch_id }),
+      ...(payload.sale_id !== undefined && { sale_id: payload.sale_id }),
       ...(payload.is_ia !== undefined && { is_ia: payload.is_ia }),
       ...(payload.start_time && { start_time: payload.start_time }),
       ...(payload.end_time && { end_time: payload.end_time }),

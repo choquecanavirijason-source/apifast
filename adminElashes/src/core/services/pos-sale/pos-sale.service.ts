@@ -18,6 +18,8 @@ export interface PosSaleCreatePayload {
   discount_value: number;
   notes?: string;
   items: PosSaleItemPayload[];
+  /** Cobra una reserva existente sin duplicar la cita. */
+  link_appointment_id?: number;
 }
 
 export interface PosSaleUpdatePayload {
@@ -79,6 +81,9 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
     discount_type: payload.discount_type,
     discount_value: Number(payload.discount_value) || 0,
     ...(payload.notes?.trim() ? { notes: payload.notes.trim() } : {}),
+    ...(payload.link_appointment_id != null && payload.link_appointment_id > 0
+      ? { link_appointment_id: payload.link_appointment_id }
+      : {}),
     items: payload.items.map((item) => ({
       service_id: item.service_id,
       professional_id:

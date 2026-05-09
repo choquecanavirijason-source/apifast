@@ -253,8 +253,8 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         path: "/admin/calendar",
         permission: ["appointments:view", "appointments:manage"],
         subItems: [
-          { name: "Citas", path: "/admin/calendar/citas", permission: ["appointments:view", "appointments:manage"] },
           { name: "Agenda del día", path: "/admin/calendar/agenda", permission: ["appointments:view", "appointments:manage"] },
+          { name: "Citas", path: "/admin/calendar/citas", permission: ["appointments:view", "appointments:manage"] },
         ],
       },
 
