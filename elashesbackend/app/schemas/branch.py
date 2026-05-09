@@ -1,5 +1,40 @@
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class BranchTimeRange(BaseModel):
+    open_time: str = Field(..., pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    close_time: str = Field(..., pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.open_time >= self.close_time:
+            raise ValueError("El horario de cierre debe ser mayor al de apertura.")
+        return self
+
+
+class BranchDaySchedule(BaseModel):
+    day: str = Field(..., min_length=2, max_length=20)
+    ranges: list[BranchTimeRange] = Field(default_factory=list, min_length=1, max_length=2)
+
+    @field_validator("day")
+    @classmethod
+    def validate_day(cls, value: str):
+        normalized = value.strip().lower()
+        allowed_days = {
+            "lunes",
+            "martes",
+            "miercoles",
+            "miércoles",
+            "jueves",
+            "viernes",
+            "sabado",
+            "sábado",
+            "domingo",
+        }
+        if normalized not in allowed_days:
+            raise ValueError("Dia no valido para horario de sucursal.")
+        return value.strip()
 
 
 class BranchBase(BaseModel):
@@ -7,6 +42,8 @@ class BranchBase(BaseModel):
     address: Optional[str] = Field(default=None, max_length=255)
     city: Optional[str] = Field(default=None, max_length=100)
     department: Optional[str] = Field(default=None, max_length=100)
+    opening_hours: list[BranchDaySchedule] = Field(default_factory=list)
+    user_ids: list[int] = Field(default_factory=list)
 
 
 class BranchCreate(BranchBase):
@@ -18,6 +55,8 @@ class BranchUpdate(BaseModel):
     address: Optional[str] = Field(default=None, max_length=255)
     city: Optional[str] = Field(default=None, max_length=100)
     department: Optional[str] = Field(default=None, max_length=100)
+    opening_hours: Optional[list[BranchDaySchedule]] = Field(default=None)
+    user_ids: Optional[list[int]] = Field(default=None)
 
 
 class BranchSummary(BaseModel):
@@ -28,6 +67,18 @@ class BranchSummary(BaseModel):
     address: Optional[str] = None
     city: Optional[str] = None
     department: Optional[str] = None
+    opening_hours: list[BranchDaySchedule] = Field(default_factory=list)
+    user_ids: list[int] = Field(default_factory=list)
+
+    @field_validator("opening_hours", mode="before")
+    @classmethod
+    def normalize_opening_hours(cls, value):
+        return value or []
+
+    @field_validator("user_ids", mode="before")
+    @classmethod
+    def normalize_user_ids(cls, value):
+        return value or []
 
 
 class BranchResponse(BranchSummary):

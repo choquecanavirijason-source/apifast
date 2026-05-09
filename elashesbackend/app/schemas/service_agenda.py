@@ -111,6 +111,7 @@ class AppointmentUpdate(BaseModel):
     service_id: Optional[int] = None
     service_ids: Optional[List[int]] = None
     branch_id: Optional[int] = None
+    sale_id: Optional[int] = None
     is_ia: Optional[bool] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None

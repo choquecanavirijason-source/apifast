@@ -40,6 +40,7 @@ async def lifespan(app: FastAPI):
             ("appointments_is_ia", lambda: __import__("app.database.migrations.add_is_ia_to_appointments", fromlist=["upgrade"]).upgrade()),
             ("add_status_to_clients", lambda: __import__("app.database.migrations.add_status_to_clients", fromlist=["upgrade"]).upgrade()),
         ("add_last_activity_to_clients", lambda: __import__("app.database.migrations.add_last_activity_to_clients", fromlist=["upgrade"]).upgrade()),
+        ("branch_opening_hours", lambda: __import__("app.database.migrations.add_branch_opening_hours", fromlist=["upgrade"]).upgrade()),
     ]
 
     for name, fn in migrations:

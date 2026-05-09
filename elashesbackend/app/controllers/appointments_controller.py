@@ -168,6 +168,7 @@ def update_existing_appointment(
         service_id=payload.service_id,
         service_ids=payload.service_ids,
         branch_id=payload.branch_id,
+        sale_id=payload.sale_id,
         is_ia=payload.is_ia,
         start_time=payload.start_time,
         end_time=payload.end_time,

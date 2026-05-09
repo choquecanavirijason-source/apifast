@@ -10,7 +10,7 @@ WORKDIR /app
 RUN rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
     && dpkg --configure -a \
-    && apt-get update --allow-releaseinfo-change \
+    && apt-get update --allow-releaseinfo-change -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false \
     && apt-get install -y --allow-unauthenticated \
         libgl1 \
         libglib2.0-0 \

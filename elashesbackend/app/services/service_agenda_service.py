@@ -24,6 +24,7 @@ from app.models.service_agenda import (
 )
 from app.models.tracking import Tracking
 from app.models.payment import Payment
+from app.models.pos_sale import PosSale
 from app.services.client_service import update_client_status
 
 
@@ -803,6 +804,7 @@ def update_appointment(
     service_id: Optional[int] = None,
     service_ids: Optional[List[int]] = None,
     branch_id: Optional[int] = None,
+    sale_id: Optional[int] = None,
     is_ia: Optional[bool] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
@@ -850,6 +852,15 @@ def update_appointment(
         appointment.is_ia = is_ia
     appointment.start_time = final_start_time
     appointment.end_time = final_end_time
+
+    if sale_id is not None:
+        sale_row = db.query(PosSale).filter(PosSale.id == sale_id).first()
+        if not sale_row:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La venta indicada no existe",
+            )
+        appointment.sale_id = sale_id
 
     if status_value is not None:
         appointment.status = status_value

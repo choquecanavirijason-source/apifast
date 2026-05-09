@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, JSON, String
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -11,6 +11,7 @@ class Branch(Base):
     address = Column(String(255), nullable=True)
     city = Column(String(100), nullable=True)
     department = Column(String(100), nullable=True)
+    opening_hours = Column(JSON, nullable=True)
 
     users = relationship("User", back_populates="branch")
     batches = relationship("Batch", back_populates="branch")

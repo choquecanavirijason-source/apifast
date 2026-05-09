@@ -17,6 +17,7 @@ services:
 
   # --- Backend (Python) — SQLite en /app/elashes.db (persistido con el volumen ./elashesbackend) ---
   backend:
+    build: ./elashesbackend
     image: proyect-elashes-backend:latest
     container_name: "elashes-backend"
     restart: always

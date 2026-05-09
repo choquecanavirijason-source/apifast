@@ -26,6 +26,20 @@ class PosSaleCreate(BaseModel):
     discount_value: float = Field(default=0, ge=0)
     notes: Optional[str] = Field(default=None, max_length=500)
     items: List[PosSaleItemCreate] = Field(..., min_length=1)
+    link_appointment_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Enlaza la venta a esta reserva existente en lugar de crear citas nuevas.",
+    )
+
+
+class PosSaleUpdate(BaseModel):
+    client_id: Optional[int] = Field(default=None, ge=1)
+    discount_type: Optional[Literal["amount", "percent"]] = None
+    discount_value: Optional[float] = Field(default=None, ge=0)
+    payment_method: Optional[str] = Field(default=None, min_length=2, max_length=50)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    status: Optional[Literal["paid", "cancelled"]] = None
 
 
 class PosSaleResponse(BaseModel):
