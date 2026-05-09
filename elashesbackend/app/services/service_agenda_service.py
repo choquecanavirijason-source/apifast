@@ -213,8 +213,13 @@ def list_professionals_for_select(
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
+    role_name: Optional[str] = None,
 ):
+    from app.models.user import Role
     query = db.query(User).filter(User.is_active.is_(True))
+
+    if role_name and role_name.strip():
+        query = query.join(User.role).filter(Role.name.ilike(f"%{role_name.strip()}%"))
 
     if search and search.strip():
         term = f"%{search.strip()}%"

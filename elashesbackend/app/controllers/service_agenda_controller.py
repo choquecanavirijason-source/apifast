@@ -196,6 +196,7 @@ def get_professionals_for_select(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=200),
     search: Optional[str] = Query(default=None),
+    role_name: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_any_permission("appointments:view", "appointments:manage")
@@ -206,6 +207,7 @@ def get_professionals_for_select(
         skip=skip,
         limit=limit,
         search=search,
+        role_name=role_name,
     )
     return [{"id": p.id, "username": p.username, "email": p.email} for p in professionals]
 
