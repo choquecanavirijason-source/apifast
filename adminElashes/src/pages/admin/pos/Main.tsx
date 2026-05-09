@@ -97,6 +97,45 @@ const normalizeCartLine = (line: CartLine): CartLine => ({
   status: line.status === "in_service" ? "in_service" : "pending",
 });
 
+/** Datos mínimos para el POST cuando solo se cobra (backend no crea citas; horarios placeholder). */
+const buildPlaceholderSaleItems = (
+  lines: CartLine[],
+  branchId: number | null
+): Array<{
+  service_id: number;
+  professional_id: number | null;
+  branch_id: number | null;
+  start_time: string;
+  end_time: string;
+}> => {
+  const now = new Date();
+  const start = formatLocalDateTime(now);
+  const end = formatLocalDateTime(new Date(now.getTime() + 60_000));
+  return lines.map((line) => ({
+    service_id: Number(line.service_id),
+    professional_id: line.professional_id ? Number(line.professional_id) : null,
+    branch_id: branchId,
+    start_time: start,
+    end_time: end,
+  }));
+};
+
+/** Fecha/hora reales al ejecutar el cobro (paso 2 o tickets en agenda): encadena desde ahora. */
+const applySaleExecutionSchedule = (lines: CartLine[]): CartLine[] => {
+  let cursor = Date.now();
+  return lines.map((line) => {
+    const start = new Date(cursor);
+    const durationMs = Math.max(Number(line.duration_minutes) || 60, 1) * 60 * 1000;
+    cursor += durationMs;
+    return normalizeCartLine({
+      ...line,
+      date: getLocalDateInputValue(start),
+      time: getLocalTimeValue(start),
+      without_time: false,
+    });
+  });
+};
+
 const createDefaultLine = (service?: ServiceOption): CartLine => ({
   localId: createLocalId(),
   service_id: service ? String(service.id) : "",
@@ -607,7 +646,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         setCartLines(lines);
         setLinkAppointmentId(appointmentId);
         setStep(1);
-        toast.info("Reserva cargada en el carrito. Revisa montos y confirma en el paso 2.");
+        toast.info("Reserva cargada: mismo día y hora de la agenda. Cobrá desde el carrito con «Finalizar venta».");
       } catch {
         toast.error("No se pudo cargar la reserva desde la agenda.");
         agendaHydrateDoneRef.current = appointmentId;
@@ -1178,7 +1217,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (quickFromStepOne = false) => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal para la venta.");
     if (!clientId)       return toast.warning("Selecciona un cliente.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
@@ -1190,13 +1229,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       return toast.warning("Si un ticket está 'En atencion', debes seleccionar operaria.");
     }
 
-    const conflictingLines = cartLines.filter((line) => {
-      if (!line.professional_id) return false;
-      return lineAvailability[line.localId] && !lineAvailability[line.localId].available;
-    });
-    if (conflictingLines.length > 0) {
-      return toast.warning("Hay operarias ocupadas en ese horario. Ajusta horario u operaria antes de confirmar.");
-    }
+    const saleWithoutAgendaTickets = Boolean(
+      quickFromStepOne && !editingSale && !linkAppointmentId
+    );
+
+    const linesScheduledForAgenda =
+      linkAppointmentId || saleWithoutAgendaTickets
+        ? cartLines
+        : applySaleExecutionSchedule(cartLines);
 
     setIsSubmitting(true);
     try {
@@ -1268,62 +1308,73 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         discount_type: discountType,
         discount_value: numericDiscount,
         notes: notes.trim() || undefined,
-        items: cartLines.map((line) => {
-          const safeDate = line.date?.trim() || getLocalDateInputValue();
-          const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
-          const start = new Date(`${safeDate}T${safeTime}:00`);
-          const end   = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
-          return {
-            service_id: Number(line.service_id),
-            professional_id: line.professional_id ? Number(line.professional_id) : null,
-            branch_id: activeBranchId,
-            start_time: formatLocalDateTime(start),
-            end_time: formatLocalDateTime(end),
-          };
-        }),
+        items: saleWithoutAgendaTickets
+          ? buildPlaceholderSaleItems(cartLines, activeBranchId)
+          : linesScheduledForAgenda.map((line) => {
+              const safeDate = line.date?.trim() || getLocalDateInputValue();
+              const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
+              const start = new Date(`${safeDate}T${safeTime}:00`);
+              const end = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
+              return {
+                service_id: Number(line.service_id),
+                professional_id: line.professional_id ? Number(line.professional_id) : null,
+                branch_id: activeBranchId,
+                start_time: formatLocalDateTime(start),
+                end_time: formatLocalDateTime(end),
+              };
+            }),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
+        ...(saleWithoutAgendaTickets ? { sale_without_appointments: true } : {}),
       };
 
       const sale = await PosSaleService.create(payload);
 
-      const updatedAppointments = await Promise.all(
-        sale.appointments.map(async (appointment, index) => {
-          const line =
-            cartLines.find((cartLine) => cartLine.appointment_id === appointment.id) ?? cartLines[index];
-          if (!line) return appointment;
+      const updatedAppointments =
+        sale.appointments.length === 0
+          ? []
+          : await Promise.all(
+              sale.appointments.map(async (appointment, index) => {
+                const line =
+                  linesScheduledForAgenda.find((cartLine) => cartLine.appointment_id === appointment.id) ??
+                  linesScheduledForAgenda[index];
+                if (!line) return appointment;
 
-          const safeDate = line.date?.trim() || getLocalDateInputValue();
-          const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
-          const start = new Date(`${safeDate}T${safeTime}:00`);
-          const end = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
+                const safeDate = line.date?.trim() || getLocalDateInputValue();
+                const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
+                const start = new Date(`${safeDate}T${safeTime}:00`);
+                const end = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
 
-          const updated = await AgendaService.updateAppointment(appointment.id, {
-            start_time: formatLocalDateTime(start),
-            end_time: formatLocalDateTime(end),
-            professional_id: line.professional_id ? Number(line.professional_id) : null,
-            status: line.status,
-          });
+                const updated = await AgendaService.updateAppointment(appointment.id, {
+                  start_time: formatLocalDateTime(start),
+                  end_time: formatLocalDateTime(end),
+                  professional_id: line.professional_id ? Number(line.professional_id) : null,
+                  status: line.status,
+                });
 
-          const selectedProfessional =
-            line.professional_id
-              ? professionals.find((professional) => String(professional.id) === line.professional_id)
-              : undefined;
+                const selectedProfessional =
+                  line.professional_id
+                    ? professionals.find((professional) => String(professional.id) === line.professional_id)
+                    : undefined;
 
-          return {
-            ...appointment,
-            start_time: updated.start_time,
-            end_time: updated.end_time,
-            status: updated.status,
-            professional: selectedProfessional
-              ? { id: selectedProfessional.id, username: selectedProfessional.username }
-              : null,
-          };
-        })
-      );
+                return {
+                  ...appointment,
+                  start_time: updated.start_time,
+                  end_time: updated.end_time,
+                  status: updated.status,
+                  professional: selectedProfessional
+                    ? { id: selectedProfessional.id, username: selectedProfessional.username }
+                    : null,
+                };
+              })
+            );
 
       const saleWithUpdatedAppointments = { ...sale, appointments: updatedAppointments };
       localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
-      toast.success("Venta completada.");
+      toast.success(
+        saleWithoutAgendaTickets
+          ? "Venta registrada. Los tickets en agenda puedes crearlos después."
+          : "Venta completada. Tickets guardados con la fecha y hora del cobro."
+      );
       setLinkAppointmentId(null);
       setReceiptSale(saleWithUpdatedAppointments);
       resetSaleForm();
@@ -1560,6 +1611,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       onEditSale={(sale) => void handleEditSaleFromHistory(sale)}
       onCancelSale={(sale) => void handleCancelSaleFromHistory(sale)}
       onDeleteSale={(sale) => void handleDeleteSaleFromHistory(sale)}
+      allFilteredSales={filteredSales}
     />
   );
 
@@ -1749,7 +1801,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               subtotal={subtotal}
               total={total}
               onRemoveLine={removeLine}
-              onContinueToAgenda={() => { setStep(2); onRequestSwitchToPos?.(); }}
               clientComboboxRef={clientComboboxRef}
               clientSearch={clientSearch}
               setClientSearch={setClientSearch}
@@ -1774,6 +1825,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               professionals={professionals}
               isCartOpen={isCartOpen}
               setIsCartOpen={setIsCartOpen}
+              finalizeSaleLabel={linkAppointmentId ? "Cobrar reserva" : "Finalizar venta"}
+              finalizeFooterHint={
+                linkAppointmentId
+                  ? "Se cobra y se cierra la reserva con su horario de agenda."
+                  : "Finaliza aquí: cobro rápido sin elegir fecha u hora de ticket."
+              }
+              onFinalizeSale={() => void handleCheckout(true)}
+              isSubmittingCheckout={isSubmitting}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))

@@ -31,6 +31,10 @@ class PosSaleCreate(BaseModel):
         ge=1,
         description="Enlaza la venta a esta reserva existente en lugar de crear citas nuevas.",
     )
+    sale_without_appointments: bool = Field(
+        default=False,
+        description="Solo cobro: no crea citas en agenda; los horarios de items se ignoran.",
+    )
 
 
 class PosSaleUpdate(BaseModel):

@@ -403,7 +403,10 @@ export default function PosSaleStepTwo({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
-      
+      <p className="shrink-0 border-b border-[#c7e0f4] bg-[#deecf9] px-4 py-2 text-[11px] leading-snug text-[#004578]">
+        Al confirmar la venta, los tickets en agenda se registran con la <strong>fecha y hora del momento del cobro</strong>{" "}
+        (encadenados por duración). La vista del planificador es solo orientativa.
+      </p>
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">

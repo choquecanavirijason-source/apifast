@@ -687,7 +687,12 @@ function ReservationDrawer({
   );
 }
 
-export default function DailyAgendaPage() {
+export type DailyAgendaPageProps = {
+  /** Dentro del hub Caja & seguimiento: sin título global duplicado. */
+  embedded?: boolean;
+};
+
+export default function DailyAgendaPage({ embedded = false }: DailyAgendaPageProps) {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateInputValue());
   const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
@@ -934,12 +939,31 @@ export default function DailyAgendaPage() {
     return "border-[#b4d7f0] bg-[#f0f6fc] text-[#004578]";
   };
 
+  const layoutPageClass = embedded
+    ? "!min-h-0 flex flex-1 flex-col !bg-transparent !p-0 h-full"
+    : undefined;
+  const layoutContainerClass = embedded
+    ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-transparent !p-0 max-w-none"
+    : undefined;
+
   return (
-    <div className="min-h-0 w-full overflow-auto bg-transparent">
+    <div
+      className={
+        embedded
+          ? "flex min-h-0 w-full flex-1 flex-col overflow-auto bg-transparent"
+          : "min-h-0 w-full overflow-auto bg-transparent"
+      }
+    >
       <Layout
-        title="Agenda del día"
-        subtitle="Planilla horaria o cuadrícula de puestos (1–8). Toca un hueco para reservar; desde cada ticket puedes pasar la reserva a venta en caja."
+        title={embedded ? undefined : "Agenda del día"}
+        subtitle={
+          embedded
+            ? undefined
+            : "Planilla horaria o cuadrícula de puestos (1–8). Toca un hueco para reservar; desde cada ticket puedes pasar la reserva a venta en caja."
+        }
         variant="table"
+        pageClassName={layoutPageClass}
+        containerClassName={layoutContainerClass}
       >
         <SectionCard className="mb-3 border border-[#d2d0ce] bg-[#faf9f8]">
           <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">

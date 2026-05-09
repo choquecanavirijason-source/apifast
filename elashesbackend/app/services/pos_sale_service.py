@@ -222,6 +222,8 @@ def create_sale(
         if payload.branch_id is not None:
             link_appt.branch_id = payload.branch_id
         link_appt.status = "completed"
+    elif payload.sale_without_appointments:
+        pass
     else:
         for item in payload.items:
             create_appointment(

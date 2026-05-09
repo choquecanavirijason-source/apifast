@@ -54,7 +54,6 @@ export type PosSaleStepOneProps = {
   subtotal: number;
   total: number;
   onRemoveLine: (localId: string) => void;
-  onContinueToAgenda: () => void;
   clientComboboxRef: RefObject<HTMLDivElement | null>;
   clientSearch: string;
   setClientSearch: (value: string) => void;
@@ -79,6 +78,11 @@ export type PosSaleStepOneProps = {
   professionals: ProfessionalForSelect[];
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
+  /** Etiqueta y acción de cobro final desde el panel lateral (paso 1). */
+  finalizeSaleLabel: string;
+  finalizeFooterHint: string;
+  onFinalizeSale: () => void;
+  isSubmittingCheckout: boolean;
 };
 
 export type PosSaleStepTwoProps = {

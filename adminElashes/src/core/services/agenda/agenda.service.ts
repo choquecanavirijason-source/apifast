@@ -291,12 +291,14 @@ export const AgendaService = {
     skip?: number;
     limit?: number;
     search?: string;
+    role_name?: string;
   }): Promise<ProfessionalForSelect[]> {
     const response = await api.get<ProfessionalForSelect[]>("/agenda/professionals-for-select", {
       params: {
         skip: params?.skip ?? 0,
         limit: params?.limit ?? 100,
         search: params?.search,
+        role_name: params?.role_name,
       },
     });
     return response.data;

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { FileDown, Search } from "lucide-react";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
+import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import DataTable, { type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
@@ -42,6 +43,7 @@ type SalesHistoryTableProps = {
   onEditSale: (sale: PosSaleItem) => void;
   onCancelSale: (sale: PosSaleItem) => void;
   onDeleteSale: (sale: PosSaleItem) => void;
+  allFilteredSales: PosSaleItem[];
 };
 
 export default function SalesHistoryTable({
@@ -73,7 +75,42 @@ export default function SalesHistoryTable({
   onEditSale,
   onCancelSale,
   onDeleteSale,
+  allFilteredSales,
 }: SalesHistoryTableProps) {
+  const handleExportPdf = () => {
+    generateTablePdf({
+      title: "Historial de Ventas POS",
+      subtitle: "Ventas registradas en el punto de venta",
+      filename: "ventas-pos",
+      orientation: "landscape",
+      meta: [
+        { label: "Total ventas", value: String(allFilteredSales.length) },
+        { label: "Monto total", value: `Bs ${allFilteredSales.reduce((s, v) => s + Number(v.total ?? 0), 0).toFixed(2)}` },
+      ],
+      columns: [
+        { key: "sale_code", header: "Código" },
+        { key: "client", header: "Cliente" },
+        { key: "services", header: "Servicios" },
+        { key: "payment_method", header: "Método de pago" },
+        { key: "subtotal", header: "Subtotal" },
+        { key: "descuento", header: "Descuento" },
+        { key: "total", header: "Total" },
+        { key: "status", header: "Estado" },
+        { key: "fecha", header: "Fecha" },
+      ],
+      rows: allFilteredSales.map((s) => ({
+        sale_code: s.sale_code,
+        client: `${s.client?.name ?? ""} ${s.client?.last_name ?? ""}`.trim(),
+        services: s.appointments?.map((a) => a.service?.name ?? a.services?.map((sv) => sv.name).join(", ") ?? "").filter(Boolean).join(" | ") || "—",
+        payment_method: s.payment_method ?? "—",
+        subtotal: `Bs ${Number(s.subtotal ?? 0).toFixed(2)}`,
+        descuento: s.discount_value ? `${s.discount_type === "percent" ? `${s.discount_value}%` : `Bs ${s.discount_value}`}` : "—",
+        total: `Bs ${Number(s.total ?? 0).toFixed(2)}`,
+        status: s.status === "paid" ? "Pagado" : s.status === "cancelled" ? "Cancelado" : s.status,
+        fecha: s.created_at ? new Date(s.created_at).toLocaleDateString("es-BO") : "—",
+      })),
+    });
+  };
   const columns = useMemo<DataTableColumn<PosSaleItem>[]>(
     () => [
       {
@@ -263,12 +300,22 @@ export default function SalesHistoryTable({
             </select>
           </div>
 
-          <div className="text-sm text-slate-500">
-            <span>Filtrado: </span>
-            <span className="font-semibold text-emerald-700">Bs {filteredSalesTotalAmount.toFixed(2)}</span>
-            <span className="mx-1.5 text-slate-300">/</span>
-            <span>Total: </span>
-            <span className="font-semibold text-slate-700">Bs {allSalesTotalAmount.toFixed(2)}</span>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-slate-500">
+              <span>Filtrado: </span>
+              <span className="font-semibold text-emerald-700">Bs {filteredSalesTotalAmount.toFixed(2)}</span>
+              <span className="mx-1.5 text-slate-300">/</span>
+              <span>Total: </span>
+              <span className="font-semibold text-slate-700">Bs {allSalesTotalAmount.toFixed(2)}</span>
+            </div>
+            <button
+              onClick={handleExportPdf}
+              title="Descargar reporte PDF"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
 import type { PosSaleStepOneProps } from "../pos.types";
@@ -29,7 +29,6 @@ export default function PosSaleStepOne({
   subtotal,
   total,
   onRemoveLine,
-  onContinueToAgenda,
   clientComboboxRef,
   clientSearch,
   setClientSearch,
@@ -54,6 +53,10 @@ export default function PosSaleStepOne({
   professionals,
   isCartOpen,
   setIsCartOpen,
+  finalizeSaleLabel,
+  finalizeFooterHint,
+  onFinalizeSale,
+  isSubmittingCheckout,
 }: PosSaleStepOneProps) {
   const [showToast, setShowToast] = useState(false);
   const [animateCart, setAnimateCart] = useState(false);
@@ -167,14 +170,6 @@ export default function PosSaleStepOne({
             {cartCount}
           </span>
         </button>
-        <button
-          type="button"
-          onClick={onContinueToAgenda}
-          className="flex h-14 min-w-14 items-center justify-center rounded-full bg-[#323130] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#605e5c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#323130]"
-          aria-label="Ir a agenda/tickets"
-        >
-          <ArrowRight className="h-6 w-6" />
-        </button>
       </div>
 
       <PosSaleDrawer
@@ -209,13 +204,14 @@ export default function PosSaleStepOne({
         setNotes={setNotes}
         onOpenRegisterClient={onOpenRegisterClient}
         professionals={professionals}
-        primaryActionLabel="Asignar tickets a la agenda"
+        primaryActionLabel={finalizeSaleLabel}
         onPrimaryAction={() => {
           setIsCartOpen(false);
-          onContinueToAgenda();
+          onFinalizeSale();
         }}
-        primaryActionDisabled={cartCount === 0}
-        footerHint="Siguiente paso: fecha, hora y operaria por ticket."
+        primaryActionDisabled={cartCount === 0 || !selectedClient || isSubmittingCheckout}
+        footerHint={finalizeFooterHint}
+        isSubmitting={isSubmittingCheckout}
       />
     </div>
   );

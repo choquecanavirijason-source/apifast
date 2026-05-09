@@ -40,6 +40,9 @@ type PosSaleDrawerProps = {
   onPrimaryAction: () => void;
   primaryActionDisabled: boolean;
   footerHint: string;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
+  isSubmitting?: boolean;
 };
 
 export default function PosSaleDrawer({
@@ -78,6 +81,9 @@ export default function PosSaleDrawer({
   onPrimaryAction,
   primaryActionDisabled,
   footerHint,
+  secondaryActionLabel,
+  onSecondaryAction,
+  isSubmitting = false,
 }: PosSaleDrawerProps) {
   if (!isOpen) return null;
 
@@ -454,7 +460,7 @@ export default function PosSaleDrawer({
             onClick={() => {
               cartLines.forEach((line) => onRemoveLine(line.localId));
             }}
-            disabled={cartCount === 0}
+            disabled={cartCount === 0 || isSubmitting}
             className={`mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-sm border text-sm font-semibold transition-all ${
               cartCount === 0
                 ? "cursor-not-allowed border-[#edebe9] bg-[#f3f2f1] text-[#a19f9d]"
@@ -464,17 +470,27 @@ export default function PosSaleDrawer({
             <Trash2 className="h-4 w-4" />
             Vaciar carrito
           </button>
+          {secondaryActionLabel && onSecondaryAction ? (
+            <button
+              type="button"
+              onClick={onSecondaryAction}
+              disabled={isSubmitting}
+              className="mb-2 flex h-10 w-full items-center justify-center rounded-sm border border-[#8a8886] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {secondaryActionLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onPrimaryAction}
-            disabled={primaryActionDisabled}
+            disabled={primaryActionDisabled || isSubmitting}
             className={`flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold transition-all ${
-              primaryActionDisabled
+              primaryActionDisabled || isSubmitting
                 ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
                 : "bg-[#0078d4] text-white shadow-sm hover:bg-[#005a9e] active:bg-[#004578]"
             }`}
           >
-            {primaryActionLabel}
+            {isSubmitting ? "Procesando…" : primaryActionLabel}
           </button>
           <p className="mt-2 text-center text-[11px] text-[#605e5c]">{footerHint}</p>
         </div>

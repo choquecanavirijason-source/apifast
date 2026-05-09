@@ -33,6 +33,7 @@ import FollowUpPage from '@/pages/admin/follow-up/pages/FollowUpPage';
 import PosTrackingHub from '@/pages/admin/pos-tracking/PosTrackingHub';
 import CompletedTicketsHistory from "@/pages/admin/pos-tracking/CompletedTicketsHistory";
 import ProfessionalServiceHistory from "@/pages/admin/professionals/History";
+import TicketsHistoryPage from "@/pages/admin/professionals/TicketsHistory";
 import NotFoundPage from "@/pages/NotFoundPage";
 import PrivateRoute from "./PrivateRoute";
 import GuestRoute from "./GuestRoute";
@@ -149,6 +150,7 @@ export default function AppRouter() {
             <Route path="admin/pos-tracking/tracking" element={<PosTrackingHub />} />
             <Route path="admin/pos-tracking/queue" element={<PosTrackingHub />} />
             <Route path="admin/pos-tracking/calendar" element={<PosTrackingHub />} />
+            <Route path="admin/pos-tracking/agenda" element={<PosTrackingHub />} />
             <Route path="admin/products" element={<ProductsPage />} />
             <Route path="admin/salons" element={<SalonsPage />} />
             <Route path="admin/services" element={<ServicesPage />} />
@@ -158,6 +160,7 @@ export default function AppRouter() {
             <Route path="admin/tickets" element={<TicketsPage />} />
             <Route path="admin/tickets/finalizados" element={<CompletedTicketsHistory />} />
             <Route path="admin/professionals/history" element={<ProfessionalServiceHistory />} />
+            <Route path="admin/professionals/tickets" element={<TicketsHistoryPage />} />
             <Route path="admin/calendar" element={<CalendarPage />} />
             <Route path="admin/calendar/citas" element={<CalendarPage />} />
             <Route path="admin/calendar/agenda" element={<DailyAgendaPage />} />
