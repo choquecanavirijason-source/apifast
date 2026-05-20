@@ -37,6 +37,7 @@ from app.services.service_agenda_service import (
     get_appointment_by_id,
     get_service_by_id,
     list_appointments,
+    list_mobile_available_appointments,
     list_professionals_for_select,
     list_services,
     update_appointment,
@@ -229,6 +230,7 @@ def get_appointments(
     search: Optional[str] = Query(default=None, description="Buscar por código O nombre de cliente"),
     start_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
     end_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    is_ia: Optional[bool] = Query(default=None, description="Filtrar por tickets IA"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:view")),
 ):
@@ -253,6 +255,36 @@ def get_appointments(
         search=search,
         start_date=parsed_start,
         end_date=parsed_end,
+        is_ia=is_ia,
+    )
+
+
+@router.get("/appointments/mobile/available", response_model=List[AppointmentResponse])
+def get_available_mobile_service_tickets(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    start_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    end_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    search: Optional[str] = Query(default=None, description="Buscar por codigo o cliente"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:view")),
+):
+    parsed_start = None
+    parsed_end = None
+    if start_date:
+        parsed_start = datetime.fromisoformat(start_date).date()
+    if end_date:
+        parsed_end = datetime.fromisoformat(end_date).date()
+
+    return list_mobile_available_appointments(
+        db=db,
+        skip=skip,
+        limit=limit,
+        branch_id=branch_id,
+        start_date=parsed_start,
+        end_date=parsed_end,
+        search=search,
     )
 
 
