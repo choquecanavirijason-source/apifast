@@ -421,10 +421,10 @@ export default function PosSaleDrawer({
 
             <div className="border-b border-[#edebe9] px-4 py-4">
               <label className={labelClass} htmlFor="pos-drawer-seller">
-                Operaria / vendedor
+                Operaria
               </label>
               <p className="mb-2 text-[11px] text-[#605e5c]">
-                Se asignará a los tickets que aún no tengan operaria.
+                Solo usuarios con rol operaria. Se asignará a los tickets que aún no tengan operaria.
               </p>
               <div className="relative">
                 <select
@@ -433,7 +433,7 @@ export default function PosSaleDrawer({
                   onChange={(event) => setSellerId(event.target.value)}
                   className={`${bcField} cursor-pointer appearance-none pr-8`}
                 >
-                  <option value="">Seleccionar vendedor...</option>
+                  <option value="">Seleccionar operaria...</option>
                   {professionals.map((professional) => (
                     <option key={professional.id} value={professional.id}>
                       {professional.username}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { FileDown, KeyRound, Plus, Shield, Users as UsersIcon } from "lucide-react";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 import { getRoleName } from "./types";
@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import Layout from "@/components/common/layout";
 import api from "@/core/services/api";
 import useAuth from "@/core/hooks/useAuth";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 
 import AccessDenied from "./components/AccessDenied";
 import EditUserModal from "./components/EditUserModal";
@@ -43,6 +44,7 @@ export default function UsersMain() {
   const [editUserBranchId, setEditUserBranchId] = useState<number | null>(null);
   const [editUserIsActive, setEditUserIsActive] = useState(true);
   const [updatingUser, setUpdatingUser] = useState(false);
+  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
 
   const { user, roles: authRoles } = useAuth();
 
@@ -98,8 +100,21 @@ export default function UsersMain() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const response = await api.get("/admin/users");
-      setUsers(response.data);
+      const pageSize = 100;
+      const allUsers: UserItem[] = [];
+      let skip = 0;
+
+      while (true) {
+        const response = await api.get<UserItem[]>("/admin/users", {
+          params: { skip, limit: pageSize },
+        });
+        const batch = Array.isArray(response.data) ? response.data : [];
+        allUsers.push(...batch);
+        if (batch.length < pageSize) break;
+        skip += pageSize;
+      }
+
+      setUsers(allUsers);
     } catch (error) {
       toast.error(getErrorMessage(error, "Error al cargar usuarios"));
     } finally {
@@ -146,12 +161,38 @@ export default function UsersMain() {
   };
 
   useEffect(() => {
-    if(!isSuperAdmin) return;
+    if (!isSuperAdmin) return;
     void loadUsers();
     void loadRoles();
     void loadBranches();
     void loadPermissions();
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    const handleBranchChange = () => setActiveBranchId(getSelectedBranchId());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === BRANCH_STORAGE_KEY) handleBranchChange();
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("branchchange", handleBranchChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("branchchange", handleBranchChange);
+    };
   }, []);
+
+  const filteredUsers = useMemo(() => {
+    if (!activeBranchId) return users;
+    return users.filter((item) => {
+      const branchId = item.branch_id ?? item.branch?.id ?? null;
+      return Number(branchId) === activeBranchId;
+    });
+  }, [users, activeBranchId]);
+
+  const activeBranchName = useMemo(() => {
+    if (!activeBranchId) return "Todas las sucursales";
+    return branches.find((branch) => branch.id === activeBranchId)?.name ?? `Sucursal #${activeBranchId}`;
+  }, [activeBranchId, branches]);
 
   const openEditUserModal = (userToEdit: UserItem) => {
     setSelectedUser(userToEdit);
@@ -274,10 +315,10 @@ export default function UsersMain() {
     }
   };
 
-  const activeUsers = useMemo(() => users.filter((item) => item.is_active).length, [users]);
-  const inactiveUsers = useMemo(() => users.filter((item) => !item.is_active).length, [users]);
+  const activeUsers = useMemo(() => filteredUsers.filter((item) => item.is_active).length, [filteredUsers]);
+  const inactiveUsers = useMemo(() => filteredUsers.filter((item) => !item.is_active).length, [filteredUsers]);
 
-  const tabButtons: Array<{ id: SectionTab; label: string; icon: JSX.Element }> = [
+  const tabButtons: Array<{ id: SectionTab; label: string; icon: ReactElement }> = [
     { id: "users", label: "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
     { id: "roles", label: "Roles", icon: <Shield className="h-4 w-4" /> },
     { id: "permissions", label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
@@ -289,7 +330,10 @@ export default function UsersMain() {
       subtitle: "Usuarios registrados en el sistema",
       filename: "usuarios",
       orientation: "landscape",
-      meta: [{ label: "Total", value: String(users.length) }],
+      meta: [
+        { label: "Sucursal", value: activeBranchName },
+        { label: "Total", value: String(filteredUsers.length) },
+      ],
       columns: [
         { key: "id", header: "ID" },
         { key: "username", header: "Usuario" },
@@ -300,7 +344,7 @@ export default function UsersMain() {
         { key: "status", header: "Estado" },
         { key: "created_at", header: "Creado" },
       ],
-      rows: users.map((u) => ({
+      rows: filteredUsers.map((u) => ({
         id: u.id,
         username: u.username,
         email: u.email,
@@ -352,11 +396,11 @@ export default function UsersMain() {
   return (
     <Layout
       title="Usuarios, Roles y Permisos"
-      subtitle="Administra usuarios del sistema, define roles y organiza permisos por módulo."
+      subtitle={`Administra usuarios del sistema, define roles y organiza permisos por módulo. Vista filtrada: ${activeBranchName}.`}
       variant="table"
       topContent={
         <UsersStats
-          userCount={users.length}
+          userCount={filteredUsers.length}
           activeUsers={activeUsers}
           inactiveUsers={inactiveUsers}
           rolesCount={roles.length}
@@ -368,7 +412,7 @@ export default function UsersMain() {
       }
     >
       {sectionTab === "users" && (
-        <UsersSection users={users} loading={loading} onEditUser={openEditUserModal} />
+        <UsersSection users={filteredUsers} loading={loading} onEditUser={openEditUserModal} />
       )}
 
       {sectionTab === "roles" && <RolesSection roles={roles} loading={loadingRoles} />}

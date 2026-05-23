@@ -8,7 +8,7 @@ import type { AppDispatch, RootState } from "@/store";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { AgendaService } from "@/core/services/agenda/agenda.service";
 import { AuthService } from "@/core/services/auth/auth.service";
-import { getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
 import variables from "@/core/config/variables";
 
 interface HeaderProps {
@@ -263,11 +263,17 @@ export default function Header({
       .then((data) => {
         if (!isMounted) return;
         setBranches(data);
-        if (!selectedBranchId && data.length > 0) {
+        const storedRaw =
+          typeof window !== "undefined" ? window.localStorage.getItem(BRANCH_STORAGE_KEY) : null;
+        // Solo auto-seleccionar la primera sucursal en la primera visita (sin preferencia guardada).
+        // Si el usuario eligió "Todas" (valor "all"), no forzar sucursal.
+        if (storedRaw === null && data.length > 0) {
           const fallback = data[0].id;
           setSelectedBranchIdState(fallback);
           setSelectedBranchId(fallback);
+          return;
         }
+        setSelectedBranchIdState(getSelectedBranchId());
       })
       .catch((error) => {
         console.error("Error cargando sucursales:", error);
@@ -276,7 +282,7 @@ export default function Header({
     return () => {
       isMounted = false;
     };
-  }, [selectedBranchId]);
+  }, []);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();

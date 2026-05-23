@@ -248,6 +248,7 @@ export interface ProfessionalForSelect {
   id: number;
   username: string;
   email: string;
+  branch_id?: number | null;
 }
 
 export const AgendaService = {
@@ -344,6 +345,7 @@ export const AgendaService = {
     limit?: number;
     search?: string;
     role_name?: string;
+    branch_id?: number;
   }): Promise<ProfessionalForSelect[]> {
     const response = await api.get<ProfessionalForSelect[]>("/agenda/professionals-for-select", {
       params: {
@@ -351,6 +353,7 @@ export const AgendaService = {
         limit: params?.limit ?? 100,
         search: params?.search,
         role_name: params?.role_name,
+        branch_id: params?.branch_id,
       },
     });
     return response.data;

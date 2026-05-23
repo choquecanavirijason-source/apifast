@@ -66,6 +66,18 @@ export default function ReservationDrawer({
 
   const cartCount = cartLines.length;
 
+  const branchProfessionals = useMemo(() => {
+    if (!branchId) return [];
+    return professionals.filter((p) => p.branch_id == null || Number(p.branch_id) === branchId);
+  }, [branchId, professionals]);
+
+  useEffect(() => {
+    if (!professionalId) return;
+    if (!branchProfessionals.some((p) => String(p.id) === professionalId)) {
+      setProfessionalId("");
+    }
+  }, [branchProfessionals, professionalId]);
+
   useEffect(() => {
     if (!isOpen) return;
     setStartTime(initialTime);
@@ -445,10 +457,13 @@ export default function ReservationDrawer({
                   id="res-pro"
                   value={professionalId}
                   onChange={(ev) => setProfessionalId(ev.target.value)}
+                  disabled={!branchId}
                   className={`${agendaFieldClass} cursor-pointer`}
                 >
-                  <option value="">Sin asignar</option>
-                  {professionals.map((p) => (
+                  <option value="">
+                    {!branchId ? "Selecciona sucursal arriba" : "Sin asignar"}
+                  </option>
+                  {branchProfessionals.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.username}
                     </option>

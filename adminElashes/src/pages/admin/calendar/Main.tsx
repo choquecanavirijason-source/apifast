@@ -91,7 +91,11 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   useEffect(() => {
     const loadProfessionals = async () => {
       try {
-        const data = await AgendaService.listProfessionalsForSelect({ limit: 200 });
+        const data = await AgendaService.listProfessionalsForSelect({
+          limit: 200,
+          role_name: "Operaria",
+          branch_id: activeBranchId ?? undefined,
+        });
         setProfessionals(data);
       } catch (error) {
         console.error("Error cargando operarias:", error);
@@ -99,7 +103,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
       }
     };
     void loadProfessionals();
-  }, []);
+  }, [activeBranchId]);
 
   useEffect(() => {
     const handleChange = () => setActiveBranchId(getSelectedBranchId());

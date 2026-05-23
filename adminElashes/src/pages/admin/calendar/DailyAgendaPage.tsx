@@ -232,6 +232,18 @@ function ReservationDrawer({
 
   const cartCount = cartLines.length;
 
+  const branchProfessionals = useMemo(() => {
+    if (!branchId) return [];
+    return professionals.filter((p) => p.branch_id == null || Number(p.branch_id) === branchId);
+  }, [branchId, professionals]);
+
+  useEffect(() => {
+    if (!professionalId) return;
+    if (!branchProfessionals.some((p) => String(p.id) === professionalId)) {
+      setProfessionalId("");
+    }
+  }, [branchProfessionals, professionalId]);
+
   useEffect(() => {
     if (!isOpen) return;
     setStartTime(initialTime);
@@ -653,10 +665,13 @@ function ReservationDrawer({
                     id="res-pro"
                     value={professionalId}
                     onChange={(ev) => setProfessionalId(ev.target.value)}
+                    disabled={!branchId}
                     className={`${bcField} cursor-pointer appearance-none pr-8`}
                   >
-                    <option value="">Sin asignar</option>
-                    {professionals.map((p) => (
+                    <option value="">
+                      {!branchId ? "Selecciona sucursal arriba" : "Sin asignar"}
+                    </option>
+                    {branchProfessionals.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.username}
                       </option>
@@ -874,7 +889,11 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     void (async () => {
       try {
         const [pros, svc] = await Promise.all([
-          AgendaService.listProfessionalsForSelect({ limit: 100 }),
+          AgendaService.listProfessionalsForSelect({
+            limit: 200,
+            role_name: "Operaria",
+            branch_id: branchId ?? undefined,
+          }),
           AgendaService.listServices({ limit: 200, branch_id: branchId ?? undefined }),
         ]);
         setProfessionals(pros);

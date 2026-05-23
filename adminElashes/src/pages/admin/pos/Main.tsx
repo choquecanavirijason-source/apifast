@@ -494,7 +494,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         AgendaService.listClientsForSelect({ limit: 200 }),
         AgendaService.listServices({ limit: 200, branch_id: branchFilter }),
         AgendaService.listServiceCategories(),
-        AgendaService.listProfessionalsForSelect({ limit: 200 }),
+        AgendaService.listProfessionalsForSelect({
+          limit: 200,
+          role_name: "Operaria",
+          branch_id: branchFilter,
+        }),
         PosSaleService.list({ limit: 100 }),
         AgendaService.listTickets({ limit: 500, branch_id: branchFilter }),
       ]);
