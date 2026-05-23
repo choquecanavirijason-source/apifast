@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Columns3, List, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Columns3, List, Plus, Printer, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import PrintAgendaModal from "./components/PrintAgendaModal";
 import { toast } from "react-toastify";
 import Layout from "../../../components/common/layout";
 import { Button, SectionCard } from "../../../components/common/ui";
@@ -19,6 +32,11 @@ import {
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
 import { getLocalDateInputValue } from "./calendar.utils";
+import { parseDragTicketId, parseDropTarget, plannerDropId, stationDropId } from "./dailyAgenda.dnd";
+import { buildRescheduleTimes } from "./dailyAgenda.utils";
+import AgendaDropCell from "./components/AgendaDropCell";
+import AgendaTicketCard from "./components/AgendaTicketCard";
+import DraggableAgendaTicketCard from "./components/DraggableAgendaTicketCard";
 
 const GRID_FIRST_HOUR = 9;
 const GRID_LAST_HOUR = 20;
@@ -125,13 +143,6 @@ function groupTicketsByPlannerSlot(tickets: TicketItem[], dateKey: string): Map<
     map.set(k, list);
   }
   return map;
-}
-
-/** Teléfono de la clienta en agenda; si no hay, referencia por id. */
-function clientPhoneOrRef(t: TicketItem): string {
-  const p = t.client_phone?.trim();
-  if (p) return p;
-  return `#${t.client_id}`;
 }
 
 function groupTicketsByHourAndStation(
@@ -693,7 +704,6 @@ export type DailyAgendaPageProps = {
 };
 
 export default function DailyAgendaPage({ embedded = false }: DailyAgendaPageProps) {
-  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateInputValue());
   const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -709,6 +719,23 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   const [eyeTypesError, setEyeTypesError] = useState<string | null>(null);
   const [isLoadingEyeTypes, setIsLoadingEyeTypes] = useState(false);
   const [registeredClientPick, setRegisteredClientPick] = useState<ClientForSelect | null>(null);
+  const [activeDragTicket, setActiveDragTicket] = useState<TicketItem | null>(null);
+  const [reschedulingTicketId, setReschedulingTicketId] = useState<number | null>(null);
+  const [printMode, setPrintMode] = useState<"planner" | "stations" | null>(null);
+  const [printDropdownOpen, setPrintDropdownOpen] = useState(false);
+  const printDropdownRef = useRef<HTMLDivElement>(null);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } })
+  );
+
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerHits = pointerWithin(args);
+    if (pointerHits.length > 0) return pointerHits;
+    return closestCenter(args);
+  };
+
   const [agendaView, setAgendaView] = useState<AgendaViewMode>(() => {
     try {
       const v = localStorage.getItem(AGENDA_VIEW_STORAGE_KEY);
@@ -863,6 +890,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     })();
   }, [branchId]);
 
+  useEffect(() => {
+    if (!printDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (printDropdownRef.current && !printDropdownRef.current.contains(e.target as Node)) {
+        setPrintDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [printDropdownOpen]);
+
   const weekdayUpper = useMemo(() => {
     try {
       return new Date(`${selectedDate}T12:00:00`).toLocaleDateString("es-BO", { weekday: "long" }).toUpperCase();
@@ -932,11 +970,70 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     setSelectedDate(toIsoDate(d));
   };
 
-  const ticketCardClass = (status?: string | null) => {
-    const s = (status ?? "").toLowerCase();
-    if (s === "cancelled") return "border-rose-300 bg-rose-50 text-rose-900";
-    if (s === "completed") return "border-emerald-300 bg-emerald-50 text-emerald-900 line-through decoration-slate-600";
-    return "border-[#b4d7f0] bg-[#f0f6fc] text-[#004578]";
+  const rescheduleTicket = useCallback(
+    async (
+      ticketId: number,
+      target: { hour: number; minute: number; professionalId?: number | null }
+    ) => {
+      const ticket = tickets.find((item) => item.id === ticketId);
+      if (!ticket) return;
+
+      const { start_time, end_time } = buildRescheduleTimes(
+        ticket,
+        selectedDate,
+        target.hour,
+        target.minute
+      );
+
+      setReschedulingTicketId(ticketId);
+      try {
+        await AgendaService.updateAppointment(ticketId, {
+          start_time,
+          end_time,
+          ...(target.professionalId !== undefined ? { professional_id: target.professionalId } : {}),
+        });
+        await loadDay();
+        toast.success("Reserva reprogramada.");
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err, "No se pudo reprogramar la reserva."));
+      } finally {
+        setReschedulingTicketId(null);
+      }
+    },
+    [loadDay, selectedDate, tickets]
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const ticket = event.active.data.current?.ticket as TicketItem | undefined;
+    if (ticket) setActiveDragTicket(ticket);
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragTicket(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragTicket(null);
+    const { active, over } = event;
+    if (!over || reschedulingTicketId != null) return;
+
+    const ticketId = parseDragTicketId(active.id);
+    const dropTarget = parseDropTarget(over.id);
+    if (ticketId == null || !dropTarget) return;
+
+    if (dropTarget.type === "planner") {
+      const hour = Math.floor(dropTarget.minuteOfDay / 60);
+      const minute = dropTarget.minuteOfDay % 60;
+      void rescheduleTicket(ticketId, { hour, minute });
+      return;
+    }
+
+    const pro = professionals[dropTarget.col];
+    void rescheduleTicket(ticketId, {
+      hour: dropTarget.hour,
+      minute: 0,
+      professionalId: pro?.id ?? null,
+    });
   };
 
   const layoutPageClass = embedded
@@ -959,7 +1056,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         subtitle={
           embedded
             ? undefined
-            : "Planilla horaria o cuadrícula de puestos (1–8). Toca un hueco para reservar; desde cada ticket puedes pasar la reserva a venta en caja."
+            : "Planilla horaria o puestos (1–8). Arrastra reservas para cambiar hora u operaria; toca un hueco vacío para crear cita."
         }
         variant="table"
         pageClassName={layoutPageClass}
@@ -974,7 +1071,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Calendario · reservas</p>
                 <p className="text-[11px] text-[#605e5c]">
-                  Toca una casilla vacía del día para crear una reserva. Cobran en POS enlazan la venta con la cita.
+                  Toca una casilla vacía para nueva reserva. Arrastra una tarjeta por el asa (
+                  <span className="inline-block align-middle">⋮⋮</span>) a otra hora o puesto para reprogramar.
                 </p>
               </div>
             </div>
@@ -1073,11 +1171,50 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   <Plus className="h-3.5 w-3.5" />
                   Nueva reserva
                 </Button>
+                <div className="relative" ref={printDropdownRef}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 gap-1"
+                    onClick={() => setPrintDropdownOpen((o) => !o)}
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Imprimir
+                  </Button>
+                  {printDropdownOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => { setPrintMode("planner"); setPrintDropdownOpen(false); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <List className="h-3.5 w-3.5 text-slate-400" />
+                        Vista planilla
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <Columns3 className="h-3.5 w-3.5 text-slate-400" />
+                        Vista puestos 1–8
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </SectionCard>
 
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={collisionDetection}
+          onDragStart={handleDragStart}
+          onDragCancel={handleDragCancel}
+          onDragEnd={handleDragEnd}
+        >
         {/* Vista planilla (franja horaria detallada) */}
         {agendaView === "planner" ? (
         <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c7d9e8] bg-white shadow-sm print:shadow-none">
@@ -1104,9 +1241,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     >
                       {slot.label}
                     </div>
-                    <div
-                      role="button"
-                      tabIndex={0}
+                    <AgendaDropCell
+                      id={plannerDropId(slot.minuteOfDay)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
@@ -1119,6 +1255,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         }
                       }}
                       onClick={() => {
+                        if (activeDragTicket) return;
                         const h = Math.floor(slot.minuteOfDay / 60);
                         const m = slot.minuteOfDay % 60;
                         openNewModal(
@@ -1130,44 +1267,16 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         zebra ? "bg-[#f5faff]" : "bg-[#fafcfe]"
                       }`}
                     >
-                      <div className="flex min-h-[36px] flex-col gap-1">
+                      <div className="flex min-h-[88px] flex-wrap items-start gap-1.5 content-start py-0.5">
                         {rowTickets.map((t) => (
-                          <div
+                          <DraggableAgendaTicketCard
                             key={t.id}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`rounded border px-2 py-1.5 text-left text-[11px] shadow-sm ${ticketCardClass(
-                              t.status
-                            )}`}
-                          >
-                            <div className="font-bold tabular-nums leading-tight text-[#004578]">{clientPhoneOrRef(t)}</div>
-                            <div className="truncate font-semibold text-[#323130]">{t.client_name}</div>
-                            <div className="mt-0.5 text-[10px] leading-snug opacity-90">
-                              {(t.ticket_code ? `${t.ticket_code} · ` : "") +
-                                (t.service_name ?? "Sin servicio") +
-                                ` · ${t.status}`}
-                            </div>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {!t.sale_id ? (
-                                <button
-                                  type="button"
-                                  className="rounded border border-[#0078d4]/40 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-[#0078d4] hover:bg-[#deecf9]"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate("/admin/pos", {
-                                      state: { fromAgendaReservation: { appointmentId: t.id } },
-                                    });
-                                  }}
-                                >
-                                  Pasar a venta
-                                </button>
-                              ) : (
-                                <span className="text-[9px] font-semibold text-emerald-800">Venta #{t.sale_id}</span>
-                              )}
-                            </div>
-                          </div>
+                            ticket={t}
+                            disabled={reschedulingTicketId === t.id}
+                          />
                         ))}
                       </div>
-                    </div>
+                    </AgendaDropCell>
                   </div>
                 );
               })}
@@ -1213,50 +1322,29 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     const cellTickets = stationGridMap.get(key) ?? [];
                     const pro = professionals[col];
                     return (
-                      <div
+                      <AgendaDropCell
                         key={key}
-                        role="button"
-                        tabIndex={0}
+                        id={stationDropId(hour, col)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             openNewModal(`${String(hour).padStart(2, "0")}:00`, pro?.id ?? null);
                           }
                         }}
-                        onClick={() => openNewModal(`${String(hour).padStart(2, "0")}:00`, pro?.id ?? null)}
-                        className="relative min-h-[64px] cursor-pointer border border-[#edebe9] bg-white p-1.5 transition hover:bg-[#faf9f8] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 sm:min-h-[72px]"
+                        onClick={() => {
+                          if (activeDragTicket) return;
+                          openNewModal(`${String(hour).padStart(2, "0")}:00`, pro?.id ?? null);
+                        }}
+                        className="relative min-h-[88px] cursor-pointer border border-[#edebe9] bg-white p-1.5 transition hover:bg-[#faf9f8] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 sm:min-h-[96px]"
                       >
-                        <div className="flex flex-col gap-1">
+                        <div className="flex min-h-[80px] flex-wrap items-start gap-1 content-start">
                           {cellTickets.map((t) => (
-                            <div
+                            <DraggableAgendaTicketCard
                               key={t.id}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`rounded-sm border px-1.5 py-1 text-[10px] leading-tight ${ticketCardClass(
-                                t.status
-                              )}`}
-                            >
-                              <div className="font-bold tabular-nums text-[#004578]">{clientPhoneOrRef(t)}</div>
-                              <div className="truncate font-medium text-[#323130]">{t.client_name}</div>
-                              <div className="opacity-75">{t.ticket_code ?? ""}</div>
-                              <div className="mt-0.5 flex flex-wrap gap-1">
-                                {!t.sale_id ? (
-                                  <button
-                                    type="button"
-                                    className="rounded border border-[#0078d4]/40 bg-white px-1 py-0.5 text-[8px] font-semibold text-[#0078d4] hover:bg-[#deecf9]"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate("/admin/pos", {
-                                        state: { fromAgendaReservation: { appointmentId: t.id } },
-                                      });
-                                    }}
-                                  >
-                                    Venta
-                                  </button>
-                                ) : (
-                                  <span className="text-[8px] font-semibold text-emerald-800">#{t.sale_id}</span>
-                                )}
-                              </div>
-                            </div>
+                              ticket={t}
+                              compact
+                              disabled={reschedulingTicketId === t.id}
+                            />
                           ))}
                         </div>
                         <span
@@ -1265,7 +1353,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         >
                           +
                         </span>
-                      </div>
+                      </AgendaDropCell>
                     );
                   })}
                 </div>
@@ -1278,6 +1366,13 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         {isLoading ? (
           <p className="mt-3 text-center text-xs text-[#605e5c]">Cargando reservas…</p>
         ) : null}
+
+        <DragOverlay dropAnimation={null}>
+          {activeDragTicket ? (
+            <AgendaTicketCard ticket={activeDragTicket} compact={agendaView === "stations"} />
+          ) : null}
+        </DragOverlay>
+        </DndContext>
       </Layout>
 
       <ReservationDrawer
@@ -1308,6 +1403,16 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         initialClient={null}
         defaultBranchId={branchId}
       />
+
+      {printMode !== null && (
+        <PrintAgendaModal
+          tickets={tickets}
+          professionals={professionals}
+          selectedDate={selectedDate}
+          initialMode={printMode}
+          onClose={() => setPrintMode(null)}
+        />
+      )}
     </div>
   );
 }

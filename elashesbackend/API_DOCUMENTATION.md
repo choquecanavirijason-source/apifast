@@ -1,18 +1,71 @@
-# 📋 DOCUMENTACIÓN COMPLETA DE API - Sistema de Reconocimiento Facial y Análisis de Pestañas
+# 📋 DOCUMENTACIÓN COMPLETA DE API — Elashes Backend
 
 ## 🌐 Información General
 
 **Base URL:** `http://localhost:8000`  
-**Documentación Interactiva:** `http://localhost:8000/docs`  
-**ReDoc:** `http://localhost:8000/redoc`
-
 **Versión:** 1.0.0  
-**Descripción:** API completa para reconocimiento facial, análisis de pestañas y procesamiento en tiempo real con soporte para aplicaciones Flutter.
 
+> **Nota:** En producción (`.exe`) Swagger/ReDoc suelen estar desactivados (`docs_url=None` en `main.py`). En desarrollo puedes habilitarlos temporalmente o usar esta documentación.
+
+La API se divide en dos bloques:
+
+| Bloque | Descripción | Estado en `main.py` |
+|--------|-------------|---------------------|
+| **Parte 1** | Reconocimiento facial y análisis de pestañas (`/face/*`, `/items/*`) | Documentado; rutas usadas en tests, **no registradas** en el servidor actual |
+| **Parte 2** | Gestión de salón: auth, clientes, agenda, POS, inventario, etc. | **Activo** — rutas registradas en `main.py` |
+
+### Autenticación (Parte 2)
+
+Todas las rutas protegidas requieren:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Obtén el token con `POST /auth/login`. Los permisos dependen del rol del usuario (ver [Permisos y roles](#permisos-y-roles)).
 
 ---
 
-## 📑 Índice de Endpoints
+## 📑 Índice — Parte 2 (API de negocio, activa)
+
+### 🔐 [Autenticación](#autenticación)
+- `POST /auth/login` · `GET /auth/me` · `GET /auth/session` · `POST /auth/refresh` · `POST /auth/logout` · `POST /auth/register`
+
+### 👥 [Clientes](#clientes)
+- CRUD en `/clients/`
+
+### 🏢 [Sucursales](#sucursales)
+- CRUD en `/branches/`
+
+### 📅 [Agenda — servicios y tickets](#agenda--servicios-y-tickets)
+- Servicios, categorías, citas/tickets, selectores
+
+### 📚 [Catálogos de diseño](#catálogos-de-diseño)
+- Tipos de ojo, efectos, volúmenes, diseños, cuestionarios
+
+### 📋 [Seguimiento de clientas](#seguimiento-de-clientas)
+- CRUD en `/tracking/`
+
+### 💳 [Pagos](#pagos)
+- CRUD en `/payments/`
+
+### 🛒 [POS — ventas](#pos--ventas)
+- Ventas, cancelación, comprobante PDF
+
+### 📦 [Inventario](#inventario)
+- Categorías, productos, lotes, movimientos, stock
+
+### 📊 [Dashboard y reportes](#dashboard-y-reportes)
+- Métricas y exportación CSV
+
+### ⚙️ [Administración](#administración)
+- Usuarios, roles y permisos (`SuperAdmin`)
+
+### [Permisos y roles](#permisos-y-roles) · [Códigos HTTP](#códigos-de-estado-http-parte-2) · [Ejemplos frontend](#ejemplos-frontend)
+
+---
+
+## 📑 Índice — Parte 1 (Reconocimiento facial)
 
 ### 🏠 [Endpoints Principales](#endpoints-principales)
 - [GET /](#get-) - Mensaje de bienvenida
@@ -1276,4 +1329,700 @@ print(f"Pestañas detectadas: {result['eyelashes_detected']}")
 
 ---
 
-*Documentación generada automáticamente - Versión 1.0.0*
+---
+
+# PARTE 2 — API de negocio (Elashes)
+
+Rutas registradas en `main.py`. Prefijos y permisos tomados del código fuente actual.
+
+---
+
+## Autenticación
+
+**Prefijo:** `/auth`  
+**Tag OpenAPI:** `Autenticación`
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/auth/login` | No | Iniciar sesión |
+| GET | `/auth/me` | Sí | Usuario autenticado |
+| GET | `/auth/session` | Sí | Tiempo restante de sesión |
+| POST | `/auth/refresh` | Sí | Renovar token JWT |
+| POST | `/auth/logout` | Sí | Cerrar sesión (el cliente debe borrar el token) |
+| POST | `/auth/register` | Sí (`SuperAdmin`) | Registrar usuario |
+
+### POST /auth/login
+
+**Body:**
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+**Respuesta 200:**
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer",
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@elashes.com"
+  },
+  "expires_at": "2026-05-20T20:00:00+00:00",
+  "expires_in_minutes": 480
+}
+```
+
+### GET /auth/session
+
+**Respuesta 200:**
+```json
+{
+  "user": { "id": 1, "username": "admin" },
+  "expires_at": "2026-05-20T20:00:00+00:00",
+  "expires_in_minutes": 480,
+  "remaining_seconds": 12345
+}
+```
+
+### POST /auth/register
+
+Solo **SuperAdmin**. Body según `RegisterRequest`: `username`, `email`, `phone` (formato `+591...`), `password`, opcionalmente `role_id`, `branch_id`, `is_active`.
+
+---
+
+## Clientes
+
+**Prefijo:** `/clients`  
+**Permisos:** `clients:view` (lectura) · `clients:manage` (escritura)
+
+| Método | Ruta | Permiso |
+|--------|------|---------|
+| GET | `/clients/` | view |
+| GET | `/clients/{client_id}` | view |
+| POST | `/clients/` | manage |
+| PUT | `/clients/{client_id}` | manage |
+| DELETE | `/clients/{client_id}` | manage |
+
+### GET /clients/
+
+**Query:** `skip` (default 0), `limit` (1–100, default 20), `search`, `branch_id`
+
+**Ejemplo:** `GET /clients/?search=ana&branch_id=1&limit=20`
+
+### POST /clients/
+
+**Body:**
+```json
+{
+  "name": "María",
+  "last_name": "Pérez",
+  "age": 28,
+  "phone": "+59170000000",
+  "branch_id": 1,
+  "eye_type_id": 2,
+  "status": "en_espera"
+}
+```
+
+**Estados de cliente:** `en_espera`, `en_servicio`, `finalizado`, `sin_estado` (este último se calcula si `last_activity_at` supera 1 día).
+
+**Respuesta:** incluye `eye_type`, `branch`, `last_activity_at`.
+
+---
+
+## Sucursales
+
+**Prefijo:** `/branches`  
+**Permisos:** `branches:view` · `branches:manage`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/branches/` |
+| GET | `/branches/{branch_id}` |
+| POST | `/branches/` |
+| PUT | `/branches/{branch_id}` |
+| DELETE | `/branches/{branch_id}` |
+
+### GET /branches/
+
+**Query:** `skip`, `limit`, `city`, `department`
+
+### POST /branches/
+
+**Body (ejemplo):**
+```json
+{
+  "name": "Sucursal Centro",
+  "address": "Av. Principal 123",
+  "city": "La Paz",
+  "department": "La Paz",
+  "opening_hours": [
+    {
+      "day": "lunes",
+      "ranges": [{ "open_time": "09:00", "close_time": "18:00" }]
+    }
+  ],
+  "user_ids": [2, 3]
+}
+```
+
+Días válidos: `lunes`, `martes`, `miercoles`/`miércoles`, `jueves`, `viernes`, `sabado`/`sábado`, `domingo`.
+
+---
+
+## Agenda — servicios y tickets
+
+Hay dos prefijos relacionados:
+
+| Prefijo | Contenido |
+|---------|-----------|
+| `/services` | Categorías de servicio |
+| `/agenda` | Servicios, imágenes, selectores, citas/tickets |
+
+### Categorías de servicio — `/services/categories`
+
+**Permisos:** `services:view` o `appointments:view` (lectura); `services:manage` o `appointments:manage` (escritura)
+
+| Método | Ruta |
+|--------|------|
+| GET | `/services/categories` |
+| GET | `/services/categories/{category_id}` |
+| POST | `/services/categories` |
+| PUT | `/services/categories/{category_id}` |
+| DELETE | `/services/categories/{category_id}` |
+| POST | `/services/categories/upload-image` |
+
+**Crear categoría:**
+```json
+{
+  "name": "Móvil",
+  "description": "Servicios a domicilio",
+  "image_url": "data:image/png;base64,...",
+  "is_mobile": true
+}
+```
+
+`POST .../upload-image`: multipart `file` → devuelve `{ "image_url": "data:...;base64,..." }`.
+
+### Servicios — `/agenda/services`
+
+| Método | Ruta | Permiso |
+|--------|------|---------|
+| GET | `/agenda/services` | `services:view` |
+| GET | `/agenda/services/{service_id}` | `services:view` |
+| POST | `/agenda/services` | `services:manage` |
+| PUT | `/agenda/services/{service_id}` | `services:manage` |
+| DELETE | `/agenda/services/{service_id}` | `services:manage` |
+| POST | `/agenda/services/upload-image` | `services:manage` |
+| GET | `/agenda/services/image/{filename}` | Público (archivo estático) |
+
+**Query en listado:** `skip`, `limit`, `branch_id`, `category_id`
+
+**Crear servicio:**
+```json
+{
+  "name": "Lifting",
+  "description": "Lifting de pestañas",
+  "image_url": "http://localhost:8000/agenda/services/image/abc.jpg",
+  "category_id": 2,
+  "duration_minutes": 60,
+  "price": 150.0,
+  "branch_ids": [1, 2]
+}
+```
+
+Imagen: máx. 5 MB; formatos `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`.
+
+### Selectores — `/agenda`
+
+| Método | Ruta | Permisos (cualquiera) |
+|--------|------|------------------------|
+| GET | `/agenda/clients-for-select` | `appointments:view`, `payments:view`, `clients:view` |
+| GET | `/agenda/professionals-for-select` | `appointments:view`, `appointments:manage` |
+
+**Query:** `skip`, `limit`, `search`; además `branch_id` en clientes y `role_name` en profesionales.
+
+**Respuesta clientes:** `[{ "id", "nombre", "apellido", "phone" }]`
+
+**Respuesta profesionales:** `[{ "id", "username", "email" }]`
+
+### Tickets / citas — `/agenda/appointments`
+
+**Permisos:** `appointments:view` · `appointments:manage`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/agenda/appointments` |
+| GET | `/agenda/appointments/{appointment_id}` |
+| POST | `/agenda/appointments` |
+| PUT | `/agenda/appointments/{appointment_id}` |
+| DELETE | `/agenda/appointments/{appointment_id}` |
+| POST | `/agenda/appointments/call-next` |
+
+#### GET /agenda/appointments
+
+**Query:**
+- Paginación: `skip`, `limit`
+- Filtros: `client_id`, `professional_id`, `service_id`, `branch_id`, `status_filter`
+- Búsqueda: `ticket_code`, `client_name`, `search` (código o nombre)
+- Fechas: `start_date`, `end_date` (`YYYY-MM-DD`)
+
+**Estados (`status_filter`):** `pending`, `confirmed`, `waiting`, `in_service`, `completed`, `cancelled`
+
+**Ejemplos:**
+```
+GET /agenda/appointments?start_date=2026-05-20&end_date=2026-05-20
+GET /agenda/appointments?branch_id=1&status_filter=completed
+GET /agenda/appointments?search=B1-20260520
+```
+
+#### POST /agenda/appointments
+
+```json
+{
+  "client_id": 15,
+  "professional_id": null,
+  "service_id": 4,
+  "service_ids": [4, 9],
+  "branch_id": 1,
+  "sale_id": null,
+  "is_ia": false,
+  "start_time": "2026-05-20T10:00:00",
+  "end_time": "2026-05-20T11:00:00",
+  "status": "pending"
+}
+```
+
+El backend genera `ticket_code` automáticamente (ej. `B1-20260520-0008`).
+
+#### PUT /agenda/appointments/{appointment_id}
+
+Actualización parcial. Ejemplos:
+
+```json
+{ "status": "in_service" }
+```
+```json
+{ "professional_id": 8, "status": "in_service", "is_ia": true }
+```
+
+#### POST /agenda/appointments/call-next
+
+Llama al siguiente ticket en cola para una sucursal:
+
+```json
+{
+  "branch_id": 1,
+  "professional_id": 8
+}
+```
+
+> **Pendiente de registro:** En el código existe `GET /agenda/appointments/mobile/available` y filtro `is_ia` en `appointments_controller.py`, pero ese router **no está incluido** en `main.py`. Para habilitarlo, registrar `appointments_controller.router` o fusionar esas rutas en `service_agenda_controller.py`. Ver también `TICKETS_AUTH_CLIENTS_API.md`.
+
+---
+
+## Catálogos de diseño
+
+**Prefijo:** `/catalogs`  
+**Permisos:** `catalog:view` · `catalog:manage`
+
+Cada recurso sigue el mismo patrón CRUD:
+
+| Recurso | Listar | Detalle | Crear | Actualizar | Eliminar |
+|---------|--------|---------|-------|------------|----------|
+| Tipos de ojo | `GET /eye-types` | `GET /eye-types/{id}` | `POST /eye-types` | `PUT /eye-types/{id}` | `DELETE /eye-types/{id}` |
+| Efectos | `GET /effects` | … | … | … | … |
+| Volúmenes | `GET /volumes` | … | … | … | … |
+| Diseños | `GET /lash-designs` | … | … | … | … |
+| Cuestionarios | `GET /questionnaires` | … | … | … | … |
+
+**Query común:** `skip`, `limit` (máx. 500)
+
+**Tipo de ojo — crear:**
+```json
+{
+  "name": "Almendrado",
+  "description": "Ojo almendrado",
+  "image": "data:image/png;base64,..."
+}
+```
+
+**Cuestionario — crear:** incluye `title`, `questions` (estructura JSON según schema `QuestionnaireCreate`).
+
+---
+
+## Seguimiento de clientas
+
+**Prefijo:** `/tracking`  
+**Permisos:** `tracking:view` · `tracking:manage`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/tracking/` |
+| GET | `/tracking/{tracking_id}` |
+| GET | `/tracking/client/{client_id}/latest` |
+| POST | `/tracking/` |
+| PUT | `/tracking/{tracking_id}` |
+| DELETE | `/tracking/{tracking_id}` |
+
+**Query en listado:** `skip`, `limit`, `client_id`
+
+**Crear seguimiento:**
+```json
+{
+  "client_id": 15,
+  "appointment_id": 220,
+  "branch_id": 1,
+  "professional_id": 8,
+  "eye_type_id": 2,
+  "effect_id": 1,
+  "volume_id": 3,
+  "lash_design_id": 5,
+  "questionnaire_id": 1,
+  "design_notes": "Natural con volumen medio",
+  "last_application_date": "2026-05-15T14:00:00",
+  "questionnaire_responses": { "alergias": "ninguna" }
+}
+```
+
+---
+
+## Pagos
+
+**Prefijo:** `/payments`  
+**Permisos:** `payments:view` · `payments:manage`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/payments/` |
+| GET | `/payments/{payment_id}` |
+| POST | `/payments/` |
+| PUT | `/payments/{payment_id}` |
+| DELETE | `/payments/{payment_id}` |
+
+**Query:** `skip`, `limit`, `client_id`, `appointment_id`, `branch_id`, `method`, `status_filter`
+
+**Crear pago:**
+```json
+{
+  "client_id": 15,
+  "branch_id": 1,
+  "appointment_id": 220,
+  "sale_id": null,
+  "amount": 150.0,
+  "method": "cash",
+  "status": "paid",
+  "reference": "REC-001",
+  "notes": "Pago en caja",
+  "paid_at": "2026-05-20T12:00:00"
+}
+```
+
+Al crear, se registra `registered_by_id` con el usuario autenticado.
+
+---
+
+## POS — ventas
+
+**Prefijo:** `/pos-sales`  
+**Permisos:** lectura `appointments:view` **o** `payments:view`; escritura `appointments:manage`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/pos-sales/` |
+| GET | `/pos-sales/{sale_id}` |
+| POST | `/pos-sales/` |
+| PATCH | `/pos-sales/{sale_id}` |
+| POST | `/pos-sales/{sale_id}/cancel` |
+| DELETE | `/pos-sales/{sale_id}` |
+| GET | `/pos-sales/{sale_id}/receipt/pdf` |
+
+### POST /pos-sales/
+
+Crea venta, citas asociadas y pago en un flujo:
+
+```json
+{
+  "client_id": 15,
+  "branch_id": 1,
+  "payment_method": "cash",
+  "discount_type": "amount",
+  "discount_value": 10,
+  "notes": "Promo mayo",
+  "items": [
+    {
+      "service_id": 4,
+      "professional_id": 8,
+      "is_ia": false,
+      "start_time": "2026-05-20T10:00:00",
+      "end_time": "2026-05-20T11:00:00",
+      "branch_id": 1
+    }
+  ],
+  "link_appointment_id": null,
+  "sale_without_appointments": false
+}
+```
+
+- `link_appointment_id`: enlaza a cita existente sin crear nuevas.
+- `sale_without_appointments: true`: solo cobro, ignora horarios de items.
+
+### GET /pos-sales/{sale_id}/receipt/pdf
+
+**Query:** `format` = `a4` (default) | `thermal`  
+Devuelve PDF (`Content-Disposition: attachment`).
+
+---
+
+## Inventario
+
+**Prefijo:** `/inventory`  
+**Permisos:** `inventory:view` · `inventory:manage`
+
+### Categorías — `/inventory/categories`
+
+CRUD completo (sin paginación en listado).
+
+### Productos — `/inventory/products`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/inventory/products` |
+| GET | `/inventory/products/{product_id}` |
+| POST | `/inventory/products` |
+| PUT | `/inventory/products/{product_id}` |
+| DELETE | `/inventory/products/{product_id}` |
+
+**Query:** `skip`, `limit`, `category_id`, `active_only`
+
+**Crear producto:**
+```json
+{
+  "sku": "PEG-001",
+  "name": "Pegamento profesional",
+  "category_id": 1,
+  "price": 45.0,
+  "cost": 20.0,
+  "status": true,
+  "image_url": null,
+  "initial_stock": 10,
+  "branch_id": 1
+}
+```
+
+### Lotes — `/inventory/batches`
+
+CRUD parcial: listar, detalle, crear, actualizar (sin DELETE en controlador).
+
+### Movimientos — `/inventory/movements`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/inventory/movements` |
+| POST | `/inventory/movements` |
+
+**Query en GET:** `skip`, `limit`, `product_id`, `branch_id`, `movement_type`
+
+### Stock — `/inventory/stock-summary`
+
+**Query:** `branch_id` (opcional)  
+Resumen de existencias por producto/lote.
+
+---
+
+## Dashboard y reportes
+
+Sin prefijo común. Requieren al menos uno de los permisos indicados por endpoint.
+
+| Método | Ruta | Permisos (cualquiera) |
+|--------|------|------------------------|
+| GET | `/dashboard/overview` | `payments:view`, `appointments:view`, `inventory:view`, `branches:view` |
+| GET | `/dashboard/revenue-series` | `payments:view`, `appointments:view` |
+| GET | `/dashboard/service-distribution` | `appointments:view`, `services:view` |
+| GET | `/dashboard/inventory-distribution` | `inventory:view`, `branches:view` |
+| GET | `/reports/payments.csv` | `payments:view`, `appointments:view` |
+| GET | `/reports/tickets.csv` | `appointments:view`, `payments:view` |
+| GET | `/reports/pos-sales.csv` | `payments:view`, `appointments:view` |
+
+**Query común de fechas:** `from` y `to` (`YYYY-MM-DD`). También `branch_id`, `service_id` donde aplique.
+
+### GET /dashboard/overview
+
+**Query adicional:** `low_stock_threshold` (default 5)
+
+**Respuesta (resumen):**
+```json
+{
+  "filters": { "from": "2026-05-01", "to": "2026-05-20", "branch_id": 1 },
+  "kpis": {
+    "tickets_total": 120,
+    "tickets_completed": 95,
+    "payments_paid_total": 15000.0,
+    "payments_count": 80,
+    "avg_payment": 187.5,
+    "pos_sales_count": 45,
+    "active_employees": 6,
+    "services_count": 12,
+    "products_active_count": 30,
+    "low_stock_items": 3
+  }
+}
+```
+
+### GET /dashboard/revenue-series
+
+**Query:** `group_by` = `day` | `month`
+
+### Reportes CSV
+
+Descarga directa con filtros de fecha, sucursal, estado, método de pago, etc. Content-Type: `text/csv; charset=utf-8`.
+
+---
+
+## Administración
+
+**Prefijo:** `/admin`  
+**Rol requerido:** `SuperAdmin` (no basta con permiso suelto)
+
+### Permisos — `/admin/permissions`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/admin/permissions` |
+| GET | `/admin/permissions/{permission_id}` |
+| POST | `/admin/permissions` |
+| DELETE | `/admin/permissions/{permission_id}` |
+
+**Crear:** `{ "name": "custom:action", "description": "..." }`
+
+### Roles — `/admin/roles`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/admin/roles` |
+| GET | `/admin/roles/{role_id}` |
+| POST | `/admin/roles` |
+| PUT | `/admin/roles/{role_id}` |
+| DELETE | `/admin/roles/{role_id}` |
+
+**Crear rol:** `{ "name": "Recepcion", "permission_ids": [1, 2, 5] }`
+
+### Usuarios — `/admin/users`
+
+| Método | Ruta |
+|--------|------|
+| GET | `/admin/users` |
+| GET | `/admin/users/{user_id}` |
+| POST | `/admin/users` |
+| PUT | `/admin/users/{user_id}` |
+| DELETE | `/admin/users/{user_id}` |
+
+**Query en listado:** `skip`, `limit`, `search`
+
+---
+
+## Permisos y roles
+
+Permisos sembrados en base de datos (`seeders.py`):
+
+| Permiso | Uso típico |
+|---------|------------|
+| `clients:view` / `clients:manage` | Clientes |
+| `catalog:view` / `catalog:manage` | Catálogos de diseño |
+| `tracking:view` / `tracking:manage` | Seguimiento |
+| `forms:view` / `forms:manage` | Formularios/cuestionarios |
+| `payments:view` / `payments:manage` | Pagos |
+| `inventory:view` / `inventory:manage` | Inventario |
+| `services:view` / `services:manage` | Servicios y categorías |
+| `appointments:view` / `appointments:manage` | Tickets y POS |
+| `branches:view` / `branches:manage` | Sucursales |
+| `users:manage` | Gestión de usuarios |
+| `settings:view` | Configuración |
+
+**Roles por defecto:** `SuperAdmin`, `Admin`, `Recepcion`, `Operaria`, `Inventario` (cada uno con subconjunto de permisos).
+
+**Errores de autorización:**
+- `401` — token inválido o ausente
+- `403` — sin permiso, rol incorrecto o usuario inactivo
+
+---
+
+## Códigos de estado HTTP (Parte 2)
+
+| Código | Significado |
+|--------|-------------|
+| 200 | OK |
+| 201 | Creado |
+| 204 | Sin contenido (ej. DELETE venta POS) |
+| 400 | Parámetros inválidos |
+| 401 | No autenticado |
+| 403 | Sin permiso |
+| 404 | Recurso no encontrado |
+| 422 | Error de validación Pydantic |
+| 500 | Error interno (`detail`, `type` en JSON) |
+
+**Formato de error típico:**
+```json
+{
+  "detail": "Se requiere el permiso: appointments:manage"
+}
+```
+
+---
+
+## Ejemplos frontend
+
+### Login y petición autenticada
+
+```javascript
+const loginRes = await fetch("http://localhost:8000/auth/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username: "admin", password: "123456" }),
+});
+const { access_token } = await loginRes.json();
+
+const clientsRes = await fetch("http://localhost:8000/clients/?search=ana&limit=20", {
+  headers: { Authorization: `Bearer ${access_token}` },
+});
+const clients = await clientsRes.json();
+```
+
+### Historial de tickets del mes
+
+```javascript
+const res = await fetch(
+  "http://localhost:8000/agenda/appointments?branch_id=1&start_date=2026-05-01&end_date=2026-05-31",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const tickets = await res.json();
+```
+
+### Descargar reporte de pagos
+
+```javascript
+const res = await fetch(
+  "http://localhost:8000/reports/payments.csv?from=2026-05-01&to=2026-05-31&branch_id=1",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const blob = await res.blob();
+// guardar o abrir blob como CSV
+```
+
+---
+
+## Documentación relacionada
+
+| Archivo | Contenido |
+|---------|-----------|
+| `TICKETS_AUTH_CLIENTS_API.md` | Auth, clientes y tickets (incl. endpoint móvil pendiente) |
+| `Documentation-API/` | Colecciones OpenAPI/Bruno por módulo |
+| `elashes backend QA/` | Requests YAML de prueba manual |
+
+---
+
+*Documentación Elashes Backend — Versión 1.0.0 (Parte 1: facial · Parte 2: negocio)*

@@ -1,7 +1,7 @@
 import { useMemo, useState, type RefObject } from "react";
-import { ChevronDown, Plus, Search, ShoppingCart, Tag, Trash2, X } from "lucide-react";
+import { CalendarClock, ChevronDown, Plus, Search, ShoppingCart, Tag, Ticket, Trash2, X } from "lucide-react";
 import type { ProfessionalForSelect, ServiceOption } from "../../../../core/services/agenda/agenda.service";
-import type { CartLine, PosSaleClientOption } from "../pos.types";
+import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
 
 type PosSaleDrawerProps = {
@@ -43,6 +43,9 @@ type PosSaleDrawerProps = {
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   isSubmitting?: boolean;
+  linkAppointmentId?: number | null;
+  ticketPreviews?: PosCheckoutTicketPreview[];
+  onGoToScheduleStep?: () => void;
 };
 
 export default function PosSaleDrawer({
@@ -84,6 +87,9 @@ export default function PosSaleDrawer({
   secondaryActionLabel,
   onSecondaryAction,
   isSubmitting = false,
+  linkAppointmentId = null,
+  ticketPreviews = [],
+  onGoToScheduleStep,
 }: PosSaleDrawerProps) {
   if (!isOpen) return null;
 
@@ -358,10 +364,68 @@ export default function PosSaleDrawer({
               ) : null}
             </div>
 
+            {cartCount > 0 && !linkAppointmentId ? (
+              <div className="space-y-3 border-b border-[#edebe9] px-4 py-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-[#323130]">
+                      <Ticket className="h-4 w-4 text-[#0078d4]" />
+                      Tickets en agenda
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#605e5c]">
+                      Al finalizar se creará un ticket por cada servicio del carrito.
+                    </p>
+                  </div>
+                  {onGoToScheduleStep ? (
+                    <button
+                      type="button"
+                      onClick={onGoToScheduleStep}
+                      className="shrink-0 text-xs font-semibold text-[#0078d4] underline-offset-2 hover:underline"
+                    >
+                      Ajustar horarios
+                    </button>
+                  ) : null}
+                </div>
+
+                {ticketPreviews.length > 0 ? (
+                  <ul className="max-h-40 space-y-2 overflow-y-auto rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2">
+                    {ticketPreviews.map((preview) => (
+                      <li
+                        key={preview.localId}
+                        className="rounded-sm border border-[#edebe9] bg-white px-2.5 py-2 text-xs"
+                      >
+                        <p className="font-semibold text-[#323130]">{preview.serviceName}</p>
+                        <p className="mt-0.5 flex items-center gap-1 text-[#605e5c]">
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                          {preview.scheduleLabel}
+                        </p>
+                        <p className="mt-0.5 text-[#605e5c]">
+                          {preview.professionalName} · {preview.status}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="rounded-sm border border-dashed border-[#c8c6c4] bg-[#faf9f8] px-3 py-2 text-xs text-[#605e5c]">
+                    Los tickets se generan al confirmar la venta.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {linkAppointmentId ? (
+              <div className="border-b border-[#edebe9] bg-[#eef6ff] px-4 py-3 text-xs text-[#004578]">
+                Cobrando reserva #{linkAppointmentId}. No se duplicará la cita en agenda.
+              </div>
+            ) : null}
+
             <div className="border-b border-[#edebe9] px-4 py-4">
               <label className={labelClass} htmlFor="pos-drawer-seller">
-                Vendedor
+                Operaria / vendedor
               </label>
+              <p className="mb-2 text-[11px] text-[#605e5c]">
+                Se asignará a los tickets que aún no tengan operaria.
+              </p>
               <div className="relative">
                 <select
                   id="pos-drawer-seller"
