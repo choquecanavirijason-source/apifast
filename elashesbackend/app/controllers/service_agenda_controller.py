@@ -17,18 +17,22 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_db, require_any_permission, require_permission
 from app.models.user import User
 from app.schemas.base_response import MessageResponse
+from app.schemas.pos_sale import PosSaleResponse
 from app.schemas.service_agenda import (
     AppointmentCreate,
     AppointmentResponse,
     AppointmentUpdate,
     CallNextAppointment,
+    ReservationSaleCreate,
     ServiceCreate,
     ServiceImageUploadResponse,
     ServiceResponse,
     ServiceUpdate,
 )
+from app.services.pos_sale_service import create_reservation_sale
 from app.services.client_service import list_clients as list_clients_service
 from app.services.service_agenda_service import (
+    approve_appointment_validation,
     call_next_appointment,
     create_appointment,
     create_service,
@@ -40,6 +44,7 @@ from app.services.service_agenda_service import (
     list_mobile_available_appointments,
     list_professionals_for_select,
     list_services,
+    send_appointment_whatsapp_validation,
     update_appointment,
     update_service,
 )
@@ -308,6 +313,19 @@ def get_appointment(
 
 
 @router.post(
+    "/reservations",
+    response_model=PosSaleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_reservation(
+    payload: ReservationSaleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    return create_reservation_sale(db=db, payload=payload, current_user=current_user)
+
+
+@router.post(
     "/appointments",
     response_model=AppointmentResponse,
     status_code=status.HTTP_201_CREATED,
@@ -347,6 +365,24 @@ def call_next_ticket(
         branch_id=payload.branch_id,
         professional_id=payload.professional_id,
     )
+
+
+@router.post("/appointments/{appointment_id}/send-whatsapp-validation")
+async def send_whatsapp_validation(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    return await send_appointment_whatsapp_validation(db=db, appointment_id=appointment_id)
+
+
+@router.post("/appointments/{appointment_id}/approve-validation", response_model=AppointmentResponse)
+def approve_validation(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    return approve_appointment_validation(db=db, appointment_id=appointment_id)
 
 
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)

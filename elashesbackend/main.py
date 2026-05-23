@@ -39,7 +39,7 @@ import app.database.migrations.add_status_to_clients as m12
 import app.database.migrations.add_last_activity_to_clients as m13
 
 from app.controllers import (
-    client_controller, dashboard_controller, pos_sale_controller,
+    client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
     service_agenda_controller,
@@ -67,6 +67,9 @@ async def lifespan(app: FastAPI):
             ("add_status_to_clients", lambda: __import__("app.database.migrations.add_status_to_clients", fromlist=["upgrade"]).upgrade()),
         ("add_last_activity_to_clients", lambda: __import__("app.database.migrations.add_last_activity_to_clients", fromlist=["upgrade"]).upgrade()),
         ("branch_opening_hours", lambda: __import__("app.database.migrations.add_branch_opening_hours", fromlist=["upgrade"]).upgrade()),
+        ("branch_integration_profiles", lambda: __import__("app.database.migrations.add_branch_integration_profiles", fromlist=["upgrade"]).upgrade()),
+        ("admin_ai_settings", lambda: __import__("app.database.migrations.add_admin_ai_settings", fromlist=["upgrade"]).upgrade()),
+        ("ai_permissions", lambda: __import__("app.database.migrations.add_ai_permissions", fromlist=["upgrade"]).upgrade()),
          ("ticket_code", m1.upgrade),
         ("payment_registered_by_notes", m2.upgrade),
         ("pos_sales_and_ticket_audit", m3.upgrade),
@@ -145,6 +148,7 @@ def create_app() -> FastAPI:
     app.include_router(pos_sale_controller.router)
     app.include_router(inventory_controller.router)
     app.include_router(admin.router)
+    app.include_router(admin_ai_controller.router)
     app.include_router(auth_routes.router)      
     
     return app

@@ -35,6 +35,10 @@ class PosSaleCreate(BaseModel):
         default=False,
         description="Solo cobro: no crea citas en agenda; los horarios de items se ignoran.",
     )
+    reservation_only: bool = Field(
+        default=False,
+        description="Solo reserva en agenda: una venta reserved, varios tickets, sin pago.",
+    )
 
 
 class PosSaleUpdate(BaseModel):

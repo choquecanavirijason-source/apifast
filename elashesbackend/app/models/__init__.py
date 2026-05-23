@@ -1,5 +1,7 @@
 # Paquete de modelos
 from app.models.branch import Branch
+from app.models.branch_integration_profile import BranchIntegrationProfile
+from app.models.admin_ai_settings import AdminAiSettings
 from app.models.user import Permission, Role, User
 from app.models.inventory import Category, Product, Batch, InventoryMovement
 from app.models.client import Client

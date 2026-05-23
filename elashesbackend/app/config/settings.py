@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     mobile_image_quality: int = 85
     mobile_max_resolution: tuple = (1920, 1080)
 
+    # WhatsApp (validación de citas). Ver whatsapp_service.py
+    whatsapp_enabled: bool = False
+    whatsapp_provider: str = "webhook"
+    whatsapp_api_url: Optional[str] = None
+    whatsapp_api_token: Optional[str] = None
+    whatsapp_phone_number_id: Optional[str] = None
+
     @model_validator(mode="after")
     def resolve_database_url(self):
         if self.database_url and str(self.database_url).strip():

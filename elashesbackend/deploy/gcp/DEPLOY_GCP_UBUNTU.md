@@ -40,9 +40,10 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Build frontend (admin)
+# Build frontend (admin) — ver sección 4 para .env.production
 cd /opt/elashes/apifast/adminElashes
-cp .env.production.example .env.production
+cp .env.gcp.example .env.production
+# Confirmar: VITE_API_URL=/api
 npm ci
 npm run build
 
@@ -52,17 +53,56 @@ cd /opt/elashes/apifast/elashesbackend
 
 ## 4) Configurar variables de entorno
 
+### Backend (`elashesbackend/.env`)
+
 ```bash
-cp .env.example .env
+cd /opt/elashes/apifast/elashesbackend
+cp .env.gcp.example .env
 nano .env
 ```
 
-Variables clave de produccion:
-- `DEBUG=false`
-- `SECRET_KEY=pon_aqui_una_clave_larga_y_segura`
-- `ACCESS_TOKEN_EXPIRE_MINUTES=1440`
-- `ALLOWED_ORIGINS=["http://136.115.241.231"]`
-- `DATABASE_URL=sqlite:///./elashes.db`
+Reemplaza `SECRET_KEY` por una clave larga (ejemplo para generar una):
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+**Tu IP pública GCP** (consola → VM → Detalles de red): `34.55.150.142`
+
+Archivo `.env` mínimo en producción:
+
+```env
+DEBUG=false
+SECRET_KEY=<tu_clave_generada>
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+DATABASE_URL=sqlite:///./elashes.db
+ALLOWED_ORIGINS=["http://34.55.150.142","https://34.55.150.142","http://localhost","http://127.0.0.1"]
+```
+
+Si cambias la IP de la VM, actualiza `ALLOWED_ORIGINS` y vuelve a `sudo systemctl restart elashesbackend`.
+
+### Frontend (`adminElashes/.env.production`)
+
+Antes del `npm run build`:
+
+```bash
+cd /opt/elashes/apifast/adminElashes
+cp .env.gcp.example .env.production
+cat .env.production
+```
+
+Debe quedar exactamente:
+
+```env
+VITE_API_URL=/api
+```
+
+| Archivo plantilla | Cuándo usarlo |
+|-------------------|----------------|
+| `.env.development.example` → `.env.development` | PC local (`npm run dev`) → `http://localhost:8000` |
+| `.env.gcp.example` → `.env.production` | VM GCP (`npm run build`) → `/api` vía nginx |
+
+Con nginx fullstack, el navegador llama a `http://34.55.150.142/api/...` y nginx reenvía al backend en `127.0.0.1:8000`.
 
 ## 5) Configurar systemd
 
@@ -103,9 +143,9 @@ curl http://127.0.0.1:8000/docs
 curl http://127.0.0.1/api/docs
 ```
 
-Desde navegador externo:
-- Frontend: `http://<IP_PUBLICA_VM>/`
-- Backend docs por proxy: `http://<IP_PUBLICA_VM>/api/docs`
+Desde navegador externo (IP actual de la VM: `34.55.150.142`):
+- Frontend: `http://34.55.150.142/`
+- Backend docs por proxy: `http://34.55.150.142/api/docs`
 
 ## 8) HTTPS (recomendado)
 

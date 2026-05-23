@@ -741,6 +741,8 @@ def create_appointment(
     status_value: str = "pending",
     *,
     skip_availability_check: bool = False,
+    commit: bool = True,
+    update_client: bool = True,
 ) -> Appointment:
     _validate_appointment_relations(
         db=db,
@@ -779,16 +781,19 @@ def create_appointment(
     )
 
     db.add(appointment)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     db.refresh(appointment)
 
-    # Actualizar status del cliente: reserva si es futura, en_espera si es hoy
-    appt_date = start_time.date() if hasattr(start_time, "date") else start_time
-    today = date.today()
-    if appt_date > today:
-        update_client_status(db, client_id, CLIENT_STATUS_RESERVA)
-    else:
-        update_client_status(db, client_id, CLIENT_STATUS_EN_ESPERA)
+    if update_client:
+        appt_date = start_time.date() if hasattr(start_time, "date") else start_time
+        today = date.today()
+        if appt_date > today:
+            update_client_status(db, client_id, CLIENT_STATUS_RESERVA)
+        else:
+            update_client_status(db, client_id, CLIENT_STATUS_EN_ESPERA)
 
     assigned_ids: List[int] = []
     if service_ids:
@@ -802,10 +807,15 @@ def create_appointment(
             AppointmentService(appointment_id=appointment.id, service_id=service_id, sort_order=index)
             for index, service_id in enumerate(unique_ids)
         ]
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         db.refresh(appointment)
 
-    return get_appointment_by_id(db, appointment.id)
+    if commit:
+        return get_appointment_by_id(db, appointment.id)
+    return appointment
 
 
 def update_appointment(
@@ -896,6 +906,91 @@ def update_appointment(
     db.commit()
     db.refresh(appointment)
 
+    return get_appointment_by_id(db, appointment.id)
+
+
+def _format_appointment_datetime_es(start_time: datetime) -> tuple[str, str]:
+    if hasattr(start_time, "strftime"):
+        return start_time.strftime("%d/%m/%Y"), start_time.strftime("%H:%M")
+    return str(start_time), ""
+
+
+async def send_appointment_whatsapp_validation(db: Session, appointment_id: int) -> dict:
+    appointment = get_appointment_by_id(db, appointment_id)
+    if appointment.status not in {"pending", "waiting"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se puede enviar validación para citas pendientes o en espera de confirmación",
+        )
+
+    client = appointment.client
+    if not client:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La cita no tiene clienta")
+
+    from app.services.whatsapp_service import (
+        build_validation_message,
+        normalize_phone_e164,
+        send_whatsapp_text,
+    )
+
+    phone = normalize_phone_e164(client.phone)
+    if not phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La clienta no tiene teléfono válido para WhatsApp",
+        )
+
+    service_name = appointment.service.name if appointment.service else "Servicio"
+    if appointment.services:
+        service_name = ", ".join(s.name for s in appointment.services if s and s.name)
+
+    branch_name = appointment.branch.name if appointment.branch else "Elashes"
+    date_label, time_label = _format_appointment_datetime_es(appointment.start_time)
+    client_name = f"{client.name} {client.last_name}".strip()
+
+    message = build_validation_message(
+        client_name=client_name,
+        appointment_date=date_label,
+        appointment_time=time_label,
+        service_name=service_name,
+        branch_name=branch_name,
+        ticket_code=appointment.ticket_code,
+    )
+
+    from app.services.branch_integration_service import get_whatsapp_config_for_branch
+
+    branch_config = get_whatsapp_config_for_branch(db, appointment.branch_id)
+    result = await send_whatsapp_text(
+        phone_e164=phone,
+        message=message,
+        branch_config=branch_config,
+    )
+    appointment.status = "waiting"
+    db.commit()
+    db.refresh(appointment)
+
+    return {
+        **result,
+        "appointment_id": appointment.id,
+        "status": appointment.status,
+        "phone": phone,
+        "message_preview": message,
+    }
+
+
+def approve_appointment_validation(db: Session, appointment_id: int) -> Appointment:
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
+
+    if appointment.status == "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede aprobar una cita cancelada",
+        )
+
+    appointment.status = "confirmed"
+    db.commit()
     return get_appointment_by_id(db, appointment.id)
 
 

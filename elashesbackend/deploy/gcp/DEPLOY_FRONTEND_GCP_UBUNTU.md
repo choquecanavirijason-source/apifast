@@ -23,14 +23,20 @@ npm -v
 
 ```bash
 cd /opt/elashes/apifast/adminElashes
-cp .env.production.example .env.production
+cp .env.gcp.example .env.production
 ```
 
-Debe quedar:
+Plantillas en el repo:
+- `.env.development.example` — desarrollo local
+- `.env.gcp.example` / `.env.production.example` — build en la VM
+
+Debe quedar (misma IP pública que en `elashesbackend/.env` → `ALLOWED_ORIGINS`):
 
 ```env
 VITE_API_URL=/api
 ```
+
+IP de ejemplo en esta guía: `34.55.150.142` → panel en `http://34.55.150.142/`
 
 ## 3) Build del frontend
 
@@ -56,8 +62,8 @@ sudo systemctl restart nginx
 
 ## 5) Verificar
 
-- Frontend: `http://IP_PUBLICA_VM/`
-- Backend docs por proxy: `http://IP_PUBLICA_VM/api/docs`
+- Frontend: `http://34.55.150.142/`
+- Backend docs por proxy: `http://34.55.150.142/api/docs`
 
 ## 6) Cada vez que actualices frontend
 

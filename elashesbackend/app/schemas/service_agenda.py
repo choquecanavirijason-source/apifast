@@ -105,6 +105,27 @@ class AppointmentCreate(AppointmentBase):
     pass
 
 
+class ReservationSaleItemCreate(BaseModel):
+    service_id: int = Field(..., ge=1)
+    professional_id: Optional[int] = Field(default=None, ge=1)
+    start_time: datetime
+    end_time: datetime
+
+
+class ReservationSaleCreate(BaseModel):
+    """Reserva en agenda: una venta (sin cobro) con varios tickets/citas."""
+
+    client_id: int = Field(..., ge=1)
+    branch_id: int = Field(..., ge=1)
+    professional_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Operaria por defecto si el ítem no trae professional_id.",
+    )
+    items: List[ReservationSaleItemCreate] = Field(..., min_length=1)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
 class AppointmentUpdate(BaseModel):
     client_id: Optional[int] = None
     professional_id: Optional[int] = None

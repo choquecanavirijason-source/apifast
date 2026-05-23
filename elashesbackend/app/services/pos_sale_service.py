@@ -1,19 +1,25 @@
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.branch import Branch
-from app.models.client import Client, CLIENT_STATUS_PAGADO
+from app.models.client import (
+    Client,
+    CLIENT_STATUS_EN_ESPERA,
+    CLIENT_STATUS_PAGADO,
+    CLIENT_STATUS_RESERVA,
+)
 from app.models.payment import Payment
 from app.models.pos_sale import PosSale
 from app.models.service_agenda import Appointment, Service
 from app.models.user import User
 from app.schemas.pos_sale import PosSaleCreate, PosSaleUpdate
+from app.schemas.service_agenda import ReservationSaleCreate, ReservationSaleItemCreate
 from app.services.service_agenda_service import create_appointment
 from app.services.client_service import update_client_status
 
@@ -124,11 +130,109 @@ def list_sales(
     )
 
 
+def create_reservation_sale(
+    db: Session,
+    payload: ReservationSaleCreate,
+    current_user: User,
+) -> PosSale:
+    """Crea una venta en estado reserved y N citas (tickets) con distintos horarios, mismo sale_id."""
+    _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
+
+    service_ids = [item.service_id for item in payload.items]
+    services = db.query(Service).filter(Service.id.in_(service_ids)).all()
+    service_map = {service.id: service for service in services}
+    if len(service_map) != len(set(service_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uno o más servicios no existen",
+        )
+
+    subtotal = float(sum(service_map[item.service_id].price for item in payload.items))
+
+    sale = PosSale(
+        sale_code=_generate_sale_code(db),
+        client_id=payload.client_id,
+        branch_id=payload.branch_id,
+        created_by_id=current_user.id,
+        subtotal=subtotal,
+        discount_type="amount",
+        discount_value=0.0,
+        total=subtotal,
+        payment_method="pending",
+        status="reserved",
+        notes=payload.notes,
+    )
+    db.add(sale)
+    db.flush()
+
+    earliest_start = None
+    for item in payload.items:
+        pro_id = item.professional_id if item.professional_id is not None else payload.professional_id
+        create_appointment(
+            db=db,
+            client_id=payload.client_id,
+            created_by_id=current_user.id,
+            professional_id=pro_id,
+            service_id=item.service_id,
+            branch_id=payload.branch_id,
+            sale_id=sale.id,
+            start_time=item.start_time,
+            end_time=item.end_time,
+            status_value="pending",
+            commit=False,
+            update_client=False,
+        )
+        if earliest_start is None or item.start_time < earliest_start:
+            earliest_start = item.start_time
+
+    if earliest_start is not None:
+        appt_date = earliest_start.date() if hasattr(earliest_start, "date") else earliest_start
+        if appt_date > date.today():
+            update_client_status(db, payload.client_id, CLIENT_STATUS_RESERVA)
+        else:
+            update_client_status(db, payload.client_id, CLIENT_STATUS_EN_ESPERA)
+
+    db.commit()
+    return get_sale_by_id(db, sale.id)
+
+
 def create_sale(
     db: Session,
     payload: PosSaleCreate,
     current_user: User,
 ) -> PosSale:
+    if payload.reservation_only:
+        if payload.link_appointment_id is not None or payload.sale_without_appointments:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="reservation_only no es compatible con link_appointment_id ni sale_without_appointments",
+            )
+        if not payload.branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="branch_id es obligatorio para una reserva",
+            )
+        default_pro = next(
+            (item.professional_id for item in payload.items if item.professional_id is not None),
+            None,
+        )
+        reservation_payload = ReservationSaleCreate(
+            client_id=payload.client_id,
+            branch_id=payload.branch_id,
+            professional_id=default_pro,
+            items=[
+                ReservationSaleItemCreate(
+                    service_id=item.service_id,
+                    professional_id=item.professional_id,
+                    start_time=item.start_time,
+                    end_time=item.end_time,
+                )
+                for item in payload.items
+            ],
+            notes=payload.notes,
+        )
+        return create_reservation_sale(db=db, payload=reservation_payload, current_user=current_user)
+
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
 
     payment_method = _normalize_payment_method(payload.payment_method)

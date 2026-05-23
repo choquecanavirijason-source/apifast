@@ -81,6 +81,9 @@ def seed_permissions(db: Session):
         # branches
         "branches:view",
         "branches:manage",
+        # asistente IA (admin)
+        "ai:view",
+        "ai:manage",
     ]
 
     created = []
