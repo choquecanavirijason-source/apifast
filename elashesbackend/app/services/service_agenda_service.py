@@ -215,12 +215,16 @@ def list_professionals_for_select(
     limit: int = 100,
     search: Optional[str] = None,
     role_name: Optional[str] = None,
+    branch_id: Optional[int] = None,
 ):
     from app.models.user import Role
     query = db.query(User).filter(User.is_active.is_(True))
 
     if role_name and role_name.strip():
         query = query.join(User.role).filter(Role.name.ilike(f"%{role_name.strip()}%"))
+
+    if branch_id is not None:
+        query = query.filter(User.branch_id == branch_id)
 
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -413,8 +417,11 @@ def delete_service(db: Session, service_id: int) -> None:
 # APPOINTMENTS
 # ==========================================
 def _appointment_query(db: Session):
+    from app.models.client import Client
+
     return db.query(Appointment).options(
-        joinedload(Appointment.client),
+        joinedload(Appointment.client).joinedload(Client.eye_type),
+        joinedload(Appointment.client).joinedload(Client.branch),
         joinedload(Appointment.created_by),
         joinedload(Appointment.professional),
         joinedload(Appointment.service).joinedload(Service.category),

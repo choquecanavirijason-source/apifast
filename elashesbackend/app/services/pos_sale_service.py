@@ -111,10 +111,13 @@ def list_sales(
     db: Session,
     skip: int = 0,
     limit: int = 100,
+    client_id: Optional[int] = None,
 ):
+    query = _sale_query(db)
+    if client_id is not None:
+        query = query.filter(PosSale.client_id == client_id)
     return (
-        _sale_query(db)
-        .order_by(PosSale.created_at.desc(), PosSale.id.desc())
+        query.order_by(PosSale.created_at.desc(), PosSale.id.desc())
         .offset(skip)
         .limit(limit)
         .all()

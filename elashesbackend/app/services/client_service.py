@@ -33,6 +33,36 @@ def _validate_age(age: Optional[int]) -> None:
         )
 
 
+def _find_client_duplicate(
+    db: Session,
+    name: str,
+    last_name: str,
+    phone: Optional[str],
+    branch_id: Optional[int],
+    exclude_client_id: Optional[int] = None,
+) -> Optional[Client]:
+    """Un cliente se considera duplicado solo dentro de la misma sucursal."""
+    query = db.query(Client).filter(
+        Client.name == name,
+        Client.last_name == last_name,
+    )
+
+    if phone is not None:
+        query = query.filter(Client.phone == phone)
+    else:
+        query = query.filter(Client.phone.is_(None))
+
+    if branch_id is not None:
+        query = query.filter(Client.branch_id == branch_id)
+    else:
+        query = query.filter(Client.branch_id.is_(None))
+
+    if exclude_client_id is not None:
+        query = query.filter(Client.id != exclude_client_id)
+
+    return query.first()
+
+
 def list_clients(
     db: Session,
     skip: int = 0,
@@ -108,21 +138,18 @@ def create_client(db: Session, payload: ClientCreate) -> Client:
                 detail="El tipo de ojo indicado no existe",
             )
 
-    # Validación simple para evitar duplicados muy obvios
-    existing = (
-        db.query(Client)
-        .filter(
-            Client.name == payload.name,
-            Client.last_name == payload.last_name,
-            Client.phone == payload.phone,
-        )
-        .first()
+    existing = _find_client_duplicate(
+        db,
+        name=payload.name,
+        last_name=payload.last_name,
+        phone=payload.phone,
+        branch_id=payload.branch_id,
     )
 
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe un cliente con esos datos",
+            detail="Ya existe un cliente con esos datos en esta sucursal",
         )
 
     now = datetime.now(timezone.utc)
@@ -172,6 +199,28 @@ def update_client(db: Session, client_id: int, payload: ClientUpdate) -> Client:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La sucursal indicada no existe",
+            )
+
+    identity_fields = {"name", "last_name", "phone", "branch_id"}
+    if identity_fields.intersection(update_data.keys()):
+        final_name = update_data.get("name", client.name)
+        final_last_name = update_data.get("last_name", client.last_name)
+        final_phone = update_data["phone"] if "phone" in update_data else client.phone
+        final_branch_id = (
+            update_data["branch_id"] if "branch_id" in update_data else client.branch_id
+        )
+        existing = _find_client_duplicate(
+            db,
+            name=final_name,
+            last_name=final_last_name,
+            phone=final_phone,
+            branch_id=final_branch_id,
+            exclude_client_id=client_id,
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya existe un cliente con esos datos en esta sucursal",
             )
 
     for field, value in update_data.items():

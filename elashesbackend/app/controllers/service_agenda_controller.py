@@ -198,6 +198,7 @@ def get_professionals_for_select(
     limit: int = Query(default=100, ge=1, le=200),
     search: Optional[str] = Query(default=None),
     role_name: Optional[str] = Query(default=None),
+    branch_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_any_permission("appointments:view", "appointments:manage")
@@ -209,8 +210,17 @@ def get_professionals_for_select(
         limit=limit,
         search=search,
         role_name=role_name,
+        branch_id=branch_id,
     )
-    return [{"id": p.id, "username": p.username, "email": p.email} for p in professionals]
+    return [
+        {
+            "id": p.id,
+            "username": p.username,
+            "email": p.email,
+            "branch_id": p.branch_id,
+        }
+        for p in professionals
+    ]
 
 
 # ==========================================

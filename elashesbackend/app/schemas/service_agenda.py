@@ -4,7 +4,7 @@ from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.branch import BranchSummary
-from app.schemas.client import ClientSummary
+from app.schemas.client import ClientResponse
 from app.schemas.user import UserSummary
 
 
@@ -140,7 +140,7 @@ class AppointmentResponse(BaseModel):
     end_time: datetime
     status: str
 
-    client: ClientSummary
+    client: ClientResponse
     created_by: Optional[UserSummary] = None
     professional: Optional[UserSummary] = None
     service: Optional[ServiceResponse] = None
