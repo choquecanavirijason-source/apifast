@@ -16,6 +16,7 @@
     "@hookform/resolvers": "^5.1.1",
     "@react-google-maps/api": "^2.20.8",
     "@reduxjs/toolkit": "^2.8.2",
+    "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/cli": "^2.10.1",
     "@types/react-router-dom": "^5.3.3",
     "animate.css": "^4.1.1",

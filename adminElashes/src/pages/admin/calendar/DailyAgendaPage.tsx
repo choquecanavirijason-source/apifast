@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -12,7 +12,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Columns3, List, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Columns3, List, Plus, Printer, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import PrintAgendaModal from "./components/PrintAgendaModal";
 import { toast } from "react-toastify";
 import Layout from "../../../components/common/layout";
 import { Button, SectionCard } from "../../../components/common/ui";
@@ -735,6 +736,9 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   const [registeredClientPick, setRegisteredClientPick] = useState<ClientForSelect | null>(null);
   const [activeDragTicket, setActiveDragTicket] = useState<TicketItem | null>(null);
   const [reschedulingTicketId, setReschedulingTicketId] = useState<number | null>(null);
+  const [printMode, setPrintMode] = useState<"planner" | "stations" | null>(null);
+  const [printDropdownOpen, setPrintDropdownOpen] = useState(false);
+  const printDropdownRef = useRef<HTMLDivElement>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -904,6 +908,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       }
     })();
   }, [branchId]);
+
+  useEffect(() => {
+    if (!printDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (printDropdownRef.current && !printDropdownRef.current.contains(e.target as Node)) {
+        setPrintDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [printDropdownOpen]);
 
   const weekdayUpper = useMemo(() => {
     try {
@@ -1175,6 +1190,38 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   <Plus className="h-3.5 w-3.5" />
                   Nueva reserva
                 </Button>
+                <div className="relative" ref={printDropdownRef}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 gap-1"
+                    onClick={() => setPrintDropdownOpen((o) => !o)}
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Imprimir
+                  </Button>
+                  {printDropdownOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => { setPrintMode("planner"); setPrintDropdownOpen(false); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <List className="h-3.5 w-3.5 text-slate-400" />
+                        Vista planilla
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <Columns3 className="h-3.5 w-3.5 text-slate-400" />
+                        Vista puestos 1–8
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1375,6 +1422,16 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         initialClient={null}
         defaultBranchId={branchId}
       />
+
+      {printMode !== null && (
+        <PrintAgendaModal
+          tickets={tickets}
+          professionals={professionals}
+          selectedDate={selectedDate}
+          initialMode={printMode}
+          onClose={() => setPrintMode(null)}
+        />
+      )}
     </div>
   );
 }

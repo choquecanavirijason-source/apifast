@@ -1,6 +1,13 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "react-toastify";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
+
+// En Tauri v2 el global interno es __TAURI_INTERNALS__
+const isTauri =
+  typeof window !== "undefined" &&
+  "__TAURI_INTERNALS__" in window;
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -14,7 +21,7 @@ function fmtTime(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function generateReceiptPdf(sale: PosSaleItem): void {
+export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
@@ -158,5 +165,26 @@ export function generateReceiptPdf(sale: PosSaleItem): void {
   doc.setTextColor(160, 160, 160);
   doc.text("¡Gracias por su compra!", pageW / 2, y, { align: "center" });
 
-  doc.save(`comprobante-${sale.sale_code}.pdf`);
+  const filename = `comprobante-${sale.sale_code}.pdf`;
+
+  if (isTauri) {
+    try {
+      const pdfBytes = new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
+      const binary = Array.from(pdfBytes).map((b) => String.fromCharCode(b)).join("");
+      const dataBase64 = btoa(binary);
+
+      const savedPath = await invoke<string>("save_pdf", { filename, dataBase64 });
+
+      toast.success(`PDF guardado en Descargas`, {
+        autoClose: 4000,
+      });
+      console.info("[PDF] Guardado en:", savedPath);
+    } catch (err) {
+      toast.error(`No se pudo guardar el PDF: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  } else {
+    doc.save(filename);
+    toast.success(`PDF descargado: ${filename}`, { autoClose: 3000 });
+  }
 }
