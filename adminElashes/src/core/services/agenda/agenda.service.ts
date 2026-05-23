@@ -107,6 +107,29 @@ export interface AppointmentCreatePayload {
   status?: string;
 }
 
+export interface ReservationSaleItemPayload {
+  service_id: number;
+  professional_id?: number | null;
+  start_time: string;
+  end_time: string;
+}
+
+export interface ReservationSaleCreatePayload {
+  client_id: number;
+  branch_id: number;
+  professional_id?: number | null;
+  items: ReservationSaleItemPayload[];
+  notes?: string;
+}
+
+export interface ReservationSaleResponse {
+  id: number;
+  sale_code: string;
+  status: string;
+  total: number;
+  appointments: Array<{ id: number; ticket_code: string | null; start_time: string; end_time: string }>;
+}
+
 export interface AppointmentUpdatePayload {
   client_id?: number | null;
   professional_id?: number | null;
@@ -160,6 +183,7 @@ export interface TicketItem {
   status: string;
   /** Venta POS asociada, si ya se cobró la reserva. */
   sale_id?: number | null;
+  branch_id?: number | null;
   branch_name?: string | null;
 }
 
@@ -233,6 +257,7 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   end_time: a.end_time,
   status: a.status,
   sale_id: a.sale_id ?? null,
+  branch_id: a.branch?.id ?? null,
   branch_name: a.branch?.name ?? null,
   };
 };
@@ -397,6 +422,40 @@ export const AgendaService = {
     return mapToTicket(response.data);
   },
 
+  async createReservationSale(
+    payload: ReservationSaleCreatePayload
+  ): Promise<ReservationSaleResponse> {
+    const { PosSaleService } = await import("../pos-sale/pos-sale.service");
+    const sale = await PosSaleService.create({
+      client_id: payload.client_id,
+      branch_id: payload.branch_id,
+      payment_method: "cash",
+      discount_type: "amount",
+      discount_value: 0,
+      reservation_only: true,
+      items: payload.items.map((item) => ({
+        service_id: item.service_id,
+        professional_id: item.professional_id ?? payload.professional_id ?? null,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        branch_id: payload.branch_id,
+      })),
+      notes: payload.notes,
+    });
+    return {
+      id: sale.id,
+      sale_code: sale.sale_code,
+      status: sale.status,
+      total: sale.total,
+      appointments: (sale.appointments ?? []).map((a) => ({
+        id: a.id,
+        ticket_code: a.ticket_code,
+        start_time: a.start_time,
+        end_time: a.end_time,
+      })),
+    };
+  },
+
   async createAppointment(payload: AppointmentCreatePayload): Promise<TicketItem> {
     const body = {
       client_id: payload.client_id,
@@ -433,6 +492,27 @@ export const AgendaService = {
 
   async callNextAppointment(payload: { branch_id: number; professional_id?: number | null }): Promise<TicketItem> {
     const response = await api.post<BackendAppointment>("/agenda/appointments/call-next", payload);
+    return mapToTicket(response.data);
+  },
+
+  async sendWhatsappValidation(appointmentId: number): Promise<{
+    sent: boolean;
+    mode: string;
+    wa_me_url?: string;
+    detail?: string;
+    appointment_id: number;
+    status: string;
+    phone?: string;
+    message_preview?: string;
+  }> {
+    const response = await api.post(`/agenda/appointments/${appointmentId}/send-whatsapp-validation`);
+    return response.data;
+  },
+
+  async approveValidation(appointmentId: number): Promise<TicketItem> {
+    const response = await api.post<BackendAppointment>(
+      `/agenda/appointments/${appointmentId}/approve-validation`
+    );
     return mapToTicket(response.data);
   },
 

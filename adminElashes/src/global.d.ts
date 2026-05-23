@@ -2,7 +2,7 @@ declare module '*.css';
 
 interface ImportMetaEnv {
 	readonly VITE_API_URL: string;
-	// Agrega aquí otras variables de entorno personalizadas si las tienes
+	readonly VITE_PROFESSIONAL_COMMISSION_RATE?: string;
 }
 
 interface ImportMeta {

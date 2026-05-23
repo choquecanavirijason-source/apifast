@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Search, Pencil, Trash2, Store, Plus } from "lucide-react";
+import { Search, Pencil, Trash2, Store, Plus, Settings2, Building2 } from "lucide-react";
 import { toast } from "react-toastify";
 import Layout from "../../../components/common/layout.tsx";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { BranchService } from "../../../core/services/branch/branch.service.ts";
+import {
+  BranchService,
+  type BranchIntegrationProfile,
+} from "../../../core/services/branch/branch.service.ts";
+import BranchIntegrationsPanel from "./components/BranchIntegrationsPanel";
+import IntegrationProfilesManager from "./components/IntegrationProfilesManager";
 import {
   COUNTRY_CITY_OPTIONS,
   COUNTRY_OPTIONS,
@@ -18,6 +23,7 @@ import {
 import SalonsFormModal from "./SalonsFormModal";
 
 type SalonFormErrors = Partial<Record<keyof SalonForm, string>>;
+type PageView = "salons" | "integrations";
 
 export default function SalonsPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
@@ -32,6 +38,9 @@ export default function SalonsPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [salonToDelete, setSalonToDelete] = useState<Salon | null>(null);
   const [form, setForm] = useState<SalonForm>(emptyForm);
+  const [pageView, setPageView] = useState<PageView>("salons");
+  const [integrationSalonId, setIntegrationSalonId] = useState<number | null>(null);
+  const [sharedProfiles, setSharedProfiles] = useState<BranchIntegrationProfile[]>([]);
 
   const formErrors = useMemo<SalonFormErrors>(() => {
     const errors: SalonFormErrors = {};
@@ -103,6 +112,15 @@ export default function SalonsPage() {
     }
   };
 
+  const loadSharedProfiles = async () => {
+    try {
+      const data = await BranchService.listIntegrationProfiles();
+      setSharedProfiles(data.filter((profile) => profile.is_shared));
+    } catch {
+      setSharedProfiles([]);
+    }
+  };
+
   useEffect(() => {
     const trimmedCity = cityFilter.trim();
     const trimmedDepartment = departmentFilter.trim();
@@ -111,6 +129,7 @@ export default function SalonsPage() {
       city: trimmedCity || undefined,
       department: trimmedDepartment || undefined,
     });
+    void loadSharedProfiles();
   }, [cityFilter, departmentFilter]);
 
   const filteredSalons = useMemo(() => {
@@ -326,18 +345,51 @@ export default function SalonsPage() {
     }
   };
 
+  const integrationSalon = salons.find((s) => s.id === integrationSalonId) ?? null;
+
+  const openIntegrationsForSalon = (salon: Salon) => {
+    setIntegrationSalonId(salon.id);
+    setPageView("integrations");
+  };
+
   const renderToolbar = () => (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
-        Total salones: {salons.length}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+          Total salones: {salons.length}
+        </div>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setPageView("salons")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold ${
+              pageView === "salons" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            Salones
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageView("integrations")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold ${
+              pageView === "integrations" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            APIs WhatsApp
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={openCreate}
-        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black"
-      >
-        <Plus className="h-4 w-4" /> Nuevo salon
-      </button>
+      {pageView === "salons" ? (
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black"
+        >
+          <Plus className="h-4 w-4" /> Nuevo salon
+        </button>
+      ) : null}
     </div>
   );
 
@@ -350,6 +402,48 @@ export default function SalonsPage() {
         toolbar={renderToolbar()}
       >
         <div className="rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-4">
+          {pageView === "integrations" ? (
+            <div className="space-y-4">
+              <IntegrationProfilesManager
+                salons={salons}
+                onProfilesChange={() => void loadSharedProfiles()}
+              />
+
+              <div className="grid gap-4 lg:grid-cols-[minmax(220px,280px)_1fr]">
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Seleccionar sucursal
+                  </p>
+                  <div className="max-h-[min(50vh,480px)] space-y-1 overflow-y-auto">
+                    {salons.map((salon) => (
+                      <button
+                        key={salon.id}
+                        type="button"
+                        onClick={() => setIntegrationSalonId(salon.id)}
+                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
+                          integrationSalonId === salon.id
+                            ? "border-[#0078d4] bg-[#deecf9] font-semibold text-[#004578]"
+                            : "border-transparent hover:bg-slate-50"
+                        }`}
+                      >
+                        {salon.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <BranchIntegrationsPanel
+                  branchId={integrationSalonId}
+                  branchLabel={integrationSalon?.name ?? "—"}
+                  sharedProfiles={sharedProfiles}
+                  onSaved={() => void loadSharedProfiles()}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {pageView === "salons" ? (
+          <>
           <div className="relative w-full md:w-96">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
             <input
@@ -422,7 +516,14 @@ export default function SalonsPage() {
                   <p>Pais: {salon.department || "-"}</p>
                 </div>
 
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openIntegrationsForSalon(salon)}
+                    className="inline-flex items-center gap-1 rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" /> API WhatsApp
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEdit(salon)}
@@ -441,6 +542,8 @@ export default function SalonsPage() {
               </div>
             ))}
           </div>
+          </>
+          ) : null}
         </div>
       </Layout>
 

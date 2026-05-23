@@ -16,6 +16,7 @@ import {
   CalendarDays,
   ReceiptText,
   UserCheck,
+  Bot,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -58,7 +59,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const flyoutRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const expandedSubmenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const { user, hasPermissionByName, isAdmin } = useAuth();
+  const { user, hasPermissionByName, isAdmin, hasRole } = useAuth();
   const location = useLocation();
 
   const displayRole = useMemo(() => {
@@ -112,6 +113,10 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
 
     // c) fallback por rol (si no llegó nada)
     const roleName = (displayRole || "").toLowerCase();
+
+    if (roleName === "superadmin" || roleName === "admin") {
+      perms.push("ai:view", "ai:manage", "settings:view", "users:manage", "branches:manage", "branches:view");
+    }
 
     if (perms.length === 0) {
       if (roleName === "operaria") {
@@ -267,6 +272,13 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
+        name: "Asistente IA",
+        icon: <Bot size={20} />,
+        path: "/admin/ai",
+        permission: ["ai:view", "ai:manage"],
+      },
+
+      {
         name: "Cuestionario",
         icon: <Layers size={20} />,
         path: "/questionnaire",
@@ -292,7 +304,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       .map((item) => {
         // Usuarios solo para admin
         if (item.name === "Usuarios" && !isAdmin()) return null;
-
         if (!item.subItems) {
           return hasMenuPermission(item.permission) ? item : null;
         }
@@ -303,7 +314,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         return { ...item, subItems: visibleSubItems };
       })
       .filter((item): item is MenuItem => Boolean(item));
-  }, [menuItems, isAdmin, hasPermissionByName, permissionNamesFromUser]);
+  }, [menuItems, isAdmin, hasRole, hasPermissionByName, permissionNamesFromUser]);
 
   // ✅ auto abrir menú cuando la ruta coincide (solo cuando no está colapsado)
   useEffect(() => {

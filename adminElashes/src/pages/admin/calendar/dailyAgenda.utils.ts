@@ -75,7 +75,9 @@ export function groupTicketsByHourAndStation(
   professionals: ProfessionalForSelect[]
 ): Map<string, TicketItem[]> {
   const map = new Map<string, TicketItem[]>();
-  const proIds = professionals.slice(0, STATION_COUNT).map((p) => p.id);
+  const stationPros = professionals.slice(0, STATION_COUNT);
+  const colByProfessionalId = new Map<number, number>();
+  stationPros.forEach((p, index) => colByProfessionalId.set(p.id, index));
 
   for (const t of tickets) {
     const start = parseTicketDate(t.start_time);
@@ -85,12 +87,16 @@ export function groupTicketsByHourAndStation(
     const pid = t.professional_id;
     let col = 0;
     if (pid != null) {
-      const idx = proIds.indexOf(pid);
-      col = idx >= 0 ? Math.min(idx, STATION_COUNT - 1) : 0;
+      const idx = colByProfessionalId.get(pid);
+      col = idx !== undefined ? idx : 0;
     }
     const key = `${hour}__${col}`;
     const list = map.get(key) ?? [];
     list.push(t);
+    map.set(key, list);
+  }
+  for (const [key, list] of map) {
+    list.sort((a, b) => a.start_time.localeCompare(b.start_time));
     map.set(key, list);
   }
   return map;
@@ -100,6 +106,12 @@ export function ticketCardClass(status?: string | null): string {
   const s = (status ?? "").toLowerCase();
   if (s === "cancelled" || s === "cancelado") {
     return "border-rose-300 bg-rose-50 text-rose-900";
+  }
+  if (s === "confirmed" || s === "confirmado") {
+    return "border-emerald-400 bg-emerald-50 text-emerald-900";
+  }
+  if (s === "waiting" || s === "en_espera_validacion") {
+    return "border-amber-300 bg-amber-50 text-amber-950";
   }
   if (s === "completed" || s === "finalizado" || s === "atendido") {
     return "border-emerald-300 bg-emerald-50 text-emerald-900";

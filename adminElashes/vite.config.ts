@@ -11,7 +11,13 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(process.cwd(), 'src')
+      '@': path.resolve(process.cwd(), 'src'),
+      // En `vite dev` / build web no hace falta el paquete Tauri instalado.
+      ...(process.env.TAURI_ENV_PLATFORM
+        ? {}
+        : {
+            '@tauri-apps/api/core': path.resolve(process.cwd(), 'src/lib/tauri-api-core-stub.ts'),
+          }),
     },
   },
   base: '/',

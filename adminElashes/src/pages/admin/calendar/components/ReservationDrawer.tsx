@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/common/ui";
 import {
   AgendaService,
-  type AppointmentCreatePayload,
   type ClientForSelect,
   type ProfessionalForSelect,
   type ServiceOption,
@@ -66,6 +65,31 @@ export default function ReservationDrawer({
 
   const cartCount = cartLines.length;
 
+  const formatTimeHm = (date: Date) =>
+    `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+  /** Un ticket por servicio; horarios encadenados desde la hora de inicio. */
+  const consecutiveSlots = useMemo(() => {
+    if (cartLines.length === 0) return [];
+    let cursor = new Date(`${selectedDate}T${startTime || "09:00"}:00`);
+    return cartLines.map((line) => {
+      const svc = services.find((s) => s.id === line.service_id);
+      const mins = Math.max(15, svc?.duration_minutes ?? 60);
+      const slotStart = new Date(cursor);
+      const slotEnd = new Date(cursor.getTime() + mins * 60_000);
+      const slot = {
+        line,
+        serviceName: svc?.name ?? "Servicio",
+        slotStart,
+        slotEnd,
+        timeLabel: `${formatTimeHm(slotStart)} – ${formatTimeHm(slotEnd)}`,
+        durationMinutes: mins,
+      };
+      cursor = slotEnd;
+      return slot;
+    });
+  }, [cartLines, services, selectedDate, startTime]);
+
   const branchProfessionals = useMemo(() => {
     if (!branchId) return [];
     return professionals.filter((p) => p.branch_id == null || Number(p.branch_id) === branchId);
@@ -101,17 +125,24 @@ export default function ReservationDrawer({
   }, [registeredClient, onConsumeRegisteredClient]);
 
   useEffect(() => {
-    if (!isOpen || clientSearch.trim().length < 2) {
-      setFilteredClients([]);
-      return;
-    }
-    const t = window.setTimeout(async () => {
+    setSelectedClient(null);
+    setClientSearch("");
+    setFilteredClients([]);
+    setIsClientMenuOpen(false);
+  }, [branchId]);
+
+  const loadBranchClients = useCallback(
+    async (search?: string) => {
+      if (!branchId) {
+        setFilteredClients([]);
+        return;
+      }
       setIsSearchingClients(true);
       try {
         const list = await AgendaService.listClientsForSelect({
-          search: clientSearch.trim(),
-          limit: 25,
-          branch_id: branchId ?? undefined,
+          search: search?.trim() || undefined,
+          limit: 50,
+          branch_id: branchId,
         });
         setFilteredClients(list);
       } catch {
@@ -119,9 +150,28 @@ export default function ReservationDrawer({
       } finally {
         setIsSearchingClients(false);
       }
-    }, 300);
+    },
+    [branchId]
+  );
+
+  useEffect(() => {
+    if (!isOpen || !branchId || selectedClient || !isClientMenuOpen) {
+      if (!branchId) setFilteredClients([]);
+      return;
+    }
+
+    const query = clientSearch.trim();
+    if (query.length === 1) {
+      setFilteredClients([]);
+      return;
+    }
+
+    const t = window.setTimeout(() => {
+      void loadBranchClients(query.length >= 2 ? query : undefined);
+    }, query.length >= 2 ? 300 : 0);
+
     return () => window.clearTimeout(t);
-  }, [clientSearch, isOpen, branchId]);
+  }, [clientSearch, isOpen, branchId, isClientMenuOpen, selectedClient, loadBranchClients]);
 
   useEffect(() => {
     if (cartLines.length === 0) return;
@@ -172,28 +222,53 @@ export default function ReservationDrawer({
       return;
     }
 
-    const start = new Date(`${selectedDate}T${startTime || "09:00"}:00`);
-    const end = new Date(start.getTime() + Math.max(15, durationMinutes) * 60 * 1000);
-    if (end <= start) {
-      toast.warning("Revisa la duración.");
-      return;
-    }
-
-    const ids = cartLines.map((l) => l.service_id).filter((n) => Number.isFinite(n));
-    const payload: AppointmentCreatePayload = {
+    const professional_id = professionalId ? Number(professionalId) : null;
+    const base = {
       client_id: selectedClient.id,
       branch_id: branchId,
-      start_time: formatLocalDateTime(start),
-      end_time: formatLocalDateTime(end),
-      status: "pending",
-      ...(professionalId ? { professional_id: Number(professionalId) } : { professional_id: null }),
-      ...(ids.length ? { service_ids: ids } : {}),
+      status: "pending" as const,
+      professional_id,
     };
 
     setIsSubmitting(true);
     try {
-      await AgendaService.createAppointment(payload);
-      toast.success("Reserva registrada.");
+      if (cartLines.length === 0) {
+        const start = new Date(`${selectedDate}T${startTime || "09:00"}:00`);
+        const end = new Date(start.getTime() + Math.max(15, durationMinutes) * 60 * 1000);
+        if (end <= start) {
+          toast.warning("Revisa la duración.");
+          return;
+        }
+        await AgendaService.createAppointment({
+          ...base,
+          start_time: formatLocalDateTime(start),
+          end_time: formatLocalDateTime(end),
+        });
+        toast.success("Reserva registrada (1 ticket).");
+      } else {
+        if (consecutiveSlots.length === 0) {
+          toast.warning("Agrega al menos un servicio.");
+          return;
+        }
+
+        const sale = await AgendaService.createReservationSale({
+          client_id: selectedClient.id,
+          branch_id: branchId,
+          professional_id,
+          items: consecutiveSlots.map((slot) => ({
+            service_id: slot.line.service_id,
+            professional_id,
+            start_time: formatLocalDateTime(slot.slotStart),
+            end_time: formatLocalDateTime(slot.slotEnd),
+          })),
+        });
+
+        const ticketCount = sale.appointments?.length ?? consecutiveSlots.length;
+        toast.success(
+          `Reserva unificada ${sale.sale_code}: ${ticketCount} ticket${ticketCount !== 1 ? "s" : ""} (misma venta, horarios en fila).`
+        );
+      }
+
       onSaved();
       onClose();
     } catch (error) {
@@ -241,9 +316,16 @@ export default function ReservationDrawer({
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4 text-[#094732]" />
-                <span className="text-sm font-semibold text-slate-800">Servicios ({cartCount})</span>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-[#094732]" />
+                  <span className="text-sm font-semibold text-slate-800">Servicios ({cartCount})</span>
+                </div>
+                {cartCount > 0 ? (
+                  <p className="text-[11px] text-slate-500">
+                    Una sola venta/reserva: cada servicio es un ticket con su hora; todos quedan bajo el mismo código de venta.
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -304,13 +386,18 @@ export default function ReservationDrawer({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {cartLines.map((line) => {
-                    const svc = services.find((s) => s.id === line.service_id);
+                  {consecutiveSlots.map((slot, index) => {
+                    const { line, serviceName, timeLabel, durationMinutes: slotMins } = slot;
                     return (
                       <div
                         key={line.localId}
-                        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"
+                        className="rounded-xl border border-slate-200 bg-white p-2"
                       >
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#094732]">
+                          <span>Ticket {index + 1}</span>
+                          <span className="font-mono normal-case text-slate-600">{timeLabel}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
                         <select
                           value={line.service_id}
                           onChange={(event) => changeLineService(line.localId, event.target.value)}
@@ -323,8 +410,8 @@ export default function ReservationDrawer({
                             </option>
                           ))}
                         </select>
-                        <span className="shrink-0 text-xs font-medium text-slate-500">
-                          {svc ? `${svc.duration_minutes} min` : "—"}
+                        <span className="shrink-0 text-xs font-medium text-slate-500" title={serviceName}>
+                          {slotMins} min
                         </span>
                         <button
                           type="button"
@@ -334,6 +421,7 @@ export default function ReservationDrawer({
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -359,18 +447,30 @@ export default function ReservationDrawer({
                         setClientSearch(event.target.value);
                         setIsClientMenuOpen(true);
                       }}
-                      onFocus={() => setIsClientMenuOpen(true)}
-                      placeholder="Nombre, apellido o teléfono…"
+                      onFocus={() => {
+                        if (!branchId) return;
+                        setIsClientMenuOpen(true);
+                        if (!clientSearch.trim()) void loadBranchClients();
+                      }}
+                      placeholder={
+                        !branchId ? "Selecciona sucursal arriba" : "Nombre, apellido o teléfono…"
+                      }
                       className={`${agendaFieldClass} pl-9`}
-                      disabled={Boolean(selectedClient)}
+                      disabled={Boolean(selectedClient) || !branchId}
                     />
-                    {!selectedClient && isClientMenuOpen ? (
+                    {!selectedClient && isClientMenuOpen && branchId ? (
                       <div className="absolute z-[52] mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
                         <div className="max-h-56 overflow-y-auto py-1">
                           {isSearchingClients ? (
                             <p className="px-3 py-2 text-xs text-slate-400">Buscando…</p>
-                          ) : filteredClients.length === 0 ? (
+                          ) : clientSearch.trim().length === 1 ? (
                             <p className="px-3 py-2 text-xs text-slate-400">Escribe al menos 2 caracteres.</p>
+                          ) : filteredClients.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-slate-400">
+                              {clientSearch.trim().length >= 2
+                                ? "No hay clientas en esta sucursal."
+                                : "Sin clientas en esta sucursal."}
+                            </p>
                           ) : (
                             filteredClients.map((client) => {
                               const fullName = `${client.nombre} ${client.apellido}`.trim();
@@ -444,6 +544,12 @@ export default function ReservationDrawer({
                     step={5}
                     value={durationMinutes}
                     onChange={(ev) => setDurationMinutes(Number(ev.target.value))}
+                    disabled={cartCount > 0}
+                    title={
+                      cartCount > 0
+                        ? "Con servicios en la lista, la duración total se calcula por ticket"
+                        : undefined
+                    }
                     className={agendaFieldClass}
                   />
                 </div>

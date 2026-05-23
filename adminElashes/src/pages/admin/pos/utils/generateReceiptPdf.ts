@@ -1,6 +1,5 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "react-toastify";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 
@@ -169,6 +168,7 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
 
   if (isTauri) {
     try {
+      const { invoke } = await import("@tauri-apps/api/core");
       const pdfBytes = new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
       const binary = Array.from(pdfBytes).map((b) => String.fromCharCode(b)).join("");
       const dataBase64 = btoa(binary);

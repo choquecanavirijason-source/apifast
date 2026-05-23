@@ -63,7 +63,9 @@ const useAuth = () => {
    */
   const isAdmin = (): boolean => {
     return (
+      hasRole('SuperAdmin') ||
       hasRole('admin') ||
+      hasRole('Admin') ||
       hasRole('superadmin') ||
       hasRole('super_admin') ||
       hasRole('super admin')

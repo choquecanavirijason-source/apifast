@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState, type ElementType } from "react";
+import { createPortal } from "react-dom";
 import { Printer, X, List, Columns3 } from "lucide-react";
+import { toast } from "react-toastify";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
+
+const PRINT_WINDOW_SCRIPT = `<script>
+window.addEventListener("load", function () { window.print(); });
+window.addEventListener("afterprint", function () { window.close(); });
+</script>`;
 
 type PrintMode = "planner" | "stations";
 
@@ -300,7 +307,25 @@ function buildPlannerHTML(tickets: TicketItem[], dateLabel: string, selectedDate
 
 export default function PrintAgendaModal({ tickets, professionals, selectedDate, initialMode, onClose }: Props) {
   const [mode, setMode] = useState<PrintMode>(initialMode);
+  const [mounted, setMounted] = useState(false);
   const dayTickets = getDayTickets(tickets, selectedDate);
+
+  useEffect(() => {
+    setMounted(true);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const dateLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("es-BO", {
     weekday: "long",
@@ -310,20 +335,26 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
   });
 
   const handlePrint = () => {
-    const html =
+    const baseHtml =
       mode === "stations"
         ? buildStationsHTML(dayTickets, professionals, dateLabel, selectedDate)
         : buildPlannerHTML(dayTickets, dateLabel, selectedDate);
 
-    const win = window.open("", "_blank", "width=1100,height=750");
-    if (!win) return;
+    const html = baseHtml.replace("</body>", `${PRINT_WINDOW_SCRIPT}</body>`);
+
+    const win = window.open("", "_blank", "noopener,noreferrer,width=1100,height=750");
+    if (!win) {
+      toast.warning("Permite ventanas emergentes para imprimir la agenda.");
+      return;
+    }
+
+    win.document.open();
     win.document.write(html);
     win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 450);
+    onClose();
   };
 
-  const tabBtn = (m: PrintMode, label: string, Icon: React.ElementType) => (
+  const tabBtn = (m: PrintMode, label: string, Icon: ElementType) => (
     <button
       type="button"
       onClick={() => setMode(m)}
@@ -336,13 +367,24 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
     </button>
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-8">
-      <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="print-agenda-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-6xl rounded-xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-slate-800">Vista previa de impresión</h2>
+            <h2 id="print-agenda-title" className="text-base font-bold text-slate-800">Vista previa de impresión</h2>
             <p className="text-xs text-slate-500 capitalize">{dateLabel}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -385,6 +427,7 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
           }
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

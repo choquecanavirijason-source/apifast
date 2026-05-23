@@ -5,7 +5,7 @@ import variables from "@/core/config/variables";
 
 const PrivateRoute = () => {
   const location = useLocation();
-  const { isAuthenticated, hasAnyPermission } = useAuth();
+  const { isAuthenticated, hasAnyPermission, hasAnyPermissionByName, isAdmin } = useAuth();
   const hasToken = Boolean(localStorage.getItem(variables.session.tokenName));
 
   const currentPath = location.pathname;
@@ -16,6 +16,7 @@ const PrivateRoute = () => {
     "/admin/perfil": null,
     "/clients": null,
     "/admin/clients": null,
+    "/admin/ai": ["ai:view", "ai:manage"] as IPermission[],
   };
 
   // Si no hay token (sesion expirada/eliminada), siempre forzamos login.
@@ -40,11 +41,17 @@ const PrivateRoute = () => {
     return <Outlet />;
   }
 
-  if (requiredPermissions.length === 0 || hasAnyPermission(requiredPermissions)) {
+  const allowed =
+    requiredPermissions.length === 0 ||
+    hasAnyPermission(requiredPermissions) ||
+    hasAnyPermissionByName(requiredPermissions as string[]) ||
+    isAdmin();
+
+  if (allowed) {
     return <Outlet />;
   }
 
-  return <Navigate to="/unauthorized" replace />;
+  return <Navigate to="/" replace state={{ unauthorized: true }} />;
 };
 
 export default PrivateRoute;

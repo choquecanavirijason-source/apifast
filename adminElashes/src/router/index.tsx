@@ -22,6 +22,7 @@ import Designs from '@/pages/Designs';
 import Volumen from '@/pages/admin/Volumen';
 import ProductsPage from '@/pages/admin/products/Main';
 import SalonsPage from '@/pages/admin/salons/Main';
+import AdminAiPage from '@/pages/admin/ai/Main';
 import ServicesPage from '@/pages/admin/services/Main';
 import ServiceQueuePage from '@/pages/admin/control-de-servicios/Queue';
 import TurnScreen from '@/pages/admin/control-de-servicios/TurnScreen';
@@ -153,6 +154,7 @@ export default function AppRouter() {
             <Route path="admin/pos-tracking/agenda" element={<PosTrackingHub />} />
             <Route path="admin/products" element={<ProductsPage />} />
             <Route path="admin/salons" element={<SalonsPage />} />
+            <Route path="admin/ai" element={<AdminAiPage />} />
             <Route path="admin/services" element={<ServicesPage />} />
             <Route path="admin/services/categories" element={<ServicesPage />} />
             <Route path="admin/services/queue" element={<ServiceQueuePage />} />

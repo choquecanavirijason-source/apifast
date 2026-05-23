@@ -22,6 +22,8 @@ export interface PosSaleCreatePayload {
   link_appointment_id?: number;
   /** Solo cobro POS: no crea citas en agenda (horarios en items son ignorados). */
   sale_without_appointments?: boolean;
+  /** Reserva en agenda: venta reserved + tickets, sin cobro. */
+  reservation_only?: boolean;
 }
 
 export interface PosSaleUpdatePayload {
@@ -87,6 +89,7 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       ? { link_appointment_id: payload.link_appointment_id }
       : {}),
     ...(payload.sale_without_appointments ? { sale_without_appointments: true } : {}),
+    ...(payload.reservation_only ? { reservation_only: true } : {}),
     items: payload.items.map((item) => ({
       service_id: item.service_id,
       professional_id:

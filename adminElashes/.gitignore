@@ -14,9 +14,13 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Env
+# Env (los .example sí van al repo)
 .env
-.env.*
+.env.local
+.env.development
+.env.production
+!.env.example
+!.env.*.example
 
 # IDEs
 .vscode/
