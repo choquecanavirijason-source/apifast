@@ -95,6 +95,7 @@ export const useVolumen = () => {
       }
       await loadVolumes();
       closeModal();
+      toast.success(currentId ? "Volumen actualizado." : "Volumen creado.");
     } catch (error) {
       toast.error("No se pudo guardar el volumen");
     } finally {
@@ -111,6 +112,7 @@ export const useVolumen = () => {
       await api.delete(`/catalogs/volumes/${volume.id}`);
       await loadVolumes();
       closeDialog();
+      toast.success("Volumen eliminado.");
     } catch (error) {
       toast.error("No se pudo eliminar el volumen");
     } finally {

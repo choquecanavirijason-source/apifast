@@ -55,17 +55,14 @@ export default function DroppableColumn({
       {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className="flex-1 space-y-2 overflow-y-auto p-2 transition-colors lg:min-h-[500px]"
-        style={
-          isOver
-            ? { backgroundColor: "#EFF6FC", outline: "1px solid #0078D4", outlineOffset: "-2px" }
-            : { backgroundColor: "#FAF9F8" }
-        }
+        className={`flex-1 space-y-2 overflow-y-auto p-2 transition-colors duration-150 lg:min-h-[500px] ${
+          isOver ? "bg-[#deecf9] ring-2 ring-inset ring-[#0078d4]/50" : "bg-[#faf9f8]"
+        }`}
       >
         {!hasTickets ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center border border-dashed border-[#c8c6c4] bg-white px-4 text-center">
-            <p className="text-xs font-medium text-[#8a8886]">{isEmptyLabel}</p>
-            <p className="mt-0.5 text-[11px] text-[#a19f9d]">Arrastra un ticket aquí para continuar el flujo.</p>
+            <p className="text-xs font-medium text-[#605e5c]">{isEmptyLabel}</p>
+            <p className="mt-0.5 text-[11px] text-[#8a8886]">Suelta aquí el ticket (arrastra desde la tarjeta).</p>
           </div>
         ) : (
           tickets.map((ticket) => (

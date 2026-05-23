@@ -120,13 +120,32 @@ export interface AppointmentUpdatePayload {
   status?: string;
 }
 
+export interface TicketClientInfo {
+  id: number;
+  name: string;
+  last_name: string;
+  age?: number | null;
+  phone?: string | null;
+  branch_id?: number | null;
+  branch_name?: string | null;
+  eye_type_id?: number | null;
+  eye_type_name?: string | null;
+  status?: string | null;
+}
+
 export interface TicketItem {
   id: number;
   ticket_code: string | null;
   is_ia?: boolean;
   client_id: number;
+  /** Datos completos de la clienta cuando la API los incluye. */
+  client?: TicketClientInfo;
   /** Teléfono de la clienta (si viene en la respuesta de la API). */
   client_phone?: string | null;
+  client_age?: number | null;
+  client_branch_name?: string | null;
+  client_eye_type_name?: string | null;
+  client_status?: string | null;
   professional_id?: number | null;
   professional_name?: string | null;
   service_id: number | null;
@@ -156,19 +175,51 @@ interface BackendAppointment {
   end_time: string;
   status: string;
   sale_id?: number | null;
-  client?: { id: number; name: string; last_name: string; phone?: string | null };
+  client?: {
+    id: number;
+    name: string;
+    last_name: string;
+    age?: number | null;
+    phone?: string | null;
+    branch_id?: number | null;
+    eye_type_id?: number | null;
+    status?: string | null;
+    eye_type?: { id: number; name: string } | null;
+    branch?: { id: number; name: string } | null;
+  };
   professional?: { id: number; username: string; email?: string } | null;
   service?: { id: number; name: string; price?: number } | null;
   services?: Array<{ id: number; name: string; price?: number }> | null;
   branch?: { id: number; name: string } | null;
 }
 
-const mapToTicket = (a: BackendAppointment): TicketItem => ({
+const mapToTicket = (a: BackendAppointment): TicketItem => {
+  const clientInfo: TicketClientInfo | undefined = a.client
+    ? {
+        id: a.client.id,
+        name: a.client.name,
+        last_name: a.client.last_name,
+        age: a.client.age ?? null,
+        phone: a.client.phone ?? null,
+        branch_id: a.client.branch_id ?? null,
+        branch_name: a.client.branch?.name ?? null,
+        eye_type_id: a.client.eye_type_id ?? null,
+        eye_type_name: a.client.eye_type?.name ?? null,
+        status: a.client.status ?? null,
+      }
+    : undefined;
+
+  return {
   id: a.id,
   ticket_code: a.ticket_code ?? null,
   is_ia: a.is_ia ?? false,
   client_id: a.client_id,
+  client: clientInfo,
   client_phone: a.client?.phone ?? null,
+  client_age: a.client?.age ?? null,
+  client_branch_name: clientInfo?.branch_name ?? null,
+  client_eye_type_name: clientInfo?.eye_type_name ?? null,
+  client_status: clientInfo?.status ?? null,
   professional_id: a.professional?.id ?? a.professional_id ?? null,
   professional_name: a.professional?.username ?? null,
   service_id: a.service_id ?? null,
@@ -183,7 +234,8 @@ const mapToTicket = (a: BackendAppointment): TicketItem => ({
   status: a.status,
   sale_id: a.sale_id ?? null,
   branch_name: a.branch?.name ?? null,
-});
+  };
+};
 
 export interface ClientForSelect {
   id: number;

@@ -29,6 +29,14 @@ export type PosSaleClientOption = {
 
 export type LineAvailabilityState = Record<string, { available: boolean; conflictCount: number }>;
 
+export type PosCheckoutTicketPreview = {
+  localId: string;
+  serviceName: string;
+  scheduleLabel: string;
+  professionalName: string;
+  status: string;
+};
+
 export type PosSaleStepOneProps = {
   labelClass: string;
   fieldClass: string;
@@ -83,6 +91,9 @@ export type PosSaleStepOneProps = {
   finalizeFooterHint: string;
   onFinalizeSale: () => void;
   isSubmittingCheckout: boolean;
+  linkAppointmentId: number | null;
+  ticketPreviews: PosCheckoutTicketPreview[];
+  onGoToScheduleStep: () => void;
 };
 
 export type PosSaleStepTwoProps = {

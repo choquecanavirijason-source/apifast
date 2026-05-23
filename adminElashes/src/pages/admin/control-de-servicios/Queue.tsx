@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { toast } from "react-toastify";
 
 import Layout from "../../../components/common/layout";
@@ -13,8 +25,20 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/bra
 import { getApiErrorMessage } from "../../../core/utils/apiError";
 
 import { COLUMN_TO_STATUS, getColumnForStatus, STATUS_LABELS, todayDate } from "./control.constants";
+import {
+  BC_BTN_PRIMARY,
+  BC_BTN_SECONDARY,
+  BC_FIELD,
+  BC_INFO_BOX,
+  BC_LABEL,
+  BC_PAGE,
+  BC_CONTAINER,
+  BC_TEXTAREA,
+  BC_WARN_BOX,
+} from "./control.bc365.styles";
 import DraggableTicketCard from "./components/DraggableTicketCard";
 import DroppableColumn from "./components/DroppableColumn";
+import TicketDragOverlay from "./components/TicketDragOverlay";
 
 const Main = () => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -49,11 +73,23 @@ const Main = () => {
   const [deleteConfirmationCode, setDeleteConfirmationCode] = useState("");
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
   const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
+  const [activeDragTicket, setActiveDragTicket] = useState<TicketItem | null>(null);
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false);
+
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: { distance: 6 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 120, tolerance: 6 },
     })
   );
+
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerHits = pointerWithin(args);
+    if (pointerHits.length > 0) return pointerHits;
+    return closestCenter(args);
+  };
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -308,7 +344,28 @@ const Main = () => {
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = event.active.id;
+    if (typeof id !== "string" || !id.startsWith("ticket-")) return;
+    const ticketId = Number(id.replace("ticket-", ""));
+    const ticket = tickets.find((t) => t.id === ticketId) ?? null;
+    setActiveDragTicket(ticket);
+    setIsDraggingBoard(true);
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragTicket(null);
+    setIsDraggingBoard(false);
+  };
+
+  const applyTicketMoveLocally = (ticketId: number, patch: Partial<TicketItem>) => {
+    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, ...patch } : t)));
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragTicket(null);
+    setIsDraggingBoard(false);
+
     const { active, over } = event;
     if (!over) return;
 
@@ -326,11 +383,13 @@ const Main = () => {
     if (targetColumn === "ia") {
       if (ticket.is_ia) return;
 
+      const snapshot = tickets;
+      applyTicketMoveLocally(ticketId, { is_ia: true });
       try {
         await AgendaService.updateAppointment(ticketId, { is_ia: true });
         toast.success("Ticket movido a Tickets con IA.");
-        void loadTickets();
       } catch (error) {
+        setTickets(snapshot);
         console.error("Error moviendo ticket a IA:", error);
         toast.error(getApiErrorMessage(error, "No se pudo mover el ticket a IA."));
       }
@@ -351,14 +410,17 @@ const Main = () => {
       return;
     }
 
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticketId, { status: newStatus, is_ia: false });
+
     try {
       await AgendaService.updateAppointment(ticketId, {
         status: newStatus,
         is_ia: false,
       });
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
-      void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       console.error("Error moviendo ticket:", error);
       toast.error(getApiErrorMessage(error, "No se pudo mover el ticket."));
     }
@@ -484,7 +546,7 @@ const Main = () => {
               [key]: event.target.value ? event.target.value === "true" : undefined,
             }))
           }
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+          className={BC_FIELD}
         >
           <option value="">Selecciona</option>
           <option value="true">Si</option>
@@ -504,7 +566,7 @@ const Main = () => {
               [key]: event.target.value ? Number(event.target.value) : undefined,
             }))
           }
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+          className={BC_FIELD}
         />
       );
     }
@@ -519,23 +581,58 @@ const Main = () => {
             [key]: event.target.value,
           }))
         }
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+        className={BC_FIELD}
       />
     );
   };
 
+  const boardRibbon = (
+    <div className="flex flex-wrap items-stretch gap-0 divide-x divide-[#edebe9] border-b border-[#edebe9] bg-[#f3f2f1]">
+      {[
+        { label: "En espera", count: waitingTickets.length, color: "#D83B01" },
+        { label: "En servicio", count: inServiceTickets.length, color: "#0078D4" },
+        { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
+      ].map((stat) => (
+        <div key={stat.label} className="flex min-w-[120px] flex-1 items-center gap-2 px-4 py-2">
+          <span className="h-8 w-1 shrink-0" style={{ backgroundColor: stat.color }} />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
+            <p className="text-lg font-semibold tabular-nums text-[#201f1e]">{stat.count}</p>
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-1 items-center justify-end gap-2 px-4 py-2">
+        <span className="text-[11px] text-[#605e5c]">
+          {filterDate || todayDate()} · actualización cada 30 s
+        </span>
+        {isLoading ? (
+          <span className="border border-[#9dc4e6] bg-[#eff6fc] px-2 py-0.5 text-[10px] font-semibold text-[#005a9e]">
+            Cargando…
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     <Layout
-      title="Tablero de atención"
-      subtitle="Vista operativa del día"
+      title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
+      subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
       variant="cards"
+      pageClassName={BC_PAGE}
+      containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
+      topContent={boardRibbon}
     >
-      {isLoading ? (
-        <p className="text-sm text-slate-400">Cargando tablero...</p>
-      ) : null}
-
-      <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
-        <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+      <DndContext
+        sensors={dndSensors}
+        collisionDetection={collisionDetection}
+        onDragStart={handleDragStart}
+        onDragCancel={handleDragCancel}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className={`grid gap-3 lg:grid-cols-3 lg:items-stretch ${isDraggingBoard ? "select-none" : ""}`}
+        >
           <DroppableColumn
             id="waiting"
             title="En espera"
@@ -555,6 +652,7 @@ const Main = () => {
                   <Button
                     size="sm"
                     variant="secondary"
+                    className={`${BC_BTN_SECONDARY} w-full`}
                     onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
                   >
                     Iniciar atención
@@ -587,6 +685,7 @@ const Main = () => {
                   <Button
                     size="sm"
                     variant="primary"
+                    className={`${BC_BTN_PRIMARY} w-full`}
                     onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
                   >
                     Finalizar
@@ -619,6 +718,7 @@ const Main = () => {
                   <Button
                     size="sm"
                     variant="secondary"
+                    className={`${BC_BTN_SECONDARY} w-full`}
                     onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
                   >
                     Completar
@@ -632,6 +732,10 @@ const Main = () => {
             )}
           />
         </div>
+
+        <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
+          {activeDragTicket ? <TicketDragOverlay ticket={activeDragTicket} /> : null}
+        </DragOverlay>
       </DndContext>
 
       <ConfirmDialog
@@ -642,7 +746,7 @@ const Main = () => {
               <p>
                 ¿Seguro que deseas eliminar el ticket de <strong>{ticketToDelete?.client_name}</strong>? Esta accion no se puede deshacer.
               </p>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <div className={BC_WARN_BOX}>
                 Para confirmar, escribe el codigo del ticket:
                 <strong className="ml-1">{ticketToDelete?.ticket_code?.trim() || String(ticketToDelete?.id ?? "")}</strong>
               </div>
@@ -651,7 +755,7 @@ const Main = () => {
                 value={deleteConfirmationCode}
                 onChange={(event) => setDeleteConfirmationCode(event.target.value)}
                 placeholder="Ingresa el codigo para eliminar"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                className={BC_FIELD}
               />
             </div>
           }
@@ -670,17 +774,17 @@ const Main = () => {
 
         <GenericModal isOpen={isFinishModalOpen} onClose={() => setIsFinishModalOpen(false)} title="Finalizar atencion" size="lg">
           <div className="space-y-4">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-sm text-slate-600">
+            <div className={BC_INFO_BOX}>
               Registra el tracking tecnico y el cuestionario antes de finalizar.
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="text-xs font-semibold text-slate-500">Profesional</label>
+                <label className={BC_LABEL}>Profesional</label>
                 <select
                   value={finishProfessionalId}
                   onChange={(event) => setFinishProfessionalId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Sin asignar</option>
                   {professionals.map((professional) => (
@@ -692,11 +796,11 @@ const Main = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500">Tipo de ojo</label>
+                <label className={BC_LABEL}>Tipo de ojo</label>
                 <select
                   value={finishEyeTypeId}
                   onChange={(event) => setFinishEyeTypeId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Selecciona</option>
                   {eyeTypes.map((item) => (
@@ -708,11 +812,11 @@ const Main = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500">Efecto</label>
+                <label className={BC_LABEL}>Efecto</label>
                 <select
                   value={finishEffectId}
                   onChange={(event) => setFinishEffectId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Selecciona</option>
                   {effects.map((item) => (
@@ -724,11 +828,11 @@ const Main = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500">Volumen</label>
+                <label className={BC_LABEL}>Volumen</label>
                 <select
                   value={finishVolumeId}
                   onChange={(event) => setFinishVolumeId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Selecciona</option>
                   {volumes.map((item) => (
@@ -740,11 +844,11 @@ const Main = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500">Diseno de pestanas</label>
+                <label className={BC_LABEL}>Diseno de pestanas</label>
                 <select
                   value={finishLashDesignId}
                   onChange={(event) => setFinishLashDesignId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Selecciona</option>
                   {lashDesigns.map((item) => (
@@ -756,11 +860,11 @@ const Main = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500">Cuestionario</label>
+                <label className={BC_LABEL}>Cuestionario</label>
                 <select
                   value={finishQuestionnaireId}
                   onChange={(event) => void handleQuestionnaireChange(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  className={BC_FIELD}
                 >
                   <option value="">Sin cuestionario</option>
                   {questionnaires.map((item) => (
@@ -772,21 +876,21 @@ const Main = () => {
 
                 {questionnaire ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Button type="button" variant="secondary" onClick={() => setIsQuestionnaireModalOpen(true)}>
+                    <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsQuestionnaireModalOpen(true)}>
                       Responder cuestionario
                     </Button>
-                    <span className="text-xs text-slate-500">{Object.keys(questionnaireResponses).length} respuestas guardadas</span>
+                    <span className="text-xs text-[#605e5c]">{Object.keys(questionnaireResponses).length} respuestas guardadas</span>
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="border border-[#edebe9] bg-[#faf9f8] p-3">
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="finish-observations" className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <label htmlFor="finish-observations" className={BC_LABEL}>
                   Observaciones del servicio
                 </label>
-                <span className="text-[11px] text-slate-500">Obligatorio: cuestionario o notas</span>
+                <span className="text-[11px] text-[#605e5c]">Obligatorio: cuestionario o notas</span>
               </div>
               <textarea
                 id="finish-observations"
@@ -794,15 +898,15 @@ const Main = () => {
                 onChange={(event) => setFinishNotes(event.target.value)}
                 rows={4}
                 placeholder="Describe el proceso, incidencias, resultados y recomendaciones para la siguiente cita..."
-                className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                className={BC_TEXTAREA}
               />
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setIsFinishModalOpen(false)}>
+            <div className="flex justify-end gap-2 border-t border-[#edebe9] pt-3">
+              <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsFinishModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="button" onClick={() => void handleFinishService()} disabled={isSubmittingTracking}>
+              <Button type="button" className={BC_BTN_PRIMARY} onClick={() => void handleFinishService()} disabled={isSubmittingTracking}>
                 {isSubmittingTracking ? "Guardando..." : "Finalizar"}
               </Button>
             </div>
@@ -822,20 +926,20 @@ const Main = () => {
                 .sort((a, b) => a.sort_order - b.sort_order)
                 .map((question) => (
                   <div key={question.id}>
-                    <label className="text-xs font-semibold text-slate-600">{question.text}</label>
+                    <label className={BC_LABEL}>{question.text}</label>
                     {renderQuestion(question)}
                   </div>
                 ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">Sin preguntas registradas.</p>
+            <p className="text-sm text-[#605e5c]">Sin preguntas registradas.</p>
           )}
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsQuestionnaireModalOpen(false)}>
+          <div className="mt-6 flex justify-end gap-2 border-t border-[#edebe9] pt-3">
+            <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsQuestionnaireModalOpen(false)}>
               Cerrar
             </Button>
-            <Button type="button" onClick={() => setIsQuestionnaireModalOpen(false)}>
+            <Button type="button" className={BC_BTN_PRIMARY} onClick={() => setIsQuestionnaireModalOpen(false)}>
               Guardar respuestas
             </Button>
           </div>

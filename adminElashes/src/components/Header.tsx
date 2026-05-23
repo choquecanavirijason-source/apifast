@@ -697,13 +697,6 @@ export default function Header({
               <div className="mt-3 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="rounded-lg border border-emerald-700/70 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-900/60"
-                >
-                  Cerrar
-                </button>
-                <button
-                  type="button"
                   onClick={handleLogout}
                   className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20"
                 >

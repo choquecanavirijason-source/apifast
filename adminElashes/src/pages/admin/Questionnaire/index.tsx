@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Edit, Trash2, HelpCircle } from "lucide-react";
+import { Plus, Edit, Trash2, HelpCircle } from "lucide-react";
 import { toast } from "react-toastify";
 
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
+import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 import {
   CatalogService,
   type QuestionnaireItem,
@@ -21,6 +22,8 @@ interface QuestionForm {
   is_required: boolean;
   sort_order?: number;
 }
+
+type QuestionRow = NonNullable<QuestionnaireItem["questions"]>[number];
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   text: "Texto libre",
@@ -43,7 +46,6 @@ const matchQuestionnaireForTab = (questionnaire: QuestionnaireItem, tab: TargetA
 export default function QuestionnairePage() {
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireItem[]>([]);
   const [activeTab, setActiveTab] = useState<TargetAudience>("ADULTOS");
-  const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,12 +65,10 @@ export default function QuestionnairePage() {
     [questionnaires, activeTab]
   );
 
-  const filteredQuestions = useMemo(() => {
-    const questions = activeQuestionnaire?.questions ?? [];
-    return questions.filter((question) =>
-      question.text.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [activeQuestionnaire, search]);
+  const tableData = useMemo<QuestionRow[]>(
+    () => activeQuestionnaire?.questions ?? [],
+    [activeQuestionnaire]
+  );
 
   const loadQuestionnaires = async () => {
     setIsLoading(true);
@@ -118,7 +118,7 @@ export default function QuestionnairePage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (question: QuestionForm) => {
+  const handleOpenEdit = (question: QuestionRow) => {
     setCurrentQuestion(question);
     setForm({
       id: question.id,
@@ -201,122 +201,142 @@ export default function QuestionnairePage() {
     }
   };
 
+  const columns = useMemo<DataTableColumn<QuestionRow>[]>(
+    () => [
+      {
+        key: "text",
+        header: "Pregunta",
+        sortable: true,
+        render: (item) => <span className="font-semibold text-slate-800">{item.text}</span>,
+      },
+      {
+        key: "question_type",
+        header: "Tipo",
+        sortable: true,
+        getValue: (item) => QUESTION_TYPE_LABELS[item.question_type],
+        render: (item) => (
+          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+            {QUESTION_TYPE_LABELS[item.question_type]}
+          </span>
+        ),
+      },
+      {
+        key: "is_required",
+        header: "Obligatoria",
+        sortable: true,
+        getValue: (item) => (item.is_required ? "si" : "no"),
+        render: (item) =>
+          item.is_required ? (
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+              Si
+            </span>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
+              No
+            </span>
+          ),
+      },
+      {
+        key: "sort_order",
+        header: "Orden",
+        sortable: true,
+        getValue: (item) => item.sort_order,
+        render: (item) => (
+          <span className="tabular-nums text-slate-600">{item.sort_order + 1}</span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const actions = useMemo<DataTableAction<QuestionRow>[]>(
+    () => [
+      {
+        label: "Editar",
+        icon: <Edit className="h-4 w-4" />,
+        onClick: handleOpenEdit,
+      },
+      {
+        label: "Eliminar",
+        icon: <Trash2 className="h-4 w-4" />,
+        variant: "danger",
+        onClick: (question) => setDeleteDialog({ isOpen: true, question }),
+      },
+    ],
+    []
+  );
+
+  const renderToolbar = () => (
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        {(["ADULTOS", "MENORES"] as TargetAudience[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`
+              rounded-lg px-6 py-2.5 text-sm font-bold transition-all
+              ${
+                activeTab === tab
+                  ? "bg-[#094732] text-white shadow-md"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }
+            `}
+          >
+            {tab === "ADULTOS" ? "Publico General" : "Menores de Edad"}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => void handleOpenCreate()}
+        disabled={isSaving}
+        className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#094732] px-6 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-[#063324] active:scale-95 disabled:opacity-70"
+      >
+        <Plus className="h-5 w-5" />
+        <span>Nueva Pregunta</span>
+      </button>
+    </div>
+  );
+
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-slate-50/50 font-sans">
+    <div className="min-h-screen bg-slate-50/50 p-6 font-sans md:p-10">
       <div className="mb-8 flex items-center gap-3">
-        <div className="p-2 bg-emerald-100 rounded-lg">
-          <HelpCircle className="w-6 h-6 text-[#094732]" />
+        <div className="rounded-lg bg-emerald-100 p-2">
+          <HelpCircle className="h-6 w-6 text-[#094732]" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Cuestionario de Anamnesis</h1>
-          <p className="text-slate-500 text-sm">Gestiona las preguntas medicas para el expediente</p>
+          <p className="text-sm text-slate-500">Gestiona las preguntas medicas para el expediente</p>
         </div>
       </div>
 
-      <div className="bg-emerald-50/40 rounded-[1.5rem] border border-emerald-100 shadow-sm p-6 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
-            {(["ADULTOS", "MENORES"] as TargetAudience[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`
-                  px-6 py-2.5 rounded-lg text-sm font-bold transition-all
-                  ${activeTab === tab 
-                    ? "bg-[#094732] text-white shadow-md" 
-                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                  }
-                `}
-              >
-                {tab === "ADULTOS" ? "Publico General" : "Menores de Edad"}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            <div className="relative w-full sm:w-64">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-slate-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar pregunta..."
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#094732] focus:border-transparent outline-none text-slate-700 shadow-sm"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={() => void handleOpenCreate()}
-              disabled={isSaving}
-              className="bg-[#094732] hover:bg-[#063324] text-white font-bold rounded-xl px-6 py-3 shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all whitespace-nowrap disabled:opacity-70"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Nueva Pregunta</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {isLoading && (
-            <div className="col-span-full py-16 text-center bg-white/50 rounded-2xl border border-dashed border-slate-300">
-              <h3 className="text-lg font-bold text-slate-700">Cargando cuestionario...</h3>
-              <p className="text-slate-500 text-sm mt-1">Estamos sincronizando los datos.</p>
-            </div>
-          )}
-
-          {!isLoading && !activeQuestionnaire && (
-            <div className="col-span-full py-16 text-center bg-white/50 rounded-2xl border border-dashed border-slate-300">
+      <div className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50/40 p-6 shadow-sm md:p-8">
+        {!isLoading && !activeQuestionnaire ? (
+          <div>
+            {renderToolbar()}
+            <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white/50 py-16 text-center">
               <h3 className="text-lg font-bold text-slate-700">No hay cuestionario activo</h3>
-              <p className="text-slate-500 text-sm mt-1">Crea el cuestionario para este segmento.</p>
+              <p className="mt-1 text-sm text-slate-500">Crea el cuestionario para este segmento.</p>
               <Button className="mt-4" onClick={() => void handleOpenCreate()}>
                 Crear cuestionario
               </Button>
             </div>
-          )}
-
-          {!isLoading && activeQuestionnaire && filteredQuestions.length === 0 && (
-            <div className="col-span-full py-16 text-center bg-white/50 rounded-2xl border border-dashed border-slate-300">
-              <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-700">No se encontraron preguntas</h3>
-              <p className="text-slate-500 text-sm mt-1">Prueba con otro termino de busqueda o cambia de pestaña.</p>
-            </div>
-          )}
-
-          {!isLoading && activeQuestionnaire && filteredQuestions.map((question) => (
-            <div
-              key={question.id}
-              className="bg-white rounded-2xl border border-emerald-100/60 p-5 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-slate-800">{question.text}</h3>
-                  <p className="text-xs text-slate-500 mt-2">
-                    {QUESTION_TYPE_LABELS[question.question_type]}
-                    {question.is_required ? " · Obligatoria" : ""}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleOpenEdit(question)}
-                    className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteDialog({ isOpen: true, question })}
-                    className="p-2 rounded-lg text-rose-500 hover:bg-rose-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <DataTable
+            data={tableData}
+            columns={columns}
+            actions={actions}
+            loading={isLoading}
+            renderTopToolbar={renderToolbar}
+            globalSearchPlaceholder="Buscar pregunta..."
+            defaultLimit={10}
+            availableLimits={[5, 10, 20, 50]}
+            tableMinWidth="min-w-[640px]"
+          />
+        )}
       </div>
 
       <GenericModal
@@ -329,25 +349,25 @@ export default function QuestionnairePage() {
       >
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Pregunta</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">Pregunta</label>
             <textarea
               value={form.text}
               onChange={(e) => setForm((prev) => ({ ...prev, text: e.target.value }))}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#094732] focus:border-transparent outline-none text-sm"
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#094732]"
               rows={4}
               required
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Tipo</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Tipo</label>
               <select
                 value={form.question_type}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, question_type: e.target.value as QuestionType }))
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
               >
                 {Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -361,7 +381,7 @@ export default function QuestionnairePage() {
                 type="checkbox"
                 checked={form.is_required}
                 onChange={(e) => setForm((prev) => ({ ...prev, is_required: e.target.checked }))}
-                className="w-4 h-4"
+                className="h-4 w-4"
               />
               Obligatoria
             </label>

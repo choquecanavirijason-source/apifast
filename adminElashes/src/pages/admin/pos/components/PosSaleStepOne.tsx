@@ -57,6 +57,9 @@ export default function PosSaleStepOne({
   finalizeFooterHint,
   onFinalizeSale,
   isSubmittingCheckout,
+  linkAppointmentId,
+  ticketPreviews,
+  onGoToScheduleStep,
 }: PosSaleStepOneProps) {
   const [showToast, setShowToast] = useState(false);
   const [animateCart, setAnimateCart] = useState(false);
@@ -122,10 +125,10 @@ export default function PosSaleStepOne({
     <div
       className={`relative flex h-[80dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col bg-[#f3f2f1] text-[#323130] ${isLoading ? "pointer-events-none opacity-60" : ""}`}
     >
-      {showToast && (
-        <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-top-4">
-          <ShoppingCart className="h-4 w-4" />
-          ¡Servicio añadido!
+      {(showToast || addToCartMessage) && (
+        <div className="fixed left-1/2 top-4 z-[100] flex max-w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-top-4">
+          <ShoppingCart className="h-4 w-4 shrink-0" />
+          <span className="truncate">{addToCartMessage || "¡Servicio añadido!"}</span>
         </div>
       )}
 
@@ -212,6 +215,9 @@ export default function PosSaleStepOne({
         primaryActionDisabled={cartCount === 0 || !selectedClient || isSubmittingCheckout}
         footerHint={finalizeFooterHint}
         isSubmitting={isSubmittingCheckout}
+        linkAppointmentId={linkAppointmentId}
+        ticketPreviews={ticketPreviews}
+        onGoToScheduleStep={onGoToScheduleStep}
       />
     </div>
   );

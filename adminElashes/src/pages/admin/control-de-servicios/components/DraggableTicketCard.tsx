@@ -5,8 +5,8 @@ import { GripVertical, Trash2, Calendar, Clock, User, X, ChevronRight } from "lu
 
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { formatTime, STATUS_LABELS } from "../control.constants";
+import { BC_FIELD } from "../control.bc365.styles";
 
-// --- Funciones de ayuda (Sin cambios) ---
 const getDateInputValue = (iso: string) => {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return "";
@@ -35,8 +35,16 @@ const addMinutesToTime = (time: string, minutesToAdd: number) => {
 };
 
 const STATUS_STRIP: Record<string, string> = {
-  pending: "#D83B01", waiting: "#D83B01", confirmed: "#D83B01",
-  in_service: "#0078D4", completed: "#107C10", cancelled: "#A4262C",
+  pending: "#D83B01",
+  waiting: "#D83B01",
+  confirmed: "#D83B01",
+  in_service: "#0078D4",
+  completed: "#107C10",
+  cancelled: "#A4262C",
+};
+
+const stopDragPointer = (e: React.PointerEvent) => {
+  e.stopPropagation();
 };
 
 const STATUS_BADGE: Record<string, { bg: string; border: string; color: string }> = {
@@ -49,7 +57,14 @@ const STATUS_BADGE: Record<string, { bg: string; border: string; color: string }
 };
 
 export default function DraggableTicketCard({
-  ticket, actions, showRemaining, getRemainingLabel, onDelete, professionals, onSaveEdits, isSavingEdit,
+  ticket,
+  actions,
+  showRemaining,
+  getRemainingLabel,
+  onDelete,
+  professionals,
+  onSaveEdits,
+  isSavingEdit,
 }: {
   ticket: TicketItem;
   actions: ReactNode;
@@ -58,22 +73,26 @@ export default function DraggableTicketCard({
   getRemainingLabel: (endTime: string) => string;
   onDelete: (ticket: TicketItem) => void;
   professionals: ProfessionalForSelect[];
-  onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string; isIa: boolean }) => void;
+  onSaveEdits: (
+    ticket: TicketItem,
+    payload: { date: string; time: string; professionalId: string; isIa: boolean }
+  ) => void;
   isSavingEdit: boolean;
 }) {
   const [quickDate, setQuickDate] = useState(getDateInputValue(ticket.start_time));
-  const [quickProfessionalId, setQuickProfessionalId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
+  const [quickProfessionalId, setQuickProfessionalId] = useState(
+    ticket.professional_id ? String(ticket.professional_id) : ""
+  );
   const [quickTime, setQuickTime] = useState(getTimeInputValue(ticket.start_time));
-  const [quickError, setQuickError] = useState("");
-  const isIa = Boolean(ticket.is_ia);
-
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const quickSaveTimerRef = useRef<number | null>(null);
   const lastAutoSubmitKeyRef = useRef<string>("");
   const isSavingEditRef = useRef(isSavingEdit);
 
-  useEffect(() => { isSavingEditRef.current = isSavingEdit; }, [isSavingEdit]);
+  useEffect(() => {
+    isSavingEditRef.current = isSavingEdit;
+  }, [isSavingEdit]);
 
   useEffect(() => {
     setQuickDate(getDateInputValue(ticket.start_time));
@@ -84,24 +103,25 @@ export default function DraggableTicketCard({
   useEffect(() => {
     if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current);
 
-    const hasChanges = quickDate !== getDateInputValue(ticket.start_time) ||
-                       quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
-                       quickTime !== getTimeInputValue(ticket.start_time);
+    const hasChanges =
+      quickDate !== getDateInputValue(ticket.start_time) ||
+      quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
+      quickTime !== getTimeInputValue(ticket.start_time);
 
     if (!hasChanges || isSavingEditRef.current) return;
 
-    // Evitar reenviar el mismo payload si ya se intentó (p.ej. después de un error)
     const submitKey = `${quickDate}|${quickTime}|${quickProfessionalId}`;
     if (submitKey === lastAutoSubmitKeyRef.current) return;
 
     quickSaveTimerRef.current = window.setTimeout(() => {
       lastAutoSubmitKeyRef.current = submitKey;
-      onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId: quickProfessionalId, isIa });
+      onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId: quickProfessionalId, isIa: Boolean(ticket.is_ia) });
     }, 800);
 
-    return () => { if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current); };
-  // isSavingEdit intencionalmente excluido: usamos el ref para no re-disparar el efecto al fallar
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickDate, quickProfessionalId, quickTime]);
 
   useEffect(() => {
@@ -114,79 +134,122 @@ export default function DraggableTicketCard({
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `ticket-${ticket.id}`,
-    data: { ticket },
+    data: { ticket, column: ticket.status },
+    disabled: isPopupOpen,
   });
 
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-    opacity: isDragging ? 0.6 : 1,
+    opacity: isDragging ? 0.4 : 1,
     borderLeft: `4px solid ${STATUS_STRIP[ticket.status] ?? "#D2D0CE"}`,
+    touchAction: "none",
   };
 
   const badge = STATUS_BADGE[ticket.status] ?? { bg: "#F3F2F1", border: "#D2D0CE", color: "#605E5C" };
-  const hasQuickChanges = quickDate !== getDateInputValue(ticket.start_time) || 
-                          quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") || 
-                          quickTime !== getTimeInputValue(ticket.start_time);
+  const hasQuickChanges =
+    quickDate !== getDateInputValue(ticket.start_time) ||
+    quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
+    quickTime !== getTimeInputValue(ticket.start_time);
 
-  const inputClass = "w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none";
+  const services =
+    ticket.service_names?.length ? ticket.service_names.join(", ") : ticket.service_name ?? "Sin servicio";
+  const remaining = showRemaining ? getRemainingLabel(ticket.end_time) : "";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group border border-[#d2d0ce] bg-white transition-all ${
-        isDragging ? "shadow-2xl scale-[1.02] z-50" : "shadow-sm hover:shadow-md"
+      {...attributes}
+      {...listeners}
+      className={`group relative cursor-grab touch-none border border-[#c8c6c4] bg-white transition-shadow active:cursor-grabbing ${
+        isDragging
+          ? "z-0 shadow-none ring-2 ring-dashed ring-[#8a8886]"
+          : "shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)]"
       }`}
     >
-      {/* POP-UP MODERNO */}
-      {isPopupOpen && (
+      {isPopupOpen ? (
         <>
-          {/* Backdrop sutil para enfocar el popup */}
-          <div className="absolute inset-0 z-[60] bg-white/40 backdrop-blur-[1px]" />
-          
-          <div 
+          <div className="absolute inset-0 z-[60] bg-[#f3f2f1]/60" />
+          <div
             ref={popoverRef}
-            className="absolute left-1/2 -translate-x-1/2 top-2 z-[70] w-[95%] bg-white border border-gray-200 shadow-2xl rounded-xl p-4 animate-in fade-in zoom-in-95 slide-in-from-top-4 duration-200"
+            onPointerDown={stopDragPointer}
+            className="absolute left-1/2 top-2 z-[70] w-[95%] -translate-x-1/2 border border-[#c8c6c4] bg-white p-3 shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-3 flex items-center justify-between border-b border-[#edebe9] pb-2">
               <div>
-                <h4 className="text-sm font-bold text-gray-800">Ajustar Turno</h4>
-                <p className="text-[10px] text-gray-500 uppercase tracking-tighter">Cambios automáticos</p>
+                <h4 className="text-sm font-semibold text-[#201f1e]">Ajustar turno</h4>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                  Cambios automáticos
+                </p>
               </div>
-              <button onClick={() => setIsPopupOpen(false)} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={16} className="text-gray-400" />
+              <button
+                type="button"
+                onPointerDown={stopDragPointer}
+                onClick={() => setIsPopupOpen(false)}
+                className="border border-transparent p-1 text-[#605e5c] hover:border-[#c8c6c4] hover:bg-[#f3f2f1]"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Calendar size={12}/> FECHA</label>
-                  <input type="date" value={quickDate} onChange={(e) => setQuickDate(e.target.value)} className={inputClass} />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                    <Calendar size={11} /> Fecha
+                  </label>
+                  <input
+                    type="date"
+                    value={quickDate}
+                    onPointerDown={stopDragPointer}
+                    onChange={(e) => setQuickDate(e.target.value)}
+                    className={BC_FIELD}
+                  />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Clock size={12}/> HORA</label>
-                  <input type="time" value={quickTime} onChange={(e) => setQuickTime(e.target.value)} className={inputClass} />
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                    <Clock size={11} /> Hora
+                  </label>
+                  <input
+                    type="time"
+                    value={quickTime}
+                    onPointerDown={stopDragPointer}
+                    onChange={(e) => setQuickTime(e.target.value)}
+                    className={BC_FIELD}
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><User size={12}/> PROFESIONAL ASIGNADO</label>
-                <select value={quickProfessionalId} onChange={(e) => setQuickProfessionalId(e.target.value)} className={inputClass}>
+              <div>
+                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                  <User size={11} /> Profesional
+                </label>
+                <select
+                  value={quickProfessionalId}
+                  onPointerDown={stopDragPointer}
+                  onChange={(e) => setQuickProfessionalId(e.target.value)}
+                  className={`${BC_FIELD} cursor-pointer`}
+                >
                   <option value="">Sin operaria</option>
-                  {professionals.map((p) => <option key={p.id} value={String(p.id)}>{p.username}</option>)}
+                  {professionals.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.username}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 {["Ahora", "+15 min", "+30 min"].map((label) => (
                   <button
                     key={label}
+                    type="button"
+                    onPointerDown={stopDragPointer}
                     onClick={() => {
                       if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
                       else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
                     }}
-                    className="flex-1 py-1.5 border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-300 hover:text-blue-600 rounded-md text-[10px] font-bold transition-all"
+                    className="flex-1 border border-[#8a8886] bg-[#f3f2f1] py-1.5 text-[10px] font-semibold text-[#323130] hover:bg-white hover:border-[#0078d4] hover:text-[#0078d4]"
                   >
                     {label}
                   </button>
@@ -194,70 +257,89 @@ export default function DraggableTicketCard({
               </div>
             </div>
 
-            {hasQuickChanges && (
-              <div className="mt-4 flex items-center justify-center gap-2 py-2 bg-blue-50 rounded-lg">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-blue-600">
-                  {isSavingEdit ? "SINCRONIZANDO..." : "CAMBIOS PENDIENTES"}
+            {hasQuickChanges ? (
+              <div className="mt-3 flex items-center justify-center gap-2 border border-[#9dc4e6] bg-[#eff6fc] py-1.5">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
+                <span className="text-[10px] font-semibold text-[#005a9e]">
+                  {isSavingEdit ? "Sincronizando…" : "Cambios pendientes"}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
         </>
-      )}
+      ) : null}
 
-      {/* CUERPO DEL TICKET */}
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <div {...attributes} {...listeners} className="p-1 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing text-gray-300 group-hover:text-gray-500 transition-colors">
-              <GripVertical size={16} />
-            </div>
+      <div className="p-2.5">
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-1.5">
+            <GripVertical
+              size={14}
+              className="mt-0.5 shrink-0 text-[#c8c6c4] opacity-80 group-hover:text-[#0078d4]"
+              aria-hidden
+            />
             <div className="min-w-0">
-              <h3 className="font-bold text-gray-800 text-sm truncate">{ticket.client_name}</h3>
-              <span className="text-[10px] text-gray-400 font-medium">{ticket.branch_name || "Central"}</span>
+              <h3 className="truncate text-sm font-semibold text-[#201f1e]">{ticket.client_name}</h3>
+              <p className="truncate text-[10px] text-[#605e5c]">{services}</p>
+              <span className="text-[10px] font-medium text-[#8a8886]">{ticket.branch_name || "Central"}</span>
             </div>
           </div>
-          
-          <button 
+
+          <button
+            type="button"
+            onPointerDown={stopDragPointer}
             onClick={() => setIsPopupOpen(true)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
-              hasQuickChanges 
-              ? "bg-amber-100 text-amber-700 ring-2 ring-amber-200 animate-pulse" 
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className={`flex shrink-0 items-center gap-0.5 border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+              hasQuickChanges
+                ? "border-[#f4b8a0] bg-[#fff4f0] text-[#bc4b09]"
+                : "border-[#c8c6c4] bg-[#f3f2f1] text-[#323130] hover:bg-white"
             }`}
           >
-            EDITAR <ChevronRight size={10} />
+            Editar <ChevronRight size={10} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between py-2 border-y border-gray-50">
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-700">{formatTime(ticket.start_time)} - {formatTime(ticket.end_time)}</span>
-            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Horario</span>
-          </div>
-          <div className="text-right">
-            <span 
-              className="inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase"
-              style={{ backgroundColor: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
-            >
-              {STATUS_LABELS[ticket.status] || ticket.status}
+        <div className="flex items-center justify-between border-y border-[#edebe9] bg-[#faf9f8] px-1 py-1.5">
+          <div>
+            <span className="text-xs font-semibold text-[#323130]">
+              {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
             </span>
+            {remaining ? (
+              <p className="text-[10px] font-semibold text-[#0078d4]">{remaining}</p>
+            ) : (
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[#8a8886]">Horario</p>
+            )}
           </div>
+          <span
+            className="inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase"
+            style={{ backgroundColor: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
+          >
+            {STATUS_LABELS[ticket.status] || ticket.status}
+          </span>
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-[#107C10] bg-green-50 px-2 py-1 rounded-full">
-            <User size={10} />
-            <span className="text-[10px] font-bold">{professionals.find(p => String(p.id) === String(ticket.professional_id))?.username || "Sin asignar"}</span>
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-1 border border-[#a3d7a4] bg-[#f1fbf1] px-1.5 py-0.5">
+            <User size={10} className="text-[#107c10]" />
+            <span className="text-[10px] font-semibold text-[#107c10]">
+              {professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username || "Sin asignar"}
+            </span>
           </div>
-          <button onClick={() => onDelete(ticket)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+          <button
+            type="button"
+            onPointerDown={stopDragPointer}
+            onClick={() => onDelete(ticket)}
+            className="border border-transparent p-1 text-[#8a8886] hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]"
+          >
             <Trash2 size={14} />
           </button>
         </div>
+
+        {ticket.ticket_code ? (
+          <p className="mt-1 font-mono text-[10px] text-[#8a8886]">{ticket.ticket_code}</p>
+        ) : null}
       </div>
 
-      <div className="px-3 pb-3">
+      <div className="border-t border-[#edebe9] px-2.5 pb-2.5 pt-1" onPointerDown={stopDragPointer}>
         {actions}
       </div>
     </div>

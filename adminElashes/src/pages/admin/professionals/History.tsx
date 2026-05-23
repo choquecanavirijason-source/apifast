@@ -8,6 +8,11 @@ import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
+import {
+  formatCommissionRatePercent,
+  getTicketCommission,
+  getTicketPriceTotal,
+} from "./professionalCommission.utils";
 
 const fieldClass =
   "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] placeholder:text-[#a19f9d] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
@@ -62,16 +67,6 @@ function getDurationLabel(start: string, end: string) {
     return rest ? `${h}h ${rest}m` : `${h}h`;
   }
   return `${mins} min`;
-}
-
-function getPriceTotal(ticket: TicketItem): number {
-  if (ticket.service_prices?.length) {
-    return ticket.service_prices.reduce((s, p) => s + (Number.isFinite(p) ? p : 0), 0);
-  }
-  if (typeof ticket.service_price === "number" && Number.isFinite(ticket.service_price)) {
-    return ticket.service_price;
-  }
-  return 0;
 }
 
 export default function ProfessionalServiceHistory() {
@@ -166,23 +161,32 @@ export default function ProfessionalServiceHistory() {
   }, []);
 
   const professionalStats = useMemo(() => {
-    const map = new Map<number, { name: string; count: number }>();
-    professionals.forEach((p) => map.set(p.id, { name: p.username, count: 0 }));
+    const map = new Map<number, { name: string; count: number; completedCount: number; commission: number }>();
+    professionals.forEach((p) =>
+      map.set(p.id, { name: p.username, count: 0, completedCount: 0, commission: 0 })
+    );
     tickets.forEach((ticket) => {
       if (!ticket.professional_id) return;
+      const commission = getTicketCommission(ticket);
       const existing = map.get(ticket.professional_id);
       if (existing) {
         existing.count++;
+        if (ticket.status === "completed") {
+          existing.completedCount++;
+          existing.commission += commission;
+        }
       } else {
         map.set(ticket.professional_id, {
           name: ticket.professional_name ?? `#${ticket.professional_id}`,
           count: 1,
+          completedCount: ticket.status === "completed" ? 1 : 0,
+          commission,
         });
       }
     });
     return Array.from(map.entries())
       .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => b.commission - a.commission || b.completedCount - a.completedCount);
   }, [professionals, tickets]);
 
   const filteredTickets = useMemo(() => {
@@ -210,9 +214,19 @@ export default function ProfessionalServiceHistory() {
     [selectedProfessionalId, professionalStats]
   );
 
-  const totalRevenue = useMemo(
-    () => filteredTickets.reduce((s, t) => s + getPriceTotal(t), 0),
+  const completedTickets = useMemo(
+    () => filteredTickets.filter((t) => t.status === "completed"),
     [filteredTickets]
+  );
+
+  const totalRevenue = useMemo(
+    () => completedTickets.reduce((s, t) => s + getTicketPriceTotal(t), 0),
+    [completedTickets]
+  );
+
+  const totalCommission = useMemo(
+    () => completedTickets.reduce((s, t) => s + getTicketCommission(t), 0),
+    [completedTickets]
   );
 
   const availableStatuses = useMemo(
@@ -297,12 +311,29 @@ export default function ProfessionalServiceHistory() {
       key: "price",
       header: "Precio",
       sortable: true,
-      getValue: (t) => String(getPriceTotal(t)),
+      getValue: (t) => String(getTicketPriceTotal(t)),
       render: (t) => {
-        const total = getPriceTotal(t);
+        const total = getTicketPriceTotal(t);
         return (
           <span className={`text-xs font-semibold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[#a19f9d]"}`}>
             {total > 0 ? moneyFormatter.format(total) : "—"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "commission",
+      header: `Comisión (${formatCommissionRatePercent()})`,
+      sortable: true,
+      getValue: (t) => String(getTicketCommission(t)),
+      render: (t) => {
+        if (t.status !== "completed") {
+          return <span className="text-xs text-[#a19f9d]">—</span>;
+        }
+        const commission = getTicketCommission(t);
+        return (
+          <span className={`text-xs font-semibold tabular-nums ${commission > 0 ? "text-[#0050a0]" : "text-[#a19f9d]"}`}>
+            {commission > 0 ? moneyFormatter.format(commission) : "—"}
           </span>
         );
       },
@@ -376,22 +407,19 @@ export default function ProfessionalServiceHistory() {
   return (
     <Layout
       title="Tickets por operaria"
-      subtitle="Listado completo de tickets con detalle de seguimiento."
+      subtitle={`Tickets por operaria con comisión del ${formatCommissionRatePercent()} sobre trabajos completados.`}
       variant="table"
       topContent={
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Total tickets" value={filteredTickets.length} tone="slate" />
-          <StatCard
-            label="Completados"
-            value={filteredTickets.filter((t) => t.status === "completed").length}
-            tone="emerald"
-          />
+          <StatCard label="Completados" value={completedTickets.length} tone="emerald" />
           <StatCard
             label="En curso"
             value={filteredTickets.filter((t) => t.status === "in_service" || t.status === "pending").length}
-            tone="amber" as any
+            tone="amber"
           />
-          <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
+          <StatCard label="Ingresos (completados)" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
+          <StatCard label="Comisiones" value={moneyFormatter.format(totalCommission)} tone="blue" />
         </div>
       }
       toolbar={renderToolbar()}
@@ -419,7 +447,7 @@ export default function ProfessionalServiceHistory() {
             <div className="flex h-24 items-center justify-center text-sm text-[#a19f9d]">No hay operarias registradas.</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {professionalStats.map(({ id, name, count }, index) => {
+              {professionalStats.map(({ id, name, count, completedCount, commission }, index) => {
                 const isSelected = selectedProfessionalId === id;
                 const color = CARD_COLORS[index % CARD_COLORS.length];
                 return (
@@ -441,11 +469,18 @@ export default function ProfessionalServiceHistory() {
                     <p className={`w-full truncate text-xs font-semibold leading-tight ${isSelected ? "text-[#003a8c]" : "text-[#323130]"}`} title={name}>
                       {name}
                     </p>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      isSelected ? "bg-[#0078d4] text-white" : count > 0 ? `${color.bg} ${color.text}` : "bg-[#f3f2f1] text-[#a19f9d]"
-                    }`}>
-                      {count} {count === 1 ? "ticket" : "tickets"}
-                    </span>
+                    <div className="flex w-full flex-col items-center gap-0.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isSelected ? "bg-[#0078d4] text-white" : count > 0 ? `${color.bg} ${color.text}` : "bg-[#f3f2f1] text-[#a19f9d]"
+                      }`}>
+                        {completedCount} {completedCount === 1 ? "completado" : "completados"}
+                      </span>
+                      {commission > 0 ? (
+                        <span className={`text-[10px] font-semibold tabular-nums ${isSelected ? "text-[#003a8c]" : "text-[#0050a0]"}`}>
+                          {moneyFormatter.format(commission)}
+                        </span>
+                      ) : null}
+                    </div>
                   </button>
                 );
               })}
@@ -551,9 +586,10 @@ export default function ProfessionalServiceHistory() {
                 Tickets de {selectedProfName} — {filteredTickets.length} resultado{filteredTickets.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <span className="text-xs font-bold text-emerald-700">
-              {moneyFormatter.format(totalRevenue)}
-            </span>
+            <div className="flex flex-col items-end gap-0.5 text-xs">
+              <span className="font-bold text-emerald-700">{moneyFormatter.format(totalRevenue)} ingresos</span>
+              <span className="font-bold text-[#0050a0]">{moneyFormatter.format(totalCommission)} comisión</span>
+            </div>
           </div>
         )}
 
@@ -564,7 +600,7 @@ export default function ProfessionalServiceHistory() {
           enableGlobalSearch={false}
           enableColumnFilters={false}
           defaultLimit={25}
-          tableMinWidth="min-w-[1100px]"
+          tableMinWidth="min-w-[1200px]"
         />
       </SectionCard>
     </Layout>

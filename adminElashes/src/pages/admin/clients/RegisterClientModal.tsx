@@ -156,6 +156,7 @@ export default function RegisterClientModal({
     nombre: "",
     apellido: "",
     edad: "",
+    branch_id: "",
   });
   const bcLabelClass = "block text-xs font-semibold uppercase tracking-wide text-[#605e5c]";
   const bcSelectClass =
@@ -166,7 +167,7 @@ export default function RegisterClientModal({
   useEffect(() => {
     if (!isOpen) {
       setIsConfirmOpen(false);
-      setFieldErrors({ nombre: "", apellido: "", edad: "" });
+      setFieldErrors({ nombre: "", apellido: "", edad: "", branch_id: "" });
       setFormValues({
         nombre: "",
         apellido: "",
@@ -182,7 +183,7 @@ export default function RegisterClientModal({
 
     const initialPhone = getInitialPhoneParts(initialClient?.phone);
     const defaultBranchId = defaultBranchIdProp ?? getSelectedBranchId();
-    setFieldErrors({ nombre: "", apellido: "", edad: "" });
+    setFieldErrors({ nombre: "", apellido: "", edad: "", branch_id: "" });
     setFormValues({
       nombre: initialClient?.nombre ?? "",
       apellido: initialClient?.apellido ?? "",
@@ -243,6 +244,16 @@ export default function RegisterClientModal({
     if (name === "apellido") {
       setFieldErrors((prev) => ({ ...prev, apellido: validateApellido(value) }));
     }
+
+    if (name === "branch_id") {
+      setFieldErrors((prev) => ({ ...prev, branch_id: validateBranch(value) }));
+    }
+  };
+
+  const validateBranch = (value: string) => {
+    if (mode === "edit") return "";
+    if (!value) return "Selecciona la sucursal donde registraras al cliente.";
+    return "";
   };
 
   const validateForm = () => {
@@ -250,9 +261,10 @@ export default function RegisterClientModal({
       nombre: validateNombre(formValues.nombre),
       apellido: validateApellido(formValues.apellido),
       edad: validateEdad(formValues.edad),
+      branch_id: validateBranch(formValues.branch_id),
     };
     setFieldErrors(nextErrors);
-    return !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad;
+    return !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.branch_id;
   };
 
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -405,9 +417,9 @@ export default function RegisterClientModal({
             ) : null}
           </div>
 
-          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2">
             <label className={bcLabelClass} htmlFor="branch-registro">
-              Sucursal
+              Sucursal {mode === "create" ? <span className="text-rose-600">*</span> : null}
             </label>
             <select
               id="branch-registro"
@@ -415,14 +427,22 @@ export default function RegisterClientModal({
               className={bcSelectClass}
               value={formValues.branch_id}
               onChange={handleInputChange}
+              required={mode === "create"}
             >
-              <option value="">Sin sucursal</option>
+              <option value="">{mode === "create" ? "Selecciona una sucursal" : "Sin sucursal"}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={String(branch.id)}>
                   {branch.name}
                 </option>
               ))}
             </select>
+            {fieldErrors.branch_id ? (
+              <p className="text-xs text-rose-600">{fieldErrors.branch_id}</p>
+            ) : mode === "create" ? (
+              <p className="text-xs text-slate-500">
+                Puedes registrar a la misma persona en otra sucursal; el expediente es independiente por sucursal.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -440,7 +460,11 @@ export default function RegisterClientModal({
         message={
           mode === "edit"
             ? "¿Deseas guardar los cambios de este cliente?"
-            : "¿Deseas registrar este cliente con los datos ingresados?"
+            : formValues.branch_id
+              ? `¿Deseas registrar este cliente en ${
+                  branches.find((b) => String(b.id) === formValues.branch_id)?.name ?? "la sucursal seleccionada"
+                }?`
+              : "¿Deseas registrar este cliente con los datos ingresados?"
         }
         confirmText={mode === "edit" ? "Guardar" : "Registrar"}
         cancelText="Cancelar"

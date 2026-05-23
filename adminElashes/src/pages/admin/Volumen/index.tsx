@@ -1,9 +1,24 @@
-// src/pages/admin/Volumen/index.tsx
-import React from "react";
-import { Plus, Search, Edit, Trash2, Image as ImageIcon, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import Layout from "@/components/common/layout";
+import FilterActionBar from "@/components/common/FilterActionBar";
+import { Button } from "@/components/common/ui";
 import { useVolumen } from "./hooks/useVolumen";
 import { VolumenForm } from "./components/VolumenForm";
+import type { LashVolume } from "./types";
+
+const PAGE_SIZE = 8;
 
 export default function VolumenPage() {
   const {
@@ -23,105 +38,146 @@ export default function VolumenPage() {
     saveVolume,
     handleInputChange,
     confirmDelete,
-    closeDialog
+    closeDialog,
   } = useVolumen();
 
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(volumes.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return volumes.slice(start, start + PAGE_SIZE);
+  }, [volumes, page]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-slate-50/50 font-sans">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="p-2 bg-emerald-100 rounded-lg">
-          <Sparkles className="w-6 h-6 text-[#094732]" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Volumen</h1>
-          <p className="text-slate-500 text-sm">
-            Gestiona la coleccion de disenos disponibles para tus clientes.
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-emerald-50/40 rounded-[1.5rem] border border-emerald-100 shadow-sm p-6 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div className="relative w-full md:w-80">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+    <Layout
+      title="Volumen"
+      subtitle="Catálogo de volúmenes y estilos para tus clientas"
+      variant="cards"
+      toolbar={
+        <FilterActionBar
+          left={
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar volumen..."
+                className="w-64 rounded-lg border border-slate-200 py-2 pl-9 pr-4 text-sm outline-none transition-all focus:border-slate-300"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Buscar estilo..."
-              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#094732] focus:border-transparent transition-all text-slate-700 placeholder:text-slate-400 shadow-sm outline-none"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <button
-            onClick={openCreate}
-            className="bg-[#094732] hover:bg-[#063324] text-white font-bold rounded-xl px-6 py-3 shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Nuevo Estilo</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {loading && (
-            <div className="col-span-full py-12 text-center text-slate-400 bg-white/50 rounded-2xl border border-dashed border-slate-300">
-              Cargando volúmenes...
-            </div>
-          )}
-
-          {!loading && volumes.length === 0 && (
-            <div className="col-span-full py-12 text-center text-slate-400 bg-white/50 rounded-2xl border border-dashed border-slate-300">
-              Intenta ajustar tu búsqueda o crea un nuevo volumen.
-            </div>
-          )}
-
-          {volumes.map((vol) => (
+          }
+          right={
+            <Button onClick={openCreate} leftIcon={<Plus className="h-4 w-4" />}>
+              Nuevo volumen
+            </Button>
+          }
+        />
+      }
+    >
+      {loading ? (
+        <p className="py-10 text-center text-sm text-slate-400">Cargando volúmenes...</p>
+      ) : paginated.length === 0 ? (
+        <p className="py-10 text-center text-sm text-slate-400">No se encontraron volúmenes.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {paginated.map((vol: LashVolume) => (
             <div
               key={vol.id}
-              className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-300 flex flex-col gap-4"
+              className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-md"
             >
-              <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center group-hover:scale-[1.02] transition-transform duration-500">
+              <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-50">
                 {vol.image ? (
-                  <img src={vol.image} alt={vol.name} className="w-full h-full object-cover" />
+                  <img src={vol.image} alt={vol.name} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex flex-col items-center gap-2 text-slate-300">
-                    <ImageIcon className="w-10 h-10" />
-                    <span className="text-xs font-medium">Sin imagen</span>
-                  </div>
+                  <Layers className="h-8 w-8 text-slate-300" />
                 )}
               </div>
-
-              <div className="flex-1 flex flex-col gap-2">
-                <span className="font-bold text-slate-700 text-lg">{vol.name}</span>
-                <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
-                  {vol.description || "Sin descripcion disponible."}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between mt-auto">
-                <button
-                  onClick={() => openEdit(vol)}
-                  className="flex-1 p-2 bg-slate-100 hover:bg-[#094732] hover:text-white text-slate-600 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Editar
-                </button>
-                <button
-                  onClick={() => confirmDelete(vol)}
-                  className="ml-2 p-2 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div className="border-t border-slate-100 px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-700">{vol.name}</p>
+                    {vol.description ? (
+                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{vol.description}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(vol)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
+                      title="Editar"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmDelete(vol)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      )}
 
-      {/* --- MODALS --- */}
+      {totalPages > 1 ? (
+        <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+          <span className="text-xs text-slate-500">
+            Mostrando <b>{(page - 1) * PAGE_SIZE + 1}</b>–<b>{Math.min(page * PAGE_SIZE, volumes.length)}</b> de{" "}
+            <b>{volumes.length}</b>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 text-xs font-medium text-slate-600">
+              Pág. {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <VolumenForm
         isOpen={isModalOpen}
         isEditing={isEditing}
@@ -132,18 +188,19 @@ export default function VolumenPage() {
         onChange={handleInputChange}
       />
 
-      {dialogConfig && (
+      {dialogConfig ? (
         <ConfirmDialog
           isOpen={dialogConfig.isOpen}
           title={dialogConfig.title}
-          message={dialogConfig.message}
-          confirmText={dialogConfig.variant === "danger" ? "Eliminar" : "Confirmar"}
+          message={<p>{dialogConfig.message}</p>}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
           variant={dialogConfig.variant}
           onConfirm={dialogConfig.onConfirm}
           onCancel={closeDialog}
           isProcessing={isProcessing}
         />
-      )}
-    </div>
+      ) : null}
+    </Layout>
   );
 }
