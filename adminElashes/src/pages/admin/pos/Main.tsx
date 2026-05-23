@@ -1229,14 +1229,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       return toast.warning("Si un ticket está 'En atencion', debes seleccionar operaria.");
     }
 
-    const saleWithoutAgendaTickets = Boolean(
-      quickFromStepOne && !editingSale && !linkAppointmentId
-    );
+    const saleWithoutAgendaTickets = false;
 
-    const linesScheduledForAgenda =
-      linkAppointmentId || saleWithoutAgendaTickets
-        ? cartLines
-        : applySaleExecutionSchedule(cartLines);
+    const linesScheduledForAgenda = linkAppointmentId
+      ? cartLines
+      : applySaleExecutionSchedule(cartLines);
 
     setIsSubmitting(true);
     try {
@@ -1370,11 +1367,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
       const saleWithUpdatedAppointments = { ...sale, appointments: updatedAppointments };
       localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
-      toast.success(
-        saleWithoutAgendaTickets
-          ? "Venta registrada. Los tickets en agenda puedes crearlos después."
-          : "Venta completada. Tickets guardados con la fecha y hora del cobro."
-      );
+      toast.success("Venta completada. Tickets guardados con la fecha y hora del cobro.");
       setLinkAppointmentId(null);
       setReceiptSale(saleWithUpdatedAppointments);
       resetSaleForm();
@@ -1829,7 +1822,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               finalizeFooterHint={
                 linkAppointmentId
                   ? "Se cobra y se cierra la reserva con su horario de agenda."
-                  : "Finaliza aquí: cobro rápido sin elegir fecha u hora de ticket."
+                  : "Se registra la venta y los tickets con la hora actual del cobro."
               }
               onFinalizeSale={() => void handleCheckout(true)}
               isSubmittingCheckout={isSubmitting}

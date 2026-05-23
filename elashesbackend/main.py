@@ -128,6 +128,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Health check para que el frontend sepa que el backend ya arrancó
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
+
     # Registro de rutas
     app.include_router(service_categories_router)
     app.include_router(service_agenda_controller.router)

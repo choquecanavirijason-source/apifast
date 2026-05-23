@@ -5,7 +5,8 @@
       "Bash(npm run *)",
       "Bash(npx eslint *)",
       "Bash(npx --no-install eslint src/pages/admin/clients/Main.tsx src/pages/admin/users/main.tsx src/pages/admin/pos/components/SalesHistoryTable.tsx src/pages/admin/tickets/Main.tsx src/pages/admin/pos-tracking/PosTrackingHub.tsx)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npm install *)"
     ]
   }
 }

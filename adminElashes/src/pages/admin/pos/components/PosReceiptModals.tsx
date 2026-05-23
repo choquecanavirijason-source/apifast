@@ -85,6 +85,20 @@ export default function PosReceiptModals({
   void previewHourSlots;
   void onSelectHourFromPreview;
   const [dragOverDayIndex, setDragOverDayIndex] = useState<number | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
+
+  const handleDownloadPdf = async () => {
+    if (!receiptSale || pdfStatus === "downloading") return;
+    setPdfStatus("downloading");
+    try {
+      await generateReceiptPdf(receiptSale);
+      setPdfStatus("done");
+      window.setTimeout(() => setPdfStatus("idle"), 8000);
+    } catch {
+      setPdfStatus("error");
+      window.setTimeout(() => setPdfStatus("idle"), 8000);
+    }
+  };
 
   const handlePrintTicketModel = () => {
     const run = () => onPrint();
@@ -225,6 +239,22 @@ export default function PosReceiptModals({
               </div>
             </div>
 
+            {pdfStatus === "done" && (
+              <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5">
+                <svg className="h-5 w-5 shrink-0 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-sm font-semibold text-green-700">PDF guardado en Descargas</p>
+              </div>
+            )}
+            {pdfStatus === "error" && (
+              <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5">
+                <svg className="h-5 w-5 shrink-0 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <p className="text-sm font-semibold text-red-700">Error al guardar el PDF</p>
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -235,11 +265,44 @@ export default function PosReceiptModals({
               </button>
               <button
                 type="button"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                onClick={() => generateReceiptPdf(receiptSale)}
+                disabled={pdfStatus === "downloading"}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition ${
+                  pdfStatus === "done"
+                    ? "border-green-300 bg-green-100 text-green-700"
+                    : pdfStatus === "error"
+                    ? "border-red-300 bg-red-50 text-red-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+                onClick={() => void handleDownloadPdf()}
               >
-                <FileDown className="h-4 w-4" />
-                Descargar PDF
+                {pdfStatus === "downloading" ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Generando...
+                  </>
+                ) : pdfStatus === "done" ? (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    ¡PDF guardado!
+                  </>
+                ) : pdfStatus === "error" ? (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Error al guardar
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-4 w-4" />
+                    Descargar PDF
+                  </>
+                )}
               </button>
               <button
                 type="button"
