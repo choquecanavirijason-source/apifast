@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { theme } from '../styles/colors'
+import { theme } from '../../styles/colors'
 import { useDispatch } from 'react-redux';
 import { login, getMe } from '@/core/reducer/auth.reducer';
 import type { AppDispatch } from '@/store';

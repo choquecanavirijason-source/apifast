@@ -9,16 +9,16 @@ import type { AppDispatch, RootState } from "@/store"; // Ajusta RootState segú
 import LoaderScreen from "@/components/common/LoaderScreen";
 import { ToastContainer, toast } from "react-toastify";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
-import Layout from '@/components/Layout';
-import Login from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
+import Layout from '@/components/layout/Layout';
+import Login from '@/pages/auth/Login';
+import Dashboard from '@/pages/admin/dashboard/Dashboard';
 import ClientList from "@/pages/admin/clients/Main.tsx";
-import Users from '@/pages/Users';
-import Settings from '@/pages/Settings';
-import Effects from '@/pages/Effects';
-import LashDesigns from '@/pages/LashDesigns';
-import EyeTypes from '@/pages/EyeTypes';
-import Designs from '@/pages/Designs';
+import Users from '@/pages/admin/users/main';
+import Settings from '@/pages/admin/settings/Settings';
+import Effects from '@/pages/admin/catalog/Effects';
+import LashDesigns from '@/pages/admin/catalog/LashDesigns';
+import EyeTypes from '@/pages/admin/catalog/EyeTypes';
+import Designs from '@/pages/admin/catalog/Designs';
 import Volumen from '@/pages/admin/Volumen';
 import ProductsPage from '@/pages/admin/products/Main';
 import SalonsPage from '@/pages/admin/salons/Main';
@@ -39,7 +39,7 @@ import NotFoundPage from "@/pages/NotFoundPage";
 import PrivateRoute from "./PrivateRoute";
 import GuestRoute from "./GuestRoute";
 import Question from "@/pages/admin/Questionnaire";
-import Register from "@/pages/Register";
+import Register from "@/pages/auth/Register";
 
 export default function AppRouter() {
   const dispatch = useDispatch<AppDispatch>();

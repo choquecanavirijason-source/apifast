@@ -32,14 +32,14 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-import Layout from "../components/common/layout";
-import { Button, SectionCard, StatCard } from "../components/common/ui";
-import DownloadActions from "../components/common/ui/DownloadActions";
-import FilterField from "../components/common/ui/FilterField";
-import { DashboardService, type DashboardOverview } from "../core/services/dashboard/dashboard.service";
-import { BranchService } from "../core/services/branch/branch.service";
-import { AgendaService, type ServiceOption } from "../core/services/agenda/agenda.service";
-import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../core/utils/branch";
+import Layout from "@/components/common/layout";
+import { Button, SectionCard, StatCard } from "@/components/common/ui";
+import DownloadActions from "@/components/common/ui/DownloadActions";
+import FilterField from "@/components/common/ui/FilterField";
+import { DashboardService, type DashboardOverview } from "@/core/services/dashboard/dashboard.service";
+import { BranchService } from "@/core/services/branch/branch.service";
+import { AgendaService, type ServiceOption } from "@/core/services/agenda/agenda.service";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
 
 interface BranchOption {
   id: number;
@@ -123,7 +123,6 @@ export default function Dashboard() {
     return selected ? String(selected) : "";
   });
   const [serviceFilter, setServiceFilter] = useState("");
-  const [todayCards, setTodayCards] = useState<DashboardOverview["cards"] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,20 +168,6 @@ export default function Dashboard() {
     }
   };
 
-  const loadTodayStats = async () => {
-    const today = getLocalDateInputValue();
-    try {
-      const data = await DashboardService.getOverview({
-        from: today,
-        to: today,
-        branch_id: branchFilter ? Number(branchFilter) : undefined,
-      });
-      setTodayCards(data.cards);
-    } catch {
-      setTodayCards(null);
-    }
-  };
-
   const loadContext = async () => {
     try {
       const [branchesData, servicesData] = await Promise.all([
@@ -223,10 +208,6 @@ export default function Dashboard() {
   useEffect(() => {
     void loadDashboard();
   }, [dashboardFilters]);
-
-  useEffect(() => {
-    void loadTodayStats();
-  }, [branchFilter]);
 
   useEffect(() => {
     if (!branchFilter) {
@@ -470,34 +451,6 @@ export default function Dashboard() {
           <p className="text-sm font-medium text-[#a4262c]">{error}</p>
         </SectionCard>
       ) : null}
-
-      {/* ── Hoy en tiempo real ─────────────────────────────────────── */}
-      {todayCards && (
-        <div className="mb-4 border border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#f3f2f1] px-4 py-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">
-              Hoy — {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
-            </span>
-            <span className="text-[10px] text-[#605e5c]">actualizado al cargar</span>
-          </div>
-          <div className="flex flex-wrap items-stretch divide-x divide-[#edebe9]">
-            {[
-              { label: "Tickets del día",  value: todayCards.appointments_total,                                          color: "#0078D4" },
-              { label: "Completados",      value: todayCards.appointments_completed,                                      color: "#107C10" },
-              { label: "En espera",        value: todayCards.appointments_pending + todayCards.appointments_confirmed,    color: "#CA5010" },
-              { label: "Ingresos hoy",     value: formatCurrency(todayCards.payments_paid_total),                         color: "#5C2D91" },
-            ].map((stat) => (
-              <div key={stat.label} className="flex min-w-35 flex-1 items-center gap-3 px-5 py-3.5">
-                <span className="h-8 w-1 shrink-0" style={{ backgroundColor: stat.color }} />
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
-                  <p className="text-lg font-semibold tabular-nums text-[#201f1e]">{stat.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <SectionCard
         variant="business"

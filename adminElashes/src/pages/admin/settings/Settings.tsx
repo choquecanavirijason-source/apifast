@@ -1,6 +1,6 @@
 import React from 'react'
-import { applyTheme, themes } from '../theme'
-import { theme as defaultColors } from '../styles/colors'
+import { applyTheme, themes } from '../../../theme'
+import { theme as defaultColors } from '../../../styles/colors'
 
 export default function Settings(){
   const [theme, setTheme] = React.useState<string>(() => localStorage.getItem('ui:theme') || 'light')

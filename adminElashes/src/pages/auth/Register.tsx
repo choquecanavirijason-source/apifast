@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../auth/auth'
-import { theme } from '../styles/colors'
+import { useAuth } from '../../auth/auth'
+import { theme } from '../../styles/colors'
 
 export default function Register() {
   const [usuario, setUsuario] = React.useState('')

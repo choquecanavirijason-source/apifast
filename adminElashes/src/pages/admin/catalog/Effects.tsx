@@ -12,12 +12,12 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import api from "../core/services/api";
-import Layout from "../components/common/layout";
-import FilterActionBar from "../components/common/FilterActionBar";
-import GenericModal from "../components/common/modal/GenericModal";
-import { ConfirmDialog } from "../components/common/ConfirmDialog";
-import { Button } from "../components/common/ui";
+import api from "@/core/services/api";
+import Layout from "@/components/common/layout";
+import FilterActionBar from "@/components/common/FilterActionBar";
+import GenericModal from "@/components/common/modal/GenericModal";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Button } from "@/components/common/ui";
 
 type Effect = { id: number; name: string; image: string };
 
