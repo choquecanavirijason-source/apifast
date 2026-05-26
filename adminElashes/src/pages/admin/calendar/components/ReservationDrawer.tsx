@@ -26,6 +26,7 @@ export type ReservationDrawerProps = {
   registeredClient: ClientForSelect | null;
   onConsumeRegisteredClient: () => void;
   onOpenRegisterClient: () => void;
+  openingHoursToday?: Array<{ open_time: string; close_time: string }> | null;
 };
 
 export default function ReservationDrawer({
@@ -41,6 +42,7 @@ export default function ReservationDrawer({
   registeredClient,
   onConsumeRegisteredClient,
   onOpenRegisterClient,
+  openingHoursToday,
 }: ReservationDrawerProps) {
   const [cartLines, setCartLines] = useState<ResCartLine[]>([]);
   const [serviceQuery, setServiceQuery] = useState("");
@@ -94,6 +96,23 @@ export default function ReservationDrawer({
     if (!branchId) return [];
     return professionals.filter((p) => p.branch_id == null || Number(p.branch_id) === branchId);
   }, [branchId, professionals]);
+
+  const hoursLabel = useMemo(() => {
+    if (!openingHoursToday || openingHoursToday.length === 0) return null;
+    return openingHoursToday.map((r) => `${r.open_time}–${r.close_time}`).join("  /  ");
+  }, [openingHoursToday]);
+
+  const startTimeWarning = useMemo(() => {
+    if (!openingHoursToday || openingHoursToday.length === 0 || !startTime) return null;
+    const [h, m] = startTime.split(":").map(Number);
+    const startMinutes = h * 60 + m;
+    const fits = openingHoursToday.some((r) => {
+      const [oh, om] = r.open_time.split(":").map(Number);
+      const [ch, cm] = r.close_time.split(":").map(Number);
+      return startMinutes >= oh * 60 + om && startMinutes < ch * 60 + cm;
+    });
+    return fits ? null : `Fuera del horario del salón (${hoursLabel})`;
+  }, [openingHoursToday, startTime, hoursLabel]);
 
   useEffect(() => {
     if (!professionalId) return;
@@ -433,6 +452,11 @@ export default function ReservationDrawer({
                 <p className="text-xs text-slate-500">
                   Fecha: <span className="font-medium text-slate-700">{dateLabel}</span>
                 </p>
+                {hoursLabel ? (
+                  <p className="mt-1 text-xs text-[#094732]">
+                    Horario del salón: <span className="font-semibold">{hoursLabel}</span>
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-1.5">
@@ -530,8 +554,11 @@ export default function ReservationDrawer({
                     step={300}
                     value={startTime}
                     onChange={(ev) => setStartTime(ev.target.value)}
-                    className={agendaFieldClass}
+                    className={`${agendaFieldClass} ${startTimeWarning ? "border-amber-400 focus:border-amber-500 focus:ring-amber-400/30" : ""}`}
                   />
+                  {startTimeWarning ? (
+                    <p className="text-[11px] font-medium text-amber-600">{startTimeWarning}</p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <label className={agendaLabelClass} htmlFor="res-duration">

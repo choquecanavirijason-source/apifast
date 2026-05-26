@@ -106,6 +106,65 @@ def _validate_appointment_times(start_time: datetime, end_time: datetime):
         )
 
 
+_WEEKDAY_ES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
+
+
+def _validate_branch_opening_hours(
+    db: Session,
+    branch_id: Optional[int],
+    start_time: datetime,
+    end_time: datetime,
+):
+    if branch_id is None:
+        return
+
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch or not branch.opening_hours:
+        return  # sin horario definido → sin restricción
+
+    day_name = _WEEKDAY_ES[start_time.weekday()]
+    day_schedule = next(
+        (d for d in branch.opening_hours if isinstance(d, dict) and d.get("day") == day_name),
+        None,
+    )
+
+    if day_schedule is None:
+        return  # día no configurado → sin restricción
+
+    valid_ranges = [
+        r for r in day_schedule.get("ranges", [])
+        if r.get("open_time") and r.get("close_time")
+    ]
+
+    if not valid_ranges:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El salon está cerrado los {day_name}",
+        )
+
+    appt_start = start_time.time()
+    appt_end = end_time.time()
+
+    for r in valid_ranges:
+        try:
+            open_t = time.fromisoformat(r["open_time"])
+            close_t = time.fromisoformat(r["close_time"])
+        except (ValueError, KeyError):
+            continue
+        if appt_start >= open_t and appt_end <= close_t:
+            return  # dentro del rango → válido
+
+    hours_str = ", ".join(
+        f"{r['open_time']}–{r['close_time']}"
+        for r in valid_ranges
+        if r.get("open_time") and r.get("close_time")
+    )
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"La cita debe estar dentro del horario del salon ({hours_str})",
+    )
+
+
 def _validate_professional_availability(
     db: Session,
     professional_id: Optional[int],
@@ -353,6 +412,7 @@ def create_appointment(
         branch_id=branch_id,
     )
     _validate_appointment_times(start_time, end_time)
+    _validate_branch_opening_hours(db=db, branch_id=branch_id, start_time=start_time, end_time=end_time)
     if not skip_availability_check:
         _validate_professional_availability(
             db=db,
@@ -449,6 +509,7 @@ def update_appointment(
         branch_id=final_branch_id,
     )
     _validate_appointment_times(final_start_time, final_end_time)
+    _validate_branch_opening_hours(db=db, branch_id=final_branch_id, start_time=final_start_time, end_time=final_end_time)
     _validate_professional_availability(
         db=db,
         professional_id=final_professional_id,

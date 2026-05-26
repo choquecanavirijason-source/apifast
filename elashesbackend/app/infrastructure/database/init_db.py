@@ -1,5 +1,7 @@
 from app.infrastructure.database import engine, Base
 
+from app.domain.entities.branch_integration_profile import BranchIntegrationProfile
+from app.domain.entities.admin_ai_settings import AdminAiSettings
 from app.domain.entities.branch import Branch
 from app.domain.entities.user import User, Role, Permission
 from app.domain.entities.client import Client

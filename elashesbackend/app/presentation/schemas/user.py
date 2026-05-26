@@ -78,6 +78,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     role_id: Optional[int] = None
     branch_id: Optional[int] = None
+    permission_ids: Optional[List[int]] = None
 
     @field_validator("phone")
     @classmethod
@@ -105,4 +106,5 @@ class UserResponse(UserSummary):
     branch_id: Optional[int] = None
     role: Optional[RoleResponse] = None
     branch: Optional[BranchSummary] = None
-    phone : Optional[str] = None
+    phone: Optional[str] = None
+    direct_permissions: List[PermissionResponse] = []

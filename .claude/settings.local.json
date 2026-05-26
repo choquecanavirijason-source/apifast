@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile app/domain/entities/user.py app/presentation/schemas/user.py app/application/services/admin_service.py app/core/dependencies.py)",
+      "Bash(python -m py_compile app/infrastructure/database/seeders.py)",
+      "Bash(python -m py_compile app/core/dependencies.py app/domain/entities/user.py app/application/services/admin_service.py app/presentation/schemas/user.py app/infrastructure/database/seeders.py)",
+      "Bash(venv/Scripts/python.exe -m py_compile app/application/services/auth_service.py)",
+      "Bash(venv/Scripts/python.exe -c ' *)"
+    ]
+  }
+}

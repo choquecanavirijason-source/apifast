@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Menu, Bell, Search, ChevronDown, X, LogOut } from "lucide-react";
+import { Menu, Bell, Search, ChevronDown, X, LogOut, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { logout as logoutAction, updateSession } from "@/core/reducer/auth.reducer";
@@ -106,6 +106,10 @@ export default function Header({
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const profilePanelRef = useRef<HTMLDivElement | null>(null);
+  const operariasPanelRef = useRef<HTMLDivElement | null>(null);
+  const [operariasOpen, setOperariasOpen] = useState(false);
+  const [operarias, setOperarias] = useState<Array<{ id: number; username: string; email: string }>>([]);
+  const [operariasLoading, setOperariasLoading] = useState(false);
 
   const displayName =
     (user as { username?: string; full_name?: string; name?: string; email?: string } | null)?.username ||
@@ -257,6 +261,9 @@ export default function Header({
       }
       if (profilePanelRef.current && target && !profilePanelRef.current.contains(target)) {
         setProfileDropdownOpen(false);
+      }
+      if (operariasPanelRef.current && target && !operariasPanelRef.current.contains(target)) {
+        setOperariasOpen(false);
       }
     };
 
@@ -420,6 +427,15 @@ export default function Header({
     if (!notificationsOpen) return;
     void loadNotifications(true);
   }, [notificationsOpen, selectedBranchId]);
+
+  useEffect(() => {
+    if (!operariasOpen || !selectedBranchId) return;
+    setOperariasLoading(true);
+    AgendaService.listProfessionalsForSelect({ branch_id: selectedBranchId, limit: 200 })
+      .then((data) => setOperarias(data))
+      .catch(() => setOperarias([]))
+      .finally(() => setOperariasLoading(false));
+  }, [operariasOpen, selectedBranchId]);
 
   const handleSearchSelect = (href: string) => {
     setSearchDropdownOpen(false);
@@ -612,8 +628,74 @@ export default function Header({
             </span>
           )}
         </div>
-        
-        <button 
+
+        {/* Operarias del turno — solo cuando hay sucursal seleccionada */}
+        {selectedBranchId !== null ? (
+          <div className="relative hidden md:block" ref={operariasPanelRef}>
+            <button
+              type="button"
+              onClick={() => setOperariasOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+                operariasOpen
+                  ? "border-emerald-400 bg-emerald-700/60 text-white"
+                  : "border-emerald-800 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-800/60"
+              }`}
+              title="Ver operarias de esta sucursal"
+            >
+              <Users className="h-4 w-4" />
+              <span>Operarias</span>
+            </button>
+
+            {operariasOpen && (
+              <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl z-50">
+                <div className="flex items-center justify-between border-b border-emerald-900/70 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-emerald-300" />
+                    <p className="text-sm font-semibold text-white">
+                      {branches.find((b) => b.id === selectedBranchId)?.name ?? "Sucursal"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOperariasOpen(false)}
+                    className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-900/60"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                  {operariasLoading ? (
+                    <p className="text-sm text-emerald-200">Cargando operarias...</p>
+                  ) : operarias.length === 0 ? (
+                    <p className="text-sm text-emerald-200">No hay operarias asignadas a esta sucursal.</p>
+                  ) : (
+                    operarias.map((op) => (
+                      <div
+                        key={op.id}
+                        className="flex items-center gap-3 rounded-xl border border-emerald-900/60 bg-emerald-900/35 px-3 py-2"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                          {op.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-white">{op.username}</p>
+                          <p className="truncate text-[10px] text-emerald-300">{op.email}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <p className="mt-3 text-[10px] text-emerald-400">
+                  {operariasLoading ? "" : `${operarias.length} operaria${operarias.length !== 1 ? "s" : ""}`}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <button
           onClick={() => setShowMobileSearch(true)}
           className="md:hidden p-2.5 rounded-xl text-emerald-100 hover:bg-white/10 transition-colors"
         >

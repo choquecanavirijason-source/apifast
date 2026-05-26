@@ -10,6 +10,13 @@ role_permissions = Table(
     Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
 )
 
+user_permissions = Table(
+    "user_permissions",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
+)
+
 
 class Permission(Base):
     __tablename__ = "permissions"
@@ -43,6 +50,7 @@ class User(Base):
 
     role = relationship("Role")
     branch = relationship("Branch", back_populates="users")
+    direct_permissions = relationship("Permission", secondary=user_permissions)
 
     trackings = relationship("Tracking", back_populates="professional")
     appointments = relationship(

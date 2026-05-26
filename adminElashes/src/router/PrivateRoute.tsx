@@ -42,7 +42,7 @@ const PrivateRoute = () => {
     // Admin-restricted routes
     "/users": ["users:manage"] as IPermission[],
     "/settings": ["settings:view"] as IPermission[],
-    "/admin/salons": ["branches:view", "branches:manage"] as IPermission[],
+    "/admin/salons": ["branches:manage"] as IPermission[],
     "/admin/products": ["inventory:view", "inventory:manage"] as IPermission[],
     "/admin/ai": ["ai:view", "ai:manage"] as IPermission[],
   };

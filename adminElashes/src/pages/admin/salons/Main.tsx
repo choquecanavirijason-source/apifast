@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Search, Pencil, Trash2, Store, Plus, Settings2, Building2 } from "lucide-react";
 import { toast } from "react-toastify";
+import useAuth from "../../../core/hooks/useAuth.ts";
 import Layout from "../../../components/common/layout.tsx";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
@@ -26,6 +27,9 @@ type SalonFormErrors = Partial<Record<keyof SalonForm, string>>;
 type PageView = "salons" | "integrations";
 
 export default function SalonsPage() {
+  const { hasPermissionByName, isAdmin } = useAuth();
+  const canManage = isAdmin() || hasPermissionByName("branches:manage");
+
   const [salons, setSalons] = useState<Salon[]>([]);
   const [search, setSearch] = useState("");
   const [cityFilter, setCityFilter] = useState("");
@@ -369,19 +373,21 @@ export default function SalonsPage() {
             <Building2 className="h-3.5 w-3.5" />
             Salones
           </button>
-          <button
-            type="button"
-            onClick={() => setPageView("integrations")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold ${
-              pageView === "integrations" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            APIs WhatsApp
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => setPageView("integrations")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold ${
+                pageView === "integrations" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              APIs WhatsApp
+            </button>
+          ) : null}
         </div>
       </div>
-      {pageView === "salons" ? (
+      {pageView === "salons" && canManage ? (
         <button
           type="button"
           onClick={openCreate}
@@ -516,29 +522,31 @@ export default function SalonsPage() {
                   <p>Pais: {salon.department || "-"}</p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openIntegrationsForSalon(salon)}
-                    className="inline-flex items-center gap-1 rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
-                  >
-                    <Settings2 className="h-3.5 w-3.5" /> API WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(salon)}
-                    className="inline-flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => requestRemoveSalon(salon)}
-                    className="inline-flex items-center gap-1 rounded-sm border border-[#f1b6b8] bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#a4262c] transition hover:bg-[#fde7e9]"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Eliminar
-                  </button>
-                </div>
+                {canManage ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openIntegrationsForSalon(salon)}
+                      className="inline-flex items-center gap-1 rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" /> API WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(salon)}
+                      className="inline-flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => requestRemoveSalon(salon)}
+                      className="inline-flex items-center gap-1 rounded-sm border border-[#f1b6b8] bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#a4262c] transition hover:bg-[#fde7e9]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

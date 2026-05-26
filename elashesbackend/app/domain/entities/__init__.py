@@ -1,4 +1,6 @@
 # Paquete de modelos
+from app.domain.entities.branch_integration_profile import BranchIntegrationProfile
+from app.domain.entities.admin_ai_settings import AdminAiSettings
 from app.domain.entities.branch import Branch
 from app.domain.entities.user import Permission, Role, User
 from app.domain.entities.inventory import Category, Product, Batch, InventoryMovement

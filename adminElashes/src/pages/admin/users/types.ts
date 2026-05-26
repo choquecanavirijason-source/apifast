@@ -28,6 +28,7 @@ export interface UserItem {
   branch_id?: number | null;
   is_active?: boolean;
   created_at?: string | null;
+  direct_permissions?: PermissionItem[];
 }
 
 export type SectionTab = "users" | "roles" | "permissions";

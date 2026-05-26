@@ -47,6 +47,7 @@ def get_current_user(
         db.query(User)
         .options(
             joinedload(User.role).joinedload(Role.permissions),
+            joinedload(User.direct_permissions),
             joinedload(User.branch),
         )
         .filter(User.id == user_id)
@@ -94,24 +95,23 @@ def require_any_role(*role_names: str) -> Callable:
     return role_checker
 
 
+def _user_has_permission(user: User, permission_name: str) -> bool:
+    if user.role and user.role.name == SUPER_ADMIN_ROLE:
+        return True
+    role_perms = {p.name for p in (user.role.permissions if user.role else [])}
+    user_perms = {p.name for p in (user.direct_permissions or [])}
+    return permission_name in (role_perms | user_perms)
+
+
 def require_permission(permission_name: str) -> Callable:
     def permission_checker(
         current_user: User = Depends(get_current_active_user),
     ) -> User:
-        if not current_user.role:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="El usuario no tiene rol asignado",
-            )
-
-        permissions = [permission.name for permission in current_user.role.permissions]
-
-        if permission_name not in permissions:
+        if not _user_has_permission(current_user, permission_name):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Se requiere el permiso: {permission_name}",
             )
-
         return current_user
 
     return permission_checker
@@ -133,20 +133,11 @@ def require_any_permission(*permission_names: str) -> Callable:
     def permission_checker(
         current_user: User = Depends(get_current_active_user),
     ) -> User:
-        if not current_user.role:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="El usuario no tiene rol asignado",
-            )
-
-        permissions = [permission.name for permission in current_user.role.permissions]
-
-        if not any(p in permissions for p in permission_names):
+        if not any(_user_has_permission(current_user, p) for p in permission_names):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Se requiere el permiso: {', '.join(permission_names)}",
             )
-
         return current_user
 
     return permission_checker

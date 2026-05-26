@@ -158,7 +158,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   const [modalProId, setModalProId] = useState<number | null>(null);
   const [isRegisterClientOpen, setIsRegisterClientOpen] = useState(false);
   const [eyeTypes, setEyeTypes] = useState<EyeTypeOption[]>([]);
-  const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
+  const [branches, setBranches] = useState<Array<{ id: number; name: string; opening_hours?: Array<{ day: string; ranges: Array<{ open_time: string; close_time: string }> }> | null }>>([]);
   const [eyeTypesError, setEyeTypesError] = useState<string | null>(null);
   const [isLoadingEyeTypes, setIsLoadingEyeTypes] = useState(false);
   const [registeredClientPick, setRegisteredClientPick] = useState<ClientForSelect | null>(null);
@@ -424,6 +424,18 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     if (!branchId) return "Todas las sucursales";
     return branches.find((b) => b.id === branchId)?.name ?? `Sucursal #${branchId}`;
   }, [branchId, branches]);
+
+  const todayOpeningHours = useMemo(() => {
+    if (!branchId) return null;
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch?.opening_hours) return null;
+    const DAYS_ES = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+    const dayName = DAYS_ES[new Date(`${selectedDate}T12:00:00`).getDay()];
+    const daySchedule = branch.opening_hours.find((d) => d.day === dayName);
+    if (!daySchedule) return null;
+    const validRanges = daySchedule.ranges.filter((r) => r.open_time && r.close_time);
+    return validRanges.length > 0 ? validRanges : null;
+  }, [branchId, branches, selectedDate]);
 
   const visibleTickets = useMemo(() => {
     if (!branchId) return tickets;
@@ -956,6 +968,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         registeredClient={registeredClientPick}
         onConsumeRegisteredClient={consumeRegisteredClientPick}
         onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
+        openingHoursToday={todayOpeningHours}
       />
 
       <RegisterClientModal

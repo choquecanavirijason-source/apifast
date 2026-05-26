@@ -88,19 +88,21 @@ const initialState: AuthState = {
 
 const normalizeAuthPayload = (data: any): NormalizedAuthPayload => {
   const user = data?.user ?? (data?.name || data?.role || data?.permissions ? data : null);
-  const rawPermissions = data?.permissions ?? user?.permissions ?? user?.role?.permissions ?? [];
-  const permissions = (Array.isArray(rawPermissions)
-    ? rawPermissions
-        .map((permission: unknown) => {
-          if (typeof permission === 'string') return permission;
-          if (permission && typeof permission === 'object') {
-            const value = (permission as { name?: unknown }).name;
-            return typeof value === 'string' ? value : null;
-          }
-          return null;
-        })
-        .filter(Boolean)
-    : []) as IPermission[];
+  const rolePerms = data?.permissions ?? user?.permissions ?? user?.role?.permissions ?? [];
+  const directPerms = user?.direct_permissions ?? [];
+  const combined = [
+    ...(Array.isArray(rolePerms) ? rolePerms : []),
+    ...(Array.isArray(directPerms) ? directPerms : []),
+  ];
+  const toPermName = (p: unknown): string | null => {
+    if (typeof p === 'string') return p;
+    if (p && typeof p === 'object') {
+      const v = (p as { name?: unknown }).name;
+      return typeof v === 'string' ? v : null;
+    }
+    return null;
+  };
+  const permissions = ([...new Set(combined.map(toPermName).filter(Boolean))] as IPermission[]);
 
   const rawRoles = data?.roles ?? (user?.role ? [user.role] : []);
   const roles = (Array.isArray(rawRoles)

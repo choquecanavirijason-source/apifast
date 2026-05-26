@@ -130,8 +130,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           "services:view",
           "services:manage",
           "appointments:view",
-          "appointments:manage",
-          "branches:view"
+          "appointments:manage"
         );
       } else if (roleName === "secretaria") {
         perms.push(
@@ -144,11 +143,10 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           "services:view",
           "services:manage",
           "appointments:view",
-          "appointments:manage",
-          "branches:view"
+          "appointments:manage"
         );
       } else if (roleName === "encargadaalmacen" || roleName === "encargada_almacen") {
-        perms.push("inventory:view", "inventory:manage", "branches:view", "catalog:view");
+        perms.push("inventory:view", "inventory:manage", "catalog:view");
       }
     }
 
@@ -268,7 +266,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         name: "Salones",
         icon: <Building2 size={20} />,
         path: "/admin/salons",
-        permission: ["branches:view", "branches:manage"],
+        permission: "branches:manage",
       },
 
       {

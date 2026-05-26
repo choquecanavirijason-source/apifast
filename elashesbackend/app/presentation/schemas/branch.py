@@ -15,7 +15,7 @@ class BranchTimeRange(BaseModel):
 
 class BranchDaySchedule(BaseModel):
     day: str = Field(..., min_length=2, max_length=20)
-    ranges: list[BranchTimeRange] = Field(default_factory=list, min_length=1, max_length=2)
+    ranges: list[BranchTimeRange] = Field(default_factory=list, max_length=2)
 
     @field_validator("day")
     @classmethod

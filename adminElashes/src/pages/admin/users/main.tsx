@@ -47,6 +47,7 @@ export default function UsersMain() {
   const [editUserRoleId, setEditUserRoleId] = useState<number | null>(null);
   const [editUserBranchId, setEditUserBranchId] = useState<number | null>(null);
   const [editUserIsActive, setEditUserIsActive] = useState(true);
+  const [editUserDirectPermissionIds, setEditUserDirectPermissionIds] = useState<number[]>([]);
   const [updatingUser, setUpdatingUser] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
 
@@ -214,6 +215,7 @@ export default function UsersMain() {
     );
     setEditUserBranchId(userToEdit.branch_id ?? userToEdit.branch?.id ?? null);
     setEditUserIsActive(Boolean(userToEdit.is_active));
+    setEditUserDirectPermissionIds((userToEdit.direct_permissions ?? []).map((p) => p.id));
     setIsModalOpen(true);
   };
 
@@ -248,6 +250,7 @@ export default function UsersMain() {
         role_id: editUserRoleId,
         branch_id: editUserBranchId,
         is_active: editUserIsActive,
+        permission_ids: editUserDirectPermissionIds,
       });
 
       closeEditModal();
@@ -484,6 +487,7 @@ export default function UsersMain() {
         selectedUser={selectedUser}
         roles={roles}
         branches={branches}
+        permissions={permissions}
         editUserName={editUserName}
         editUserEmail={editUserEmail}
         editUserPhone={editUserPhone}
@@ -491,6 +495,7 @@ export default function UsersMain() {
         editUserRoleId={editUserRoleId}
         editUserBranchId={editUserBranchId}
         editUserIsActive={editUserIsActive}
+        editUserDirectPermissionIds={editUserDirectPermissionIds}
         updatingUser={updatingUser}
         onClose={closeEditModal}
         onSubmit={handleUpdateUser}
@@ -501,6 +506,7 @@ export default function UsersMain() {
         onRoleChange={setEditUserRoleId}
         onBranchChange={setEditUserBranchId}
         onActiveChange={setEditUserIsActive}
+        onDirectPermissionIdsChange={setEditUserDirectPermissionIds}
       />
 
       <RegisterUserModal

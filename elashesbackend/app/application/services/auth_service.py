@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 
-from app.domain.entities.user import User, Role
+from app.domain.entities.user import User, Role, Permission
 from app.domain.entities.branch import Branch
 from app.infrastructure.security import verify_password, create_access_token, get_password_hash
 from app.config.settings import settings
@@ -15,6 +15,7 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
         db.query(User)
         .options(
             joinedload(User.role).joinedload(Role.permissions),
+            joinedload(User.direct_permissions),
             joinedload(User.branch),
         )
         .filter(User.username == username)
@@ -111,6 +112,7 @@ def register_user(db: Session, payload: RegisterRequest) -> User:
         db.query(User)
         .options(
             joinedload(User.role).joinedload(Role.permissions),
+            joinedload(User.direct_permissions),
             joinedload(User.branch),
         )
         .filter(User.id == user.id)

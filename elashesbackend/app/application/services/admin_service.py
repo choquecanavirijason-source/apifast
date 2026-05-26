@@ -173,6 +173,7 @@ def delete_role(db: Session, role_id: int) -> None:
 def _user_query(db: Session):
     return db.query(User).options(
         joinedload(User.role).joinedload(Role.permissions),
+        joinedload(User.direct_permissions),
         joinedload(User.branch),
     )
 
@@ -332,6 +333,13 @@ def update_user(
 
     if "password" in update_data and update_data["password"]:
         user.hashed_password = get_password_hash(update_data["password"])
+
+    if "permission_ids" in update_data:
+        perm_ids = update_data["permission_ids"] or []
+        user.direct_permissions = (
+            db.query(Permission).filter(Permission.id.in_(perm_ids)).all()
+            if perm_ids else []
+        )
 
     db.commit()
     db.refresh(user)
