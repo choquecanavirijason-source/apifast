@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_any_permission, require_permission
+from app.core.dependencies import get_db, require_any_permission, require_permission, resolve_branch_id
 from app.models.user import User
 from app.schemas.pos_sale import PosSaleCreate, PosSaleResponse, PosSaleUpdate
 from app.services.pos_sale_service import (
@@ -29,10 +29,12 @@ def get_sales(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=300),
     client_id: Optional[int] = Query(default=None, ge=1),
+    branch_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
-    return list_sales(db=db, skip=skip, limit=limit, client_id=client_id)
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    return list_sales(db=db, skip=skip, limit=limit, client_id=client_id, branch_id=effective_branch)
 
 
 @router.get("/{sale_id}", response_model=PosSaleResponse)

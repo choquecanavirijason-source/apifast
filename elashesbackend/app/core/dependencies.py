@@ -1,4 +1,4 @@
-from typing import Generator, Callable
+from typing import Generator, Callable, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.database.session import SessionLocal
 from app.models.user import User, Role
 from app.core.security import decode_token
+
+SUPER_ADMIN_ROLE = "SuperAdmin"
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -113,6 +115,17 @@ def require_permission(permission_name: str) -> Callable:
         return current_user
 
     return permission_checker
+
+
+def resolve_branch_id(requested: Optional[int], current_user: User) -> Optional[int]:
+    """Return the branch_id a user is allowed to query.
+
+    SuperAdmin may pass any branch_id (or None to see all branches).
+    All other roles are locked to their own branch_id regardless of the request.
+    """
+    if current_user.role and current_user.role.name == SUPER_ADMIN_ROLE:
+        return requested
+    return current_user.branch_id
 
 
 def require_any_permission(*permission_names: str) -> Callable:

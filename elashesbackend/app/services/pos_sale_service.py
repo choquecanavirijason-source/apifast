@@ -118,10 +118,13 @@ def list_sales(
     skip: int = 0,
     limit: int = 100,
     client_id: Optional[int] = None,
+    branch_id: Optional[int] = None,
 ):
     query = _sale_query(db)
     if client_id is not None:
         query = query.filter(PosSale.client_id == client_id)
+    if branch_id is not None:
+        query = query.filter(PosSale.branch_id == branch_id)
     return (
         query.order_by(PosSale.created_at.desc(), PosSale.id.desc())
         .offset(skip)

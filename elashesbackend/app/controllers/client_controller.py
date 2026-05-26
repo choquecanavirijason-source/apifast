@@ -7,6 +7,7 @@ from app.core.dependencies import (
     get_db,
     get_current_active_user,
     require_permission,
+    resolve_branch_id,
 )
 from app.models.user import User
 from app.schemas.base_response import MessageResponse
@@ -38,7 +39,8 @@ def get_clients(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("clients:view")),
 ):
-    return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=effective_branch)
 
 
 @router.get(

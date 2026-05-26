@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import String, case, cast, distinct, func
 from sqlalchemy.orm import Session, aliased, joinedload
 
-from app.core.dependencies import get_db, require_any_permission
+from app.core.dependencies import get_db, require_any_permission, resolve_branch_id
 from app.models.branch import Branch
 from app.models.client import Client
 from app.models.inventory import Batch, Product
@@ -123,6 +123,7 @@ def get_dashboard_overview(
     ),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
 
     appointment_summary = (
         _apply_appointment_filters(
@@ -260,6 +261,7 @@ def get_dashboard_revenue_series(
     current_user: User = Depends(require_any_permission("payments:view", "appointments:view")),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
     bucket = _bucket_expression(Payment.paid_at, group_by).label("bucket")
 
     rows = (
@@ -303,6 +305,7 @@ def get_dashboard_service_distribution(
     current_user: User = Depends(require_any_permission("appointments:view", "services:view")),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
 
     rows = (
         _apply_appointment_filters(
@@ -347,6 +350,7 @@ def get_dashboard_inventory_distribution(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("inventory:view", "branches:view")),
 ):
+    branch_id = resolve_branch_id(branch_id, current_user)
     query = (
         db.query(
             Product.id.label("product_id"),
@@ -386,6 +390,7 @@ def download_payments_report(
     current_user: User = Depends(require_any_permission("payments:view", "appointments:view")),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
     registered_by = aliased(User)
 
     query = (
@@ -456,6 +461,7 @@ def download_tickets_report(
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
     professional = aliased(User)
     creator = aliased(User)
 
@@ -520,6 +526,7 @@ def download_pos_sales_report(
     current_user: User = Depends(require_any_permission("payments:view", "appointments:view")),
 ):
     start_at, end_at = _parse_date_range(from_date, to_date)
+    branch_id = resolve_branch_id(branch_id, current_user)
 
     query = db.query(PosSale).options(
         joinedload(PosSale.client),

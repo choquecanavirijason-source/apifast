@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_any_permission, require_permission
+from app.core.dependencies import get_db, require_any_permission, require_permission, resolve_branch_id
 from app.models.user import User
 from app.schemas.base_response import MessageResponse
 from app.schemas.pos_sale import PosSaleResponse
@@ -190,7 +190,8 @@ def get_clients_for_select(
         require_any_permission("appointments:view", "payments:view", "clients:view")
     ),
 ):
-    clients = list_clients_service(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    clients = list_clients_service(db=db, skip=skip, limit=limit, search=search, branch_id=effective_branch)
     return [
         {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone}
         for c in clients
@@ -209,13 +210,14 @@ def get_professionals_for_select(
         require_any_permission("appointments:view", "appointments:manage")
     ),
 ):
+    effective_branch = resolve_branch_id(branch_id, current_user)
     professionals = list_professionals_for_select(
         db=db,
         skip=skip,
         limit=limit,
         search=search,
         role_name=role_name,
-        branch_id=branch_id,
+        branch_id=effective_branch,
     )
     return [
         {
@@ -256,6 +258,8 @@ def get_appointments(
     if end_date:
         parsed_end = datetime.fromisoformat(end_date).date()
 
+    effective_branch = resolve_branch_id(branch_id, current_user)
+
     return list_appointments(
         db=db,
         skip=skip,
@@ -263,7 +267,7 @@ def get_appointments(
         client_id=client_id,
         professional_id=professional_id,
         service_id=service_id,
-        branch_id=branch_id,
+        branch_id=effective_branch,
         status_filter=status_filter,
         ticket_code_search=ticket_code,
         client_name_search=client_name,
@@ -292,11 +296,13 @@ def get_available_mobile_service_tickets(
     if end_date:
         parsed_end = datetime.fromisoformat(end_date).date()
 
+    effective_branch = resolve_branch_id(branch_id, current_user)
+
     return list_mobile_available_appointments(
         db=db,
         skip=skip,
         limit=limit,
-        branch_id=branch_id,
+        branch_id=effective_branch,
         start_date=parsed_start,
         end_date=parsed_end,
         search=search,

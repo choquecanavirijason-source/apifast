@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_permission
+from app.core.dependencies import get_db, require_permission, resolve_branch_id
 from app.models.user import User
 from app.schemas.base_response import MessageResponse
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentResponse
@@ -34,13 +34,14 @@ def get_payments(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("payments:view")),
 ):
+    effective_branch = resolve_branch_id(branch_id, current_user)
     return list_payments(
         db=db,
         skip=skip,
         limit=limit,
         client_id=client_id,
         appointment_id=appointment_id,
-        branch_id=branch_id,
+        branch_id=effective_branch,
         method=method,
         status_filter=status_filter,
     )
