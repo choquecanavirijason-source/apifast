@@ -587,26 +587,26 @@ const Main = () => {
   };
 
   const boardRibbon = (
-    <div className="flex flex-wrap items-stretch gap-0 divide-x divide-slate-100 border-b border-slate-100 bg-white">
+    <div className="flex flex-wrap items-stretch gap-0 divide-x divide-[#edebe9] border-b border-[#edebe9] bg-[#f3f2f1]">
       {[
-        { label: "En espera",   count: waitingTickets.length,   color: "#f59e0b", textColor: "#b45309" },
-        { label: "En servicio", count: inServiceTickets.length,  color: "#3b82f6", textColor: "#1d4ed8" },
-        { label: "Finalizadas", count: completedTickets.length,  color: "#10b981", textColor: "#047857" },
+        { label: "En espera", count: waitingTickets.length, color: "#D83B01" },
+        { label: "En servicio", count: inServiceTickets.length, color: "#0078D4" },
+        { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
       ].map((stat) => (
-        <div key={stat.label} className="flex min-w-28 flex-1 items-center gap-2 px-4 py-2.5">
-          <span className="h-7 w-1 shrink-0 rounded-full" style={{ backgroundColor: stat.color }} />
+        <div key={stat.label} className="flex min-w-[120px] flex-1 items-center gap-2 px-4 py-2">
+          <span className="h-8 w-1 shrink-0" style={{ backgroundColor: stat.color }} />
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{stat.label}</p>
-            <p className="text-lg font-bold tabular-nums" style={{ color: stat.textColor }}>{stat.count}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
+            <p className="text-lg font-semibold tabular-nums text-[#201f1e]">{stat.count}</p>
           </div>
         </div>
       ))}
-      <div className="flex flex-1 items-center justify-end gap-2 px-4 py-2.5">
-        <span className="text-[11px] text-slate-400">
-          {filterDate || todayDate()} · cada 30 s
+      <div className="flex flex-1 items-center justify-end gap-2 px-4 py-2">
+        <span className="text-[11px] text-[#605e5c]">
+          {filterDate || todayDate()} · actualización cada 30 s
         </span>
         {isLoading ? (
-          <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500">
+          <span className="border border-[#9dc4e6] bg-[#eff6fc] px-2 py-0.5 text-[10px] font-semibold text-[#005a9e]">
             Cargando…
           </span>
         ) : null}
@@ -616,11 +616,11 @@ const Main = () => {
 
   return (
     <Layout
-      title={<span className="text-lg font-semibold text-slate-900">Tablero de atención</span>}
-      subtitle={<span className="text-sm text-slate-500">Cola de servicios · {filterDate || todayDate()}</span>}
+      title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
+      subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
       variant="cards"
       pageClassName={BC_PAGE}
-      containerClassName={BC_CONTAINER}
+      containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
       topContent={boardRibbon}
     >
       <DndContext
@@ -885,12 +885,12 @@ const Main = () => {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="border border-[#edebe9] bg-[#faf9f8] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <label htmlFor="finish-observations" className={BC_LABEL}>
                   Observaciones del servicio
                 </label>
-                <span className="text-[11px] text-slate-400">Obligatorio: cuestionario o notas</span>
+                <span className="text-[11px] text-[#605e5c]">Obligatorio: cuestionario o notas</span>
               </div>
               <textarea
                 id="finish-observations"
@@ -902,7 +902,7 @@ const Main = () => {
               />
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#edebe9] pt-3">
               <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsFinishModalOpen(false)}>
                 Cancelar
               </Button>
@@ -935,7 +935,7 @@ const Main = () => {
             <p className="text-sm text-[#605e5c]">Sin preguntas registradas.</p>
           )}
 
-          <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-3">
+          <div className="mt-6 flex justify-end gap-2 border-t border-[#edebe9] pt-3">
             <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsQuestionnaireModalOpen(false)}>
               Cerrar
             </Button>

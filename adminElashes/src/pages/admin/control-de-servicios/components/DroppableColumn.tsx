@@ -4,10 +4,10 @@ import { useDroppable } from "@dnd-kit/core";
 
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
 
-const ACCENT: Record<string, { hex: string; ring: string; dropBg: string }> = {
-  orange: { hex: "#f59e0b", ring: "ring-amber-300/60",  dropBg: "bg-amber-50" },
-  blue:   { hex: "#3b82f6", ring: "ring-blue-300/60",   dropBg: "bg-blue-50"  },
-  green:  { hex: "#10b981", ring: "ring-emerald-300/60", dropBg: "bg-emerald-50" },
+const ACCENT_HEX: Record<string, string> = {
+  orange: "#D83B01",
+  blue:   "#0078D4",
+  green:  "#107C10",
 };
 
 export default function DroppableColumn({
@@ -30,27 +30,24 @@ export default function DroppableColumn({
   accentColor?: "orange" | "blue" | "green";
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  const accent = ACCENT[accentColor];
+  const color = ACCENT_HEX[accentColor];
   const hasTickets = tickets.length > 0;
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="flex h-full flex-col border border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
       {/* Accent stripe */}
-      <div style={{ height: 3, backgroundColor: accent.hex }} />
+      <div style={{ height: 3, backgroundColor: color }} />
 
       {/* Column header */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#f3f2f1] px-3 py-2">
         <div className="flex items-center gap-2">
-          <div
-            className="shrink-0 rounded-full"
-            style={{ width: 8, height: 8, backgroundColor: accent.hex }}
-          />
+          <div style={{ width: 3, height: 20, backgroundColor: color, flexShrink: 0 }} />
           <div>
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.07em] text-slate-700">{title}</h3>
-            <p className="text-[10px] text-slate-400">{subtitle}</p>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>
+            <p className="text-[10px] text-[#605e5c]">{subtitle}</p>
           </div>
         </div>
-        <span className="flex min-w-5.5 items-center justify-center rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
+        <span className="inline-flex min-w-[24px] items-center justify-center border border-[#8a8886] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#201f1e]">
           {tickets.length}
         </span>
       </div>
@@ -58,16 +55,14 @@ export default function DroppableColumn({
       {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className={`flex-1 space-y-2 overflow-y-auto p-2.5 transition-colors duration-150 lg:min-h-125 ${
-          isOver
-            ? `${accent.dropBg} ring-2 ring-inset ${accent.ring}`
-            : "bg-slate-50/50"
+        className={`flex-1 space-y-2 overflow-y-auto p-2 transition-colors duration-150 lg:min-h-[500px] ${
+          isOver ? "bg-[#deecf9] ring-2 ring-inset ring-[#0078d4]/50" : "bg-[#faf9f8]"
         }`}
       >
         {!hasTickets ? (
-          <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-4 text-center">
-            <p className="text-xs font-medium text-slate-400">{isEmptyLabel}</p>
-            <p className="mt-0.5 text-[11px] text-slate-300">Suelta aquí el ticket para moverlo.</p>
+          <div className="flex min-h-[160px] flex-col items-center justify-center border border-dashed border-[#c8c6c4] bg-white px-4 text-center">
+            <p className="text-xs font-medium text-[#605e5c]">{isEmptyLabel}</p>
+            <p className="mt-0.5 text-[11px] text-[#8a8886]">Suelta aquí el ticket (arrastra desde la tarjeta).</p>
           </div>
         ) : (
           tickets.map((ticket) => (
@@ -75,12 +70,15 @@ export default function DroppableColumn({
               key={ticket.id}
               className={
                 highlightTicket?.(ticket)
-                  ? "relative rounded-lg border border-blue-200 bg-blue-50/60 p-0.5"
+                  ? "relative border border-[#9dc4e6] bg-[#f0f6fb] p-[2px]"
                   : ""
               }
             >
               {highlightTicket?.(ticket) ? (
-                <span className="absolute right-2 top-2 z-10 rounded-full bg-blue-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                <span
+                  className="absolute right-2 top-2 z-10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: "#0078D4" }}
+                >
                   Nuevo
                 </span>
               ) : null}
