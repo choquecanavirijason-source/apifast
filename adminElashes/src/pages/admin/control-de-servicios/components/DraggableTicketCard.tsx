@@ -35,26 +35,24 @@ const addMinutesToTime = (time: string, minutesToAdd: number) => {
 };
 
 const STATUS_STRIP: Record<string, string> = {
-  pending: "#D83B01",
-  waiting: "#D83B01",
-  confirmed: "#D83B01",
-  in_service: "#0078D4",
-  completed: "#107C10",
-  cancelled: "#A4262C",
-};
-
-const stopDragPointer = (e: React.PointerEvent) => {
-  e.stopPropagation();
+  pending:    "#f59e0b",
+  waiting:    "#f59e0b",
+  confirmed:  "#f59e0b",
+  in_service: "#3b82f6",
+  completed:  "#10b981",
+  cancelled:  "#ef4444",
 };
 
 const STATUS_BADGE: Record<string, { bg: string; border: string; color: string }> = {
-  pending: { bg: "#FFF4F0", border: "#F4B8A0", color: "#BC4B09" },
-  waiting: { bg: "#FFF4F0", border: "#F4B8A0", color: "#BC4B09" },
-  confirmed: { bg: "#FFF4F0", border: "#F4B8A0", color: "#BC4B09" },
-  in_service: { bg: "#EFF6FC", border: "#9DC4E6", color: "#005A9E" },
-  completed: { bg: "#F1FBF1", border: "#A3D7A4", color: "#107C10" },
-  cancelled: { bg: "#FDE7E9", border: "#F1ADBA", color: "#A4262C" },
+  pending:    { bg: "#fffbeb", border: "#fcd34d", color: "#b45309" },
+  waiting:    { bg: "#fffbeb", border: "#fcd34d", color: "#b45309" },
+  confirmed:  { bg: "#fffbeb", border: "#fcd34d", color: "#b45309" },
+  in_service: { bg: "#eff6ff", border: "#93c5fd", color: "#2563eb" },
+  completed:  { bg: "#f0fdf4", border: "#6ee7b7", color: "#059669" },
+  cancelled:  { bg: "#fef2f2", border: "#fca5a5", color: "#dc2626" },
 };
+
+const stopDragPointer = (e: React.PointerEvent) => e.stopPropagation();
 
 export default function DraggableTicketCard({
   ticket,
@@ -141,11 +139,11 @@ export default function DraggableTicketCard({
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
     opacity: isDragging ? 0.4 : 1,
-    borderLeft: `4px solid ${STATUS_STRIP[ticket.status] ?? "#D2D0CE"}`,
+    borderLeft: `3px solid ${STATUS_STRIP[ticket.status] ?? "#cbd5e1"}`,
     touchAction: "none",
   };
 
-  const badge = STATUS_BADGE[ticket.status] ?? { bg: "#F3F2F1", border: "#D2D0CE", color: "#605E5C" };
+  const badge = STATUS_BADGE[ticket.status] ?? { bg: "#f8fafc", border: "#cbd5e1", color: "#64748b" };
   const hasQuickChanges =
     quickDate !== getDateInputValue(ticket.start_time) ||
     quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
@@ -161,24 +159,24 @@ export default function DraggableTicketCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`group relative cursor-grab touch-none border border-[#c8c6c4] bg-white transition-shadow active:cursor-grabbing ${
+      className={`group relative cursor-grab touch-none rounded-lg border border-slate-200 bg-white transition-shadow active:cursor-grabbing ${
         isDragging
-          ? "z-0 shadow-none ring-2 ring-dashed ring-[#8a8886]"
-          : "shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)]"
+          ? "z-0 shadow-none ring-2 ring-dashed ring-slate-300"
+          : "shadow-sm hover:shadow-md"
       }`}
     >
       {isPopupOpen ? (
         <>
-          <div className="absolute inset-0 z-[60] bg-[#f3f2f1]/60" />
+          <div className="absolute inset-0 z-60 rounded-lg bg-slate-100/70" />
           <div
             ref={popoverRef}
             onPointerDown={stopDragPointer}
-            className="absolute left-1/2 top-2 z-[70] w-[95%] -translate-x-1/2 border border-[#c8c6c4] bg-white p-3 shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+            className="absolute left-1/2 top-2 z-70 w-[95%] -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
           >
-            <div className="mb-3 flex items-center justify-between border-b border-[#edebe9] pb-2">
+            <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
               <div>
-                <h4 className="text-sm font-semibold text-[#201f1e]">Ajustar turno</h4>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                <h4 className="text-sm font-semibold text-slate-900">Ajustar turno</h4>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Cambios automáticos
                 </p>
               </div>
@@ -186,7 +184,7 @@ export default function DraggableTicketCard({
                 type="button"
                 onPointerDown={stopDragPointer}
                 onClick={() => setIsPopupOpen(false)}
-                className="border border-transparent p-1 text-[#605e5c] hover:border-[#c8c6c4] hover:bg-[#f3f2f1]"
+                className="rounded-lg border border-transparent p-1 text-slate-400 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-600"
               >
                 <X size={16} />
               </button>
@@ -195,7 +193,7 @@ export default function DraggableTicketCard({
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
                     <Calendar size={11} /> Fecha
                   </label>
                   <input
@@ -207,7 +205,7 @@ export default function DraggableTicketCard({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
                     <Clock size={11} /> Hora
                   </label>
                   <input
@@ -221,7 +219,7 @@ export default function DraggableTicketCard({
               </div>
 
               <div>
-                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
+                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-500">
                   <User size={11} /> Profesional
                 </label>
                 <select
@@ -249,7 +247,7 @@ export default function DraggableTicketCard({
                       if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
                       else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
                     }}
-                    className="flex-1 border border-[#8a8886] bg-[#f3f2f1] py-1.5 text-[10px] font-semibold text-[#323130] hover:bg-white hover:border-[#0078d4] hover:text-[#0078d4]"
+                    className="flex-1 rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-[10px] font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     {label}
                   </button>
@@ -258,9 +256,9 @@ export default function DraggableTicketCard({
             </div>
 
             {hasQuickChanges ? (
-              <div className="mt-3 flex items-center justify-center gap-2 border border-[#9dc4e6] bg-[#eff6fc] py-1.5">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
-                <span className="text-[10px] font-semibold text-[#005a9e]">
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 py-1.5">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+                <span className="text-[10px] font-semibold text-blue-600">
                   {isSavingEdit ? "Sincronizando…" : "Cambios pendientes"}
                 </span>
               </div>
@@ -274,13 +272,13 @@ export default function DraggableTicketCard({
           <div className="flex min-w-0 items-start gap-1.5">
             <GripVertical
               size={14}
-              className="mt-0.5 shrink-0 text-[#c8c6c4] opacity-80 group-hover:text-[#0078d4]"
+              className="mt-0.5 shrink-0 text-slate-300 opacity-80 group-hover:text-blue-400"
               aria-hidden
             />
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-[#201f1e]">{ticket.client_name}</h3>
-              <p className="truncate text-[10px] text-[#605e5c]">{services}</p>
-              <span className="text-[10px] font-medium text-[#8a8886]">{ticket.branch_name || "Central"}</span>
+              <h3 className="truncate text-sm font-semibold text-slate-900">{ticket.client_name}</h3>
+              <p className="truncate text-[10px] text-slate-500">{services}</p>
+              <span className="text-[10px] font-medium text-slate-400">{ticket.branch_name || "Central"}</span>
             </div>
           </div>
 
@@ -288,29 +286,29 @@ export default function DraggableTicketCard({
             type="button"
             onPointerDown={stopDragPointer}
             onClick={() => setIsPopupOpen(true)}
-            className={`flex shrink-0 items-center gap-0.5 border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+            className={`flex shrink-0 items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase transition-colors ${
               hasQuickChanges
-                ? "border-[#f4b8a0] bg-[#fff4f0] text-[#bc4b09]"
-                : "border-[#c8c6c4] bg-[#f3f2f1] text-[#323130] hover:bg-white"
+                ? "border-amber-200 bg-amber-50 text-amber-600"
+                : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white hover:border-slate-300"
             }`}
           >
             Editar <ChevronRight size={10} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-y border-[#edebe9] bg-[#faf9f8] px-1 py-1.5">
+        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1.5">
           <div>
-            <span className="text-xs font-semibold text-[#323130]">
+            <span className="text-xs font-semibold text-slate-700">
               {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
             </span>
             {remaining ? (
-              <p className="text-[10px] font-semibold text-[#0078d4]">{remaining}</p>
+              <p className="text-[10px] font-semibold text-blue-500">{remaining}</p>
             ) : (
-              <p className="text-[10px] font-medium uppercase tracking-wide text-[#8a8886]">Horario</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Horario</p>
             )}
           </div>
           <span
-            className="inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase"
+            className="inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase"
             style={{ backgroundColor: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
           >
             {STATUS_LABELS[ticket.status] || ticket.status}
@@ -318,9 +316,9 @@ export default function DraggableTicketCard({
         </div>
 
         <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-1 border border-[#a3d7a4] bg-[#f1fbf1] px-1.5 py-0.5">
-            <User size={10} className="text-[#107c10]" />
-            <span className="text-[10px] font-semibold text-[#107c10]">
+          <div className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5">
+            <User size={10} className="text-emerald-600" />
+            <span className="text-[10px] font-semibold text-emerald-700">
               {professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username || "Sin asignar"}
             </span>
           </div>
@@ -328,18 +326,18 @@ export default function DraggableTicketCard({
             type="button"
             onPointerDown={stopDragPointer}
             onClick={() => onDelete(ticket)}
-            className="border border-transparent p-1 text-[#8a8886] hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]"
+            className="rounded-lg border border-transparent p-1 text-slate-300 hover:border-red-200 hover:bg-red-50 hover:text-red-400 transition-colors"
           >
             <Trash2 size={14} />
           </button>
         </div>
 
         {ticket.ticket_code ? (
-          <p className="mt-1 font-mono text-[10px] text-[#8a8886]">{ticket.ticket_code}</p>
+          <p className="mt-1 font-mono text-[10px] text-slate-400">{ticket.ticket_code}</p>
         ) : null}
       </div>
 
-      <div className="border-t border-[#edebe9] px-2.5 pb-2.5 pt-1" onPointerDown={stopDragPointer}>
+      <div className="border-t border-slate-100 px-2.5 pb-2.5 pt-1" onPointerDown={stopDragPointer}>
         {actions}
       </div>
     </div>
