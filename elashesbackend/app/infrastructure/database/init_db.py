@@ -1,0 +1,22 @@
+from app.infrastructure.database import engine, Base
+
+from app.domain.entities.branch import Branch
+from app.domain.entities.user import User, Role, Permission
+from app.domain.entities.client import Client
+from app.domain.entities.inventory import Category, Product, Batch, InventoryMovement
+from app.domain.entities.tracking import (
+    Tracking,
+    EyeType,
+    Effect,
+    Volume,
+    LashDesign,
+    Questionnaire,
+    Question,
+)
+from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment
+from app.domain.entities.payment import Payment
+from app.domain.entities.pos_sale import PosSale
+
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
