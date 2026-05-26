@@ -5,9 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session, joinedload
 
-from app.database.session import SessionLocal
-from app.models.user import User, Role
-from app.core.security import decode_token
+from app.infrastructure.database.session import SessionLocal
+from app.domain.entities.user import User, Role
+from app.infrastructure.security import decode_token
 
 SUPER_ADMIN_ROLE = "SuperAdmin"
 

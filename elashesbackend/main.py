@@ -18,59 +18,47 @@ def get_base_path():
 os.environ["ENV_FILE_PATH"] = os.path.join(get_base_path(), ".env")
 
 from app.config.settings import settings
-from app.routes import auth_routes, admin
-from app.database.init_db import init_db
-from app.database.session import SessionLocal   
-from app.database.seeders import run_seeders   
+from app.presentation.routes import auth_routes, admin
+from app.infrastructure.database.init_db import init_db
+from app.infrastructure.database.session import SessionLocal   
+from app.infrastructure.database.seeders import run_seeders   
 
 # Importaciones explícitas para evitar que PyInstaller las ignore
-import app.database.migrations.add_ticket_code_to_appointments as m1
-import app.database.migrations.add_payment_registered_by_notes as m2
-import app.database.migrations.add_pos_sales_and_ticket_audit as m3
-import app.database.migrations.add_user_created_at as m4
-import app.database.migrations.add_sale_price_to_batches as m5
-import app.database.migrations.add_branch_client_and_service_links as m6
-import app.database.migrations.add_service_categories as m7
-import app.database.migrations.add_image_url_to_services as m8
-import app.database.migrations.add_image_url_to_service_categories as m9
-import app.database.migrations.add_is_mobile_to_service_categories as m10
-import app.database.migrations.add_is_ia_to_appointments as m11
-import app.database.migrations.add_status_to_clients as m12
-import app.database.migrations.add_last_activity_to_clients as m13
+import app.infrastructure.database.migrations.add_ticket_code_to_appointments as m1
+import app.infrastructure.database.migrations.add_payment_registered_by_notes as m2
+import app.infrastructure.database.migrations.add_pos_sales_and_ticket_audit as m3
+import app.infrastructure.database.migrations.add_user_created_at as m4
+import app.infrastructure.database.migrations.add_sale_price_to_batches as m5
+import app.infrastructure.database.migrations.add_branch_client_and_service_links as m6
+import app.infrastructure.database.migrations.add_service_categories as m7
+import app.infrastructure.database.migrations.add_image_url_to_services as m8
+import app.infrastructure.database.migrations.add_image_url_to_service_categories as m9
+import app.infrastructure.database.migrations.add_is_mobile_to_service_categories as m10
+import app.infrastructure.database.migrations.add_is_ia_to_appointments as m11
+import app.infrastructure.database.migrations.add_status_to_clients as m12
+import app.infrastructure.database.migrations.add_last_activity_to_clients as m13
+import app.infrastructure.database.migrations.add_branch_opening_hours as m14
+import app.infrastructure.database.migrations.add_branch_integration_profiles as m15
+import app.infrastructure.database.migrations.add_admin_ai_settings as m16
+import app.infrastructure.database.migrations.add_ai_permissions as m17
 
-from app.controllers import (
+from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
     service_agenda_controller,
 )
-from app.controllers.service_categories_controller import router as service_categories_router
+from app.presentation.controllers.service_categories_controller import router as service_categories_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(">>> Inicializando base de datos <<<")
     init_db()  
 
-    # Lista de migraciones ya importadas explícitamente
+    # Migraciones ejecutadas en orden. Usamos los módulos ya importados arriba
+    # (m1..m13) para que PyInstaller los detecte y empaquete.
     migrations = [
-        ("ticket_code", lambda: __import__("app.database.migrations.add_ticket_code_to_appointments", fromlist=["upgrade"]).upgrade()),
-        ("payment_registered_by_notes", lambda: __import__("app.database.migrations.add_payment_registered_by_notes", fromlist=["upgrade"]).upgrade()),
-        ("pos_sales_and_ticket_audit", lambda: __import__("app.database.migrations.add_pos_sales_and_ticket_audit", fromlist=["upgrade"]).upgrade()),
-        ("user_created_at", lambda: __import__("app.database.migrations.add_user_created_at", fromlist=["upgrade"]).upgrade()),
-        ("batch_sale_price", lambda: __import__("app.database.migrations.add_sale_price_to_batches", fromlist=["upgrade"]).upgrade()),
-        ("branch_client_service_links", lambda: __import__("app.database.migrations.add_branch_client_and_service_links", fromlist=["upgrade"]).upgrade()),
-        ("service_categories_relation", lambda: __import__("app.database.migrations.add_service_categories", fromlist=["upgrade"]).upgrade()),
-            ("services_image_url", lambda: __import__("app.database.migrations.add_image_url_to_services", fromlist=["upgrade"]).upgrade()),
-            ("service_categories_image_url", lambda: __import__("app.database.migrations.add_image_url_to_service_categories", fromlist=["upgrade"]).upgrade()),
-            ("service_categories_is_mobile", lambda: __import__("app.database.migrations.add_is_mobile_to_service_categories", fromlist=["upgrade"]).upgrade()),
-            ("appointments_is_ia", lambda: __import__("app.database.migrations.add_is_ia_to_appointments", fromlist=["upgrade"]).upgrade()),
-            ("add_status_to_clients", lambda: __import__("app.database.migrations.add_status_to_clients", fromlist=["upgrade"]).upgrade()),
-        ("add_last_activity_to_clients", lambda: __import__("app.database.migrations.add_last_activity_to_clients", fromlist=["upgrade"]).upgrade()),
-        ("branch_opening_hours", lambda: __import__("app.database.migrations.add_branch_opening_hours", fromlist=["upgrade"]).upgrade()),
-        ("branch_integration_profiles", lambda: __import__("app.database.migrations.add_branch_integration_profiles", fromlist=["upgrade"]).upgrade()),
-        ("admin_ai_settings", lambda: __import__("app.database.migrations.add_admin_ai_settings", fromlist=["upgrade"]).upgrade()),
-        ("ai_permissions", lambda: __import__("app.database.migrations.add_ai_permissions", fromlist=["upgrade"]).upgrade()),
-         ("ticket_code", m1.upgrade),
+        ("ticket_code", m1.upgrade),
         ("payment_registered_by_notes", m2.upgrade),
         ("pos_sales_and_ticket_audit", m3.upgrade),
         ("user_created_at", m4.upgrade),
@@ -83,6 +71,10 @@ async def lifespan(app: FastAPI):
         ("appointments_is_ia", m11.upgrade),
         ("add_status_to_clients", m12.upgrade),
         ("add_last_activity_to_clients", m13.upgrade),
+        ("branch_opening_hours", m14.upgrade),
+        ("branch_integration_profiles", m15.upgrade),
+        ("admin_ai_settings", m16.upgrade),
+        ("ai_permissions", m17.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

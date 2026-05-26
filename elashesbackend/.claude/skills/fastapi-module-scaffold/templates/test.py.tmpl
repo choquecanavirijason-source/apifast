@@ -1,0 +1,36 @@
+"""
+Smoke test para {{Module}}. Ver [[fastapi-testing]] para la setup completa
+de fixtures + override de get_db + base de datos en memoria.
+"""
+import pytest
+from fastapi.testclient import TestClient
+
+
+def test_create_and_list_{{module}}(client: TestClient, auth_headers):
+    create_resp = client.post(
+        "/{{modules}}/",
+        json={"name": "Demo {{Module}}"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    created = create_resp.json()
+    assert created["name"] == "Demo {{Module}}"
+
+    list_resp = client.get("/{{modules}}/", headers=auth_headers)
+    assert list_resp.status_code == 200
+    names = [item["name"] for item in list_resp.json()]
+    assert "Demo {{Module}}" in names
+
+
+def test_duplicate_name_returns_409(client: TestClient, auth_headers):
+    payload = {"name": "Duplicado"}
+    first = client.post("/{{modules}}/", json=payload, headers=auth_headers)
+    assert first.status_code == 201
+
+    second = client.post("/{{modules}}/", json=payload, headers=auth_headers)
+    assert second.status_code == 409
+
+
+def test_get_404_when_missing(client: TestClient, auth_headers):
+    resp = client.get("/{{modules}}/999999", headers=auth_headers)
+    assert resp.status_code == 404

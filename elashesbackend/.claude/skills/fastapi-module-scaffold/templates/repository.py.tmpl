@@ -1,0 +1,42 @@
+"""
+Repositorio para {{Module}} — SOLO crear si hay queries complejas o repetidas.
+Si todo es db.query(...).filter(...).first(), déjalo inline en el service.
+"""
+from typing import Optional, Sequence
+
+from sqlalchemy.orm import Session, joinedload
+
+from app.domain.entities.{{module}} import {{Module}}
+
+
+class {{Module}}Repository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def list_with_filters(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+    ) -> Sequence[{{Module}}]:
+        query = self.db.query({{Module}})
+        if search and search.strip():
+            query = query.filter({{Module}}.name.ilike(f"%{search.strip()}%"))
+        return query.order_by({{Module}}.name.asc()).offset(skip).limit(limit).all()
+
+    def get_by_id(self, {{module}}_id: int) -> Optional[{{Module}}]:
+        return self.db.query({{Module}}).filter({{Module}}.id == {{module}}_id).first()
+
+    def get_by_name(self, name: str, *, exclude_id: Optional[int] = None) -> Optional[{{Module}}]:
+        query = self.db.query({{Module}}).filter({{Module}}.name == name.strip())
+        if exclude_id is not None:
+            query = query.filter({{Module}}.id != exclude_id)
+        return query.first()
+
+    def add(self, item: {{Module}}) -> {{Module}}:
+        self.db.add(item)
+        return item
+
+    def delete(self, item: {{Module}}) -> None:
+        self.db.delete(item)

@@ -1,0 +1,80 @@
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import get_db, require_permission
+from app.domain.entities.user import User
+from app.presentation.schemas.base_response import MessageResponse
+from app.presentation.schemas.{{module}} import {{Module}}Create, {{Module}}Update, {{Module}}Response
+from app.application.services.{{module}}_service import (
+    list_{{modules}},
+    get_{{module}}_by_id,
+    create_{{module}},
+    update_{{module}},
+    delete_{{module}},
+)
+
+
+router = APIRouter(
+    prefix="/{{modules}}",
+    tags=["{{Module}}s"],
+)
+
+
+@router.get("/", response_model=List[{{Module}}Response])
+def get_all(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    search: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("{{modules}}:view")),
+):
+    return list_{{modules}}(db=db, skip=skip, limit=limit, search=search)
+
+
+@router.get("/{{{module}}_id}", response_model={{Module}}Response)
+def get_one(
+    {{module}}_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("{{modules}}:view")),
+):
+    return get_{{module}}_by_id(db=db, {{module}}_id={{module}}_id)
+
+
+@router.post("/", response_model={{Module}}Response, status_code=status.HTTP_201_CREATED)
+def create_new(
+    payload: {{Module}}Create,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("{{modules}}:manage")),
+):
+    return create_{{module}}(
+        db=db,
+        name=payload.name,
+        # TODO: forwardear los demás campos
+    )
+
+
+@router.put("/{{{module}}_id}", response_model={{Module}}Response)
+def update_existing(
+    {{module}}_id: int,
+    payload: {{Module}}Update,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("{{modules}}:manage")),
+):
+    return update_{{module}}(
+        db=db,
+        {{module}}_id={{module}}_id,
+        name=payload.name,
+        # TODO: forwardear los demás campos
+    )
+
+
+@router.delete("/{{{module}}_id}", response_model=MessageResponse)
+def delete_existing(
+    {{module}}_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("{{modules}}:manage")),
+):
+    delete_{{module}}(db=db, {{module}}_id={{module}}_id)
+    return MessageResponse(message="{{Module}} eliminado correctamente")

@@ -1035,60 +1035,487 @@ Copia esta lista al iniciar el proyecto:
 
 ## 10. PROMPT LISTO PARA COPIAR (dáselo a la IA)
 
+> Este prompt es **autocontenido**: no requiere leer el resto del documento. Cópialo tal cual en Claude, Cursor o ChatGPT. Sustituye `{BASE_URL}` por la URL real de tu backend antes de pegarlo.
+
+````
+# ROL
+
+Eres un desarrollador Flutter senior. Tu trabajo es construir, fase por fase, una app
+Flutter de producción que replica el panel admin "adminElashes" (salón de pestañas
+Elashes) sobre la API FastAPI existente en {BASE_URL} (default http://localhost:8000).
+
+NO eres asistente conversacional. Entregas código compilable, navegable, con tests, y
+listo para `flutter build apk --release`. Cada respuesta termina con código aplicable, no
+con preguntas abiertas. Si tienes que elegir entre dos opciones técnicas, elige la más
+simple y explica en una línea por qué — no preguntes, decide.
+
+# OBJETIVO
+
+App móvil + tablet (Android/iOS, opcionalmente desktop) con paridad funcional con el
+panel React web. Mismos endpoints, misma lógica de negocio, mismos estados de
+ticket/cliente. UI **rediseñada con Material 3 nativo**: no copiar el HTML pixel-a-pixel,
+adaptar a patrones móviles (bottom sheets en vez de modales centrados, swipe actions,
+pull-to-refresh, FAB cuando aplique).
+
+# STACK FIJO — NO NEGOCIABLE
+
+- Flutter 3.24+, Dart 3.5+, null-safe estricto.
+- Arquitectura feature-first con tres capas: `data/` (DTOs + api) → `domain/` (entities
+  + repositorio abstracto) → `presentation/` (screens + Riverpod notifiers).
+- Estado: **flutter_riverpod 2.x** con `AsyncNotifier` / `Notifier`. Prohibido `setState`
+  para estado de servidor.
+- HTTP: **dio 5.x** con dos interceptores: `AuthInterceptor` (Bearer) y `ErrorInterceptor`
+  (mapea `DioException` → `ApiException`).
+- Almacenamiento seguro: **flutter_secure_storage** (clave del token = `"_tkn"`, igual
+  que el web).
+- Almacenamiento ligero: **shared_preferences** (`selected_branch_id`, prefs UI).
+- Navegación: **go_router 14.x** con redirect basado en sesión + permisos. Rutas
+  declaradas en `lib/core/router/routes.dart` como constantes — nada de strings sueltos.
+- Serialización: **freezed 2.x + json_serializable**. Regenerar con
+  `dart run build_runner build --delete-conflicting-outputs`.
+- Gráficos: `fl_chart`. PDF: `pdf` + `printing`. Tablas: `data_table_2`. Iconos:
+  `lucide_icons`. Imágenes red: `cached_network_image`. Picker imagen: `image_picker`.
+- Formato fecha/moneda: `intl` con locale `es_BO`, moneda BOB (símbolo "Bs").
+- Testing: `flutter_test` + `mocktail`.
+- Lint: `flutter_lints` + reglas estrictas (`avoid_print`,
+  `prefer_const_constructors`, `require_trailing_commas`, `prefer_single_quotes`).
+
+# RESTRICCIONES — NUNCA HAGAS ESTO
+
+- No uses el paquete `http`. Solo `dio`.
+- No uses Provider, Bloc, GetX, MobX. Solo Riverpod.
+- No `Navigator.push` directo. Todo por `go_router`.
+- No metas lógica de red en widgets. Los widgets consumen providers; los providers llaman
+  repositorios.
+- No `setState` para datos de API. Solo para UI puramente local (un toggle visual).
+- No strings mágicos en endpoints — centralizar en `ApiEndpoints` (`static const`).
+- No catches genéricos (`catch (_)`) — captura `DioException` u otro tipo concreto.
+- No `print()` en producción. Usa `developer.log(message, name: 'feature.subfeature')`.
+- No hardcodees colores en widgets. Todo de `Theme.of(context).colorScheme` o
+  `AppColors.brandPrimary`.
+- No uses los endpoints `/face/*` (no están en producción).
+- No `// TODO`, no `throw UnimplementedError()` en código entregado.
+
+# CONTRATO API — CONVENCIONES GENERALES
+
+- Auth: header `Authorization: Bearer <token>` en toda ruta privada.
+- Errores FastAPI: JSON `{ "detail": "mensaje" }` con status 4xx/5xx.
+  `ErrorInterceptor` extrae `detail`. Si `detail` es lista (422 validation), une los
+  mensajes con `"\n"`.
+- Listados con `branch_id`: si el usuario tiene sucursal seleccionada, **siempre** mandar
+  el query param. Si es `null`, omitirlo.
+- Fechas en payload de salida: ISO 8601 local sin zona horaria
+  (`2026-05-20T10:00:00`). Fechas de respuesta: `DateTime.parse(...)`, mostrar con
+  `DateFormat('dd/MM/yyyy HH:mm', 'es_BO')`.
+- Imágenes: endpoints `upload-image` aceptan multipart con campo `file`. Response:
+  `{ "image_url": "..." }`. Mostrar con `cached_network_image`.
+- Manejo de 401: el `AuthInterceptor` hace logout silencioso + redirect a `/login`. Las
+  pantallas NO duplican este manejo.
+- Manejo sin red: `DioExceptionType.connectionError` →
+  `ApiException(message: 'Sin conexión a internet')`.
+
+# AUTENTICACIÓN Y PERMISOS
+
+Endpoints:
+- `POST /auth/login` → `{ username, password }` → `{ access_token, token_type, user }`
+- `GET  /auth/me`    → usuario actual con `roles[]` y `permissions[]`
+- `POST /auth/logout` → invalida sesión
+
+Comportamiento al arrancar app:
+1. Leer token de secure_storage.
+2. Si no hay → `/login`.
+3. Si hay → llamar `GET /auth/me`. Si 200, hidratar `AuthState` y entrar al shell. Si
+   401, borrar token y `/login`.
+
+Filtro de menú:
+- Cada item de navegación declara `requiredPermission: String?`.
+- Si `requiredPermission == null` o usuario tiene rol `"SuperAdmin"` o
+  `user.permissions.contains(requiredPermission)` → se muestra.
+- Si no → se oculta completamente (no se muestra deshabilitado).
+
+Permisos esperados del backend (strings exactos):
+`clients:view`, `clients:manage`, `catalog:view`, `catalog:manage`, `services:view`,
+`services:manage`, `payments:view`, `payments:manage`, `appointments:view`,
+`appointments:manage`, `inventory:view`, `inventory:manage`, `branches:view`,
+`branches:manage`, `forms:view`, `forms:manage`, `settings:view`.
+
+# SUCURSAL GLOBAL
+
+- `branchProvider` (Riverpod) expone `selectedBranchId: int?` persistido en
+  shared_preferences con clave `selected_branch_id`.
+- Selector tipo Dropdown en AppBar visible en todas las pantallas autenticadas.
+- Al cambiar, **invalidar** los providers de listados afectados: clients, services,
+  tickets, pos-sales, dashboard, inventory.
+
+# ESTRUCTURA DE CARPETAS — OBLIGATORIA
+
 ```
-Eres un desarrollador senior Flutter. Debes crear una aplicación móvil/tablet que replique el panel admin "adminElashes" (salón de pestañas Elashes), consumiendo la API REST FastAPI en {BASE_URL} (default http://localhost:8000).
-
-REQUISITOS TÉCNICOS:
-- Flutter 3.x, Dart 3, arquitectura feature-first con Riverpod o Bloc.
-- HTTP: Dio con interceptor Bearer JWT (token en flutter_secure_storage, clave equivalente a "_tkn").
-- Navegación: go_router con rutas públicas (/login) y shell autenticado con NavigationRail/Drawer.
-- Tema: ColorScheme primary #094732, fondo sidebar #031910.
-- i18n es-BO, moneda BOB.
-- Manejo de errores API con mensajes del campo "detail" de FastAPI.
-
-AUTENTICACIÓN:
-- POST /auth/login, GET /auth/me, POST /auth/logout.
-- Guardar usuario, roles y permisos; filtrar menú por permisos (clients:view, services:manage, etc.).
-
-SUCURSAL GLOBAL:
-- Persistir branch_id seleccionado; pasarlo como query en listados de clientes, servicios, tickets, POS, dashboard.
-
-PANTALLAS OBLIGATORIAS (paridad con adminElashes):
-1. Dashboard: KPIs /dashboard/overview, gráficos revenue-series, service-distribution, filtros fecha y sucursal.
-2. Clientes: CRUD /clients/, tabla con búsqueda, filtro frecuentes (visitas>5), export PDF.
-3. Catálogos: eye-types, effects, volumes, lash-designs, designs vía /catalogs/*.
-4. Servicios: /agenda/services y /services/categories con imágenes multipart.
-5. Tickets: /agenda/appointments listado y estados; pantalla finalizados.
-6. Cola de servicios: flujo operativo del día (en_espera → en_servicio → atendido).
-7. Calendario y Agenda del día: citas por fecha/profesional; soporte crear/editar cita.
-8. POS: carrito multi-servicio, cliente, descuento, POST /pos-sales/ creando tickets en agenda; historial y PDF /pos-sales/{id}/receipt.pdf.
-9. Inventario: productos, categorías, movimientos, stock-summary.
-10. Sucursales: /branches/.
-11. Cuestionarios: /catalogs/questionnaires.
-12. Seguimiento: /tracking/ y vista por clientId.
-13. Usuarios/Roles: /admin/users solo SuperAdmin.
-14. Ajustes y login/register.
-
-MODELOS E INTERFACES (ver sección 9 del doc):
-- Crear TODOS los DTO con json_serializable (snake_case desde API).
-- Crear modelos UI donde adminElashes mapea (ej. Client: name→nombre).
-- Crear estado local: CartLine, PosSaleDraft, QueueEntry, AgendaSlotRow, DataColumnDef.
-- Crear abstract class Repository por feature: AuthRepository, ClientRepository, ServiceRepository, AppointmentRepository, PosSaleRepository, PaymentRepository, ProductRepository, DashboardRepository, TrackingRepository, AdminRepository.
-- Enums: ClientStatus, PaymentMethod (cash|card|transfer|qr), DiscountType (amount|percent), QuestionType.
-
-COMPONENTES: DataTable paginada, StatCard, filtros, modales formulario, ConfirmDialog, SnackBar éxito/error.
-
-ENTREGABLES POR FASE:
-- Fase 1: auth + dashboard + clientes + sucursales.
-- Fase 2: servicios + tickets + cola.
-- Fase 3: calendario + agenda día.
-- Fase 4: POS completo.
-- Fase 5: inventario + catálogos + admin usuarios.
-
-Documentación API completa en el repo backend: API_DOCUMENTATION.md (Parte 2 activa). No uses endpoints /face/* (no registrados en producción).
-
-Genera estructura de carpetas, modelos, repositories, pantallas y widgets compartidos. Código production-ready, null-safe, con pruebas unitarias en repositories críticos (auth, pos-sale create).
+lib/
+  main.dart
+  app.dart
+  core/
+    config/        env.dart
+    network/       dio_client.dart, api_endpoints.dart, interceptors/
+    storage/       secure_storage.dart, prefs_storage.dart
+    error/         api_exception.dart, failure.dart
+    router/        app_router.dart, routes.dart, guards.dart
+    theme/         app_colors.dart, app_theme.dart, text_styles.dart
+    widgets/       (compartidos: data_table, stat_card, async_value_view, ...)
+    utils/         formatters.dart, date_utils.dart
+  features/
+    <feature>/
+      data/
+        models/         (DTOs freezed)
+        <feature>_api.dart
+        <feature>_repository_impl.dart
+      domain/
+        entities/       (modelos UI mapeados)
+        <feature>_repository.dart  (abstract)
+      presentation/
+        providers/
+        screens/
+        widgets/
+  shared/
+    enums/    client_status.dart, payment_method.dart, discount_type.dart, ...
 ```
+
+# ORDEN OBLIGATORIO ANTES DE EMPEZAR FEATURES
+
+Antes de la primera feature, entrega en este orden:
+
+1. `pubspec.yaml` completo con todas las dependencias.
+2. `lib/core/theme/` (primary `#094732`, sidebar `#031910`, `ColorScheme.fromSeed`, dark
+   mode, tipografía Inter desde `google_fonts`).
+3. `lib/core/network/dio_client.dart` + interceptores.
+4. `lib/core/storage/` (secure + prefs).
+5. `lib/core/error/api_exception.dart` + mapeo desde `DioException`.
+6. `lib/core/router/` (rutas + redirect que valida sesión y permiso).
+7. `lib/core/widgets/`: `AppDataTable<T>`, `StatCard`, `ConfirmDialog`, `EmptyState`,
+   `LoaderScreen`, `FilterBar`, `AsyncValueView<T>` (renderiza
+   `AsyncValue<T>` con loading/error/data + retry).
+8. Splash que decide `/login` o `/`.
+
+# ESTILO DE CÓDIGO — PLANTILLAS DE REFERENCIA
+
+Replica este patrón en todas las features.
+
+## DTO con freezed (data/models)
+
+```dart
+// lib/features/clients/data/models/client_dto.dart
+import 'package:freezed_annotation/freezed_annotation.dart';
+part 'client_dto.freezed.dart';
+part 'client_dto.g.dart';
+
+@freezed
+class ClientDto with _$ClientDto {
+  const factory ClientDto({
+    required int id,
+    required String name,
+    @JsonKey(name: 'last_name') String? lastName,
+    int? age,
+    String? phone,
+    @JsonKey(name: 'eye_type_id') int? eyeTypeId,
+    @JsonKey(name: 'branch_id') int? branchId,
+    @JsonKey(name: 'visit_count') @Default(0) int visitCount,
+    @Default('sin_estado') String status,
+  }) = _ClientDto;
+
+  factory ClientDto.fromJson(Map<String, dynamic> json) =>
+      _$ClientDtoFromJson(json);
+}
+```
+
+## Entity UI (domain/entities)
+
+```dart
+// lib/features/clients/domain/entities/client.dart
+import '../../data/models/client_dto.dart';
+import '../../../../shared/enums/client_status.dart';
+
+class Client {
+  const Client({
+    required this.id,
+    required this.nombre,
+    required this.apellido,
+    this.edad,
+    this.telefono,
+    this.eyeTypeId,
+    this.branchId,
+    required this.visitas,
+    required this.status,
+  });
+
+  final int id;
+  final String nombre;
+  final String apellido;
+  final int? edad;
+  final String? telefono;
+  final int? eyeTypeId;
+  final int? branchId;
+  final int visitas;
+  final ClientStatus status;
+
+  bool get esFrecuente => visitas > 5;
+
+  factory Client.fromDto(ClientDto dto) => Client(
+        id: dto.id,
+        nombre: dto.name,
+        apellido: dto.lastName ?? '',
+        edad: dto.age,
+        telefono: dto.phone,
+        eyeTypeId: dto.eyeTypeId,
+        branchId: dto.branchId,
+        visitas: dto.visitCount,
+        status: ClientStatus.fromString(dto.status),
+      );
+}
+```
+
+## Repository abstracto (domain)
+
+```dart
+// lib/features/clients/domain/clients_repository.dart
+abstract class ClientsRepository {
+  Future<List<Client>> list({int? branchId, String? search});
+  Future<Client> getById(int id);
+  Future<Client> create(ClientCreateInput input);
+  Future<Client> update(int id, ClientUpdateInput input);
+  Future<void> delete(int id);
+  Future<List<EyeTypeOption>> listEyeTypes();
+}
+```
+
+## API (data)
+
+```dart
+// lib/features/clients/data/clients_api.dart
+class ClientsApi {
+  ClientsApi(this._dio);
+  final Dio _dio;
+
+  Future<List<ClientDto>> list({int? branchId, String? search}) async {
+    final res = await _dio.get<List<dynamic>>(
+      ApiEndpoints.clients,
+      queryParameters: {
+        if (branchId != null) 'branch_id': branchId,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
+    );
+    return res.data!
+        .map((e) => ClientDto.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+  // ... resto
+}
+```
+
+## Provider + Notifier (presentation)
+
+```dart
+// lib/features/clients/presentation/providers/clients_list_provider.dart
+final clientsListProvider =
+    AsyncNotifierProvider.autoDispose<ClientsListNotifier, List<Client>>(
+  ClientsListNotifier.new,
+);
+
+class ClientsListNotifier extends AutoDisposeAsyncNotifier<List<Client>> {
+  String _search = '';
+
+  @override
+  Future<List<Client>> build() async {
+    final branchId = ref.watch(branchProvider).selectedBranchId;
+    final repo = ref.read(clientsRepositoryProvider);
+    return repo.list(branchId: branchId, search: _search);
+  }
+
+  Future<void> setSearch(String value) async {
+    _search = value;
+    ref.invalidateSelf();
+  }
+}
+```
+
+## Pantalla (presentation)
+
+```dart
+class ClientsScreen extends ConsumerWidget {
+  const ClientsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(clientsListProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Clientes')),
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(clientsListProvider),
+        child: AsyncValueView<List<Client>>(
+          value: state,
+          builder: (clientes) => AppDataTable<Client>(
+            rows: clientes,
+            columns: const [/* ... */],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+# NAMING — OBLIGATORIO
+
+- Archivos: `snake_case.dart`
+- Clases: `PascalCase`
+- Métodos y vars: `camelCase`
+- DTOs: `<Feature>Dto`, `<Feature>CreateDto`, `<Feature>UpdateDto`
+- Entities UI: nombre singular sin sufijo (`Client`, `Ticket`, `Branch`)
+- Repository abstracto: `<Feature>Repository` en `domain/`
+- Implementación: `<Feature>RepositoryImpl` en `data/`
+- Providers: sufijo `Provider` (ej. `clientsRepositoryProvider`)
+- Notifiers: `<Thing>Notifier`
+
+# PANTALLAS REQUERIDAS
+
+Paridad con adminElashes web. Endpoints exactos:
+
+1. **Login** — `/login` (público).
+2. **Dashboard** — `/` — KPIs `/dashboard/overview`, gráficos `/dashboard/revenue-series`,
+   `/dashboard/service-distribution`. Filtros: fecha desde/hasta, sucursal, servicio.
+3. **Clientes** — `/clients` — CRUD `/clients/`. Tabs: Lista | Frecuentes (visitas>5).
+   Tabla con búsqueda debounced, paginación, export PDF.
+4. **Catálogos**: `/effects`, `/eye-types`, `/volumen`, `/lash-designs`, `/designs` —
+   todos vía `/catalogs/*`. UNA pantalla genérica `CatalogScreen<T>` parametrizable.
+5. **Servicios** — `/admin/services` — `/agenda/services` + `/services/categories`. Tabs
+   Catálogo / Categorías. Upload de imagen multipart en `/agenda/services/upload-image`.
+6. **Tickets** — `/admin/tickets` (activos) + `/admin/tickets/finalizados` (histórico) —
+   `/agenda/appointments`. Filtros: estado, sucursal, búsqueda, ticket_code.
+7. **Cola de servicios** — `/admin/services/queue` — flujo
+   en_espera → en_servicio → atendido. Integra pagos y turnos.
+8. **TurnScreen** — `/admin/turns` — pantalla fullscreen para TV de turnos.
+9. **Calendario** — `/admin/calendar` — vista mensual de citas. Crear/editar cita.
+10. **Agenda del día** — `/admin/calendar/agenda` — columnas por profesional o franjas
+    horarias.
+11. **POS** — `/admin/pos` — `POST /pos-sales/`. Flujo: categoría → servicios → carrito
+    → cliente → método pago + descuento + notas → preview tickets → confirmación → PDF
+    `/pos-sales/{id}/receipt.pdf`. Borrador local en shared_preferences con clave
+    `pos-sale-draft-v1:<branchId>`. Historial `/admin/pos/history` con filtros, detalle,
+    cancelación, reimpresión.
+12. **Inventario** — `/admin/products` — `/inventory/products`, `/inventory/categories`,
+    `/inventory/batches`, `/inventory/movements`, `/inventory/stock-summary`. Alertas
+    stock bajo.
+13. **Sucursales** — `/admin/salons` — `/branches/`.
+14. **Cuestionarios** — `/questionnaire` — `/catalogs/questionnaires` con preguntas
+    embebidas (`text|number|bool|select|multi_select`).
+15. **Seguimiento** — `/lash-tracking` — `/tracking/` con vista por `clientId`.
+16. **Usuarios/Roles/Permisos** — `/users` — `/admin/users`, `/admin/roles`,
+    `/admin/permissions`. Solo SuperAdmin.
+17. **Ajustes** — `/settings` — tema, sucursal por defecto.
+
+Estados ticket/cliente (string exactos):
+`reserva | en_espera | en_servicio | siendo_atendido | atendido | pagado | finalizado |
+cancelado | no_se_presento | reagendado | sin_estado`.
+
+Enums Dart obligatorios:
+- `ClientStatus` (los valores anteriores) + extensión `displayName` y `color`.
+- `PaymentMethod`: `cash | card | transfer | qr`.
+- `DiscountType`: `amount | percent`.
+- `QuestionType`: `text | number | bool | select | multi_select`.
+
+# FASES DE ENTREGA
+
+Trabaja una fase a la vez. Termina cada fase antes de empezar la siguiente. Al cierre de
+cada fase entrega:
+- Lista de archivos creados/modificados.
+- Código completo de cada archivo.
+- Comando exacto si hay que correr `build_runner`.
+- Tests añadidos.
+- Confirmación de que `flutter analyze` pasa limpio.
+
+**Fase 0 — Bootstrap** ✅ obligatoria primero
+- `flutter create` + pubspec con todas las dependencias.
+- Core completo (theme, dio + interceptores, storage, error, router, widgets base).
+- Splash que decide `/login` o `/`.
+
+**Fase 1 — Auth + Shell + Sucursales + Dashboard básico**
+- Login funcional contra `/auth/login`.
+- AppShell con NavigationRail (≥600 px) / Drawer (móvil) + branch selector en AppBar.
+- Dashboard con StatCards (sin gráficos aún).
+- CRUD `/branches/`.
+
+**Fase 2 — Clientes + Catálogos**
+- Clientes CRUD completo con tabla, búsqueda debounced, paginación, modal alta/edición,
+  tab Frecuentes, export PDF.
+- Catálogos vía `CatalogScreen<T>` reusable.
+
+**Fase 3 — Servicios + Categorías**
+- `/agenda/services` y `/services/categories` con upload multipart.
+- Pantalla con tabs.
+
+**Fase 4 — Tickets + Cola + Turnos**
+- Listado tickets, filtros, cambio de estado.
+- Cola operativa.
+- TurnScreen fullscreen.
+
+**Fase 5 — Calendario + Agenda del día**
+- Vista mensual.
+- Agenda del día con columnas por profesional.
+
+**Fase 6 — POS completo**
+- Flujo de venta.
+- Borrador local.
+- Historial + cancelación + PDF.
+
+**Fase 7 — Inventario + Pagos + Tracking + Cuestionarios + Admin usuarios**
+
+**Fase 8 — Dashboard completo + Reportes + Pulido**
+- Gráficos `fl_chart`.
+- Export CSV/PDF.
+- Accesibilidad, performance, dark mode revisado.
+
+# DEFINITION OF DONE — POR FEATURE
+
+Antes de marcar una feature como completada:
+
+- [ ] DTOs con freezed + json_serializable regenerados sin warnings.
+- [ ] Repository abstracto en `domain/` + impl en `data/`.
+- [ ] Provider de Riverpod expuesto y consumido por la screen.
+- [ ] Pantalla con 3 estados: loading (`LoaderScreen`), error (mensaje + botón "Reintentar"
+      que invalida el provider), data.
+- [ ] Pull-to-refresh donde aplique.
+- [ ] Paginación si el listado puede pasar de 50 ítems.
+- [ ] Búsqueda con debounce de 350 ms si la pantalla tiene buscador.
+- [ ] Permiso requerido validado en el redirect del router + ocultando UI no permitida.
+- [ ] Errores de red sin conexión muestran mensaje amigable.
+- [ ] Mensajes éxito = `SnackBar` verde (`colorScheme.primary`), errores =
+      `SnackBar` rojo (`colorScheme.error`), ambos con
+      `behavior: SnackBarBehavior.floating`.
+- [ ] `ConfirmDialog` antes de cualquier delete o cancelación.
+- [ ] Formularios con validación inline (no solo al submit).
+- [ ] Test unitario del repositorio (mockea `Dio`).
+- [ ] Test de widget del happy path de la pantalla principal.
+- [ ] `flutter analyze` sin warnings.
+- [ ] Sin overflow en 360×640 (móvil) ni en 1024×768 (tablet).
+
+# FORMATO DE RESPUESTA DE CADA TURNO
+
+1. Encabezado: `Fase N — paso M: <título>`.
+2. Bullets con los paths que vas a crear/modificar.
+3. Cada archivo en su propio bloque ```dart con el path como primera línea de comentario
+   (`// lib/features/clients/data/clients_api.dart`).
+4. Comando exacto de `build_runner` si aplica.
+5. Lista de tests añadidos.
+
+# CONTEXTO ADICIONAL
+
+Si tienes acceso al repo del backend, lee `elashesbackend/API_DOCUMENTATION.md` y
+`API_PART2_FULL.md` para los contratos exactos. Si el JSON real difiere de lo definido
+aquí, ajusta el DTO y avísalo en una línea.
+
+# EMPIEZA YA
+
+Empieza por Fase 0. Entrega el `pubspec.yaml` completo y los archivos del core. No pidas
+permiso para empezar — arranca.
+````
 
 ---
 

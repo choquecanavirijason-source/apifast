@@ -1,0 +1,94 @@
+from typing import Optional
+
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.domain.entities.{{module}} import {{Module}}
+
+
+def list_{{modules}}(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+) -> list[{{Module}}]:
+    query = db.query({{Module}})
+
+    if search and search.strip():
+        query = query.filter({{Module}}.name.ilike(f"%{search.strip()}%"))
+
+    return query.order_by({{Module}}.name.asc()).offset(skip).limit(limit).all()
+
+
+def get_{{module}}_by_id(db: Session, {{module}}_id: int) -> {{Module}}:
+    item = db.query({{Module}}).filter({{Module}}.id == {{module}}_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="{{Module}} no encontrado",
+        )
+    return item
+
+
+def create_{{module}}(
+    db: Session,
+    name: str,
+    # TODO: añadir parámetros del dominio
+) -> {{Module}}:
+    existing = db.query({{Module}}).filter({{Module}}.name == name.strip()).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya existe un {{module}} con ese nombre",
+        )
+
+    item = {{Module}}(
+        name=name.strip(),
+        # TODO: asignar campos
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_{{module}}(
+    db: Session,
+    {{module}}_id: int,
+    name: Optional[str] = None,
+    # TODO: parámetros opcionales
+) -> {{Module}}:
+    item = get_{{module}}_by_id(db=db, {{module}}_id={{module}}_id)
+
+    if name is not None:
+        conflict = (
+            db.query({{Module}})
+            .filter({{Module}}.name == name.strip(), {{Module}}.id != {{module}}_id)
+            .first()
+        )
+        if conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya existe un {{module}} con ese nombre",
+            )
+        item.name = name.strip()
+
+    # TODO: actualizar otros campos si vienen no-None
+
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_{{module}}(db: Session, {{module}}_id: int) -> None:
+    item = get_{{module}}_by_id(db=db, {{module}}_id={{module}}_id)
+    try:
+        db.delete(item)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se puede eliminar el {{module}} porque está en uso",
+        )
