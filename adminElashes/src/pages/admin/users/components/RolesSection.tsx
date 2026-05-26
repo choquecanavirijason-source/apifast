@@ -1,14 +1,16 @@
 import { SectionCard } from "@/components/common/ui";
-import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
-import { Shield } from "lucide-react";
+import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
+import { Settings2, Shield, Trash2 } from "lucide-react";
 import type { RoleItem } from "../types";
 
 interface RolesSectionProps {
   roles: RoleItem[];
   loading: boolean;
+  onEditRole: (role: RoleItem) => void;
+  onDeleteRole: (role: RoleItem) => void;
 }
 
-export default function RolesSection({ roles, loading }: RolesSectionProps) {
+export default function RolesSection({ roles, loading, onEditRole, onDeleteRole }: RolesSectionProps) {
   const columns: DataTableColumn<RoleItem>[] = [
     {
       key: "name",
@@ -23,7 +25,7 @@ export default function RolesSection({ roles, loading }: RolesSectionProps) {
     },
     {
       key: "permissionsCount",
-      header: "Total de Permisos",
+      header: "Permisos",
       sortable: true,
       getValue: (item) => item.permissions?.length ?? 0,
       render: (item) => {
@@ -44,14 +46,13 @@ export default function RolesSection({ roles, loading }: RolesSectionProps) {
     {
       key: "permissions",
       header: "Permisos Asignados",
-      getValue: (item) =>
-        item.permissions?.map((p) => p.name).join(", ") ?? "",
+      getValue: (item) => item.permissions?.map((p) => p.name).join(", ") ?? "",
       render: (item) => {
         if (!item.permissions?.length)
           return <span className="text-slate-400 text-xs italic">Sin permisos asignados</span>;
 
-        const visible = item.permissions.slice(0, 3);
-        const remaining = item.permissions.length - 3;
+        const visible = item.permissions.slice(0, 4);
+        const remaining = item.permissions.length - 4;
 
         return (
           <div className="flex flex-wrap gap-1">
@@ -74,15 +75,30 @@ export default function RolesSection({ roles, loading }: RolesSectionProps) {
     },
   ];
 
+  const actions: DataTableAction<RoleItem>[] = [
+    {
+      label: "Editar permisos",
+      icon: <Settings2 className="h-4 w-4" />,
+      onClick: onEditRole,
+    },
+    {
+      label: "Eliminar",
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: "danger",
+      onClick: onDeleteRole,
+    },
+  ];
+
   return (
     <SectionCard
       title="Roles del Sistema"
-      subtitle="Cada rol agrupa permisos específicos que determinan lo que puede ver y hacer cada usuario."
+      subtitle="Edita los permisos de cada rol para controlar qué secciones y acciones puede ver cada usuario."
       bodyClassName="!p-0"
     >
       <DataTable
         data={roles}
         columns={columns}
+        actions={actions}
         loading={loading}
         defaultLimit={10}
         availableLimits={[5, 10, 20, 50]}

@@ -200,11 +200,11 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         icon: <ReceiptText size={20} />,
         path: "/admin/pos",
         subItems: [
-          { name: "Nueva venta", path: "/admin/pos" },
-          { name: "Historial de ventas", path: "/admin/pos/history" },
-          { name: "Caja y seguimiento", path: "/admin/pos-tracking" },
+          { name: "Nueva venta", path: "/admin/pos", permission: ["payments:view", "payments:manage"] },
+          { name: "Historial de ventas", path: "/admin/pos/history", permission: ["payments:view", "payments:manage"] },
+          { name: "Caja y seguimiento", path: "/admin/pos-tracking", permission: ["payments:view", "payments:manage"] },
         ],
-        permission: undefined,
+        permission: ["payments:view", "payments:manage"],
       },
 
       {
@@ -285,12 +285,11 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         permission: ["forms:view", "forms:manage"],
       },
 
-      // ✅ Admin: mejor mostrarlo solo si isAdmin() (SuperAdmin)
       {
         name: "Usuarios",
         icon: <Users size={20} />,
         path: "/users",
-        permission: undefined, // lo controlamos abajo con isAdmin()
+        permission: "users:manage",
       },
 
       { name: "Ajustes", icon: <Settings size={20} />, path: "/settings", permission: "settings:view" },
@@ -302,8 +301,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const authorizedMenu = useMemo(() => {
     return menuItems
       .map((item) => {
-        // Usuarios solo para admin
-        if (item.name === "Usuarios" && !isAdmin()) return null;
         if (!item.subItems) {
           return hasMenuPermission(item.permission) ? item : null;
         }

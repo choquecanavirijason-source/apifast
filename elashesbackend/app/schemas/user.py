@@ -103,6 +103,6 @@ class UserSummary(BaseModel):
 class UserResponse(UserSummary):
     role_id: Optional[int] = None
     branch_id: Optional[int] = None
-    role: Optional[RoleSummary] = None
+    role: Optional[RoleResponse] = None
     branch: Optional[BranchSummary] = None
     phone : Optional[str] = None

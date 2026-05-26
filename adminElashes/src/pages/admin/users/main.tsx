@@ -10,6 +10,7 @@ import useAuth from "@/core/hooks/useAuth";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 
 import AccessDenied from "./components/AccessDenied";
+import EditRoleModal from "./components/EditRoleModal";
 import EditUserModal from "./components/EditUserModal";
 import PermissionsSection from "./components/PermissionsSection";
 import RegisterRoleModal from "./components/RegisterRoleModal";
@@ -29,6 +30,9 @@ export default function UsersMain() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
+  const [isEditRoleModalOpen, setIsEditRoleModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<RoleItem | null>(null);
+  const [editingRole, setEditingRole] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -280,6 +284,32 @@ export default function UsersMain() {
     }
   };
 
+  const handleEditRole = async (roleId: number, payload: { name: string; permission_ids: number[] }) => {
+    setEditingRole(true);
+    try {
+      await api.put(`/admin/roles/${roleId}`, payload);
+      toast.success("Rol actualizado correctamente");
+      await loadRoles();
+      setIsEditRoleModalOpen(false);
+      setSelectedRole(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo actualizar el rol"));
+    } finally {
+      setEditingRole(false);
+    }
+  };
+
+  const handleDeleteRole = async (role: RoleItem) => {
+    if (!window.confirm(`¿Eliminar el rol "${role.name}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.delete(`/admin/roles/${role.id}`);
+      await loadRoles();
+      toast.success(`Rol "${role.name}" eliminado`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo eliminar el rol"));
+    }
+  };
+
   const handleCreateUser = async (payload: {
     username: string;
     email: string;
@@ -438,7 +468,14 @@ export default function UsersMain() {
         />
       )}
 
-      {sectionTab === "roles" && <RolesSection roles={roles} loading={loadingRoles} />}
+      {sectionTab === "roles" && (
+        <RolesSection
+          roles={roles}
+          loading={loadingRoles}
+          onEditRole={(role) => { setSelectedRole(role); setIsEditRoleModalOpen(true); }}
+          onDeleteRole={(role) => void handleDeleteRole(role)}
+        />
+      )}
 
       {sectionTab === "permissions" && <PermissionsSection permissions={permissions} loading={loadingPermissions} />}
 
@@ -481,6 +518,15 @@ export default function UsersMain() {
         permissions={permissions}
         isSubmitting={creatingRole}
         onSubmit={(payload) => void handleCreateRole(payload)}
+      />
+
+      <EditRoleModal
+        isOpen={isEditRoleModalOpen}
+        onClose={() => { setIsEditRoleModalOpen(false); setSelectedRole(null); }}
+        role={selectedRole}
+        permissions={permissions}
+        isSubmitting={editingRole}
+        onSubmit={(roleId, payload) => void handleEditRole(roleId, payload)}
       />
     </Layout>
   );

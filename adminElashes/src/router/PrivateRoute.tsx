@@ -3,6 +3,13 @@ import useAuth from "../core/hooks/useAuth";
 import type { IPermission } from "@/core/types/IPermission";
 import variables from "@/core/config/variables";
 
+// Returns true only if `route` is a proper path prefix of `path`
+// (exact match OR next char after route is '/')
+function isPathPrefix(route: string, path: string): boolean {
+  if (!path.startsWith(route)) return false;
+  return path.length === route.length || path[route.length] === "/";
+}
+
 const PrivateRoute = () => {
   const location = useLocation();
   const { isAuthenticated, hasAnyPermission, hasAnyPermissionByName, isAdmin } = useAuth();
@@ -10,34 +17,63 @@ const PrivateRoute = () => {
 
   const currentPath = location.pathname;
 
+  // null  → any authenticated user may access
+  // array → user must have at least one of these permissions (or isAdmin() bypasses)
   const routePermissions: Record<string, IPermission[] | null> = {
-    // SHARED ROUTES - Accessible by ALL authenticated users
-    "/admin": null,
+    // Open to all authenticated users
+    "/": null,
     "/admin/perfil": null,
     "/clients": null,
-    "/admin/clients": null,
+    "/lash-designs": null,
+    "/effects": null,
+    "/eye-types": null,
+    "/designs": null,
+    "/volumen": null,
+    "/questionnaire": null,
+    "/lash-tracking": null,
+    "/admin/pos": null,
+    "/admin/pos-tracking": null,
+    "/admin/calendar": null,
+    "/admin/services": null,
+    "/admin/tickets": null,
+    "/admin/professionals": null,
+    "/admin/turns": null,
+
+    // Admin-restricted routes
+    "/users": ["users:manage"] as IPermission[],
+    "/settings": ["settings:view"] as IPermission[],
+    "/admin/salons": ["branches:view", "branches:manage"] as IPermission[],
+    "/admin/products": ["inventory:view", "inventory:manage"] as IPermission[],
     "/admin/ai": ["ai:view", "ai:manage"] as IPermission[],
   };
 
-  // Si no hay token (sesion expirada/eliminada), siempre forzamos login.
   if (!hasToken || !isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // 1. Exact match
   let requiredPermissions: IPermission[] | null = null;
+  let matched = false;
 
   if (routePermissions[currentPath] !== undefined) {
     requiredPermissions = routePermissions[currentPath];
+    matched = true;
   } else {
+    // 2. Longest prefix match (prevents /admin/pos matching /admin/pos-tracking)
+    let longestMatch = "";
     for (const route in routePermissions) {
-      if (route.includes(':') && currentPath.startsWith(route.split(':')[0])) {
-        requiredPermissions = routePermissions[route];
-        break;
+      if (isPathPrefix(route, currentPath) && route.length > longestMatch.length) {
+        longestMatch = route;
       }
+    }
+    if (longestMatch) {
+      requiredPermissions = routePermissions[longestMatch];
+      matched = true;
     }
   }
 
-  if (requiredPermissions === null) {
+  // 3. Route not in table → open to any authenticated user
+  if (!matched || requiredPermissions === null) {
     return <Outlet />;
   }
 
