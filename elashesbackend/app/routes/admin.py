@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_role
+from app.core.dependencies import get_db, require_role, require_any_role, SUPER_ADMIN_ROLE
 from app.models.user import User
 from app.schemas.base_response import MessageResponse
 from app.schemas.user import (
@@ -169,9 +169,11 @@ def get_users(
     limit: int = Query(default=20, ge=1, le=100),
     search: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("SuperAdmin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
 ):
-    return list_users(db=db, skip=skip, limit=limit, search=search)
+    # SuperAdmin ve todos; Admin solo ve su sucursal
+    branch_id = None if current_user.role.name == SUPER_ADMIN_ROLE else current_user.branch_id
+    return list_users(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
 
 
 @router.get(
@@ -194,7 +196,7 @@ def get_user(
 def create_new_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("SuperAdmin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
 ):
     return create_user(db=db, payload=payload)
 
@@ -207,7 +209,7 @@ def update_existing_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("SuperAdmin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
 ):
     return update_user(
         db=db,

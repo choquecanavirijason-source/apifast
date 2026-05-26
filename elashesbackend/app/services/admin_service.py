@@ -204,8 +204,12 @@ def list_users(
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
+    branch_id: Optional[int] = None,
 ):
     query = _user_query(db)
+
+    if branch_id is not None:
+        query = query.filter(User.branch_id == branch_id)
 
     if search:
         search_term = f"%{search.strip()}%"

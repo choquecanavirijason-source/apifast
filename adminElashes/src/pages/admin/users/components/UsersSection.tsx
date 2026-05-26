@@ -1,4 +1,4 @@
-import { CalendarClock, Info, Settings2 } from "lucide-react";
+import { CalendarClock, Info, Settings2, Trash2 } from "lucide-react";
 
 import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
@@ -10,9 +10,10 @@ interface UsersSectionProps {
   users: UserItem[];
   loading: boolean;
   onEditUser: (user: UserItem) => void;
+  onDeleteUser?: (user: UserItem) => void;
 }
 
-export default function UsersSection({ users, loading, onEditUser }: UsersSectionProps) {
+export default function UsersSection({ users, loading, onEditUser, onDeleteUser }: UsersSectionProps) {
   const formatCreatedAt = (value?: string | null) => {
     if (!value) return "Sin fecha";
     const parsed = new Date(value);
@@ -98,6 +99,12 @@ export default function UsersSection({ users, loading, onEditUser }: UsersSectio
       icon: <Settings2 className="h-4 w-4" />,
       onClick: onEditUser,
     },
+    ...(onDeleteUser ? [{
+      label: "Eliminar",
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: "danger" as const,
+      onClick: onDeleteUser,
+    }] : []),
   ];
 
   return (

@@ -53,6 +53,8 @@ export default function UsersMain() {
   const roleName =
     typeof user?.role === "string" ? user.role : currentRoleObject ? String(currentRoleObject.name ?? "") : "";
   const isSuperAdmin = roleName === "SuperAdmin" || authRoles.includes("SuperAdmin");
+  const isAdmin = roleName === "Admin" || authRoles.includes("Admin");
+  const canManageUsers = isSuperAdmin || isAdmin;
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (typeof error === "object" && error !== null && "response" in error) {
@@ -161,12 +163,14 @@ export default function UsersMain() {
   };
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!canManageUsers) return;
     void loadUsers();
-    void loadRoles();
     void loadBranches();
-    void loadPermissions();
-  }, [isSuperAdmin]);
+    if (isSuperAdmin) {
+      void loadRoles();
+      void loadPermissions();
+    }
+  }, [canManageUsers, isSuperAdmin]);
 
   useEffect(() => {
     const handleBranchChange = () => setActiveBranchId(getSelectedBranchId());
@@ -185,7 +189,8 @@ export default function UsersMain() {
     if (!activeBranchId) return users;
     return users.filter((item) => {
       const branchId = item.branch_id ?? item.branch?.id ?? null;
-      return Number(branchId) === activeBranchId;
+      // mostrar usuarios de la sucursal seleccionada O sin sucursal asignada
+      return branchId === null || Number(branchId) === activeBranchId;
     });
   }, [users, activeBranchId]);
 
@@ -315,13 +320,26 @@ export default function UsersMain() {
     }
   };
 
+  const handleDeleteUser = async (userToDelete: UserItem) => {
+    if (!window.confirm(`¿Eliminar usuario "${userToDelete.username}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.delete(`/admin/users/${userToDelete.id}`);
+      await loadUsers();
+      toast.success(`Usuario ${userToDelete.username} eliminado`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo eliminar el usuario"));
+    }
+  };
+
   const activeUsers = useMemo(() => filteredUsers.filter((item) => item.is_active).length, [filteredUsers]);
   const inactiveUsers = useMemo(() => filteredUsers.filter((item) => !item.is_active).length, [filteredUsers]);
 
   const tabButtons: Array<{ id: SectionTab; label: string; icon: ReactElement }> = [
     { id: "users", label: "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
-    { id: "roles", label: "Roles", icon: <Shield className="h-4 w-4" /> },
-    { id: "permissions", label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
+    ...(isSuperAdmin ? [
+      { id: "roles" as SectionTab, label: "Roles", icon: <Shield className="h-4 w-4" /> },
+      { id: "permissions" as SectionTab, label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
+    ] : []),
   ];
 
   const handleExportUsersPdf = () => {
@@ -389,7 +407,7 @@ export default function UsersMain() {
       </button>
     ) : undefined;
 
-  if (!isSuperAdmin) {
+  if (!canManageUsers) {
     return <AccessDenied />;
   }
 
@@ -412,7 +430,12 @@ export default function UsersMain() {
       }
     >
       {sectionTab === "users" && (
-        <UsersSection users={filteredUsers} loading={loading} onEditUser={openEditUserModal} />
+        <UsersSection
+          users={filteredUsers}
+          loading={loading}
+          onEditUser={openEditUserModal}
+          onDeleteUser={isSuperAdmin ? handleDeleteUser : undefined}
+        />
       )}
 
       {sectionTab === "roles" && <RolesSection roles={roles} loading={loadingRoles} />}

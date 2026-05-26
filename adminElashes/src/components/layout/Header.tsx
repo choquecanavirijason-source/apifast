@@ -114,6 +114,15 @@ export default function Header({
     user?.email ||
     "Usuario";
 
+  const isSuperAdmin = (() => {
+    const roleValue = (user as { role?: unknown } | null)?.role;
+    if (typeof roleValue === "string") return roleValue === "SuperAdmin";
+    if (roleValue && typeof roleValue === "object" && "name" in (roleValue as Record<string, unknown>)) {
+      return (roleValue as { name?: unknown }).name === "SuperAdmin";
+    }
+    return false;
+  })();
+
   const displayRole =
     (() => {
       const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)?.role;
@@ -429,7 +438,7 @@ export default function Header({
 
   return (
     // CAMBIO PRINCIPAL: bg-[#094732] (Verde Esmeralda) y texto blanco
-    <header className="h-20 bg-gradient-to-r from-[#162d26] via-[#1C352D] to-[#1a312a] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
+    <header className="h-20 bg-linear-to-r from-[#162d26] via-[#1C352D] to-[#1a312a] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
       
       {/* --- 1. SECCIÓN IZQUIERDA: Toggle & Título --- */}
       <div className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
@@ -448,7 +457,7 @@ export default function Header({
       {/* --- 2. SECCIÓN CENTRAL: Buscador (Estilo Dark) --- */}
       <div className="flex-1 flex justify-center px-4 lg:px-10 min-w-0">
         
-        <div className="relative w-full max-w-[680px] min-w-0 hidden md:block group" ref={searchPanelRef}>
+        <div className="relative w-full max-w-170 min-w-0 hidden md:block group" ref={searchPanelRef}>
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-emerald-300 group-focus-within:text-white transition-colors" />
           </div>
@@ -584,22 +593,24 @@ export default function Header({
 
         <div className="hidden md:flex items-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900/40 px-3 py-2 text-emerald-100">
           <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sucursal</span>
-          <select
-            value={selectedBranchId ?? ""}
-            onChange={handleBranchChange}
-            className="bg-transparent text-xs font-semibold text-white outline-none"
-          >
-            <option value="" className="text-slate-900">Todas</option>
-            {branches.length === 0 ? (
-              <option value="">Sin sucursales</option>
-            ) : (
-              branches.map((branch) => (
+          {isSuperAdmin ? (
+            <select
+              value={selectedBranchId ?? ""}
+              onChange={handleBranchChange}
+              className="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer"
+            >
+              <option value="" className="text-slate-900">Todas</option>
+              {branches.map((branch) => (
                 <option key={branch.id} value={branch.id} className="text-slate-900">
                   {branch.name}
                 </option>
-              ))
-            )}
-          </select>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs font-semibold text-white">
+              {branches.find((b) => b.id === selectedBranchId)?.name ?? "Sin sucursal"}
+            </span>
+          )}
         </div>
         
         <button 
