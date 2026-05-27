@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { applyTheme, themes } from '../../../theme'
 import { theme as defaultColors } from '../../../styles/colors'
+import { useLogo } from '../../../core/hooks/useLogo'
+import { ImagePlus, Trash2, CheckCircle2 } from 'lucide-react'
 
-export default function Settings(){
+export default function Settings() {
   const [theme, setTheme] = React.useState<string>(() => localStorage.getItem('ui:theme') || 'light')
   const [primary, setPrimary] = React.useState<string>(() => localStorage.getItem('ui:primary') || '')
   const [secondary, setSecondary] = React.useState<string>(() => localStorage.getItem('ui:secondary') || '')
@@ -17,26 +19,31 @@ export default function Settings(){
   const [bgMobile, setBgMobile] = React.useState<string>(() => localStorage.getItem('ui:bgMobile') || '')
   const [textMobile, setTextMobile] = React.useState<string>(() => localStorage.getItem('ui:textMobile') || '')
 
-  React.useEffect(()=>{
+  // Logo
+  const { logoBase64, logoName, saveLogo, removeLogo } = useLogo()
+  const [logoError, setLogoError] = React.useState<string | null>(null)
+  const [logoSuccess, setLogoSuccess] = React.useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
     applyTheme(theme)
-  },[theme])
+  }, [theme])
 
   // Helper for validating hex codes and normalizing
-  const isHex = (v:string) => /^#([0-9A-F]{6}|[0-9A-F]{3})$/i.test(v)
-  const normalizeHex = (v:string) => {
-    if(!v) return ''
+  const isHex = (v: string) => /^#([0-9A-F]{6}|[0-9A-F]{3})$/i.test(v)
+  const normalizeHex = (v: string) => {
+    if (!v) return ''
     let s = v.trim()
-    if(!s.startsWith('#')) s = '#'+s
+    if (!s.startsWith('#')) s = '#' + s
     // expand #abc -> #aabbcc
-    if(/^#([0-9A-F]{3})$/i.test(s)){
+    if (/^#([0-9A-F]{3})$/i.test(s)) {
       const m = s.slice(1)
-      s = '#'+m.split('').map(c=>c+c).join('')
+      s = '#' + m.split('').map(c => c + c).join('')
     }
     return s
   }
 
-  const HexRow = ({label, value, onChange, fallback}:{label:string,value:string,onChange:(v:string)=>void,fallback:string}) => {
-    // build css var name from label (kebab-case)
+  const HexRow = ({ label, value, onChange, fallback }: { label: string; value: string; onChange: (v: string) => void; fallback: string }) => {
     const kebab = label.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
     const cssVar = `--${kebab}`
     const computed = getComputedStyle(document.documentElement).getPropertyValue(cssVar)?.trim()
@@ -45,27 +52,25 @@ export default function Settings(){
     const valid = isHex(normalized)
 
     return (
-      <label style={{display:'flex',flexDirection:'column',gap:6,minWidth:180}}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }}>
         {label.replace(/([a-z])([A-Z])/g, '$1 $2')}
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input type="color" value={normalized || '#ffffff'} onChange={e=>onChange(normalizeHex(e.target.value))} />
-          <input type="text" placeholder="#rrggbb" value={value || normalized} onChange={e=>onChange(e.target.value)} style={{padding:'6px 8px',borderRadius:8,border: valid? '1px solid #e6eef2':'1px solid #f5c6cb',minWidth:110}} />
-          <div style={{width:28,height:28,borderRadius:6,background: valid? normalized : '#fff',border:'1px solid rgba(0,0,0,0.06)'}} />
-          {!valid && <span style={{color:'crimson',fontSize:12}}>Invalid hex</span>}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="color" value={normalized || '#ffffff'} onChange={e => onChange(normalizeHex(e.target.value))} />
+          <input type="text" placeholder="#rrggbb" value={value || normalized} onChange={e => onChange(e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: valid ? '1px solid #e6eef2' : '1px solid #f5c6cb', minWidth: 110 }} />
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: valid ? normalized : '#fff', border: '1px solid rgba(0,0,0,0.06)' }} />
+          {!valid && <span style={{ color: 'crimson', fontSize: 12 }}>Invalid hex</span>}
         </div>
       </label>
     )
   }
 
-  const handleApplyCustom = ()=>{
-    // apply custom colors by setting CSS variables
+  const handleApplyCustom = () => {
     const root = document.documentElement
-    if(primary){ const v=normalizeHex(primary); if(isHex(v)) root.style.setProperty('--primary', v) }
-    if(secondary){ const v=normalizeHex(secondary); if(isHex(v)) root.style.setProperty('--secondary', v) }
-    if(accent){ const v=normalizeHex(accent); if(isHex(v)) root.style.setProperty('--accent', v) }
-    if(bg){ const v=normalizeHex(bg); if(isHex(v)) root.style.setProperty('--bg', v) }
-    if(text){ const v=normalizeHex(text); if(isHex(v)) root.style.setProperty('--text', v) }
-    // persist
+    if (primary) { const v = normalizeHex(primary); if (isHex(v)) root.style.setProperty('--primary', v) }
+    if (secondary) { const v = normalizeHex(secondary); if (isHex(v)) root.style.setProperty('--secondary', v) }
+    if (accent) { const v = normalizeHex(accent); if (isHex(v)) root.style.setProperty('--accent', v) }
+    if (bg) { const v = normalizeHex(bg); if (isHex(v)) root.style.setProperty('--bg', v) }
+    if (text) { const v = normalizeHex(text); if (isHex(v)) root.style.setProperty('--text', v) }
     localStorage.setItem('ui:primary', normalizeHex(primary))
     localStorage.setItem('ui:secondary', normalizeHex(secondary))
     localStorage.setItem('ui:accent', normalizeHex(accent))
@@ -73,26 +78,175 @@ export default function Settings(){
     localStorage.setItem('ui:text', normalizeHex(text))
   }
 
-  const handleSelectTheme = (name:string)=>{
+  const handleSelectTheme = (name: string) => {
     setTheme(name)
     localStorage.setItem('ui:theme', name)
-    // clear any custom stored colors (optional)
-    // localStorage.removeItem('ui:primary')
-    // localStorage.removeItem('ui:secondary')
+  }
+
+  // ── Logo handlers ──────────────────────────────────────────────────────────
+  const handleLogoFile = (file: File) => {
+    setLogoError(null)
+    setLogoSuccess(false)
+
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Solo se admiten archivos de imagen (PNG, JPG, SVG, WebP).')
+      return
+    }
+    // Limit ~500 KB to avoid filling localStorage
+    if (file.size > 500 * 1024) {
+      setLogoError('El archivo no puede superar 500 KB. Comprime la imagen antes de subirla.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      try {
+        saveLogo(result, file.name)
+        setLogoSuccess(true)
+        setTimeout(() => setLogoSuccess(false), 3000)
+      } catch (err) {
+        setLogoError(err instanceof Error ? err.message : 'No se pudo guardar el logo.')
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleLogoFile(file)
+    // Reset input so the same file can be re-selected
+    e.target.value = ''
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleLogoFile(file)
   }
 
   return (
     <div>
       <h2 className="page-title">Ajustes</h2>
 
-      <div className="card" style={{marginBottom:16}}>
-        <h3 style={{marginTop:0}}>Temas</h3>
-        <div style={{display:'flex',gap:12,marginTop:12}}>
+      {/* ── LOGO ────────────────────────────────────────────────────────────── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Logo de la aplicación</h3>
+        <p style={{ color: '#8a8a8a', fontSize: 13, marginBottom: 16 }}>
+          Este logo aparece en el menú lateral y en los comprobantes de pago PDF. Formato recomendado: PNG o SVG con fondo transparente. Máx. 500 KB.
+        </p>
+
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+          {/* Preview del logo actual */}
+          <div style={{
+            width: 160, height: 100,
+            border: '2px dashed #d1d5db',
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f9fafb',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}>
+            {logoBase64 ? (
+              <img
+                src={logoBase64}
+                alt="Logo actual"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: 8 }}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+                <ImagePlus style={{ width: 28, height: 28, margin: '0 auto 4px' }} />
+                <span style={{ fontSize: 11 }}>Sin logo</span>
+              </div>
+            )}
+          </div>
+
+          {/* Zona de subida */}
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: '2px dashed #d1d5db',
+                borderRadius: 10,
+                padding: '20px 16px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: '#f9fafb',
+                transition: 'border-color .15s, background .15s',
+                marginBottom: 10,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = '#6ee7b7'
+                ;(e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'
+                ;(e.currentTarget as HTMLDivElement).style.background = '#f9fafb'
+              }}
+            >
+              <ImagePlus style={{ width: 22, height: 22, margin: '0 auto 6px', color: '#6ee7b7' }} />
+              <p style={{ fontSize: 13, color: '#4b5563', margin: 0 }}>
+                <strong>Clic para subir</strong> o arrastra aquí
+              </p>
+              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, SVG, WebP — máx. 500 KB</p>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              onChange={handleFileInputChange}
+              style={{ display: 'none' }}
+            />
+
+            {/* Feedback */}
+            {logoError && (
+              <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>⚠ {logoError}</p>
+            )}
+            {logoSuccess && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontSize: 12, marginBottom: 8 }}>
+                <CheckCircle2 style={{ width: 14, height: 14 }} />
+                <span>Logo guardado correctamente.</span>
+              </div>
+            )}
+
+            {/* Nombre del archivo + botón eliminar */}
+            {logoBase64 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {logoName ?? 'logo.png'}
+                </span>
+                <button
+                  onClick={removeLogo}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5',
+                    background: '#fff1f2', color: '#dc2626', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  <Trash2 style={{ width: 13, height: 13 }} />
+                  Quitar logo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── TEMAS ───────────────────────────────────────────────────────────── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Temas</h3>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           {Object.keys(themes).map(key => (
             <button
               key={key}
               onClick={() => handleSelectTheme(key)}
-              style={{padding:'10px 14px',borderRadius:10,border: theme===key? '2px solid var(--accent)':'1px solid #e6eef2',background:'#fff',cursor:'pointer'}}
+              style={{ padding: '10px 14px', borderRadius: 10, border: theme === key ? '2px solid var(--accent)' : '1px solid #e6eef2', background: '#fff', cursor: 'pointer' }}
             >
               {key}
             </button>
@@ -101,58 +255,58 @@ export default function Settings(){
       </div>
 
       <div className="card">
-        <h3 style={{marginTop:0}}>Colores personalizados (Escritorio)</h3>
-        <div style={{display:'flex',gap:12,alignItems:'flex-start',marginTop:12,flexWrap:'wrap'}}>
+        <h3 style={{ marginTop: 0 }}>Colores personalizados (Escritorio)</h3>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12, flexWrap: 'wrap' }}>
           <HexRow label="Primary" value={primary} onChange={setPrimary} fallback={defaultColors.primary} />
           <HexRow label="Secondary" value={secondary} onChange={setSecondary} fallback={defaultColors.secondary} />
           <HexRow label="Accent" value={accent} onChange={setAccent} fallback={defaultColors.accent} />
           <HexRow label="Bg" value={bg} onChange={setBg} fallback={defaultColors.bg} />
           <HexRow label="Text" value={text} onChange={setText} fallback={defaultColors.text} />
 
-          <div style={{display:'flex',gap:8,alignItems:'center',width:'100%',marginTop:8}}>
-            <button onClick={handleApplyCustom} className="card" style={{padding:'8px 12px',cursor:'pointer'}} disabled={!(isHex(normalizeHex(primary||defaultColors.primary)) && isHex(normalizeHex(secondary||defaultColors.secondary)) && isHex(normalizeHex(accent||defaultColors.accent)) && isHex(normalizeHex(bg||defaultColors.bg)) && isHex(normalizeHex(text||defaultColors.text)))}>Apply</button>
-            <button onClick={()=>{
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', marginTop: 8 }}>
+            <button onClick={handleApplyCustom} className="card" style={{ padding: '8px 12px', cursor: 'pointer' }} disabled={!(isHex(normalizeHex(primary || defaultColors.primary)) && isHex(normalizeHex(secondary || defaultColors.secondary)) && isHex(normalizeHex(accent || defaultColors.accent)) && isHex(normalizeHex(bg || defaultColors.bg)) && isHex(normalizeHex(text || defaultColors.text)))}>Apply</button>
+            <button onClick={() => {
               setPrimary(''); setSecondary(''); setAccent(''); setBg(''); setText('')
               localStorage.removeItem('ui:primary'); localStorage.removeItem('ui:secondary'); localStorage.removeItem('ui:accent'); localStorage.removeItem('ui:bg'); localStorage.removeItem('ui:text')
               applyTheme(theme);
-            }} style={{padding:'8px 12px',cursor:'pointer'}}>Reset</button>
+            }} style={{ padding: '8px 12px', cursor: 'pointer' }}>Reset</button>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{marginTop:12}}>
-        <h3 style={{marginTop:0}}>Colores para Aplicaciones móviles</h3>
-        <div style={{display:'flex',gap:12,alignItems:'flex-start',marginTop:12,flexWrap:'wrap'}}>
+      <div className="card" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}>Colores para Aplicaciones móviles</h3>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12, flexWrap: 'wrap' }}>
           <HexRow label="PrimaryMobile" value={primaryMobile} onChange={setPrimaryMobile} fallback={defaultColors.primary} />
           <HexRow label="SecondaryMobile" value={secondaryMobile} onChange={setSecondaryMobile} fallback={defaultColors.secondary} />
           <HexRow label="AccentMobile" value={accentMobile} onChange={setAccentMobile} fallback={defaultColors.accent} />
           <HexRow label="BgMobile" value={bgMobile} onChange={setBgMobile} fallback={defaultColors.bg} />
           <HexRow label="TextMobile" value={textMobile} onChange={setTextMobile} fallback={defaultColors.text} />
 
-          <div style={{display:'flex',gap:8,alignItems:'center',width:'100%',marginTop:8}}>
-            <button onClick={()=>{
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', marginTop: 8 }}>
+            <button onClick={() => {
               const root = document.documentElement
               const p = normalizeHex(primaryMobile)
               const s = normalizeHex(secondaryMobile)
               const a = normalizeHex(accentMobile)
               const b = normalizeHex(bgMobile)
               const t = normalizeHex(textMobile)
-              if(isHex(p)) root.style.setProperty('--primary-mobile', p)
-              if(isHex(s)) root.style.setProperty('--secondary-mobile', s)
-              if(isHex(a)) root.style.setProperty('--accent-mobile', a)
-              if(isHex(b)) root.style.setProperty('--bg-mobile', b)
-              if(isHex(t)) root.style.setProperty('--text-mobile', t)
+              if (isHex(p)) root.style.setProperty('--primary-mobile', p)
+              if (isHex(s)) root.style.setProperty('--secondary-mobile', s)
+              if (isHex(a)) root.style.setProperty('--accent-mobile', a)
+              if (isHex(b)) root.style.setProperty('--bg-mobile', b)
+              if (isHex(t)) root.style.setProperty('--text-mobile', t)
               localStorage.setItem('ui:primaryMobile', p)
               localStorage.setItem('ui:secondaryMobile', s)
               localStorage.setItem('ui:accentMobile', a)
               localStorage.setItem('ui:bgMobile', b)
               localStorage.setItem('ui:textMobile', t)
-            }} className="card" style={{padding:'8px 12px',cursor:'pointer'}} disabled={!(isHex(normalizeHex(primaryMobile||defaultColors.primary)) && isHex(normalizeHex(secondaryMobile||defaultColors.secondary)) && isHex(normalizeHex(accentMobile||defaultColors.accent)) && isHex(normalizeHex(bgMobile||defaultColors.bg)) && isHex(normalizeHex(textMobile||defaultColors.text)))}>Apply mobile</button>
+            }} className="card" style={{ padding: '8px 12px', cursor: 'pointer' }} disabled={!(isHex(normalizeHex(primaryMobile || defaultColors.primary)) && isHex(normalizeHex(secondaryMobile || defaultColors.secondary)) && isHex(normalizeHex(accentMobile || defaultColors.accent)) && isHex(normalizeHex(bgMobile || defaultColors.bg)) && isHex(normalizeHex(textMobile || defaultColors.text)))}>Apply mobile</button>
 
-            <button onClick={()=>{
+            <button onClick={() => {
               setPrimaryMobile(''); setSecondaryMobile(''); setAccentMobile(''); setBgMobile(''); setTextMobile('')
               localStorage.removeItem('ui:primaryMobile'); localStorage.removeItem('ui:secondaryMobile'); localStorage.removeItem('ui:accentMobile'); localStorage.removeItem('ui:bgMobile'); localStorage.removeItem('ui:textMobile')
-            }} style={{padding:'8px 12px',cursor:'pointer'}}>Reset mobile</button>
+            }} style={{ padding: '8px 12px', cursor: 'pointer' }}>Reset mobile</button>
           </div>
         </div>
       </div>

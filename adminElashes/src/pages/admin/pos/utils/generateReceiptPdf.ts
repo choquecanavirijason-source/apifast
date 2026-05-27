@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
+import { getLogoBase64 } from "../../../../core/hooks/useLogo";
 
 // En Tauri v2 el global interno es __TAURI_INTERNALS__
 const isTauri =
@@ -25,6 +26,48 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
   let y = 18;
+
+  // ── Logo (si existe) ──────────────────────────────────────────────────────
+  const logoDataUrl = getLogoBase64();
+  if (logoDataUrl) {
+    try {
+      // Detectar formato a partir del data URL
+      const formatMatch = logoDataUrl.match(/^data:image\/([a-zA-Z+]+);base64,/);
+      const rawFormat = formatMatch?.[1]?.toUpperCase() ?? "PNG";
+      // jsPDF soporta PNG, JPEG, WEBP (no SVG directo → fallback a PNG)
+      const imgFormat = ["PNG", "JPEG", "JPG", "WEBP"].includes(rawFormat) ? rawFormat : "PNG";
+
+      const logoMaxW = 40;
+      const logoMaxH = 16;
+
+      // Calcular dimensiones manteniendo aspecto
+      const img = new Image();
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = logoDataUrl;
+      });
+
+      let logoW = logoMaxW;
+      let logoH = logoMaxH;
+      if (img.width && img.height) {
+        const ratio = img.width / img.height;
+        if (ratio > logoMaxW / logoMaxH) {
+          logoW = logoMaxW;
+          logoH = logoMaxW / ratio;
+        } else {
+          logoH = logoMaxH;
+          logoW = logoMaxH * ratio;
+        }
+      }
+
+      const logoX = (pageW - logoW) / 2;
+      doc.addImage(logoDataUrl, imgFormat as "PNG", logoX, y, logoW, logoH);
+      y += logoH + 5;
+    } catch {
+      // Si falla cargar el logo, continuar sin él
+    }
+  }
 
   // ── Header ────────────────────────────────────────────────────────────────
   doc.setFont("helvetica", "bold");

@@ -143,7 +143,6 @@ def _validate_branch_opening_hours(
         )
 
     appt_start = start_time.time()
-    appt_end = end_time.time()
 
     for r in valid_ranges:
         try:
@@ -151,8 +150,8 @@ def _validate_branch_opening_hours(
             close_t = time.fromisoformat(r["close_time"])
         except (ValueError, KeyError):
             continue
-        if appt_start >= open_t and appt_end <= close_t:
-            return  # dentro del rango → válido
+        if open_t <= appt_start < close_t:
+            return  # la cita arranca dentro del horario → válido
 
     hours_str = ", ".join(
         f"{r['open_time']}–{r['close_time']}"
@@ -161,7 +160,7 @@ def _validate_branch_opening_hours(
     )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=f"La cita debe estar dentro del horario del salon ({hours_str})",
+        detail=f"La cita debe comenzar dentro del horario del salon ({hours_str})",
     )
 
 

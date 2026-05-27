@@ -467,69 +467,38 @@ export default function ProfessionalServiceHistory() {
       {/* ── Contenido de pestaña tickets ─────────────────────────────────── */}
       {activeTab === "tickets" && (
         <>
-      {/* ── Galería de operarias (solo admin y operaria) ─────────────────── */}
+      {/* ── Selector de operaria ─────────────────────────────────────────── */}
       {canSeeCards && (
-        <SectionCard bodyClassName="!p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-[#323130]">Seleccionar operaria</h2>
-            {selectedProfessionalId !== null && (
-              <button
-                type="button"
-                onClick={() => setSelectedProfessionalId(null)}
-                className="flex items-center gap-1 rounded-md border border-[#edebe9] px-2.5 py-1 text-xs text-[#605e5c] hover:bg-[#f3f2f1]"
-              >
-                <X className="h-3 w-3" />
-                Ver todas
-              </button>
-            )}
-          </div>
-
-          {isLoading && professionalStats.length === 0 ? (
-            <div className="flex h-24 items-center justify-center text-sm text-[#a19f9d]">Cargando operarias...</div>
-          ) : professionalStats.length === 0 ? (
-            <div className="flex h-24 items-center justify-center text-sm text-[#a19f9d]">No hay operarias registradas.</div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {professionalStats.map(({ id, name, count, completedCount, commission }, index) => {
-                const isSelected = selectedProfessionalId === id;
-                const color = CARD_COLORS[index % CARD_COLORS.length];
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setSelectedProfessionalId(isSelected ? null : id)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition-all duration-150 ${
-                      isSelected
-                        ? "border-[#0078d4] bg-[#deecf9] shadow-md ring-2 ring-[#0078d4]/25"
-                        : "border-[#edebe9] bg-white hover:border-[#0078d4]/40 hover:shadow-sm"
-                    }`}
-                  >
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold ${
-                      isSelected ? "bg-[#0078d4] text-white shadow" : `${color.bg} ${color.text}`
-                    }`}>
-                      {getInitials(name)}
-                    </div>
-                    <p className={`w-full truncate text-xs font-semibold leading-tight ${isSelected ? "text-[#003a8c]" : "text-[#323130]"}`} title={name}>
-                      {name}
-                    </p>
-                    <div className="flex w-full flex-col items-center gap-0.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        isSelected ? "bg-[#0078d4] text-white" : count > 0 ? `${color.bg} ${color.text}` : "bg-[#f3f2f1] text-[#a19f9d]"
-                      }`}>
-                        {completedCount} {completedCount === 1 ? "completado" : "completados"}
-                      </span>
-                      {commission > 0 ? (
-                        <span className={`text-[10px] font-semibold tabular-nums ${isSelected ? "text-[#003a8c]" : "text-[#0050a0]"}`}>
-                          {moneyFormatter.format(commission)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#edebe9] bg-white px-4 py-3 shadow-sm">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c] shrink-0">
+            Operaria
+          </label>
+          <select
+            value={selectedProfessionalId ?? ""}
+            onChange={(e) => setSelectedProfessionalId(e.target.value ? Number(e.target.value) : null)}
+            disabled={isLoading && professionalStats.length === 0}
+            className="flex-1 min-w-45 rounded-md border border-[#d2d0ce] bg-[#faf9f8] px-3 py-1.5 text-sm text-[#323130] focus:border-[#0078d4] focus:outline-none focus:ring-1 focus:ring-[#0078d4]/40"
+          >
+            <option value="">Todas las operarias</option>
+            {professionalStats.map(({ id, name, completedCount, commission }) => (
+              <option key={id} value={id}>
+                {name}
+                {completedCount > 0 ? ` — ${completedCount} completado${completedCount !== 1 ? "s" : ""}` : ""}
+                {commission > 0 ? `  (${moneyFormatter.format(commission)})` : ""}
+              </option>
+            ))}
+          </select>
+          {selectedProfessionalId !== null && (
+            <button
+              type="button"
+              onClick={() => setSelectedProfessionalId(null)}
+              className="flex items-center gap-1 rounded-md border border-[#edebe9] px-2.5 py-1.5 text-xs text-[#605e5c] hover:bg-[#f3f2f1]"
+            >
+              <X className="h-3 w-3" />
+              Ver todas
+            </button>
           )}
-        </SectionCard>
+        </div>
       )}
 
       {/* ── Filtros ──────────────────────────────────────────────────────── */}

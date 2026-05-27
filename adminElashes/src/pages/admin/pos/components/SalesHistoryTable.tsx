@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { FileDown, Search } from "lucide-react";
+import { FileDown, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
 import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
-import DataTable, { type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
+import DataTable, { type DataTableAction, type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
 import StatusBadge from "./StatusBadge";
 
 type SalesColFilters = {
@@ -111,6 +111,8 @@ export default function SalesHistoryTable({
       })),
     });
   };
+
+  // ── Columnas de la tabla ───────────────────────────────────────────────────
   const columns = useMemo<DataTableColumn<PosSaleItem>[]>(
     () => [
       {
@@ -173,48 +175,41 @@ export default function SalesHistoryTable({
         ),
         getValue: (sale) => sale.created_at ?? "",
       },
+    ],
+    []
+  );
+
+  // ── Acciones del dropdown ⋯ (igual que tabla de clientes) ─────────────────
+  const actions = useMemo<DataTableAction<PosSaleItem>[]>(
+    () => [
       {
-        key: "action",
-        header: "Acciones",
-        sortable: false,
-        filterable: false,
-        searchable: false,
-        render: (sale) => (
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => generateReceiptPdf(sale)}
-              title="Descargar PDF"
-              className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100"
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              PDF
-            </button>
-            <button
-              onClick={() => onViewDetail(sale)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
-            >
-              Ver detalle
-            </button>
-            <button
-              onClick={() => onEditSale(sale)}
-              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
-            >
-              Editar
-            </button>
-            <button
-              onClick={() => onCancelSale(sale)}
-              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-100"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => onDeleteSale(sale)}
-              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-100"
-            >
-              Eliminar
-            </button>
-          </div>
-        ),
+        label: "Descargar PDF",
+        icon: <Receipt className="w-4 h-4" />,
+        onClick: (sale) => void generateReceiptPdf(sale),
+      },
+      {
+        label: "Ver detalle",
+        icon: <Eye className="w-4 h-4" />,
+        onClick: onViewDetail,
+      },
+      {
+        label: "Editar",
+        icon: <Pencil className="w-4 h-4" />,
+        onClick: onEditSale,
+        variant: "primary",
+        show: (sale) => sale.status !== "cancelled",
+      },
+      {
+        label: "Cancelar venta",
+        icon: <XCircle className="w-4 h-4" />,
+        onClick: onCancelSale,
+        show: (sale) => sale.status !== "cancelled",
+      },
+      {
+        label: "Eliminar",
+        icon: <Trash2 className="w-4 h-4" />,
+        onClick: onDeleteSale,
+        variant: "danger",
       },
     ],
     [onCancelSale, onDeleteSale, onEditSale, onViewDetail]
@@ -323,6 +318,7 @@ export default function SalesHistoryTable({
       <DataTable
         data={pagedSales}
         columns={columns}
+        actions={actions}
         enableGlobalSearch={false}
         globalSearchPlaceholder="Buscar ventas..."
         enableColumnFilters
@@ -337,7 +333,7 @@ export default function SalesHistoryTable({
         onPageChange={onPageChange}
         onLimitChange={onRowsPerPageChange}
         availableLimits={rowsPerPageOptions}
-        tableMinWidth="min-w-[980px]"
+        tableMinWidth="min-w-[860px]"
       />
     </div>
   );

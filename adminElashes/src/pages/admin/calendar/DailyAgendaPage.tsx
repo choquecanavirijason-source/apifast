@@ -437,6 +437,20 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     return validRanges.length > 0 ? validRanges : null;
   }, [branchId, branches, selectedDate]);
 
+  const openRangesMinutes = useMemo(() => {
+    if (!todayOpeningHours) return null;
+    return todayOpeningHours.map((r) => {
+      const [oh, om] = r.open_time.split(":").map(Number);
+      const [ch, cm] = r.close_time.split(":").map(Number);
+      return { open: oh * 60 + om, close: ch * 60 + cm };
+    });
+  }, [todayOpeningHours]);
+
+  const isSlotOpen = useCallback((minuteOfDay: number): boolean => {
+    if (!openRangesMinutes) return true;
+    return openRangesMinutes.some((r) => minuteOfDay >= r.open && minuteOfDay < r.close);
+  }, [openRangesMinutes]);
+
   const visibleTickets = useMemo(() => {
     if (!branchId) return tickets;
     return tickets.filter((t) => {
@@ -796,9 +810,18 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
           <div className="bg-[#b8d6f0] px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-[#1a3a52] print:bg-[#b8d6f0]">
             {headerTitle}
           </div>
-          <p className="border-b border-[#e1eaf3] bg-[#f7fbff] px-3 py-1 text-center text-[10px] text-[#605e5c]">
-            FECHA DE INICIO ({weekdayUpper})
-          </p>
+          <div className="flex items-center justify-between border-b border-[#e1eaf3] bg-[#f7fbff] px-3 py-1">
+            <p className="text-[10px] text-[#605e5c]">FECHA DE INICIO ({weekdayUpper})</p>
+            {openRangesMinutes !== null ? (
+              todayOpeningHours ? (
+                <p className="text-[10px] font-semibold text-[#107c10]">
+                  Horario: {todayOpeningHours.map((r) => `${r.open_time}–${r.close_time}`).join(" / ")}
+                </p>
+              ) : (
+                <p className="text-[10px] font-semibold text-[#a4262c]">Cerrado hoy</p>
+              )
+            ) : null}
+          </div>
           <div className="max-h-[min(72vh,900px)] overflow-auto">
             <div
               className="grid min-w-[min(100%,720px)]"
@@ -807,14 +830,21 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               {PLANNER_SLOTS.map((slot, idx) => {
                 const rowTickets = plannerMap.get(slot.minuteOfDay) ?? [];
                 const zebra = idx % 2 === 0;
+                const slotOpen = isSlotOpen(slot.minuteOfDay);
+                const closed = openRangesMinutes !== null && !slotOpen;
                 return (
                   <div key={`${slot.minuteOfDay}-${slot.stepMinutes}`} className="contents">
                     <div
                       className={`border-b border-r border-[#d5e5f2] px-2 py-1.5 text-xs font-medium tabular-nums ${
-                        zebra ? "bg-[#f0f7fc]" : "bg-white"
+                        closed
+                          ? "bg-[#f3f3f2] text-[#a19f9d]"
+                          : zebra ? "bg-[#f0f7fc]" : "bg-white"
                       }`}
                     >
-                      {slot.label}
+                      <span className={closed ? "opacity-60" : ""}>{slot.label}</span>
+                      {closed && (
+                        <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-[#bebbb8]">cerrado</span>
+                      )}
                     </div>
                     <AgendaDropCell
                       id={plannerDropId(slot.minuteOfDay)}
@@ -838,8 +868,12 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           null
                         );
                       }}
-                      className={`border-b border-[#d5e5f2] px-2 py-1.5 cursor-pointer rounded-sm transition hover:bg-[#eef6fc] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 ${
-                        zebra ? "bg-[#f5faff]" : "bg-[#fafcfe]"
+                      className={`border-b border-[#d5e5f2] px-2 py-1.5 transition ${
+                        closed
+                          ? "cursor-default bg-[#f3f3f2] opacity-60"
+                          : `cursor-pointer rounded-sm hover:bg-[#eef6fc] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 ${
+                              zebra ? "bg-[#f5faff]" : "bg-[#fafcfe]"
+                            }`
                       }`}
                     >
                       <div className="flex min-h-[88px] flex-wrap items-start gap-1.5 content-start py-0.5">

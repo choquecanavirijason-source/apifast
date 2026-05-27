@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import useAuth from "../../core/hooks/useAuth";
+import { useLogo } from "../../core/hooks/useLogo";
 import {
   LayoutDashboard,
   Users,
@@ -52,6 +53,7 @@ const navFocusRing =
 
 export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const { logoBase64 } = useLogo();
   const lastSyncedPathRef = useRef<string | null>(null);
   const lastCollapsedRef = useRef<boolean>(collapsed);
   const asideRef = useRef<HTMLElement | null>(null);
@@ -545,9 +547,27 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       style={{ background: "linear-gradient(180deg, #063324 0%, #021a12 100%)" }}
     >
       {/* Logo */}
-      <div className="h-20 flex items-center px-6 border-b border-emerald-800/30 shrink-0">
-        {!collapsed && <span className="text-2xl font-black text-white tracking-tight">Admin</span>}
-        {collapsed && <span className="mx-auto text-base font-black text-emerald-400">Admin</span>}
+      <div className="h-20 flex items-center justify-center px-4 border-b border-emerald-800/30 shrink-0">
+        {logoBase64 ? (
+          collapsed ? (
+            <img
+              src={logoBase64}
+              alt="Logo"
+              className="h-9 w-9 rounded-lg object-contain"
+            />
+          ) : (
+            <img
+              src={logoBase64}
+              alt="Logo"
+              className="h-11 max-w-40 object-contain"
+            />
+          )
+        ) : (
+          <>
+            {!collapsed && <span className="text-2xl font-black text-white tracking-tight">Admin</span>}
+            {collapsed && <span className="mx-auto text-base font-black text-emerald-400">A</span>}
+          </>
+        )}
       </div>
 
       {/* Nav */}
