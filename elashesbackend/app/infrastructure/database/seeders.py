@@ -100,7 +100,35 @@ def seed_roles(db: Session):
     permission_map = {p.name: p for p in all_permissions}
 
     role_permissions = {
+        # SuperAdmin: acceso total a todo
         "SuperAdmin": list(permission_map.values()),
+
+        # Admin: acceso completo a su sucursal (no puede gestionar otras sucursales ni usuarios globales)
+        "Admin": [
+            permission_map["clients:view"],
+            permission_map["clients:manage"],
+            permission_map["catalog:view"],
+            permission_map["catalog:manage"],
+            permission_map["tracking:view"],
+            permission_map["tracking:manage"],
+            permission_map["forms:view"],
+            permission_map["forms:manage"],
+            permission_map["payments:view"],
+            permission_map["payments:manage"],
+            permission_map["services:view"],
+            permission_map["services:manage"],
+            permission_map["appointments:view"],
+            permission_map["appointments:manage"],
+            permission_map["branches:view"],
+            permission_map["inventory:view"],
+            permission_map["inventory:manage"],
+            permission_map["settings:view"],
+            permission_map["users:manage"],
+            permission_map["ai:view"],
+            permission_map["ai:manage"],
+        ],
+
+        # Operaria: atiende clientes, registra seguimiento, ve agenda propia
         "Operaria": [
             permission_map["clients:view"],
             permission_map["clients:manage"],
@@ -115,9 +143,12 @@ def seed_roles(db: Session):
             permission_map["payments:view"],
             permission_map["branches:view"],
         ],
+
+        # Secretaria: gestiona ventas POS, citas y clientes — necesita catalog:view para eye-types en POS
         "Secretaria": [
             permission_map["clients:view"],
             permission_map["clients:manage"],
+            permission_map["catalog:view"],
             permission_map["tracking:view"],
             permission_map["forms:view"],
             permission_map["payments:view"],
@@ -128,6 +159,8 @@ def seed_roles(db: Session):
             permission_map["appointments:manage"],
             permission_map["branches:view"],
         ],
+
+        # EncargadaAlmacen: solo inventario y catálogos
         "EncargadaAlmacen": [
             permission_map["inventory:view"],
             permission_map["inventory:manage"],

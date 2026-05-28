@@ -15,6 +15,8 @@ export type CartLine = {
   date: string;
   time: string;
   without_time: boolean;
+  /** Si el usuario editó manualmente la hora, no se sobreescribe al cobrar. */
+  time_manual?: boolean;
   status: "pending" | "in_service";
   duration_minutes: number;
   price: number;
@@ -35,6 +37,10 @@ export type PosCheckoutTicketPreview = {
   scheduleLabel: string;
   professionalName: string;
   status: string;
+  /** Fecha y hora editables desde el panel. */
+  date: string;
+  time: string;
+  without_time: boolean;
 };
 
 export type PosSaleStepOneProps = {
@@ -94,6 +100,11 @@ export type PosSaleStepOneProps = {
   linkAppointmentId: number | null;
   ticketPreviews: PosCheckoutTicketPreview[];
   onGoToScheduleStep: () => void;
+  /** Modo de tickets: individual (un ticket por servicio) o grupal (un ticket para todos). */
+  ticketMode: "individual" | "group";
+  setTicketMode: (mode: "individual" | "group") => void;
+  /** Editar hora de un ticket directamente desde el panel lateral. */
+  onUpdateTicketTime: (localId: string, date: string, time: string) => void;
 };
 
 export type PosSaleStepTwoProps = {

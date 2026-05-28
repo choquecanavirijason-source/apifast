@@ -147,15 +147,36 @@ def create_sale(
             detail="Debes agregar al menos un servicio a la venta",
         )
 
-    services = db.query(Service).filter(Service.id.in_([item.service_id for item in payload.items])).all()
+    # Recolectar todos los service IDs (items individuales y grupales)
+    all_service_ids: set[int] = set()
+    for item in payload.items:
+        if item.service_ids:
+            all_service_ids.update(item.service_ids)
+        elif item.service_id is not None:
+            all_service_ids.add(item.service_id)
+
+    if not all_service_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cada item debe tener al menos service_id o service_ids",
+        )
+
+    services = db.query(Service).filter(Service.id.in_(all_service_ids)).all()
     service_map = {service.id: service for service in services}
-    if len(service_map) != len({item.service_id for item in payload.items}):
+    if len(service_map) != len(all_service_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uno o más servicios no existen",
         )
 
-    subtotal = float(sum(service_map[item.service_id].price for item in payload.items))
+    # Subtotal: suma precios de todos los servicios (individuales + grupales)
+    subtotal = 0.0
+    for item in payload.items:
+        if item.service_ids:
+            subtotal += sum(service_map[sid].price for sid in item.service_ids if sid in service_map)
+        elif item.service_id is not None:
+            subtotal += service_map[item.service_id].price
+    subtotal = float(subtotal)
     discount_value = float(payload.discount_value)
 
     if payload.discount_type == "percent":
@@ -188,7 +209,13 @@ def create_sale(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El cliente del cobro no coincide con la reserva",
             )
-        if _appointment_service_counts(link_appt) != Counter(item.service_id for item in payload.items):
+        payload_service_counts: Counter = Counter()
+        for item in payload.items:
+            if item.service_ids:
+                payload_service_counts.update(item.service_ids)
+            elif item.service_id is not None:
+                payload_service_counts[item.service_id] += 1
+        if _appointment_service_counts(link_appt) != payload_service_counts:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Los servicios cobrados deben coincidir exactamente con los de la reserva",
@@ -231,7 +258,9 @@ def create_sale(
                 client_id=payload.client_id,
                 created_by_id=current_user.id,
                 professional_id=item.professional_id,
-                service_id=item.service_id,
+                # Ticket grupal: service_ids; ticket individual: service_id
+                service_id=item.service_id if not item.service_ids else None,
+                service_ids=item.service_ids or None,
                 branch_id=item.branch_id or payload.branch_id,
                 sale_id=sale.id,
                 is_ia=item.is_ia,

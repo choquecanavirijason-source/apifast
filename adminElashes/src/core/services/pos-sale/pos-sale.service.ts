@@ -2,7 +2,10 @@ import api from "../api";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 export interface PosSaleItemPayload {
-  service_id: number;
+  /** Ticket individual: un solo servicio */
+  service_id?: number | null;
+  /** Ticket grupal: varios servicios en 1 cita */
+  service_ids?: number[] | null;
   professional_id?: number | null;
   is_ia?: boolean;
   start_time: string;
@@ -91,7 +94,10 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
     ...(payload.sale_without_appointments ? { sale_without_appointments: true } : {}),
     ...(payload.reservation_only ? { reservation_only: true } : {}),
     items: payload.items.map((item) => ({
-      service_id: item.service_id,
+      ...(item.service_ids?.length ? { service_ids: item.service_ids } : {}),
+      ...(item.service_id != null && item.service_id > 0 && !item.service_ids?.length
+        ? { service_id: item.service_id }
+        : {}),
       professional_id:
         item.professional_id != null && item.professional_id > 0 ? item.professional_id : null,
       is_ia: Boolean(item.is_ia),

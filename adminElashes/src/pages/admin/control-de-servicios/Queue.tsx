@@ -145,14 +145,20 @@ const Main = () => {
     };
   }, []);
 
+  // Profesionales filtrados por sucursal activa — se recarga al cambiar de sucursal
   useEffect(() => {
-    AgendaService.listProfessionalsForSelect({ limit: 200 })
+    AgendaService.listProfessionalsForSelect({
+      limit: 200,
+      ...(activeBranchId ? { branch_id: activeBranchId } : {}),
+    })
       .then(setProfessionals)
       .catch((error) => {
         console.error("Error cargando profesionales:", error);
         setProfessionals([]);
       });
+  }, [activeBranchId]);
 
+  useEffect(() => {
     CatalogService.listEyeTypes({ limit: 200 })
       .then(setEyeTypes)
       .catch(() => setEyeTypes([]));

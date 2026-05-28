@@ -174,9 +174,11 @@ def _validate_professional_availability(
     if professional_id is None:
         return
 
+    # Solo bloquean el horario los tickets activos/reservados.
+    # "completed", "cancelled", "finalizado", "atendido" ya liberaron el slot.
     query = db.query(Appointment).filter(
         Appointment.professional_id == professional_id,
-        Appointment.status.in_(["pending", "confirmed", "completed", "in_service"]),
+        Appointment.status.in_(["pending", "confirmed", "in_service"]),
         and_(
             Appointment.start_time < end_time,
             Appointment.end_time > start_time,

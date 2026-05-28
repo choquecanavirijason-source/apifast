@@ -402,7 +402,7 @@ export default function PosSaleStepTwo({
   };
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
+    <div className="flex h-[80dvh] max-h-dvh min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
       <p className="shrink-0 border-b border-[#c7e0f4] bg-[#deecf9] px-4 py-2 text-[11px] leading-snug text-[#004578]">
         Al confirmar la venta, los tickets en agenda se registran con la <strong>fecha y hora del momento del cobro</strong>{" "}
         (encadenados por duración). La vista del planificador es solo orientativa.

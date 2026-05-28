@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
@@ -60,11 +60,24 @@ export default function PosSaleStepOne({
   linkAppointmentId,
   ticketPreviews,
   onGoToScheduleStep,
+  ticketMode,
+  setTicketMode,
+  onUpdateTicketTime,
 }: PosSaleStepOneProps) {
   const [showToast, setShowToast] = useState(false);
   const [animateCart, setAnimateCart] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const cartCount = cartLines.length;
+
+  // Cuántas veces está cada servicio en el carrito
+  const cartCountByServiceId = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const line of cartLines) {
+      const key = String(line.service_id);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [cartLines]);
 
   useEffect(() => {
     if (cartCount > 0) {
@@ -97,24 +110,20 @@ export default function PosSaleStepOne({
   const handleServiceSelect = (serviceId: string) => {
     onServiceSelect(serviceId);
     const selectedService =
-      filteredServices.find((service) => String(service.id) === serviceId) ||
-      services.find((service) => String(service.id) === serviceId);
-    if (selectedService?.name) {
-      showAddedMessage(selectedService.name);
-    } else {
-      showAddedMessage("Servicio");
-    }
+      filteredServices.find((s) => String(s.id) === serviceId) ||
+      services.find((s) => String(s.id) === serviceId);
+    showAddedMessage(selectedService?.name || "Servicio");
   };
 
   const handleAddServiceById = (serviceId: string) => {
-    const selectedService = services.find((service) => String(service.id) === serviceId);
+    const selectedService = services.find((s) => String(s.id) === serviceId);
     if (!selectedService) return;
     onAddServiceToCart(selectedService);
     showAddedMessage(selectedService.name || "Servicio");
   };
 
   const handleChangeLineService = (localId: string, serviceId: string) => {
-    const selectedService = services.find((service) => String(service.id) === serviceId);
+    const selectedService = services.find((s) => String(s.id) === serviceId);
     if (!selectedService) return;
     onRemoveLine(localId);
     onAddServiceToCart(selectedService);
@@ -123,15 +132,17 @@ export default function PosSaleStepOne({
 
   return (
     <div
-      className={`relative flex h-[80dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col bg-[#f3f2f1] text-[#323130] ${isLoading ? "pointer-events-none opacity-60" : ""}`}
+      className={`relative flex h-[80dvh] max-h-dvh min-h-0 w-full min-w-0 flex-col bg-[#f3f2f1] text-[#323130] ${isLoading ? "pointer-events-none opacity-60" : ""}`}
     >
+      {/* Toast confirmación */}
       {(showToast || addToCartMessage) && (
-        <div className="fixed left-1/2 top-4 z-[100] flex max-w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-top-4">
+        <div className="fixed left-1/2 top-4 z-100 flex max-w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-top-4">
           <ShoppingCart className="h-4 w-4 shrink-0" />
           <span className="truncate">{addToCartMessage || "¡Servicio añadido!"}</span>
         </div>
       )}
 
+      {/* Catálogo */}
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         <div className="h-full min-h-0 w-full min-w-0 max-w-none">
           <div className="flex h-full min-h-0 w-full flex-col">
@@ -154,12 +165,14 @@ export default function PosSaleStepOne({
               onAddServiceToCart={handleAddServiceToCart}
               serviceComboboxRef={serviceComboboxRef}
               serviceMenuRef={serviceMenuRef}
+              cartCountByServiceId={cartCountByServiceId}
             />
           </div>
         </div>
       </div>
 
-      <div className="fixed bottom-6 right-6 z-[42] flex gap-3">
+      {/* FAB carrito */}
+      <div className="fixed bottom-6 right-6 z-42 flex gap-3">
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
@@ -218,6 +231,9 @@ export default function PosSaleStepOne({
         linkAppointmentId={linkAppointmentId}
         ticketPreviews={ticketPreviews}
         onGoToScheduleStep={onGoToScheduleStep}
+        ticketMode={ticketMode}
+        setTicketMode={setTicketMode}
+        onUpdateTicketTime={onUpdateTicketTime}
       />
     </div>
   );

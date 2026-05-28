@@ -97,10 +97,17 @@ const normalizeCartLine = (line: CartLine): CartLine => ({
   status: line.status === "in_service" ? "in_service" : "pending",
 });
 
-/** Fecha/hora reales al ejecutar el cobro: encadena desde ahora. */
+/** Fecha/hora reales al ejecutar el cobro: encadena desde ahora.
+ *  Las líneas con time_manual === true conservan su hora editada por el usuario. */
 const applySaleExecutionSchedule = (lines: CartLine[]): CartLine[] => {
   let cursor = Date.now();
   return lines.map((line) => {
+    if (line.time_manual) {
+      // Hora fijada manualmente: avanzar el cursor pero respetar la hora del usuario
+      const durationMs = Math.max(Number(line.duration_minutes) || 60, 1) * 60 * 1000;
+      cursor += durationMs;
+      return normalizeCartLine({ ...line, without_time: false });
+    }
     const start = new Date(cursor);
     const durationMs = Math.max(Number(line.duration_minutes) || 60, 1) * 60 * 1000;
     cursor += durationMs;
@@ -222,6 +229,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [serviceSearch,    setServiceSearch]     = useState("");
   const [selectedServiceCategoryId, setSelectedServiceCategoryId] = useState("all");
   const [sellerId,         setSellerId]          = useState("");
+  /** Modo de emisión de tickets: un ticket por servicio, o todos en un solo ticket grupal. */
+  const [ticketMode, setTicketMode] = useState<"individual" | "group">("individual");
 
   // UI
   const [isSubmitting,        setIsSubmitting]        = useState(false);
@@ -383,11 +392,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   const checkoutTicketPreviews = useMemo(() => {
     if (cartLines.length === 0 || linkAppointmentId) return [];
-    const scheduled = prepareCartLinesForTicketCheckout(cartLines, {
-      sellerId,
-      applySchedule: true,
-    });
-    return scheduled.map((line) => {
+    // Usa los tiempos reales de cartLines (editables desde el panel)
+    const withSeller = applySellerToCartLines(cartLines, sellerId);
+    return withSeller.map((line) => {
       const service = services.find((item) => String(item.id) === line.service_id);
       const professional = professionals.find((item) => String(item.id) === line.professional_id);
       return {
@@ -398,6 +405,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           : `${line.date} ${line.time}`,
         professionalName: professional?.username ?? "Sin operaria",
         status: line.status === "in_service" ? "En atención" : "Pendiente",
+        date: line.date,
+        time: line.time,
+        without_time: line.without_time,
       };
     });
   }, [cartLines, sellerId, services, professionals, linkAppointmentId]);
@@ -844,10 +854,22 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
       aStart.getTime() < bEnd.getTime() && aEnd.getTime() > bStart.getTime();
 
+    // Statuses que ya NO bloquean el horario (servicio terminado o anulado)
+    const freeStatuses = new Set([
+      "cancelled",
+      "completed",
+      "finalizado",
+      "atendido",
+      "done",
+      "no_show",
+    ]);
+
     const result: Record<string, { available: boolean; conflictCount: number }> = {};
 
     for (let index = 0; index < cartLines.length; index += 1) {
       const line = cartLines[index];
+
+      // Sin operaria asignada → no hay conflicto posible
       if (!line.professional_id) {
         result[line.localId] = { available: true, conflictCount: 0 };
         continue;
@@ -855,6 +877,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
       const professionalId = Number(line.professional_id);
       if (!Number.isFinite(professionalId)) {
+        result[line.localId] = { available: true, conflictCount: 0 };
+        continue;
+      }
+
+      // Sin hora definida → no se puede calcular solapamiento, omitir
+      if (line.without_time || !line.time?.trim()) {
         result[line.localId] = { available: true, conflictCount: 0 };
         continue;
       }
@@ -867,10 +895,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
       let conflictCount = 0;
 
+      // Conflictos con otros tickets del mismo carrito
       for (let i = 0; i < cartLines.length; i += 1) {
         if (i === index) continue;
         const other = cartLines[i];
         if (Number(other.professional_id) !== professionalId) continue;
+        if (other.without_time || !other.time?.trim()) continue;
 
         const otherRange = getLineDateRange(other);
         if (overlaps(start, end, otherRange.start, otherRange.end)) {
@@ -878,8 +908,10 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         }
       }
 
+      // Conflictos con tickets ya existentes en agenda
       for (const ticket of existingTickets) {
-        if ((ticket.status ?? "") === "cancelled") continue;
+        // Ignorar tickets terminados/anulados — ya no ocupan el horario
+        if (freeStatuses.has(ticket.status ?? "")) continue;
         if (editingAppointmentIds.has(ticket.id)) continue;
         if (Number(ticket.professional_id) !== professionalId) continue;
 
@@ -922,9 +954,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       return fromCatalog ?? "Sin operaria";
     };
 
+    const freeStatuses = new Set(["cancelled", "completed", "finalizado", "atendido", "done", "no_show"]);
+
     return existingTickets
       .filter((ticket) => {
-        if ((ticket.status ?? "") === "cancelled") return false;
+        if (freeStatuses.has(ticket.status ?? "")) return false;
         if (ticket.start_time.slice(0, 10) !== targetDate) return false;
 
         if (!term) return true;
@@ -1024,6 +1058,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         return nextLine;
       })
     );
+  };
+
+  /** Edita fecha/hora de un ticket desde el panel lateral del POS. Marca time_manual=true. */
+  const handleUpdateTicketTime = (localId: string, date: string, time: string) => {
+    updateLine(localId, { date, time, without_time: false, time_manual: true });
   };
 
   useEffect(() => {
@@ -1328,14 +1367,32 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         return;
       }
 
-      const payload = {
-        client_id: Number(clientId),
-        branch_id: activeBranchId,
-        payment_method: paymentMethod,
-        discount_type: discountType,
-        discount_value: numericDiscount,
-        notes: notes.trim() || undefined,
-        items: linesScheduledForAgenda.map((line) => {
+      // ── Construir items según el modo de tickets ────────────────────────────
+      const buildItems = () => {
+        if (ticketMode === "group" && linesScheduledForAgenda.length > 1) {
+          // Ticket grupal: 1 cita con todos los service_ids
+          const firstLine = linesScheduledForAgenda[0];
+          const safeDate = firstLine.date?.trim() || getLocalDateInputValue();
+          const safeTime = firstLine.without_time ? "09:00" : (firstLine.time?.trim() || getLocalTimeValue());
+          const groupStart = new Date(`${safeDate}T${safeTime}:00`);
+          const totalDuration = linesScheduledForAgenda.reduce(
+            (acc, l) => acc + (l.duration_minutes || 60),
+            0
+          );
+          const groupEnd = new Date(groupStart.getTime() + totalDuration * 60 * 1000);
+          const firstProfId = linesScheduledForAgenda.find((l) => l.professional_id)?.professional_id;
+          return [
+            {
+              service_ids: linesScheduledForAgenda.map((l) => Number(l.service_id)),
+              professional_id: firstProfId ? Number(firstProfId) : null,
+              branch_id: activeBranchId,
+              start_time: formatLocalDateTime(groupStart),
+              end_time: formatLocalDateTime(groupEnd),
+            },
+          ];
+        }
+        // Tickets individuales (por defecto)
+        return linesScheduledForAgenda.map((line) => {
           const safeDate = line.date?.trim() || getLocalDateInputValue();
           const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
           const start = new Date(`${safeDate}T${safeTime}:00`);
@@ -1347,7 +1404,17 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             start_time: formatLocalDateTime(start),
             end_time: formatLocalDateTime(end),
           };
-        }),
+        });
+      };
+
+      const payload = {
+        client_id: Number(clientId),
+        branch_id: activeBranchId,
+        payment_method: paymentMethod,
+        discount_type: discountType,
+        discount_value: numericDiscount,
+        notes: notes.trim() || undefined,
+        items: buildItems(),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
       };
 
@@ -1858,13 +1925,18 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               finalizeFooterHint={
                 linkAppointmentId
                   ? "Se cobra y se cierra la reserva con su horario de agenda."
-                  : "Se creará un ticket en agenda por cada servicio al finalizar."
+                  : ticketMode === "group"
+                    ? "Se creará 1 ticket grupal con todos los servicios."
+                    : "Se creará un ticket en agenda por cada servicio al finalizar."
               }
               linkAppointmentId={linkAppointmentId}
               ticketPreviews={checkoutTicketPreviews}
               onGoToScheduleStep={() => setStep(2)}
               onFinalizeSale={() => void handleCheckout()}
               isSubmittingCheckout={isSubmitting}
+              ticketMode={ticketMode}
+              setTicketMode={setTicketMode}
+              onUpdateTicketTime={handleUpdateTicketTime}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))

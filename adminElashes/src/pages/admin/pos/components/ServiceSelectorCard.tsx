@@ -23,6 +23,8 @@ type ServiceSelectorCardProps = {
   onAddServiceToCart: (service: ServiceOption) => void;
   serviceComboboxRef: React.RefObject<HTMLDivElement | null>;
   serviceMenuRef: React.RefObject<HTMLDivElement | null>;
+  /** Cuántas veces está cada servicio en el carrito (key = String(service.id)) */
+  cartCountByServiceId?: Record<string, number>;
 };
 
 export default function ServiceSelectorCard({
@@ -44,6 +46,7 @@ export default function ServiceSelectorCard({
   onAddServiceToCart,
   serviceComboboxRef,
   serviceMenuRef,
+  cartCountByServiceId = {},
 }: ServiceSelectorCardProps) {
   const quickServicesTrackRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -211,33 +214,51 @@ export default function ServiceSelectorCard({
 
               <div ref={quickServicesTrackRef} className="overflow-x-auto overflow-y-hidden scroll-smooth pb-1">
                 <div className="flex snap-x snap-mandatory items-stretch gap-3 pb-2">
-                {quickServices.map((service) => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    onClick={() => onAddServiceToCart(service)}
-                    className="group flex h-[338px] w-[268px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[#edebe9] bg-white text-left shadow-sm transition hover:border-[#0078d4] hover:shadow-md"
-                  >
-                    <div className="relative h-[252px] w-full shrink-0 bg-[#f3f2f1]">
-                      {service.image_url ? (
-                        <img src={service.image_url} alt="" className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#a19f9d]">
-                          {service.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="absolute bottom-2 right-2 rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#323130] opacity-0 shadow transition-opacity group-hover:opacity-100">
-                        Bs {service.price.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="p-2.5">
-                      <div>
-                        <p className="line-clamp-1 text-xs font-semibold leading-tight text-[#323130]">{service.name}</p>
-                        <p className="mt-0.5 line-clamp-1 text-[10px] text-[#605e5c]">{service.description || "Servicio disponible"}</p>
+                {quickServices.map((service) => {
+                  const cartCount = cartCountByServiceId[String(service.id)] ?? 0;
+                  return (
+                    <button
+                      key={service.id}
+                      type="button"
+                      onClick={() => onAddServiceToCart(service)}
+                      className={`group flex h-[338px] w-[268px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:shadow-md ${
+                        cartCount > 0
+                          ? "border-[#0078d4] shadow-[0_0_0_2px_rgba(0,120,212,0.18)]"
+                          : "border-[#edebe9] hover:border-[#0078d4]"
+                      }`}
+                    >
+                      <div className="relative h-[252px] w-full shrink-0 bg-[#f3f2f1]">
+                        {service.image_url ? (
+                          <img src={service.image_url} alt="" className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#a19f9d]">
+                            {service.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        {/* Badge de cantidad en carrito */}
+                        {cartCount > 0 && (
+                          <span className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-[#0078d4] px-2 text-xs font-bold text-white shadow-md">
+                            ×{cartCount}
+                          </span>
+                        )}
+                        <span className="absolute bottom-2 right-2 rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#323130] opacity-0 shadow transition-opacity group-hover:opacity-100">
+                          Bs {service.price.toFixed(2)}
+                        </span>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex items-center justify-between gap-2 p-2.5">
+                        <div className="min-w-0">
+                          <p className="line-clamp-1 text-xs font-semibold leading-tight text-[#323130]">{service.name}</p>
+                          <p className="mt-0.5 line-clamp-1 text-[10px] text-[#605e5c]">{service.description || "Servicio disponible"}</p>
+                        </div>
+                        {cartCount > 0 && (
+                          <span className="shrink-0 rounded-full bg-[#eef6ff] px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
+                            en carrito
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
                 </div>
               </div>
             </div>

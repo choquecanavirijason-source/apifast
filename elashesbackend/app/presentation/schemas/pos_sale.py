@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Set
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +10,10 @@ from app.presentation.schemas.user import UserSummary
 
 
 class PosSaleItemCreate(BaseModel):
-    service_id: int = Field(..., ge=1)
+    # Ticket individual: service_id obligatorio
+    # Ticket grupal   : service_ids con ≥2 servicios, service_id puede omitirse
+    service_id: Optional[int] = Field(default=None, ge=1)
+    service_ids: Optional[List[int]] = Field(default=None, min_length=1)
     professional_id: Optional[int] = Field(default=None, ge=1)
     is_ia: bool = False
     start_time: datetime

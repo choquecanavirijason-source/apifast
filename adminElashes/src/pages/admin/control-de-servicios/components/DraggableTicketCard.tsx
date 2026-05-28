@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Calendar, Clock, User, X, ChevronRight } from "lucide-react";
+import { GripVertical, Trash2, Calendar, Clock, User, X, ChevronRight, Scissors } from "lucide-react";
 
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { formatTime, STATUS_LABELS } from "../control.constants";
@@ -151,8 +151,12 @@ export default function DraggableTicketCard({
     quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
     quickTime !== getTimeInputValue(ticket.start_time);
 
-  const services =
-    ticket.service_names?.length ? ticket.service_names.join(", ") : ticket.service_name ?? "Sin servicio";
+  const serviceList: string[] =
+    ticket.service_names?.length
+      ? ticket.service_names
+      : ticket.service_name
+        ? [ticket.service_name]
+        : ["Sin servicio"];
   const remaining = showRemaining ? getRemainingLabel(ticket.end_time) : "";
 
   return (
@@ -277,10 +281,21 @@ export default function DraggableTicketCard({
               className="mt-0.5 shrink-0 text-[#c8c6c4] opacity-80 group-hover:text-[#0078d4]"
               aria-hidden
             />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h3 className="truncate text-sm font-semibold text-[#201f1e]">{ticket.client_name}</h3>
-              <p className="truncate text-[10px] text-[#605e5c]">{services}</p>
-              <span className="text-[10px] font-medium text-[#8a8886]">{ticket.branch_name || "Central"}</span>
+              {/* Chips de servicios */}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {serviceList.map((svc, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-0.5 rounded-sm border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]"
+                  >
+                    <Scissors size={9} className="shrink-0" />
+                    {svc}
+                  </span>
+                ))}
+              </div>
+              <span className="mt-0.5 block text-[10px] font-medium text-[#8a8886]">{ticket.branch_name || "Central"}</span>
             </div>
           </div>
 
