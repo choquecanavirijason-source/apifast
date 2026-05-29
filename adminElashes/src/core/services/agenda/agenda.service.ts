@@ -105,6 +105,7 @@ export interface AppointmentCreatePayload {
   start_time: string; // ISO datetime
   end_time: string; // ISO datetime
   status?: string;
+  advance_payment_amount?: number; // monto de adelanto al reservar (0 = sin adelanto)
 }
 
 export interface ReservationSaleItemPayload {
@@ -269,6 +270,7 @@ export interface ClientForSelect {
   apellido: string;
   phone?: string | null;
   status?: string | null;
+  age?: number | null;
 }
 
 export interface ProfessionalForSelect {
@@ -473,6 +475,9 @@ export const AgendaService = {
       ...(payload.service_ids != null && { service_ids: payload.service_ids }),
       ...(payload.branch_id != null && { branch_id: payload.branch_id }),
       ...(payload.sale_id != null && { sale_id: payload.sale_id }),
+      ...(payload.advance_payment_amount != null && payload.advance_payment_amount > 0 && {
+        advance_payment_amount: payload.advance_payment_amount,
+      }),
     };
     const response = await api.post<BackendAppointment>("/agenda/appointments", body);
     return mapToTicket(response.data);

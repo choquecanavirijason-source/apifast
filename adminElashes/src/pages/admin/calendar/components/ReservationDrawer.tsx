@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Banknote, ChevronDown, Info, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/common/ui";
 import {
@@ -56,6 +56,11 @@ export default function ReservationDrawer({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [professionalId, setProfessionalId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Adelanto — true forzado si el cliente es nuevo (recién registrado)
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [advanceEnabled, setAdvanceEnabled] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState("");
 
   const normalizedServiceQuery = serviceQuery.trim().toLowerCase();
   const filteredServices = useMemo(() => {
@@ -141,6 +146,10 @@ export default function ReservationDrawer({
     setClientSearch("");
     setIsClientMenuOpen(false);
     onConsumeRegisteredClient();
+    // Cliente recién registrado → adelanto obligatorio
+    setIsNewClient(true);
+    setAdvanceEnabled(true);
+    setAdvanceAmount("");
   }, [registeredClient, onConsumeRegisteredClient]);
 
   useEffect(() => {
@@ -241,12 +250,19 @@ export default function ReservationDrawer({
       return;
     }
 
+    const parsedAdvance = parseFloat(advanceAmount) || 0;
+    if (isNewClient && parsedAdvance <= 0) {
+      toast.warning("El cliente es nuevo — se requiere un monto de adelanto para confirmar la reserva.");
+      return;
+    }
+
     const professional_id = professionalId ? Number(professionalId) : null;
     const base = {
       client_id: selectedClient.id,
       branch_id: branchId,
       status: "pending" as const,
       professional_id,
+      advance_payment_amount: advanceEnabled ? parsedAdvance : 0,
     };
 
     setIsSubmitting(true);
@@ -506,6 +522,10 @@ export default function ReservationDrawer({
                                     setSelectedClient(client);
                                     setClientSearch("");
                                     setIsClientMenuOpen(false);
+                                    // Cliente existente → adelanto opcional, no forzado
+                                    setIsNewClient(false);
+                                    setAdvanceEnabled(false);
+                                    setAdvanceAmount("");
                                   }}
                                   className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-slate-50"
                                 >
@@ -603,14 +623,96 @@ export default function ReservationDrawer({
                   ))}
                 </select>
               </div>
+
+              {/* ── Adelanto ──────────────────────────────────────────────── */}
+              {selectedClient && (
+                <div className={`rounded-xl border p-3 ${
+                  isNewClient
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-slate-200 bg-slate-50"
+                }`}>
+                  <div className="mb-2 flex items-start gap-2">
+                    {isNewClient ? (
+                      <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    ) : (
+                      <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {isNewClient ? (
+                        <p className="text-xs font-semibold text-amber-800">
+                          Cliente nuevo — adelanto obligatorio
+                        </p>
+                      ) : (
+                        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={advanceEnabled}
+                            onChange={(e) => {
+                              setAdvanceEnabled(e.target.checked);
+                              if (!e.target.checked) setAdvanceAmount("");
+                            }}
+                            className="rounded border-slate-300 text-[#094732] focus:ring-[#094732]"
+                          />
+                          Registrar adelanto
+                        </label>
+                      )}
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {isNewClient
+                          ? "Para confirmar la reserva de una clienta nueva se requiere un pago anticipado."
+                          : "Opcional: la clienta puede abonar un monto para asegurar su turno."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {(isNewClient || advanceEnabled) && (
+                    <div className="mt-2">
+                      <label className={agendaLabelClass}>
+                        Monto de adelanto (Bs) {isNewClient && <span className="text-red-500">*</span>}
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                          Bs
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={advanceAmount}
+                          onChange={(e) => setAdvanceAmount(e.target.value)}
+                          placeholder="0.00"
+                          className={`${agendaFieldClass} pl-9 ${
+                            isNewClient && (!advanceAmount || parseFloat(advanceAmount) <= 0)
+                              ? "border-amber-400 focus:border-amber-500 focus:ring-amber-400/30"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                      {isNewClient && (!advanceAmount || parseFloat(advanceAmount) <= 0) && (
+                        <p className="mt-1 text-[11px] font-medium text-amber-600">
+                          Ingresa el monto para continuar.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-4">
-            <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
-              <span className="text-xs font-semibold text-[#094732]">Solo reserva en agenda</span>
-              <p className="mt-0.5 text-[11px] text-slate-500">No se registra monto ni pago aquí.</p>
-            </div>
+            {!selectedClient || (!isNewClient && !advanceEnabled) ? (
+              <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
+                <span className="text-xs font-semibold text-[#094732]">Solo reserva en agenda</span>
+                <p className="mt-0.5 text-[11px] text-slate-500">No se registra monto ni pago aquí.</p>
+              </div>
+            ) : (
+              <div className="mb-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-center">
+                <span className="text-xs font-semibold text-amber-800">
+                  Adelanto: Bs {parseFloat(advanceAmount || "0").toFixed(2)}
+                </span>
+                <p className="mt-0.5 text-[11px] text-slate-500">Se registra el monto junto con la reserva.</p>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Guardando…" : "Confirmar reserva"}
             </Button>

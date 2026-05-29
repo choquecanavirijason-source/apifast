@@ -249,6 +249,22 @@ export default function PosSaleStepTwo({
     [professionals]
   );
 
+  /** Mapa professionalId → hora fin de su ticket in_service actual (cuándo se libera). */
+  const professionalBusyUntilMap = useMemo(() => {
+    const map = new Map<string, string>();
+    existingTickets.forEach((ticket) => {
+      if (ticket.status !== "in_service") return;
+      if (!ticket.professional_id) return;
+      const end = new Date(ticket.end_time);
+      if (Number.isNaN(end.getTime())) return;
+      map.set(
+        String(ticket.professional_id),
+        `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`
+      );
+    });
+    return map;
+  }, [existingTickets]);
+
   const busyProfessionalIdsByLine = useMemo(() => {
     const result: Record<string, Set<string>> = {};
     cartLines.forEach((line) => {
@@ -627,11 +643,15 @@ export default function PosSaleStepTwo({
                               {professionals.map((professional) => {
                                 const lineBusy = busyProfessionalIdsByLine[line.localId];
                                 const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
+                                const freeAt = professionalBusyUntilMap.get(String(professional.id));
                                 const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
                                 const branchTag = professional.branch_name ? ` — ${professional.branch_name}` : "";
+                                const statusTag = freeAt
+                                  ? ` ⊘ En servicio hasta ${freeAt}`
+                                  : " ✓ Libre";
                                 return (
                                   <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
-                                    {professional.username}{skillTag}{branchTag}{isBusy ? " (Ocupada)" : ""}
+                                    {professional.username}{skillTag}{branchTag}{statusTag}
                                   </option>
                                 );
                               })}
@@ -995,10 +1015,14 @@ export default function PosSaleStepTwo({
                                         {professionals.map((professional) => {
                                           const lineBusy = busyProfessionalIdsByLine[line.localId];
                                           const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
+                                          const freeAt = professionalBusyUntilMap.get(String(professional.id));
                                           const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
+                                          const statusTag = freeAt
+                                            ? ` ⊘ hasta ${freeAt}`
+                                            : " ✓ Libre";
                                           return (
                                             <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
-                                              {professional.username}{skillTag}{isBusy ? " (Ocupada)" : ""}
+                                              {professional.username}{skillTag}{statusTag}
                                             </option>
                                           );
                                         })}
@@ -1138,6 +1162,18 @@ export default function PosSaleStepTwo({
         onUpdateTicketTime={(localId, date, time) => {
           updateLine(localId, { date, time, without_time: false, time_manual: true });
         }}
+        professionalBusyUntilMap={professionalBusyUntilMap}
+        onApplySellerToAllLines={
+          sellerId
+            ? () => {
+                cartLines.forEach((line) => {
+                  if (!line.professional_id) {
+                    updateLine(line.localId, { professional_id: sellerId });
+                  }
+                });
+              }
+            : undefined
+        }
       />
     </div>
   );

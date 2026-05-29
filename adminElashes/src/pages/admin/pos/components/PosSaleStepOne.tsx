@@ -56,6 +56,7 @@ export default function PosSaleStepOne({
   finalizeSaleLabel,
   finalizeFooterHint,
   onFinalizeSale,
+  onCreateImmediateTicket,
   isSubmittingCheckout,
   linkAppointmentId,
   ticketPreviews,
@@ -209,14 +210,14 @@ export default function PosSaleStepOne({
         primaryActionLabel={
           linkAppointmentId
             ? finalizeSaleLabel          // cobrar reserva → directo
-            : "Asignar turnos →"         // venta nueva → ir al planificador
+            : "Confirmar venta"          // modo planificador (step2)
         }
         onPrimaryAction={() => {
           setIsCartOpen(false);
           if (linkAppointmentId) {
             onFinalizeSale();            // reserva: cobra directo
           } else {
-            onGoToScheduleStep();        // venta: ir al paso 2
+            onGoToScheduleStep();        // venta con planificador: ir al paso 2
           }
         }}
         primaryActionDisabled={
@@ -225,8 +226,10 @@ export default function PosSaleStepOne({
         footerHint={
           linkAppointmentId
             ? finalizeFooterHint
-            : "Completa los datos y asigna operaria + horario por ticket."
+            : "Usa 'Crear turno ahora' para atención inmediata o 'Agendar reserva' para elegir horario."
         }
+        onImmediateCheckout={linkAppointmentId ? undefined : onCreateImmediateTicket}
+        onSecondaryAction={linkAppointmentId ? undefined : () => { setIsCartOpen(false); onGoToScheduleStep(); }}
         isSubmitting={isSubmittingCheckout}
         linkAppointmentId={linkAppointmentId}
         ticketPreviews={ticketPreviews}

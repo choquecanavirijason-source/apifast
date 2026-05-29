@@ -13,7 +13,14 @@
       "Bash(.venvScriptspython.exe -c ' *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\elashesbackend\\\\app\\\\application\\\\services\" -Name)",
       "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\\\\src\\\\pages\\\\admin\\\\tickets\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\\\\src\\\\pages\\\\admin\\\\calendar\" -Recurse -File)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\\\\src\" -Recurse -Include \"*.jsx\", \"*.js\", \"*.tsx\", \"*.ts\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/vite build *)"
     ]
   }
 }

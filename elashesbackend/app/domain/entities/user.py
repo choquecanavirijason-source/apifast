@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, Boolean, DateTime, func
+from sqlalchemy import Column, Float, Integer, String, ForeignKey, Table, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
 
@@ -44,7 +44,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    skill_level = Column(Integer, nullable=True)  # 1–5 estrellas, NULL = sin nivel asignado
+    skill_level      = Column(Integer, nullable=True)   # 1–5 estrellas, NULL = sin nivel asignado
+    commission_rate  = Column(Float,   nullable=False, default=0.40)  # porcentaje 0.0–1.0
 
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)

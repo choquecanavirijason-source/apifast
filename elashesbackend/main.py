@@ -44,6 +44,8 @@ import app.infrastructure.database.migrations.add_ai_permissions as m17
 import app.infrastructure.database.migrations.add_skill_level_to_users as m18
 import app.infrastructure.database.migrations.add_min_stock_to_products as m19
 import app.infrastructure.database.migrations.add_email_to_clients as m20
+import app.infrastructure.database.migrations.add_advance_payment_to_appointments as m21
+import app.infrastructure.database.migrations.add_commission_rate_to_users as m22
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -81,6 +83,8 @@ async def lifespan(app: FastAPI):
         ("skill_level_to_users", m18.upgrade),
         ("min_stock_to_products", m19.upgrade),
         ("email_to_clients", m20.upgrade),
+        ("advance_payment_to_appointments", m21.upgrade),
+        ("commission_rate_to_users", m22.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -120,11 +124,16 @@ def create_app() -> FastAPI:
             content={"detail": str(exc), "type": type(exc).__name__},
         )
 
-    # Configuración de CORS más flexible para Tauri
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], # En local con Tauri esto es más seguro
-        allow_credentials=True, # Cambiado a True por si usas cookies de sesión
+        allow_origins=[
+            "http://localhost:5173",   # Vite dev
+            "http://localhost:4173",   # Vite preview
+            "http://localhost:3000",   # Create React App
+            "tauri://localhost",       # Tauri desktop
+            "http://tauri.localhost",
+        ],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

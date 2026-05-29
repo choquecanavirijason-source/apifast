@@ -63,6 +63,7 @@ class Appointment(Base):
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="pending", nullable=False)  # pending, completed, cancelled
+    advance_payment_amount = Column(Float, nullable=False, default=0.0)  # monto de adelanto pagado al reservar
 
     client = relationship("Client", back_populates="appointments")
     created_by = relationship(

@@ -1,19 +1,22 @@
+from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from app.core.dependencies import get_db, require_any_permission
 from app.domain.entities.branch import Branch
 from app.domain.entities.inventory import Batch, Product
+from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
 from app.presentation.schemas.reports import (
-    COMMISSION_RATE,
+    DEFAULT_COMMISSION_RATE,
     DailyClosingItem,
     DailyClosingResponse,
+    ProfessionalSummary,
     UpdateStatusBody,
 )
 
@@ -48,14 +51,27 @@ def get_daily_closing(
 
     if branch_id:
         query = query.filter(Appointment.branch_id == branch_id)
-
     if professional_id:
         query = query.filter(Appointment.professional_id == professional_id)
 
     appointments = query.order_by(Appointment.start_time).all()
 
+    # Cargar ventas POS vinculadas en una sola consulta
+    sale_ids = [a.sale_id for a in appointments if a.sale_id is not None]
+    sales_by_id: dict[int, PosSale] = {}
+    if sale_ids:
+        sales = db.query(PosSale).filter(PosSale.id.in_(sale_ids)).all()
+        sales_by_id = {s.id: s for s in sales}
+
     items: list[DailyClosingItem] = []
+    totals_by_payment: dict[str, float] = defaultdict(float)
+    total_paid = 0.0
+    total_unpaid = 0.0
+
+    prof_agg: dict[int | None, dict] = {}
+
     for appt in appointments:
+        # ── Servicios y precio ────────────────────────────────────────────
         service_names: list[str] = []
         total_price = 0.0
 
@@ -72,34 +88,90 @@ def get_daily_closing(
         if not service_names:
             service_names = ["Sin servicio"]
 
-        commission = round(total_price * COMMISSION_RATE, 2)
+        # ── Comisión por operaria ─────────────────────────────────────────
+        commission_rate = (
+            appt.professional.commission_rate
+            if appt.professional and appt.professional.commission_rate is not None
+            else DEFAULT_COMMISSION_RATE
+        )
+        commission = round(total_price * commission_rate, 2)
+
+        # ── Datos de la venta POS vinculada ───────────────────────────────
+        sale = sales_by_id.get(appt.sale_id) if appt.sale_id else None
+        payment_method = sale.payment_method if sale else None
+        is_paid = sale is not None and sale.status == "paid"
+        sale_code = sale.sale_code if sale else None
+
+        # ── Totales agrupados ─────────────────────────────────────────────
+        if is_paid and payment_method:
+            totals_by_payment[payment_method] += total_price
+            total_paid += total_price
+        else:
+            total_unpaid += total_price
+
+        # ── Duración ─────────────────────────────────────────────────────
         duration_minutes = max(
             int((appt.end_time - appt.start_time).total_seconds() / 60), 0
-        )
+        ) if appt.end_time and appt.start_time else 0
 
         professional_name = appt.professional.username if appt.professional else "Sin asignar"
+        professional_id_val = appt.professional.id if appt.professional else None
         client_name = (
             f"{appt.client.name} {appt.client.last_name or ''}".strip()
-            if appt.client
-            else "Sin cliente"
+            if appt.client else "Sin cliente"
         )
         branch_name = appt.branch.name if appt.branch else ""
 
-        items.append(
-            DailyClosingItem(
-                appointment_id=appt.id,
-                ticket_code=appt.ticket_code,
-                client_name=client_name,
-                service_names=service_names,
-                professional_name=professional_name,
-                start_time=appt.start_time,
-                duration_minutes=duration_minutes,
-                status=appt.status,
-                total_price=total_price,
-                commission=commission,
-                branch_name=branch_name,
-            )
+        advance = float(appt.advance_payment_amount or 0.0)
+        balance_due = max(0.0, total_price - advance) if not is_paid else 0.0
+
+        items.append(DailyClosingItem(
+            appointment_id=appt.id,
+            ticket_code=appt.ticket_code,
+            sale_code=sale_code,
+            client_name=client_name,
+            service_names=service_names,
+            professional_name=professional_name,
+            professional_id=professional_id_val,
+            start_time=appt.start_time,
+            duration_minutes=duration_minutes,
+            status=appt.status,
+            total_price=total_price,
+            commission_rate=commission_rate,
+            commission=commission,
+            branch_name=branch_name,
+            payment_method=payment_method,
+            is_paid=is_paid,
+            advance_payment_amount=advance,
+            balance_due=round(balance_due, 2),
+        ))
+
+        # ── Acumulado por operaria ────────────────────────────────────────
+        key = professional_id_val
+        if key not in prof_agg:
+            prof_agg[key] = {
+                "professional_id": professional_id_val,
+                "professional_name": professional_name,
+                "ticket_count": 0,
+                "total_price": 0.0,
+                "commission": 0.0,
+                "commission_rate": commission_rate,
+            }
+        prof_agg[key]["ticket_count"] += 1
+        prof_agg[key]["total_price"] += total_price
+        prof_agg[key]["commission"] += commission
+
+    summary_by_professional = [
+        ProfessionalSummary(
+            professional_id=v["professional_id"],
+            professional_name=v["professional_name"],
+            ticket_count=v["ticket_count"],
+            total_price=round(v["total_price"], 2),
+            commission=round(v["commission"], 2),
+            commission_rate=v["commission_rate"],
         )
+        for v in sorted(prof_agg.values(), key=lambda x: x["professional_name"])
+    ]
 
     grand_total = round(sum(i.total_price for i in items), 2)
     grand_commission = round(sum(i.commission for i in items), 2)
@@ -117,6 +189,10 @@ def get_daily_closing(
         items=items,
         grand_total=grand_total,
         grand_commission=grand_commission,
+        total_paid=round(total_paid, 2),
+        total_unpaid=round(total_unpaid, 2),
+        totals_by_payment={k: round(v, 2) for k, v in totals_by_payment.items()},
+        summary_by_professional=summary_by_professional,
     )
 
 
@@ -146,39 +222,26 @@ def get_low_stock(
     db: Session = Depends(get_db),
     _: User = Depends(require_any_permission("inventory:view", "inventory:manage")),
 ):
-    """Devuelve productos cuyo stock actual está por debajo del mínimo configurado."""
     query = (
         db.query(
-            Product.id,
-            Product.sku,
-            Product.name,
-            Product.min_stock,
+            Product.id, Product.sku, Product.name, Product.min_stock,
             func.coalesce(func.sum(Batch.current_quantity), 0).label("total_stock"),
-            Branch.id.label("branch_id"),
-            Branch.name.label("branch_name"),
+            Branch.id.label("branch_id"), Branch.name.label("branch_name"),
         )
         .join(Batch, Batch.product_id == Product.id, isouter=True)
         .join(Branch, Branch.id == Batch.branch_id, isouter=True)
         .filter(Product.min_stock.isnot(None))
         .group_by(Product.id, Product.sku, Product.name, Product.min_stock, Branch.id, Branch.name)
     )
-
     if branch_id:
         query = query.filter(Batch.branch_id == branch_id)
 
-    rows = query.all()
-
-    alerts = []
-    for row in rows:
-        if row.total_stock <= (row.min_stock or 0):
-            alerts.append({
-                "product_id": row.id,
-                "sku": row.sku,
-                "name": row.name,
-                "min_stock": row.min_stock,
-                "current_stock": float(row.total_stock),
-                "branch_id": row.branch_id,
-                "branch_name": row.branch_name,
-            })
-
-    return alerts
+    return [
+        {
+            "product_id": r.id, "sku": r.sku, "name": r.name,
+            "min_stock": r.min_stock, "current_stock": float(r.total_stock),
+            "branch_id": r.branch_id, "branch_name": r.branch_name,
+        }
+        for r in query.all()
+        if r.total_stock <= (r.min_stock or 0)
+    ]

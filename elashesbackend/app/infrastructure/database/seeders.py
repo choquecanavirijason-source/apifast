@@ -119,6 +119,7 @@ def seed_roles(db: Session):
             permission_map["clients:manage"],
             permission_map["catalog:view"],
             permission_map["tracking:view"],
+            permission_map["tracking:manage"],
             permission_map["forms:view"],
             permission_map["payments:view"],
             permission_map["payments:manage"],

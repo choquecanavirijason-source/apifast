@@ -99,6 +99,7 @@ class AppointmentBase(BaseModel):
     start_time: datetime
     end_time: datetime
     status: str = "pending"
+    advance_payment_amount: float = 0.0  # monto adelantado al reservar (0 = sin adelanto)
 
 
 class AppointmentCreate(AppointmentBase):
@@ -140,6 +141,7 @@ class AppointmentResponse(BaseModel):
     start_time: datetime
     end_time: datetime
     status: str
+    advance_payment_amount: float = 0.0
 
     client: ClientSummary
     created_by: Optional[UserSummary] = None

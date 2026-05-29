@@ -196,7 +196,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const location = useLocation();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
 
-  const [activeTab, setActiveTab] = useState<"sale" | "history" | "tickets">(section ?? "sale");
+  const [activeTab, setActiveTab] = useState<"sale" | "history">(
+    section === "history" ? "history" : "sale"
+  );
   // Nuevo: estado para el paso del wizard
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -1366,7 +1368,63 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     }
   };
 
-  // ── Checkout ──────────────────────────────────────────────────────────────
+  // ── Turno inmediato (walk-in sin planificador) ────────────────────────────
+
+  const handleImmediateCheckout = async (payLater: boolean) => {
+    if (!activeBranchId) return toast.warning("Selecciona una sucursal.");
+    if (!clientId)       return toast.warning("Selecciona una clienta.");
+    if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
+    if (!payLater && !paymentMethod) return toast.warning("Selecciona un método de pago.");
+
+    setIsSubmitting(true);
+    try {
+      let cursor = Date.now();
+      const items = cartLines.map((line) => {
+        const start = new Date(cursor);
+        const duration = Math.max(15, line.duration_minutes || 60);
+        const end = new Date(cursor + duration * 60_000);
+        cursor = end.getTime();
+        const profId = line.professional_id
+          ? Number(line.professional_id)
+          : sellerId ? Number(sellerId) : null;
+        return {
+          service_id: Number(line.service_id),
+          professional_id: profId,
+          branch_id: activeBranchId,
+          start_time: formatLocalDateTime(start),
+          end_time: formatLocalDateTime(end),
+        };
+      });
+
+      const payload = {
+        client_id: Number(clientId),
+        branch_id: activeBranchId,
+        payment_method: payLater ? "cash" : paymentMethod,
+        discount_type: discountType,
+        discount_value: numericDiscount,
+        notes: notes.trim() || undefined,
+        items,
+        ...(payLater ? { reservation_only: true } : {}),
+      };
+
+      const sale = await PosSaleService.create(payload);
+      const codes = sale.appointments.map((a) => a.ticket_code).filter(Boolean);
+      toast.success(
+        payLater
+          ? `Turno creado. Tickets: ${codes.join(", ")} (cobrar al finalizar)`
+          : `Venta completada. Tickets: ${codes.join(", ")}`
+      );
+      setReceiptSale(sale);
+      resetSaleForm();
+      await loadContext();
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Error al crear el turno."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Checkout (planificador) ───────────────────────────────────────────────
 
   const handleCheckout = async () => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal para la venta.");
@@ -1884,7 +1942,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
           <div className="inline-flex  rounded-sm border border-[#edebe9] bg-[#faf9f8]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            {(["sale", "history", "tickets"] as const).map((tab) => (
+            {(["sale", "history"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -1899,7 +1957,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                     : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
                 }`}
               >
-                {tab === "sale" ? "Nueva venta" : tab === "history" ? "Historial" : "Ticket de la venta"}
+                {tab === "sale" ? "Nueva venta" : "Historial"}
               </button>
             ))}
           </div>
@@ -2036,6 +2094,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               ticketPreviews={checkoutTicketPreviews}
               onGoToScheduleStep={() => setStep(2)}
               onFinalizeSale={() => void handleCheckout()}
+              onCreateImmediateTicket={(payLater) => void handleImmediateCheckout(payLater)}
               isSubmittingCheckout={isSubmitting}
               ticketMode={ticketMode}
               setTicketMode={setTicketMode}
@@ -2044,13 +2103,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           ) : (
             renderSaleTicketsSection(() => setStep(1))
           )
-        ) : activeTab === "history" ? (
-          <HistorySection />
         ) : (
-          renderSaleTicketsSection(() => {
-              setActiveTab("sale");
-              setStep(1);
-            })
+          <HistorySection />
         )}
 
         <PosReceiptModals

@@ -188,7 +188,7 @@ def get_clients_for_select(
 ):
     clients = list_clients_service(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
     return [
-        {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone, "status": c.status}
+        {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone, "status": c.status, "age": c.age}
         for c in clients
     ]
 
@@ -346,6 +346,7 @@ def create_new_appointment(
         start_time=payload.start_time,
         end_time=payload.end_time,
         status_value=payload.status,
+        advance_payment_amount=payload.advance_payment_amount,
     )
 
 

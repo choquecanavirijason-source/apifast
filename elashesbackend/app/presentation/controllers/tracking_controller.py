@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_permission, get_current_active_user
+from app.core.dependencies import get_db, require_permission, require_any_permission, get_current_active_user
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.tracking import TrackingCreate, TrackingUpdate, TrackingResponse
@@ -74,7 +74,7 @@ def get_client_latest_tracking(
 def create_new_tracking(
     payload: TrackingCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("tracking:manage")),
+    current_user: User = Depends(require_any_permission("tracking:manage", "appointments:manage")),
 ):
     return create_tracking(
         db=db,

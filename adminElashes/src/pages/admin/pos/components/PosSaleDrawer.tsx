@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, CalendarClock, ChevronDown, ChevronUp, Lock, Plus, Printer, Search, ShoppingCart, Tag, Ticket, Trash2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Plus, Printer, Search, ShoppingCart, Tag, Ticket, Trash2, X } from "lucide-react";
 import type { ProfessionalForSelect, ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
@@ -52,6 +52,12 @@ type PosSaleDrawerProps = {
   ticketMode?: "individual" | "group";
   setTicketMode?: (mode: "individual" | "group") => void;
   onUpdateTicketTime?: (localId: string, date: string, time: string) => void;
+  /** Mapa professionalId → hora en que termina su servicio actual. */
+  professionalBusyUntilMap?: Map<string, string>;
+  /** Aplica el sellerId actual a todos los tickets sin operaria asignada. */
+  onApplySellerToAllLines?: () => void;
+  /** Turno inmediato: crea tickets con hora actual sin abrir el planificador. */
+  onImmediateCheckout?: (payLater: boolean) => void;
 };
 
 export default function PosSaleDrawer({
@@ -100,6 +106,9 @@ export default function PosSaleDrawer({
   setTicketMode,
   onUpdateTicketTime,
   mode = "drawer",
+  professionalBusyUntilMap = new Map(),
+  onApplySellerToAllLines,
+  onImmediateCheckout,
 }: PosSaleDrawerProps) {
   const isPanel = mode === "panel";
 
@@ -116,11 +125,31 @@ export default function PosSaleDrawer({
   const [isSellerOpen, setIsSellerOpen] = useState(false);
   const sellerDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const [showSinHoraConfirm, setShowSinHoraConfirm] = useState(false);
+  const [payLater, setPayLater] = useState(false);
+
+  // Datos del tutor para clientes menores de edad
+  const [tutorNombre, setTutorNombre] = useState("");
+  const [tutorCI, setTutorCI] = useState("");
+  const [tutorTelefono, setTutorTelefono] = useState("");
+
+  const clientAge = typeof selectedClient?.age === "number" ? selectedClient.age : null;
+  const isMinorClient = clientAge !== null && clientAge < 18;
+  const tutorDataComplete = !isMinorClient || (tutorNombre.trim() !== "" && tutorCI.trim() !== "");
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const clientSectionRef = useRef<HTMLDivElement | null>(null);
   const paymentSectionRef = useRef<HTMLDivElement | null>(null);
+  const ticketSummaryRef = useRef<HTMLDivElement | null>(null);
   const prevStep1Ref = useRef(step1Done);
   const prevStep2Ref = useRef(step2Done);
+
+  // Limpiar datos del tutor cuando cambia el cliente
+  useEffect(() => {
+    setTutorNombre("");
+    setTutorCI("");
+    setTutorTelefono("");
+  }, [selectedClient?.id]);
 
   useEffect(() => {
     if (step1Done && !prevStep1Ref.current) {
@@ -128,13 +157,6 @@ export default function PosSaleDrawer({
     }
     prevStep1Ref.current = step1Done;
   }, [step1Done]);
-
-  useEffect(() => {
-    if (step2Done && !prevStep2Ref.current) {
-      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    prevStep2Ref.current = step2Done;
-  }, [step2Done]);
 
   useEffect(() => {
     if (!isSellerOpen) return;
@@ -515,140 +537,68 @@ export default function PosSaleDrawer({
             </div>
           )}
         </div>
-        {!step1Done && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-5 py-3.5 shadow-md">
-              <Lock className="h-4 w-4 text-[#605e5c]" />
-              <p className="text-[11px] font-semibold text-[#605e5c]">Paso 1: agrega un servicio</p>
+        </div>
+
+        {/* ── Formulario de autorización para cliente menor de edad ──────── */}
+        {isMinorClient && selectedClient && (
+          <div className="border-b border-[#edebe9] bg-[#fff4ce] px-4 py-3">
+            <p className="mb-1 text-xs font-bold text-[#8a6a1f]">
+              ⚠ Clienta menor de edad ({clientAge} años) — autorización del tutor requerida
+            </p>
+            <p className="mb-3 text-[11px] text-[#605e5c]">
+              Completa los datos del tutor o responsable legal antes de crear el ticket.
+            </p>
+            <div className="space-y-2">
+              <div>
+                <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                  Nombre del tutor <span className="text-[#d13438]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={tutorNombre}
+                  onChange={(e) => setTutorNombre(e.target.value)}
+                  placeholder="Nombre completo del tutor o responsable"
+                  className={bcField}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                    CI / DNI <span className="text-[#d13438]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={tutorCI}
+                    onChange={(e) => setTutorCI(e.target.value)}
+                    placeholder="Número de CI"
+                    className={bcField}
+                  />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    value={tutorTelefono}
+                    onChange={(e) => setTutorTelefono(e.target.value)}
+                    placeholder="Teléfono del tutor"
+                    className={bcField}
+                  />
+                </div>
+              </div>
+              {!tutorDataComplete && (
+                <p className="text-[11px] font-semibold text-[#d13438]">
+                  ⛔ Nombre y CI del tutor son obligatorios para continuar.
+                </p>
+              )}
             </div>
           </div>
         )}
-        </div>
 
-        {/* Tickets + Operaria + Pago — bloqueados hasta que haya cliente */}
-        <div className="relative" ref={paymentSectionRef}>
-        <div className={`transition-[filter,opacity] duration-200 ${!step2Done ? "blur-[3px] opacity-40 pointer-events-none select-none" : ""}`}>
-
-        {/* Tickets preview + modo — colapsable */}
-        {cartCount > 0 && !linkAppointmentId && (
-          <div className="border-b border-[#edebe9]">
-            {/* Cabecera clickeable */}
-            <button
-              type="button"
-              onClick={() => setTicketsOpen((o) => !o)}
-              className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-[#f3f2f1]"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Ticket className="h-4 w-4 shrink-0 text-[#0078d4]" />
-                <span className="text-sm font-semibold text-[#323130]">Tickets en agenda</span>
-                <span className="rounded-full bg-[#eef6ff] px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
-                  {ticketMode === "group" ? "1 grupal" : `${cartCount} indiv.`}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {ticketsOpen
-                  ? <ChevronUp className="h-4 w-4 text-[#605e5c]" />
-                  : <ChevronDown className="h-4 w-4 text-[#605e5c]" />
-                }
-              </div>
-            </button>
-
-            {/* Contenido colapsable */}
-            {ticketsOpen && (
-              <div className="space-y-3 px-4 pb-4">
-                <p className="text-xs text-[#605e5c]">
-                  {ticketMode === "group"
-                    ? "Se crea 1 ticket grupal con todos los servicios."
-                    : "Se crea un ticket por cada servicio al finalizar."}
-                </p>
-
-                {/* Toggle modo individual / grupal */}
-                {setTicketMode && (
-                  <div className="flex overflow-hidden rounded-sm border border-[#edebe9]">
-                    <button
-                      type="button"
-                      onClick={() => setTicketMode("individual")}
-                      className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${
-                        ticketMode === "individual"
-                          ? "bg-[#0078d4] text-white"
-                          : "bg-[#faf9f8] text-[#605e5c] hover:bg-[#f3f2f1]"
-                      }`}
-                    >
-                      <Ticket className="h-3.5 w-3.5" />
-                      Individual
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTicketMode("group")}
-                      className={`flex flex-1 items-center justify-center gap-1.5 border-l border-[#edebe9] py-2 text-xs font-semibold transition-colors ${
-                        ticketMode === "group"
-                          ? "bg-[#0078d4] text-white"
-                          : "bg-[#faf9f8] text-[#605e5c] hover:bg-[#f3f2f1]"
-                      }`}
-                    >
-                      <Ticket className="h-3.5 w-3.5" />
-                      Grupal
-                    </button>
-                  </div>
-                )}
-
-                {ticketPreviews.length > 0 ? (
-                  <ul className="max-h-72 space-y-2 overflow-y-auto rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2">
-                    {ticketPreviews.map((preview) => (
-                      <li key={preview.localId} className="rounded-sm border border-[#edebe9] bg-white p-2.5 text-xs">
-                        {/* Nombre del servicio */}
-                        <p className="mb-2 font-semibold text-[#323130]">{preview.serviceName}</p>
-
-                        {/* Inputs de fecha y hora */}
-                        {onUpdateTicketTime ? (
-                          <div className="mb-2 grid grid-cols-2 gap-1.5">
-                            <div>
-                              <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                                Fecha
-                              </label>
-                              <input
-                                type="date"
-                                value={preview.date}
-                                onChange={(e) =>
-                                  onUpdateTicketTime(preview.localId, e.target.value, preview.time)
-                                }
-                                className="h-7 w-full rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/30"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                                Hora
-                              </label>
-                              <input
-                                type="time"
-                                value={preview.without_time ? "" : preview.time}
-                                onChange={(e) =>
-                                  onUpdateTicketTime(preview.localId, preview.date, e.target.value)
-                                }
-                                className="h-7 w-full rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/30"
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="mb-1.5 flex items-center gap-1 text-[#605e5c]">
-                            <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-                            {preview.scheduleLabel}
-                          </p>
-                        )}
-
-                        <p className="text-[#605e5c]">{preview.professionalName} · {preview.status}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="rounded-sm border border-dashed border-[#c8c6c4] bg-[#faf9f8] px-3 py-2 text-xs text-[#605e5c]">
-                    Los tickets se generan al confirmar la venta.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Tickets + Operaria + Pago */}
+        <div ref={paymentSectionRef}>
+        <div>
 
         {linkAppointmentId && (
           <div className="border-b border-[#edebe9] bg-[#eef6ff] px-4 py-3 text-xs text-[#004578]">
@@ -698,6 +648,7 @@ export default function PosSaleDrawer({
                       </button>
                       {professionals.map((p) => {
                         const busy = p.is_busy === true;
+                        const freeAt = professionalBusyUntilMap.get(String(p.id));
                         return (
                           <button
                             key={p.id}
@@ -719,13 +670,17 @@ export default function PosSaleDrawer({
                               ) : null}
                             </span>
                             <div className="flex shrink-0 items-center gap-2 ml-2">
-                              {busy && (
+                              {busy ? (
                                 <span className="rounded-full bg-[#fde7e9] px-2 py-0.5 text-[10px] font-bold text-[#d13438]">
-                                  Ocupada
+                                  {freeAt ? `Libre ~${freeAt}` : "Ocupada"}
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-[#dff6dd] px-2 py-0.5 text-[10px] font-bold text-[#107c10]">
+                                  ✓ Libre
                                 </span>
                               )}
-                              {!busy && String(p.id) === sellerId && (
-                                <span className="text-[10px] font-bold text-[#0078d4]">✓</span>
+                              {String(p.id) === sellerId && !busy && (
+                                <span className="text-[10px] font-bold text-[#0078d4]">●</span>
                               )}
                               {p.branch_name && (
                                 <span className="text-[11px] text-[#a19f9d]">{p.branch_name}</span>
@@ -744,6 +699,17 @@ export default function PosSaleDrawer({
                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                   Esta operaria está ocupada. Espera a que termine o elige otra.
                 </p>
+              )}
+              {/* Botón para propagar operaria a todos los tickets sin asignar */}
+              {sellerId && !isBusy && onApplySellerToAllLines && cartCount > 0 && (
+                <button
+                  type="button"
+                  onClick={onApplySellerToAllLines}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-sm border border-[#0078d4] bg-[#eef6ff] py-1.5 text-[11px] font-semibold text-[#0078d4] transition hover:bg-[#deeeff]"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Asignar a todos los tickets sin operaria →
+                </button>
               )}
             </div>
           );
@@ -831,32 +797,28 @@ export default function PosSaleDrawer({
           </div>
         </div>
 
-        </div>{/* fin blur wrapper */}
-        {!step2Done && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-5 py-3.5 shadow-md">
-              <Lock className="h-4 w-4 text-[#605e5c]" />
-              <p className="text-[11px] font-semibold text-[#605e5c]">Paso 2: selecciona un cliente</p>
-            </div>
-          </div>
-        )}
-        </div>{/* fin relative wrapper */}
+        </div>
+        </div>
+
 
       </div>
     </div>
   );
 
   const panelFooter = (
-    <div className="shrink-0 border-t border-[#edebe9] bg-white px-4 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
-      <div className="mb-3 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
+    <div className="shrink-0 border-t border-[#edebe9] bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      {/* Total */}
+      <div className="mb-2 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
         <span className="text-xs font-semibold text-[#605e5c]">Total a cobrar</span>
         <span className="text-lg font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span>
       </div>
+
+      {/* Vaciar carrito */}
       <button
         type="button"
         onClick={() => cartLines.forEach((l) => onRemoveLine(l.localId))}
         disabled={cartCount === 0 || isSubmitting}
-        className={`mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-sm border text-sm font-semibold transition-all ${
+        className={`mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-sm border text-sm font-semibold transition-all ${
           cartCount === 0
             ? "cursor-not-allowed border-[#edebe9] bg-[#f3f2f1] text-[#a19f9d]"
             : "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
@@ -865,22 +827,118 @@ export default function PosSaleDrawer({
         <Trash2 className="h-4 w-4" />
         Vaciar carrito
       </button>
-      {secondaryActionLabel && onSecondaryAction && (
-        <button
-          type="button"
-          onClick={onSecondaryAction}
-          disabled={isSubmitting}
-          className="mb-2 flex h-10 w-full items-center justify-center rounded-sm border border-[#8a8886] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {secondaryActionLabel}
-        </button>
-      )}
 
-      {/* Botón principal de cobro con hint de por qué está deshabilitado */}
-      {(() => {
+      {/* ── Modo WALK-IN ─────────────────────────────────────────────────── */}
+      {onImmediateCheckout && !linkAppointmentId ? (
+        <>
+          {/* Toggle cobrar ahora / al finalizar */}
+          <div className="mb-3 flex overflow-hidden rounded-sm border border-[#edebe9]">
+            <button
+              type="button"
+              onClick={() => setPayLater(false)}
+              className={`flex flex-1 items-center justify-center py-2 text-xs font-semibold transition-colors ${
+                !payLater ? "bg-[#107c10] text-white" : "bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+              }`}
+            >
+              Cobrar ahora
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayLater(true)}
+              className={`flex flex-1 items-center justify-center border-l border-[#edebe9] py-2 text-xs font-semibold transition-colors ${
+                payLater ? "bg-[#605e5c] text-white" : "bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+              }`}
+            >
+              Cobrar al finalizar
+            </button>
+          </div>
+          {payLater && (
+            <p className="mb-2 rounded-sm bg-[#f3f2f1] px-3 py-1.5 text-center text-[11px] text-[#605e5c]">
+              El ticket entra a la cola sin pago. Se cobra cuando la operaria finalice.
+            </p>
+          )}
+
+          {/* Validación */}
+          {(cartCount === 0 || !selectedClient || (!payLater && !paymentMethod) || !tutorDataComplete) && (
+            <p className="mb-2 rounded-sm bg-[#fff4ce] px-3 py-1.5 text-center text-[11px] font-medium text-[#8a6a1f]">
+              {cartCount === 0
+                ? "Agrega al menos un servicio"
+                : !selectedClient
+                  ? "Selecciona o registra una clienta"
+                  : !tutorDataComplete
+                    ? "Completa los datos del tutor (cliente menor)"
+                    : "Selecciona método de pago para cobrar ahora"}
+            </p>
+          )}
+
+          {/* Botón principal */}
+          <button
+            type="button"
+            disabled={cartCount === 0 || !selectedClient || (!payLater && !paymentMethod) || !tutorDataComplete || isSubmitting}
+            onClick={() => onImmediateCheckout(payLater)}
+            className={`flex h-11 w-full items-center justify-center rounded-sm text-sm font-semibold transition-all ${
+              cartCount === 0 || !selectedClient || (!payLater && !paymentMethod) || !tutorDataComplete || isSubmitting
+                ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
+                : payLater
+                  ? "bg-[#605e5c] text-white hover:bg-[#484644]"
+                  : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
+            }`}
+          >
+            {isSubmitting ? "Procesando…" : payLater ? "Crear turno (cobrar al finalizar)" : "Crear turno"}
+          </button>
+        </>
+      ) : (
+        /* ── Modo RESERVA / COBRO EXISTENTE: botón único original ─────── */
+        <>
+          {secondaryActionLabel && onSecondaryAction && (
+            <button
+              type="button"
+              onClick={onSecondaryAction}
+              disabled={isSubmitting}
+              className="mb-2 flex h-9 w-full items-center justify-center rounded-sm border border-[#8a8886] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {secondaryActionLabel}
+            </button>
+          )}
+
+          {/* Confirmación de tickets sin hora asignada */}
+          {showSinHoraConfirm && (
+            <div className="mb-3 overflow-hidden rounded-sm border border-[#fff4ce] bg-[#fffbf0]">
+              <div className="flex items-start gap-2 border-b border-[#fff4ce] px-3 py-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#8a6a1f]" />
+                <div>
+                  <p className="text-xs font-bold text-[#323130]">Tickets sin hora asignada</p>
+                  <p className="mt-0.5 text-[11px] text-[#605e5c]">
+                    {ticketPreviews.filter((p) => p.scheduleLabel?.includes("Sin hora")).length} ticket(s) sin hora. ¿Confirmar igual?
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 px-3 py-2">
+                <button type="button" onClick={() => { setShowSinHoraConfirm(false); onPrimaryAction(); }}
+                  className="flex-1 rounded-sm bg-[#8a6a1f] py-1.5 text-xs font-semibold text-white hover:bg-[#6d5218]">
+                  Confirmar igual
+                </button>
+                <button type="button" onClick={() => setShowSinHoraConfirm(false)}
+                  className="flex-1 rounded-sm border border-[#edebe9] bg-white py-1.5 text-xs font-semibold text-[#323130] hover:bg-[#f3f2f1]">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Botón principal de cobro (modo reserva) */}
+          {!showSinHoraConfirm && (() => {
         const sellerPro = professionals.find((p) => String(p.id) === sellerId);
         const sellerBusy = sellerPro?.is_busy === true;
-        const isDisabled = primaryActionDisabled || sellerBusy;
+        const isDisabled = primaryActionDisabled || sellerBusy || !tutorDataComplete;
+        const sinHoraCount = ticketPreviews.filter((p) => p.scheduleLabel?.includes("Sin hora")).length;
+        const handleClick = () => {
+          if (!isDisabled && sinHoraCount > 0) {
+            setShowSinHoraConfirm(true);
+          } else {
+            onPrimaryAction();
+          }
+        };
         return (
           <>
             {isDisabled && !isSubmitting && (
@@ -896,9 +954,15 @@ export default function PosSaleDrawer({
                         : "⚠ Completa los datos para continuar"}
               </p>
             )}
+            {!isDisabled && sinHoraCount > 0 && !isSubmitting && (
+              <p className="mb-1.5 flex items-center gap-1 rounded-sm bg-[#fff4ce] px-3 py-1.5 text-[11px] font-medium text-[#8a6a1f]">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {sinHoraCount} ticket(s) sin hora — se pedirá confirmación
+              </p>
+            )}
             <button
               type="button"
-              onClick={onPrimaryAction}
+              onClick={handleClick}
               disabled={isDisabled || isSubmitting}
               className={`flex h-11 w-full items-center justify-center gap-2 rounded-sm text-sm font-semibold transition-all ${
                 isDisabled || isSubmitting
@@ -910,8 +974,10 @@ export default function PosSaleDrawer({
             </button>
           </>
         );
-      })()}
-      <p className="mt-2 text-center text-[11px] text-[#605e5c]">{footerHint}</p>
+          })()}
+          <p className="mt-2 text-center text-[11px] text-[#605e5c]">{footerHint}</p>
+        </>
+      )}
     </div>
   );
 

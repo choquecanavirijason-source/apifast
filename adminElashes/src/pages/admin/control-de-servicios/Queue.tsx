@@ -315,8 +315,14 @@ const Main = () => {
       return;
     }
 
+    const isMinor = typeof finishTarget.client_age === "number" && finishTarget.client_age < 18;
     const hasNotes = Boolean(finishNotes.trim());
-    const hasQuestionnaire = Boolean(finishQuestionnaireId) || Object.keys(questionnaireResponses).length > 0;
+    const hasQuestionnaire = Boolean(finishQuestionnaireId);
+
+    if (isMinor && !hasQuestionnaire) {
+      toast.warning("La clienta es menor de edad. El cuestionario es obligatorio para finalizar.");
+      return;
+    }
     if (!hasNotes && !hasQuestionnaire) {
       toast.warning("Agrega observaciones del servicio o completa un cuestionario antes de finalizar.");
       return;
@@ -352,6 +358,14 @@ const Main = () => {
           // Si no hay tickets disponibles, solo refrescar el tablero.
         }
       }
+
+      // Recargar profesionales inmediatamente para reflejar que quedó libre
+      AgendaService.listProfessionalsForSelect({
+        limit: 200,
+        ...(activeBranchId ? { branch_id: activeBranchId } : {}),
+      })
+        .then(setProfessionals)
+        .catch(() => {});
 
       void loadTickets();
     } catch (error) {
@@ -543,6 +557,39 @@ const Main = () => {
     return minutes <= 0 ? "Finalizando" : `≈ ${minutes} min`;
   };
 
+  // Mapa ticketId → minutos acumulados de espera en la cola (sumando tickets previos)
+  const waitingAccumulatedMinutes = useMemo(() => {
+    const map = new Map<number, number>();
+    // Tiempo libre de la operaria activa: cuándo termina el ticket en servicio
+    const busyUntilMs = inServiceTickets.reduce<number>((max, t) => {
+      const end = new Date(t.end_time).getTime();
+      return Number.isFinite(end) ? Math.max(max, end) : max;
+    }, now);
+
+    let cursor = Math.max(now, busyUntilMs);
+    for (const ticket of waitingTickets) {
+      const durationMs = (() => {
+        const start = new Date(ticket.start_time).getTime();
+        const end = new Date(ticket.end_time).getTime();
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+          return end - start;
+        }
+        return 60 * 60_000; // 60 min por defecto
+      })();
+      const waitMins = Math.max(0, Math.ceil((cursor - now) / 60_000));
+      map.set(ticket.id, waitMins);
+      cursor += durationMs;
+    }
+    return map;
+  }, [waitingTickets, inServiceTickets, now]);
+
+  const getWaitLabel = (ticketId: number) => {
+    const mins = waitingAccumulatedMinutes.get(ticketId);
+    if (mins === undefined) return "";
+    if (mins === 0) return "Próximo";
+    return `≈ ${mins} min espera`;
+  };
+
   const isRecentlyCreated = (ticket: TicketItem) => {
     const raw = (ticket as unknown as { created_at?: string }).created_at;
     if (!raw) return false;
@@ -605,31 +652,103 @@ const Main = () => {
     );
   };
 
+  // Ticket actualmente en servicio (primero por orden de inicio)
+  const activeTicket = inServiceTickets[0] ?? null;
+  // Próximo en cola
+  const nextTicket = waitingTickets[0] ?? null;
+
+  const handleCallNext = async () => {
+    if (!activeBranchId) { toast.warning("Selecciona una sucursal."); return; }
+    try {
+      await AgendaService.callNextAppointment({ branch_id: activeBranchId });
+      toast.success("Siguiente turno llamado.");
+      void loadTickets();
+    } catch {
+      toast.error("No hay turnos pendientes o la operaria ya está ocupada.");
+    }
+  };
+
   const boardRibbon = (
     <div className="flex flex-wrap items-stretch gap-0 divide-x divide-[#edebe9] border-b border-[#edebe9] bg-[#f3f2f1]">
-      {[
-        { label: "En espera", count: waitingTickets.length, color: "#D83B01" },
-        { label: "En servicio", count: inServiceTickets.length, color: "#0078D4" },
-        { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
-      ].map((stat) => (
-        <div key={stat.label} className="flex min-w-[120px] flex-1 items-center gap-2 px-4 py-2">
-          <span className="h-8 w-1 shrink-0" style={{ backgroundColor: stat.color }} />
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
-            <p className="text-lg font-semibold tabular-nums text-[#201f1e]">{stat.count}</p>
-          </div>
+
+      {/* En atención */}
+      <div className="flex min-w-[180px] flex-1 items-center gap-3 px-4 py-2">
+        <span className="h-6 w-0.5 shrink-0 bg-[#0078d4]" />
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">En atención</p>
+          {activeTicket ? (
+            <>
+              <p className="truncate text-sm font-semibold text-[#201f1e]">
+                {activeTicket.ticket_code ?? `#${activeTicket.id}`}
+                <span className="ml-2 font-normal text-[#605e5c]">{activeTicket.client_name}</span>
+              </p>
+              <p className="truncate text-xs text-[#605e5c]">
+                {activeTicket.service_names?.join(", ") ?? activeTicket.service_name ?? "—"}
+                {activeTicket.professional_name ? ` · ${activeTicket.professional_name}` : ""}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-[#a19f9d]">Sin servicio activo</p>
+          )}
         </div>
-      ))}
-      <div className="flex flex-1 items-center justify-end gap-2 px-4 py-2">
-        <span className="text-[11px] text-[#605e5c]">
-          {filterDate || todayDate()} · actualización cada 30 s
-        </span>
-        {isLoading ? (
-          <span className="border border-[#9dc4e6] bg-[#eff6fc] px-2 py-0.5 text-[10px] font-semibold text-[#005a9e]">
-            Cargando…
-          </span>
-        ) : null}
       </div>
+
+      {/* Próximo */}
+      <div className="flex min-w-[180px] flex-1 items-center gap-3 px-4 py-2">
+        <span className="h-6 w-0.5 shrink-0 bg-[#D83B01]" />
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Próximo</p>
+          {nextTicket ? (
+            <>
+              <p className="truncate text-sm font-semibold text-[#201f1e]">
+                {nextTicket.ticket_code ?? `#${nextTicket.id}`}
+                <span className="ml-2 font-normal text-[#605e5c]">{nextTicket.client_name}</span>
+              </p>
+              <p className="text-xs text-[#605e5c]">{waitingTickets.length} en espera</p>
+            </>
+          ) : (
+            <p className="text-xs text-[#a19f9d]">Cola vacía</p>
+          )}
+        </div>
+      </div>
+
+      {/* Contadores */}
+      <div className="flex items-center gap-4 px-4 py-2">
+        {[
+          { label: "Espera", count: waitingTickets.length, color: "#D83B01" },
+          { label: "Servicio", count: inServiceTickets.length, color: "#0078D4" },
+          { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
+        ].map((s) => (
+          <div key={s.label} className="flex flex-col items-center">
+            <p className="text-base font-semibold tabular-nums" style={{ color: s.color }}>{s.count}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Llamar siguiente */}
+      <div className="flex items-center px-4 py-2">
+        <button
+          type="button"
+          onClick={() => void handleCallNext()}
+          disabled={waitingTickets.length === 0 || isLoading}
+          className={`flex h-9 items-center gap-2 rounded-sm px-4 text-sm font-semibold transition-all ${
+            waitingTickets.length === 0 || isLoading
+              ? "cursor-not-allowed bg-[#edebe9] text-[#a19f9d]"
+              : "bg-[#0078d4] text-white hover:bg-[#005a9e]"
+          }`}
+        >
+          Llamar siguiente
+          {waitingTickets.length > 0 && (
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              waitingTickets.length === 0 || isLoading ? "bg-[#c8c6c4] text-white" : "bg-white/25 text-white"
+            }`}>
+              {waitingTickets.length}
+            </span>
+          )}
+        </button>
+      </div>
+
     </div>
   );
 
@@ -677,9 +796,9 @@ const Main = () => {
                     Iniciar atención
                   </Button>
                 }
-                showRemaining={false}
+                showRemaining
                 statusColors={{}}
-                getRemainingLabel={getRemainingLabel}
+                getRemainingLabel={() => getWaitLabel(ticket.id)}
                 onDelete={handleDeleteClick}
               />
             )}
@@ -797,6 +916,12 @@ const Main = () => {
               Registra el tracking tecnico y el cuestionario antes de finalizar.
             </div>
 
+            {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18 ? (
+              <div className={BC_WARN_BOX}>
+                &#9888; Clienta menor de edad ({finishTarget.client_age} años) — el cuestionario es obligatorio para finalizar el servicio.
+              </div>
+            ) : null}
+
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className={BC_LABEL}>Profesional</label>
@@ -879,7 +1004,9 @@ const Main = () => {
               </div>
 
               <div>
-                <label className={BC_LABEL}>Cuestionario</label>
+                <label className={BC_LABEL}>
+                  Cuestionario{finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18 ? " (Obligatorio ⚠)" : ""}
+                </label>
                 <select
                   value={finishQuestionnaireId}
                   onChange={(event) => void handleQuestionnaireChange(event.target.value)}
@@ -909,7 +1036,11 @@ const Main = () => {
                 <label htmlFor="finish-observations" className={BC_LABEL}>
                   Observaciones del servicio
                 </label>
-                <span className="text-[11px] text-[#605e5c]">Obligatorio: cuestionario o notas</span>
+                <span className="text-[11px] text-[#605e5c]">
+                  {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18
+                    ? "Cuestionario obligatorio · notas opcionales"
+                    : "Obligatorio: cuestionario o notas"}
+                </span>
               </div>
               <textarea
                 id="finish-observations"

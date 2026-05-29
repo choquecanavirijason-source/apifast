@@ -414,6 +414,7 @@ def create_appointment(
     sale_id: Optional[int] = None,
     is_ia: bool = False,
     status_value: str = "pending",
+    advance_payment_amount: float = 0.0,
     *,
     skip_availability_check: bool = False,
 ) -> Appointment:
@@ -451,6 +452,7 @@ def create_appointment(
         start_time=start_time,
         end_time=end_time,
         status=status_value,
+        advance_payment_amount=max(0.0, float(advance_payment_amount)),
     )
 
     db.add(appointment)
