@@ -27,6 +27,7 @@ export type PosSaleClientOption = {
   nombre: string;
   apellido: string;
   phone?: string | null;
+  status?: string | null;
 };
 
 export type LineAvailabilityState = Record<string, { available: boolean; conflictCount: number }>;

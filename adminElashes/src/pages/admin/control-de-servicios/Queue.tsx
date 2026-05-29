@@ -245,16 +245,28 @@ const Main = () => {
 
   const handleStartService = async (ticket: TicketItem) => {
     if (!ticket.professional_id) {
-      toast.warning("Asigna una operaria antes de iniciar la atencion.");
+      toast.warning("Asigna una operaria antes de iniciar la atención.");
       return;
     }
+
+    const alreadyInService = inServiceTickets.find(
+      (t) => t.professional_id === ticket.professional_id && t.id !== ticket.id
+    );
+    if (alreadyInService) {
+      const clientName = alreadyInService.client_name ?? "otro cliente";
+      toast.error(
+        `La operaria ya está atendiendo a ${clientName}. Finaliza ese servicio antes de iniciar uno nuevo.`
+      );
+      return;
+    }
+
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "in_service" });
-      toast.success("Atencion iniciada.");
+      toast.success("Atención iniciada.");
       void loadTickets();
     } catch (error) {
-      console.error("Error iniciando atencion:", error);
-      toast.error(getApiErrorMessage(error, "No se pudo iniciar la atencion."));
+      console.error("Error iniciando atención:", error);
+      toast.error(getApiErrorMessage(error, "No se pudo iniciar la atención."));
     }
   };
 
@@ -423,6 +435,7 @@ const Main = () => {
       await AgendaService.updateAppointment(ticketId, {
         status: newStatus,
         is_ia: false,
+        skip_availability_check: true,
       });
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
     } catch (error) {

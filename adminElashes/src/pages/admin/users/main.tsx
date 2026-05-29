@@ -16,6 +16,7 @@ import PermissionsSection from "./components/PermissionsSection";
 import RegisterRoleModal from "./components/RegisterRoleModal";
 import RegisterUserModal from "./components/RegisterUserModal";
 import RolesSection from "./components/RolesSection";
+import SkillLevelModal from "./components/SkillLevelModal";
 import UsersSection from "./components/UsersSection";
 import UsersStats from "./components/UsersStats";
 import UsersTabs from "./components/UsersTabs";
@@ -47,8 +48,12 @@ export default function UsersMain() {
   const [editUserRoleId, setEditUserRoleId] = useState<number | null>(null);
   const [editUserBranchId, setEditUserBranchId] = useState<number | null>(null);
   const [editUserIsActive, setEditUserIsActive] = useState(true);
+  const [editUserSkillLevel, setEditUserSkillLevel] = useState<number | null>(null);
   const [editUserDirectPermissionIds, setEditUserDirectPermissionIds] = useState<number[]>([]);
   const [updatingUser, setUpdatingUser] = useState(false);
+  const [isSkillLevelModalOpen, setIsSkillLevelModalOpen] = useState(false);
+  const [selectedUserForSkill, setSelectedUserForSkill] = useState<UserItem | null>(null);
+  const [submittingSkillLevel, setSubmittingSkillLevel] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
 
   const { user, roles: authRoles } = useAuth();
@@ -59,6 +64,7 @@ export default function UsersMain() {
     typeof user?.role === "string" ? user.role : currentRoleObject ? String(currentRoleObject.name ?? "") : "";
   const isSuperAdmin = roleName === "SuperAdmin" || authRoles.includes("SuperAdmin");
   const isAdmin = roleName === "Admin" || authRoles.includes("Admin");
+  const isSecretary = roleName === "Secretaria" || authRoles.includes("Secretaria");
   const canManageUsers = isSuperAdmin || isAdmin;
 
   const getErrorMessage = (error: unknown, fallback: string) => {
@@ -168,14 +174,16 @@ export default function UsersMain() {
   };
 
   useEffect(() => {
-    if (!canManageUsers) return;
+    if (!canManageUsers && !isSecretary) return;
     void loadUsers();
     void loadBranches();
     if (isSuperAdmin) {
       void loadRoles();
       void loadPermissions();
+    } else if (isSecretary) {
+      void loadRoles();
     }
-  }, [canManageUsers, isSuperAdmin]);
+  }, [canManageUsers, isSecretary, isSuperAdmin]);
 
   useEffect(() => {
     const handleBranchChange = () => setActiveBranchId(getSelectedBranchId());
@@ -192,17 +200,48 @@ export default function UsersMain() {
 
   const filteredUsers = useMemo(() => {
     if (!activeBranchId) return users;
+    // si el ID guardado ya no existe en la DB, no filtramos (evita lista vacía tras re-seed)
+    const branchExists = branches.some((b) => b.id === activeBranchId);
+    if (!branchExists) return users;
     return users.filter((item) => {
       const branchId = item.branch_id ?? item.branch?.id ?? null;
       // mostrar usuarios de la sucursal seleccionada O sin sucursal asignada
       return branchId === null || Number(branchId) === activeBranchId;
     });
-  }, [users, activeBranchId]);
+  }, [users, activeBranchId, branches]);
 
   const activeBranchName = useMemo(() => {
     if (!activeBranchId) return "Todas las sucursales";
     return branches.find((branch) => branch.id === activeBranchId)?.name ?? `Sucursal #${activeBranchId}`;
   }, [activeBranchId, branches]);
+
+  const displayedUsers = useMemo(() => {
+    if (!isSecretary) return filteredUsers;
+    return filteredUsers.filter((u) => {
+      const role = typeof u.role === "object" ? u.role?.name : u.role;
+      return role === "Operaria";
+    });
+  }, [filteredUsers, isSecretary]);
+
+  const openSkillLevelModal = (userToEdit: UserItem) => {
+    setSelectedUserForSkill(userToEdit);
+    setIsSkillLevelModalOpen(true);
+  };
+
+  const handleUpdateSkillLevel = async (userId: number, level: number | null, branchId: number | null, phone: string | null) => {
+    setSubmittingSkillLevel(true);
+    try {
+      await api.patch(`/admin/users/${userId}/skill-level`, { skill_level: level, branch_id: branchId, phone });
+      setIsSkillLevelModalOpen(false);
+      setSelectedUserForSkill(null);
+      await loadUsers();
+      toast.success("Operaria actualizada correctamente");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo actualizar la operaria"));
+    } finally {
+      setSubmittingSkillLevel(false);
+    }
+  };
 
   const openEditUserModal = (userToEdit: UserItem) => {
     setSelectedUser(userToEdit);
@@ -215,6 +254,7 @@ export default function UsersMain() {
     );
     setEditUserBranchId(userToEdit.branch_id ?? userToEdit.branch?.id ?? null);
     setEditUserIsActive(Boolean(userToEdit.is_active));
+    setEditUserSkillLevel(userToEdit.skill_level ?? null);
     setEditUserDirectPermissionIds((userToEdit.direct_permissions ?? []).map((p) => p.id));
     setIsModalOpen(true);
   };
@@ -225,6 +265,7 @@ export default function UsersMain() {
     setSelectedUser(null);
     setEditUserPassword("");
     setEditUserBranchId(null);
+    setEditUserSkillLevel(null);
   };
 
   const handleUpdateUser = async () => {
@@ -250,6 +291,7 @@ export default function UsersMain() {
         role_id: editUserRoleId,
         branch_id: editUserBranchId,
         is_active: editUserIsActive,
+        skill_level: editUserSkillLevel,
         permission_ids: editUserDirectPermissionIds,
       });
 
@@ -364,11 +406,11 @@ export default function UsersMain() {
     }
   };
 
-  const activeUsers = useMemo(() => filteredUsers.filter((item) => item.is_active).length, [filteredUsers]);
-  const inactiveUsers = useMemo(() => filteredUsers.filter((item) => !item.is_active).length, [filteredUsers]);
+  const activeUsers = useMemo(() => displayedUsers.filter((item) => item.is_active).length, [displayedUsers]);
+  const inactiveUsers = useMemo(() => displayedUsers.filter((item) => !item.is_active).length, [displayedUsers]);
 
   const tabButtons: Array<{ id: SectionTab; label: string; icon: ReactElement }> = [
-    { id: "users", label: "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
+    { id: "users", label: isSecretary ? "Operarias" : "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
     ...(isSuperAdmin ? [
       { id: "roles" as SectionTab, label: "Roles", icon: <Shield className="h-4 w-4" /> },
       { id: "permissions" as SectionTab, label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
@@ -383,7 +425,7 @@ export default function UsersMain() {
       orientation: "landscape",
       meta: [
         { label: "Sucursal", value: activeBranchName },
-        { label: "Total", value: String(filteredUsers.length) },
+        { label: "Total", value: String(displayedUsers.length) },
       ],
       columns: [
         { key: "id", header: "ID" },
@@ -395,7 +437,7 @@ export default function UsersMain() {
         { key: "status", header: "Estado" },
         { key: "created_at", header: "Creado" },
       ],
-      rows: filteredUsers.map((u) => ({
+      rows: displayedUsers.map((u) => ({
         id: u.id,
         username: u.username,
         email: u.email,
@@ -426,7 +468,7 @@ export default function UsersMain() {
           className="inline-flex items-center gap-2 rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5b3f]"
         >
           <Plus className="h-4 w-4" />
-          Nuevo usuario
+          {isSecretary ? "Nueva operaria" : "Nuevo usuario"}
         </button>
       </div>
     ) : sectionTab === "roles" ? (
@@ -440,18 +482,18 @@ export default function UsersMain() {
       </button>
     ) : undefined;
 
-  if (!canManageUsers) {
+  if (!canManageUsers && !isSecretary) {
     return <AccessDenied />;
   }
 
   return (
     <Layout
-      title="Usuarios, Roles y Permisos"
-      subtitle={`Administra usuarios del sistema, define roles y organiza permisos por módulo. Vista filtrada: ${activeBranchName}.`}
+      title={isSecretary ? "Operarias" : "Usuarios, Roles y Permisos"}
+      subtitle={isSecretary ? `Gestiona el nivel de experiencia de las operarias. Sucursal: ${activeBranchName}.` : `Administra usuarios del sistema, define roles y organiza permisos por módulo. Vista filtrada: ${activeBranchName}.`}
       variant="table"
       topContent={
         <UsersStats
-          userCount={filteredUsers.length}
+          userCount={displayedUsers.length}
           activeUsers={activeUsers}
           inactiveUsers={inactiveUsers}
           rolesCount={roles.length}
@@ -464,10 +506,10 @@ export default function UsersMain() {
     >
       {sectionTab === "users" && (
         <UsersSection
-          users={filteredUsers}
+          users={displayedUsers}
           loading={loading}
-          onEditUser={openEditUserModal}
-          onDeleteUser={isSuperAdmin ? handleDeleteUser : undefined}
+          onEditUser={isSecretary ? openSkillLevelModal : openEditUserModal}
+          onDeleteUser={(isSuperAdmin || isSecretary) ? handleDeleteUser : undefined}
         />
       )}
 
@@ -495,6 +537,7 @@ export default function UsersMain() {
         editUserRoleId={editUserRoleId}
         editUserBranchId={editUserBranchId}
         editUserIsActive={editUserIsActive}
+        editUserSkillLevel={editUserSkillLevel}
         editUserDirectPermissionIds={editUserDirectPermissionIds}
         updatingUser={updatingUser}
         onClose={closeEditModal}
@@ -506,13 +549,14 @@ export default function UsersMain() {
         onRoleChange={setEditUserRoleId}
         onBranchChange={setEditUserBranchId}
         onActiveChange={setEditUserIsActive}
+        onSkillLevelChange={setEditUserSkillLevel}
         onDirectPermissionIdsChange={setEditUserDirectPermissionIds}
       />
 
       <RegisterUserModal
         isOpen={isCreateUserModalOpen}
         onClose={() => setIsCreateUserModalOpen(false)}
-        roles={roles}
+        roles={isSecretary ? roles.filter((r) => r.name === "Operaria") : roles}
         branches={branches}
         isSubmitting={creatingUser || loadingBranches}
         onSubmit={(payload) => void handleCreateUser(payload)}
@@ -533,6 +577,15 @@ export default function UsersMain() {
         permissions={permissions}
         isSubmitting={editingRole}
         onSubmit={(roleId, payload) => void handleEditRole(roleId, payload)}
+      />
+
+      <SkillLevelModal
+        isOpen={isSkillLevelModalOpen}
+        user={selectedUserForSkill}
+        branches={branches}
+        onClose={() => { if (!submittingSkillLevel) { setIsSkillLevelModalOpen(false); setSelectedUserForSkill(null); } }}
+        onSubmit={handleUpdateSkillLevel}
+        submitting={submittingSkillLevel}
       />
     </Layout>
   );

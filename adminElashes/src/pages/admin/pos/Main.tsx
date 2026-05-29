@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { CalendarDays, ShoppingCart } from "lucide-react";
+import { Building2, CalendarDays, ShoppingCart } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AgendaService,
@@ -221,7 +221,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   // Sale form
   const [clientId,         setClientId]         = useState("");
   const [clientSearch,     setClientSearch]     = useState("");
-  const [paymentMethod,    setPaymentMethod]     = useState("cash");
+  const [paymentMethod,    setPaymentMethod]     = useState("");
   const [discountType,     setDiscountType]      = useState<"amount" | "percent">("amount");
   const [discountValue,    setDiscountValue]     = useState("0");
   const [notes,            setNotes]             = useState("");
@@ -279,24 +279,29 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const clientPhone    = selectedClient?.phone?.trim() ?? "";
   const clientAddress  = selectedClient ? `Calle ${selectedClient.id} #${String(selectedClient.id).padStart(2, "0")}` : "";
 
+  // Todos los clientes son seleccionables — los activos se muestran con indicador
   const filteredClients = useMemo(() => {
     const term = clientSearch.trim().toLowerCase();
-    if (!term) return clients;
-
     const normalizedTermDigits = term.replace(/\D/g, "");
 
-    return clients.filter((client) => {
-      const fullName = `${client.nombre} ${client.apellido}`.toLowerCase();
-      const phone = (client.phone ?? "").toLowerCase();
-      const phoneDigits = phone.replace(/\D/g, "");
+    const base = term
+      ? clients.filter((client) => {
+          const fullName = `${client.nombre} ${client.apellido}`.toLowerCase();
+          const phone    = (client.phone ?? "").toLowerCase();
+          const phoneDigits = phone.replace(/\D/g, "");
+          return (
+            fullName.includes(term) ||
+            (Boolean(phone) && phone.includes(term)) ||
+            (Boolean(normalizedTermDigits) && phone.replace(/\D/g, "").includes(normalizedTermDigits))
+          );
+        })
+      : clients;
 
-      const byName = fullName.includes(term);
-      const byPhoneText = Boolean(phone) && phone.includes(term);
-      const byPhoneDigits = Boolean(normalizedTermDigits) && phoneDigits.includes(normalizedTermDigits);
-
-      return byName || byPhoneText || byPhoneDigits;
-    });
-  }, [clients, clientSearch]);
+    // El cliente actualmente seleccionado siempre aparece primero aunque no esté en la lista
+    const selectedInList = base.some((c) => String(c.id) === clientId);
+    const selected = selectedClient && !selectedInList ? [selectedClient as typeof clients[0]] : [];
+    return [...selected, ...base];
+  }, [clients, clientSearch, clientId, selectedClient]);
 
   const filteredServices = useMemo(() => {
     const categoryFiltered = selectedServiceCategoryId === "all"
@@ -392,25 +397,78 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   const checkoutTicketPreviews = useMemo(() => {
     if (cartLines.length === 0 || linkAppointmentId) return [];
-    // Usa los tiempos reales de cartLines (editables desde el panel)
     const withSeller = applySellerToCartLines(cartLines, sellerId);
+
+    if (ticketMode === "group" && withSeller.length > 1) {
+      const firstLine = withSeller[0];
+      const totalDuration = withSeller.reduce((acc, l) => acc + (l.duration_minutes || 60), 0);
+      // Respeta tiempo manual del primer ticket si está fijado
+      let start: Date;
+      if (firstLine.time_manual && firstLine.date && firstLine.time) {
+        start = new Date(`${firstLine.date}T${firstLine.time}:00`);
+        if (Number.isNaN(start.getTime())) start = new Date();
+      } else {
+        start = new Date();
+      }
+      const end = new Date(start.getTime() + totalDuration * 60 * 1000);
+      const totalMins = totalDuration;
+      const durationLabel = totalMins >= 60
+        ? `${Math.floor(totalMins / 60)}h${totalMins % 60 > 0 ? ` ${totalMins % 60}min` : ""}`
+        : `${totalMins}min`;
+      const timeLabel = `${getLocalDateInputValue(start)} ${getLocalTimeValue(start)} – ${getLocalTimeValue(end)} (${durationLabel} total)`;
+      const firstProfId = withSeller.find((l) => l.professional_id)?.professional_id;
+      const professional = firstProfId ? professionals.find((p) => String(p.id) === firstProfId) : null;
+      const serviceNames = withSeller.map((l) => services.find((s) => String(s.id) === l.service_id)?.name ?? "Servicio");
+      return [
+        {
+          localId: firstLine.localId,
+          serviceName: serviceNames.join(" + "),
+          scheduleLabel: timeLabel,
+          professionalName: professional?.username ?? "Sin operaria",
+          status: "Pendiente" as const,
+          date: firstLine.time_manual && firstLine.date ? firstLine.date : getLocalDateInputValue(start),
+          time: firstLine.time_manual && firstLine.time ? firstLine.time : getLocalTimeValue(start),
+          without_time: false,
+        },
+      ];
+    }
+
+    // Individual: respeta hora manual si está fijada; encadena desde ahora para las demás.
+    let cursor = Date.now();
     return withSeller.map((line) => {
       const service = services.find((item) => String(item.id) === line.service_id);
       const professional = professionals.find((item) => String(item.id) === line.professional_id);
+      const durationMs = Math.max(Number(line.duration_minutes) || 60, 1) * 60 * 1000;
+
+      let start: Date;
+      if (line.time_manual && line.date && line.time) {
+        start = new Date(`${line.date}T${line.time}:00`);
+        if (Number.isNaN(start.getTime())) start = new Date(cursor);
+      } else {
+        start = new Date(cursor);
+      }
+      const end = new Date(start.getTime() + durationMs);
+      cursor = end.getTime();
+
+      const durMins = Math.max(Number(line.duration_minutes) || 60, 1);
+      const durLabel = durMins >= 60
+        ? `${Math.floor(durMins / 60)}h${durMins % 60 > 0 ? `${durMins % 60}min` : ""}`
+        : `${durMins}min`;
+      const timeLabel = line.without_time
+        ? `${line.date} · sin hora fija · ${durLabel}`
+        : `${getLocalDateInputValue(start)} ${getLocalTimeValue(start)} – ${getLocalTimeValue(end)} (${durLabel})`;
       return {
         localId: line.localId,
         serviceName: service?.name ?? "Servicio",
-        scheduleLabel: line.without_time
-          ? `${line.date} · sin hora fija`
-          : `${line.date} ${line.time}`,
+        scheduleLabel: timeLabel,
         professionalName: professional?.username ?? "Sin operaria",
-        status: line.status === "in_service" ? "En atención" : "Pendiente",
-        date: line.date,
-        time: line.time,
+        status: line.status === "in_service" ? "En atención" : ("Pendiente" as const),
+        date: line.time_manual && line.date ? line.date : getLocalDateInputValue(start),
+        time: line.time_manual && line.time ? line.time : getLocalTimeValue(start),
         without_time: line.without_time,
       };
     });
-  }, [cartLines, sellerId, services, professionals, linkAppointmentId]);
+  }, [cartLines, sellerId, services, professionals, linkAppointmentId, ticketMode]);
 
   const filteredModalServices = useMemo(() => {
     const term = categoryModalSearch.trim().toLowerCase();
@@ -501,7 +559,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     try {
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
-        AgendaService.listClientsForSelect({ limit: 200 }),
+        AgendaService.listClientsForSelect({ limit: 200, branch_id: branchFilter }),
         AgendaService.listServices({ limit: 200, branch_id: branchFilter }),
         AgendaService.listServiceCategories(),
         AgendaService.listProfessionalsForSelect({
@@ -568,6 +626,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   useEffect(() => { void loadContext(); }, [activeBranchId]);
 
+  // Siempre arrancar con el carrito vacío — borrar cualquier borrador guardado
+  useEffect(() => {
+    sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     BranchService.list({ limit: 200 })
       .then((data) => setBranches(data))
@@ -582,7 +645,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     const draftKey = getPosDraftStorageKey(activeBranchId);
 
     try {
-      const raw = localStorage.getItem(draftKey);
+      const raw = sessionStorage.getItem(draftKey);
       if (!raw) {
         setIsDraftHydrated(true);
         return;
@@ -595,7 +658,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
       setClientId(typeof parsed.clientId === "string" ? parsed.clientId : "");
       setClientSearch(typeof parsed.clientSearch === "string" ? parsed.clientSearch : "");
-      setPaymentMethod(typeof parsed.paymentMethod === "string" ? parsed.paymentMethod : "cash");
+      setPaymentMethod(typeof parsed.paymentMethod === "string" ? parsed.paymentMethod : "");
       setDiscountType(parsed.discountType === "percent" ? "percent" : "amount");
       setDiscountValue(typeof parsed.discountValue === "string" ? parsed.discountValue : "0");
       setNotes(typeof parsed.notes === "string" ? parsed.notes : "");
@@ -607,7 +670,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       setSellerId(typeof parsed.sellerId === "string" ? parsed.sellerId : "");
     } catch (error) {
       console.error("Error leyendo borrador POS:", error);
-      localStorage.removeItem(draftKey);
+      sessionStorage.removeItem(draftKey);
     } finally {
       setIsDraftHydrated(true);
     }
@@ -713,6 +776,23 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     }
   }, [sellerId, professionals, loggedUser]);
 
+  // Sanitize stale professional IDs from sessionStorage drafts after professionals load.
+  // Prevents "La profesional indicada no existe" when DB was reset or re-seeded.
+  const didSanitizeDraftRef = useRef(false);
+  useEffect(() => {
+    if (!isDraftHydrated || professionals.length === 0 || didSanitizeDraftRef.current) return;
+    didSanitizeDraftRef.current = true;
+    const validIds = new Set(professionals.map((p) => String(p.id)));
+    setSellerId((current) => (current && !validIds.has(current) ? "" : current));
+    setCartLines((prev) =>
+      prev.map((line) =>
+        line.professional_id && !validIds.has(line.professional_id)
+          ? { ...line, professional_id: "" }
+          : line
+      )
+    );
+  }, [isDraftHydrated, professionals]);
+
   const loadEyeTypes = async () => {
     setIsLoadingEyeTypes(true);
     setEyeTypesError(null);
@@ -752,7 +832,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     const isEmptyDraft =
       !clientId &&
       !clientSearch &&
-      paymentMethod === "cash" &&
+      (!paymentMethod || paymentMethod === "cash") &&
       discountType === "amount" &&
       (discountValue === "" || discountValue === "0") &&
       !notes.trim() &&
@@ -762,7 +842,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       !sellerId;
 
     if (isEmptyDraft) {
-      localStorage.removeItem(draftKey);
+      sessionStorage.removeItem(draftKey);
       return;
     }
 
@@ -779,7 +859,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       sellerId,
     };
 
-    localStorage.setItem(draftKey, JSON.stringify(draft));
+    sessionStorage.setItem(draftKey, JSON.stringify(draft));
   }, [
     isDraftHydrated,
     activeBranchId,
@@ -1098,11 +1178,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     setClientSearch("");
     setServiceSearch("");
     setSelectedServiceCategoryId("all");
-    setPaymentMethod("cash");
+    setPaymentMethod("");
     setDiscountValue("0");
     setNotes("");
     setCartLines([]);
     setSellerId("");
+    sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     if (embedded) {
       setActiveTab("sale");
     }
@@ -1182,6 +1263,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         end_time: formatLocalDateTime(end),
         professional_id: edit.professional_id ? Number(edit.professional_id) : null,
         status: edit.status,
+        skip_availability_check: true,
       });
 
       const selectedProfessional = edit.professional_id
@@ -1255,6 +1337,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             end_time: nextEnd,
             professional_id: nextProfessionalId,
             status: nextStatus,
+            skip_availability_check: true,
           });
 
           const selectedProfessional =
@@ -1297,6 +1380,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       return toast.warning("Si un ticket está 'En atencion', debes seleccionar operaria.");
     }
 
+    if (numericDiscount > 0) {
+      const appliedDiscount = discountType === "percent"
+        ? subtotal * (numericDiscount / 100)
+        : numericDiscount;
+      if (appliedDiscount >= subtotal) {
+        return toast.warning("El descuento no puede ser igual o mayor al subtotal de la venta.");
+      }
+    }
+
     const linesScheduledForAgenda = linkAppointmentId
       ? applySellerToCartLines(cartLines, sellerId)
       : prepareCartLinesForTicketCheckout(cartLines, {
@@ -1325,6 +1417,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               start_time: formatLocalDateTime(start),
               end_time: formatLocalDateTime(end),
               status: line.status,
+              skip_availability_check: true,
             });
           } else {
             await AgendaService.createAppointment({
@@ -1357,7 +1450,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         const refreshedSale = await PosSaleService.getById(updatedSale.id);
         setSales((prev) => prev.map((sale) => (sale.id === refreshedSale.id ? refreshedSale : sale)));
         setReceiptSale(refreshedSale);
-        localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+        sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
         toast.success(`Venta ${refreshedSale.sale_code} actualizada.`);
         resetSaleForm();
         await loadContext();
@@ -1370,21 +1463,33 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       // ── Construir items según el modo de tickets ────────────────────────────
       const buildItems = () => {
         if (ticketMode === "group" && linesScheduledForAgenda.length > 1) {
-          // Ticket grupal: 1 cita con todos los service_ids
+          // Ticket grupal: 1 cita con duración total = suma de todos los servicios.
+          // Una sola operaria atiende el turno completo.
           const firstLine = linesScheduledForAgenda[0];
           const safeDate = firstLine.date?.trim() || getLocalDateInputValue();
           const safeTime = firstLine.without_time ? "09:00" : (firstLine.time?.trim() || getLocalTimeValue());
           const groupStart = new Date(`${safeDate}T${safeTime}:00`);
           const totalDuration = linesScheduledForAgenda.reduce(
-            (acc, l) => acc + (l.duration_minutes || 60),
-            0
+            (acc, l) => acc + (l.duration_minutes || 60), 0
           );
           const groupEnd = new Date(groupStart.getTime() + totalDuration * 60 * 1000);
-          const firstProfId = linesScheduledForAgenda.find((l) => l.professional_id)?.professional_id;
+
+          // Prioridad de operaria: 1) sellerId del drawer, 2) primera línea con operaria
+          const groupProfId =
+            sellerId.trim() ||
+            linesScheduledForAgenda.find((l) => l.professional_id)?.professional_id ||
+            null;
+
+          // Advertir si hay operarias distintas asignadas por línea (solo 1 puede atender el grupo)
+          const uniqueProfs = new Set(linesScheduledForAgenda.map((l) => l.professional_id).filter(Boolean));
+          if (uniqueProfs.size > 1) {
+            toast.info("Ticket grupal: se usará la operaria del selector principal. Para operarias distintas por servicio, usa modo Individual.");
+          }
+
           return [
             {
               service_ids: linesScheduledForAgenda.map((l) => Number(l.service_id)),
-              professional_id: firstProfId ? Number(firstProfId) : null,
+              professional_id: groupProfId ? Number(groupProfId) : null,
               branch_id: activeBranchId,
               start_time: formatLocalDateTime(groupStart),
               end_time: formatLocalDateTime(groupEnd),
@@ -1418,49 +1523,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
       };
 
+      // El backend ya crea los appointments con los datos correctos del planificador.
+      // No se necesita un segundo loop de updateAppointment.
       const sale = await PosSaleService.create(payload);
 
-      const updatedAppointments =
-        sale.appointments.length === 0
-          ? []
-          : await Promise.all(
-              sale.appointments.map(async (appointment, index) => {
-                const line =
-                  linesScheduledForAgenda.find((cartLine) => cartLine.appointment_id === appointment.id) ??
-                  linesScheduledForAgenda[index];
-                if (!line) return appointment;
-
-                const safeDate = line.date?.trim() || getLocalDateInputValue();
-                const safeTime = line.without_time ? "09:00" : (line.time?.trim() || getLocalTimeValue());
-                const start = new Date(`${safeDate}T${safeTime}:00`);
-                const end = new Date(start.getTime() + line.duration_minutes * 60 * 1000);
-
-                const updated = await AgendaService.updateAppointment(appointment.id, {
-                  start_time: formatLocalDateTime(start),
-                  end_time: formatLocalDateTime(end),
-                  professional_id: line.professional_id ? Number(line.professional_id) : null,
-                  status: line.status,
-                });
-
-                const selectedProfessional =
-                  line.professional_id
-                    ? professionals.find((professional) => String(professional.id) === line.professional_id)
-                    : undefined;
-
-                return {
-                  ...appointment,
-                  start_time: updated.start_time,
-                  end_time: updated.end_time,
-                  status: updated.status,
-                  professional: selectedProfessional
-                    ? { id: selectedProfessional.id, username: selectedProfessional.username }
-                    : null,
-                };
-              })
-            );
-
-      const saleWithUpdatedAppointments = { ...sale, appointments: updatedAppointments };
-      localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+      sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
       const ticketCodes = sale.appointments
         .map((appointment) => appointment.ticket_code)
         .filter((code): code is string => Boolean(code));
@@ -1472,7 +1539,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             : "Venta completada. Tickets creados en agenda."
       );
       setLinkAppointmentId(null);
-      setReceiptSale(saleWithUpdatedAppointments);
+      setReceiptSale(sale);
       resetSaleForm();
       await loadContext();
       if (!embedded) {
@@ -1608,6 +1675,25 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       setEditingSale(saleForEdit);
       setClientId(String(saleForEdit.client.id));
       setClientSearch(saleClientName || "");
+
+      // Garantizar que el cliente de la venta esté en la lista aunque sea de otra sucursal
+      if (saleForEdit.client) {
+        const c = saleForEdit.client;
+        setClients((prev) => {
+          const exists = prev.some((x) => String(x.id) === String(c.id));
+          if (exists) return prev;
+          return [
+            {
+              id: c.id,
+              nombre: c.name ?? "",
+              apellido: c.last_name ?? "",
+              phone: c.phone ?? null,
+              status: (c as { status?: string }).status ?? null,
+            },
+            ...prev,
+          ];
+        });
+      }
       setPaymentMethod((saleForEdit.payment_method || "cash").toLowerCase());
       setDiscountType(saleForEdit.discount_type === "percent" ? "percent" : "amount");
       setDiscountValue(String(saleForEdit.discount_value ?? 0));
@@ -1803,6 +1889,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 key={tab}
                 type="button"
                 onClick={() => {
+                  if (tab === "sale") resetSaleForm();
                   setActiveTab(tab);
                   setStep(1);
                 }}
@@ -1856,7 +1943,23 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       }
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden pb-2 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
-        {activeTab === "sale" ? (
+        {activeTab === "sale" && !activeBranchId ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3f2f1]">
+              <Building2 className="h-8 w-8 text-[#a19f9d]" />
+            </div>
+            <div className="max-w-sm text-center">
+              <p className="text-base font-semibold text-[#323130]">Selecciona una sucursal</p>
+              <p className="mt-1.5 text-sm text-[#605e5c]">
+                Para registrar una venta debes elegir una sucursal específica.
+                Con <strong>«Todas»</strong> el sistema no puede asignar la venta.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-4 py-2.5 text-xs font-semibold text-[#8a6a1f]">
+              ↑ Usa el selector de sucursal en la barra superior
+            </div>
+          </div>
+        ) : activeTab === "sale" ? (
           step === 1 ? (
             <PosSaleStepOne
               labelClass={labelClass}

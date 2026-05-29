@@ -44,6 +44,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    skill_level = Column(Integer, nullable=True)  # 1–5 estrellas, NULL = sin nivel asignado
 
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)

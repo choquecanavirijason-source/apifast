@@ -358,6 +358,19 @@ def call_next_appointment(
         except HTTPException:
             continue
 
+        if target_professional_id:
+            existing_in_service = (
+                db.query(Appointment)
+                .filter(
+                    Appointment.professional_id == target_professional_id,
+                    Appointment.status == "in_service",
+                    Appointment.id != appointment.id,
+                )
+                .first()
+            )
+            if existing_in_service:
+                continue
+
         appointment.status = "in_service"
         if target_professional_id:
             appointment.professional_id = target_professional_id
@@ -367,8 +380,8 @@ def call_next_appointment(
         return get_appointment_by_id(db, appointment.id)
 
     raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No hay tickets disponibles para llamar",
+        status_code=status.HTTP_409_CONFLICT,
+        detail="No hay tickets disponibles: la operaria ya tiene un servicio en curso o no hay turnos pendientes.",
     )
 
 
@@ -413,7 +426,6 @@ def create_appointment(
         branch_id=branch_id,
     )
     _validate_appointment_times(start_time, end_time)
-    _validate_branch_opening_hours(db=db, branch_id=branch_id, start_time=start_time, end_time=end_time)
     if not skip_availability_check:
         _validate_professional_availability(
             db=db,
@@ -483,6 +495,8 @@ def update_appointment(
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     status_value: Optional[str] = None,
+    *,
+    skip_availability_check: bool = False,
 ) -> Appointment:
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
 
@@ -510,14 +524,15 @@ def update_appointment(
         branch_id=final_branch_id,
     )
     _validate_appointment_times(final_start_time, final_end_time)
-    _validate_branch_opening_hours(db=db, branch_id=final_branch_id, start_time=final_start_time, end_time=final_end_time)
-    _validate_professional_availability(
-        db=db,
-        professional_id=final_professional_id,
-        start_time=final_start_time,
-        end_time=final_end_time,
-        exclude_appointment_id=appointment_id,
-    )
+    if not skip_availability_check:
+        _validate_branch_opening_hours(db=db, branch_id=final_branch_id, start_time=final_start_time, end_time=final_end_time)
+        _validate_professional_availability(
+            db=db,
+            professional_id=final_professional_id,
+            start_time=final_start_time,
+            end_time=final_end_time,
+            exclude_appointment_id=appointment_id,
+        )
 
     appointment.client_id = final_client_id
     appointment.professional_id = final_professional_id
@@ -538,6 +553,25 @@ def update_appointment(
         appointment.sale_id = sale_id
 
     if status_value is not None:
+        if status_value == "in_service" and final_professional_id:
+            conflict = (
+                db.query(Appointment)
+                .filter(
+                    Appointment.professional_id == final_professional_id,
+                    Appointment.status == "in_service",
+                    Appointment.id != appointment_id,
+                )
+                .first()
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        f"La operaria ya tiene un servicio en curso "
+                        f"(ticket #{conflict.id} · {conflict.ticket_code or ''}). "
+                        f"Finaliza ese servicio antes de iniciar uno nuevo."
+                    ),
+                )
         appointment.status = status_value
         if status_value == "in_service":
             update_client_status(db, appointment.client_id, CLIENT_STATUS_EN_SERVICIO)

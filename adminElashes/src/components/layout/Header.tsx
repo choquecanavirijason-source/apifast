@@ -127,6 +127,17 @@ export default function Header({
     return false;
   })();
 
+  const isSecretary = (() => {
+    const roleValue = (user as { role?: unknown } | null)?.role;
+    if (typeof roleValue === "string") return roleValue === "Secretaria";
+    if (roleValue && typeof roleValue === "object" && "name" in (roleValue as Record<string, unknown>)) {
+      return (roleValue as { name?: unknown }).name === "Secretaria";
+    }
+    return false;
+  })();
+
+  const canSelectBranch = isSuperAdmin || isSecretary;
+
   const displayRole =
     (() => {
       const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)?.role;
@@ -429,9 +440,13 @@ export default function Header({
   }, [notificationsOpen, selectedBranchId]);
 
   useEffect(() => {
-    if (!operariasOpen || !selectedBranchId) return;
+    if (!operariasOpen) return;
     setOperariasLoading(true);
-    AgendaService.listProfessionalsForSelect({ branch_id: selectedBranchId, limit: 200 })
+    AgendaService.listProfessionalsForSelect({
+      branch_id: selectedBranchId ?? undefined,
+      role_name: "Operaria",
+      limit: 200,
+    })
       .then((data) => setOperarias(data))
       .catch(() => setOperarias([]))
       .finally(() => setOperariasLoading(false));
@@ -609,7 +624,7 @@ export default function Header({
 
         <div className="hidden md:flex items-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900/40 px-3 py-2 text-emerald-100">
           <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sucursal</span>
-          {isSuperAdmin ? (
+          {canSelectBranch ? (
             <select
               value={selectedBranchId ?? ""}
               onChange={handleBranchChange}
@@ -629,71 +644,74 @@ export default function Header({
           )}
         </div>
 
-        {/* Operarias del turno — solo cuando hay sucursal seleccionada */}
-        {selectedBranchId !== null ? (
-          <div className="relative hidden md:block" ref={operariasPanelRef}>
-            <button
-              type="button"
-              onClick={() => setOperariasOpen((prev) => !prev)}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
-                operariasOpen
-                  ? "border-emerald-400 bg-emerald-700/60 text-white"
-                  : "border-emerald-800 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-800/60"
-              }`}
-              title="Ver operarias de esta sucursal"
-            >
-              <Users className="h-4 w-4" />
-              <span>Operarias</span>
-            </button>
+        {/* Operarias del turno */}
+        <div className="relative hidden md:block" ref={operariasPanelRef}>
+          <button
+            type="button"
+            onClick={() => setOperariasOpen((prev) => !prev)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+              operariasOpen
+                ? "border-emerald-400 bg-emerald-700/60 text-white"
+                : "border-emerald-800 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-800/60"
+            }`}
+            title={selectedBranchId ? "Ver operarias de esta sucursal" : "Ver todas las operarias"}
+          >
+            <Users className="h-4 w-4" />
+            <span>Operarias</span>
+          </button>
 
-            {operariasOpen && (
-              <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl z-50">
-                <div className="flex items-center justify-between border-b border-emerald-900/70 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-emerald-300" />
-                    <p className="text-sm font-semibold text-white">
-                      {branches.find((b) => b.id === selectedBranchId)?.name ?? "Sucursal"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setOperariasOpen(false)}
-                    className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-900/60"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+          {operariasOpen && (
+            <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl z-50">
+              <div className="flex items-center justify-between border-b border-emerald-900/70 pb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-300" />
+                  <p className="text-sm font-semibold text-white">
+                    {selectedBranchId
+                      ? (branches.find((b) => b.id === selectedBranchId)?.name ?? "Sucursal")
+                      : "Todas las sucursales"}
+                  </p>
                 </div>
-
-                <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-                  {operariasLoading ? (
-                    <p className="text-sm text-emerald-200">Cargando operarias...</p>
-                  ) : operarias.length === 0 ? (
-                    <p className="text-sm text-emerald-200">No hay operarias asignadas a esta sucursal.</p>
-                  ) : (
-                    operarias.map((op) => (
-                      <div
-                        key={op.id}
-                        className="flex items-center gap-3 rounded-xl border border-emerald-900/60 bg-emerald-900/35 px-3 py-2"
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                          {op.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-white">{op.username}</p>
-                          <p className="truncate text-[10px] text-emerald-300">{op.email}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <p className="mt-3 text-[10px] text-emerald-400">
-                  {operariasLoading ? "" : `${operarias.length} operaria${operarias.length !== 1 ? "s" : ""}`}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setOperariasOpen(false)}
+                  className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-900/60"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-            )}
-          </div>
-        ) : null}
+
+              <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                {operariasLoading ? (
+                  <p className="text-sm text-emerald-200">Cargando operarias...</p>
+                ) : operarias.length === 0 ? (
+                  <p className="text-sm text-emerald-200">No hay operarias registradas.</p>
+                ) : (
+                  operarias.map((op) => (
+                    <div
+                      key={op.id}
+                      className="flex items-center gap-3 rounded-xl border border-emerald-900/60 bg-emerald-900/35 px-3 py-2"
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                        {op.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-white">{op.username}</p>
+                        <p className="truncate text-[10px] text-emerald-300">{op.email}</p>
+                        {!selectedBranchId && op.branch_name && (
+                          <p className="truncate text-[10px] text-emerald-400">{op.branch_name}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <p className="mt-3 text-[10px] text-emerald-400">
+                {operariasLoading ? "" : `${operarias.length} operaria${operarias.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => setShowMobileSearch(true)}

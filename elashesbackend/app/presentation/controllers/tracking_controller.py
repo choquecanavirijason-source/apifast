@@ -29,7 +29,7 @@ router = APIRouter(
 )
 def get_trackings(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=500),
     client_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("tracking:view")),

@@ -120,10 +120,10 @@ def require_permission(permission_name: str) -> Callable:
 def resolve_branch_id(requested: Optional[int], current_user: User) -> Optional[int]:
     """Return the branch_id a user is allowed to query.
 
-    SuperAdmin may pass any branch_id (or None to see all branches).
-    All other roles are locked to their own branch_id regardless of the request.
+    SuperAdmin / Admin / Secretaria may pass any branch_id (or None to see all).
+    Other roles are locked to their own branch_id.
     """
-    if current_user.role and current_user.role.name == SUPER_ADMIN_ROLE:
+    if current_user.role and current_user.role.name in (SUPER_ADMIN_ROLE, "Admin", "Secretaria"):
         return requested
     return current_user.branch_id
 

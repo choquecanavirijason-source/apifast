@@ -15,6 +15,7 @@ from app.presentation.schemas.user import (
     UserCreate,
     UserUpdate,
     UserResponse,
+    SkillLevelUpdate,
 )
 from app.application.services.admin_service import (
     list_permissions,
@@ -30,6 +31,7 @@ from app.application.services.admin_service import (
     get_user_by_id,
     create_user,
     update_user,
+    update_skill_level,
     delete_user,
 )
 
@@ -101,7 +103,7 @@ def delete_existing_permission(
 )
 def get_roles(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("SuperAdmin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
     return list_roles(db=db)
 
@@ -169,11 +171,24 @@ def get_users(
     limit: int = Query(default=20, ge=1, le=100),
     search: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
-    # SuperAdmin ve todos; Admin solo ve su sucursal
-    branch_id = None if current_user.role.name == SUPER_ADMIN_ROLE else current_user.branch_id
+    # SuperAdmin ve todos; Admin y Secretaria solo ven su sucursal
+    branch_id = None if current_user.role.name in (SUPER_ADMIN_ROLE, "Secretaria") else current_user.branch_id
     return list_users(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
+
+
+@router.patch(
+    "/users/{user_id}/skill-level",
+    response_model=UserResponse,
+)
+def patch_user_skill_level(
+    user_id: int,
+    payload: SkillLevelUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
+):
+    return update_skill_level(db=db, user_id=user_id, skill_level=payload.skill_level, branch_id=payload.branch_id, phone=payload.phone)
 
 
 @router.get(
@@ -196,7 +211,7 @@ def get_user(
 def create_new_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
     return create_user(db=db, payload=payload)
 
@@ -226,8 +241,17 @@ def update_existing_user(
 def delete_existing_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("SuperAdmin")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Secretaria")),
 ):
+    # Secretaria solo puede eliminar usuarios con rol Operaria
+    if current_user.role and current_user.role.name == "Secretaria":
+        target = db.query(User).filter(User.id == user_id).first()
+        if not target or not target.role or target.role.name != "Operaria":
+            from fastapi import HTTPException, status as http_status
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Solo puedes eliminar operarias",
+            )
     delete_user(
         db=db,
         user_id=user_id,

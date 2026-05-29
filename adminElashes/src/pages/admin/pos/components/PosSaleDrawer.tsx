@@ -1,5 +1,5 @@
-import { useMemo, useState, type RefObject } from "react";
-import { CalendarClock, ChevronDown, ChevronUp, Plus, Printer, Search, ShoppingCart, Tag, Ticket, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { AlertCircle, CalendarClock, ChevronDown, ChevronUp, Lock, Plus, Printer, Search, ShoppingCart, Tag, Ticket, Trash2, X } from "lucide-react";
 import type { ProfessionalForSelect, ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
@@ -103,13 +103,70 @@ export default function PosSaleDrawer({
 }: PosSaleDrawerProps) {
   const isPanel = mode === "panel";
 
-  // En modo drawer, si no está abierto no se renderiza
-  if (!isOpen && !isPanel) return null;
-
+  // Derived values needed by hooks — computed before any hook calls
   const cartCount = cartLines.length;
+  const step1Done = cartCount > 0;
+  const step2Done = !!selectedClient;
+  const step3Done = !!paymentMethod;
+
+  // All hooks must be declared before any conditional return (React Rules of Hooks)
   const [serviceQuery, setServiceQuery] = useState("");
   const [isServiceMenuOpen, setIsServiceMenuOpen] = useState(false);
   const [ticketsOpen, setTicketsOpen] = useState(false);
+  const [isSellerOpen, setIsSellerOpen] = useState(false);
+  const sellerDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const clientSectionRef = useRef<HTMLDivElement | null>(null);
+  const paymentSectionRef = useRef<HTMLDivElement | null>(null);
+  const prevStep1Ref = useRef(step1Done);
+  const prevStep2Ref = useRef(step2Done);
+
+  useEffect(() => {
+    if (step1Done && !prevStep1Ref.current) {
+      clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    prevStep1Ref.current = step1Done;
+  }, [step1Done]);
+
+  useEffect(() => {
+    if (step2Done && !prevStep2Ref.current) {
+      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    prevStep2Ref.current = step2Done;
+  }, [step2Done]);
+
+  useEffect(() => {
+    if (!isSellerOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (sellerDropdownRef.current && !sellerDropdownRef.current.contains(e.target as Node)) {
+        setIsSellerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isSellerOpen]);
+
+  const normalizedServiceQuery = serviceQuery.trim().toLowerCase();
+
+  const filteredServiceOptions = useMemo(() => {
+    if (!normalizedServiceQuery) return services.slice(0, 14);
+    return services
+      .filter((s) => s.name.toLowerCase().includes(normalizedServiceQuery))
+      .slice(0, 14);
+  }, [normalizedServiceQuery, services]);
+
+  const lineCountByServiceId = useMemo(() => {
+    const counts = new Map<string, number>();
+    cartLines.forEach((line) => {
+      const key = String(line.service_id || "");
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return counts;
+  }, [cartLines]);
+
+  // En modo drawer, si no está abierto no se renderiza
+  if (!isOpen && !isPanel) return null;
 
   const handlePrintTickets = () => {
     if (!ticketPreviews.length) return;
@@ -148,27 +205,16 @@ export default function PosSaleDrawer({
     win.print();
   };
 
+  const stepBorder = (isDone: boolean, isActive: boolean) =>
+    isDone
+      ? "border-l-[3px] border-l-[#107c10]"
+      : isActive
+      ? "border-l-[3px] border-l-[#0078d4]"
+      : "border-l-[3px] border-l-transparent";
+
   const labelClass = "mb-1 block text-xs font-semibold text-[#605e5c]";
   const bcField =
     "w-full h-9 rounded-sm border border-[#8a8886] bg-white px-2.5 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
-
-  const normalizedServiceQuery = serviceQuery.trim().toLowerCase();
-
-  const filteredServiceOptions = useMemo(() => {
-    if (!normalizedServiceQuery) return services.slice(0, 14);
-    return services
-      .filter((s) => s.name.toLowerCase().includes(normalizedServiceQuery))
-      .slice(0, 14);
-  }, [normalizedServiceQuery, services]);
-
-  const lineCountByServiceId = useMemo(() => {
-    const counts = new Map<string, number>();
-    cartLines.forEach((line) => {
-      const key = String(line.service_id || "");
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    });
-    return counts;
-  }, [cartLines]);
 
   // ── Contenido compartido (panel + drawer) ──────────────────────────────────
   const panelHeader = (
@@ -195,12 +241,42 @@ export default function PosSaleDrawer({
   );
 
   const panelBody = (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+    <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto bg-white">
+      {/* ── Progreso ────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
+        {([
+          { label: "Servicios", done: step1Done, active: !step1Done },
+          { label: "Cliente", done: step2Done, active: step1Done && !step2Done },
+          { label: "Pago", done: step3Done, active: step2Done && !step3Done },
+        ] as { label: string; done: boolean; active: boolean }[]).map((step, i) => (
+          <div
+            key={step.label}
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold border-r last:border-r-0 border-[#edebe9] ${
+              step.done ? "text-[#107c10]" : step.active ? "text-[#0078d4]" : "text-[#a19f9d]"
+            }`}
+          >
+            <span
+              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                step.done
+                  ? "bg-[#107c10] text-white"
+                  : step.active
+                  ? "bg-[#0078d4] text-white"
+                  : "bg-[#edebe9] text-[#605e5c]"
+              }`}
+            >
+              {step.done ? "✓" : i + 1}
+            </span>
+            {step.label}
+          </div>
+        ))}
+      </div>
+
       {/* ── Carrito ─────────────────────────────────────────────────────────── */}
-      <div className="border-b border-[#edebe9]">
-        <div className="flex items-center gap-2 bg-[#faf9f8] px-4 py-3">
-          <ShoppingCart className="h-4 w-4 text-[#0078d4]" />
+      <div className={`border-b border-[#edebe9] ${stepBorder(step1Done, !step1Done)}`}>
+        <div className={`flex items-center gap-2 px-4 py-3 ${!step1Done ? "bg-[#fff4ce]" : "bg-[#faf9f8]"}`}>
+          <ShoppingCart className={`h-4 w-4 ${!step1Done ? "text-[#8a6a1f]" : "text-[#0078d4]"}`} />
           <span className="text-sm font-semibold text-[#323130]">Servicios ({cartCount})</span>
+          {!step1Done && <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>}
         </div>
 
         {/* Agregar servicio desde el panel */}
@@ -324,15 +400,33 @@ export default function PosSaleDrawer({
           <p className="text-xs text-[#605e5c]">Cliente, cobro y notas</p>
         </div>
 
-        {/* Cliente */}
-        <div className="border-b border-[#edebe9] px-4 py-4">
-          <p className={labelClass}>Cliente *</p>
+        {/* Cliente — bloqueado hasta que haya al menos un servicio */}
+        <div className="relative" ref={clientSectionRef}>
+        <div
+          className={`border-b px-4 py-4 border-[#edebe9] ${stepBorder(step2Done, step1Done && !step2Done)} ${step1Done && !step2Done ? "bg-[#f0f8ff]" : ""} transition-[filter,opacity] duration-200 ${!step1Done ? "blur-[3px] opacity-40 pointer-events-none select-none" : ""}`}
+        >
+          <div className="mb-1 flex items-center gap-1.5">
+            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step2Done ? "bg-[#107c10] text-white" : "bg-[#d13438] text-white"}`}>
+              {step2Done ? "✓" : "2"}
+            </span>
+            <p className="text-xs font-semibold text-[#323130]">Cliente <span className="text-[#d13438]">*</span></p>
+          </div>
           <div className="flex gap-2">
             <div className="relative flex-1" ref={clientComboboxRef}>
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
               <input
                 value={clientSearch}
-                onChange={(e) => { setClientSearch(e.target.value); setClientId(""); setIsClientMenuOpen(true); }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setClientSearch(val);
+                  if (selectedClient) {
+                    const fullName = `${selectedClient.nombre} ${selectedClient.apellido}`.trim();
+                    if (val !== fullName) setClientId("");
+                  } else {
+                    setClientId("");
+                  }
+                  setIsClientMenuOpen(true);
+                }}
                 onFocus={() => setIsClientMenuOpen(true)}
                 placeholder="Nombre, apellido o teléfono..."
                 className={`${bcField} pl-9 ${!selectedClient ? "border-[#f5c6cb] focus:border-[#d13438] focus:ring-[#d13438]/20" : "border-[#8a8886]"}`}
@@ -352,15 +446,36 @@ export default function PosSaleDrawer({
                     ) : (
                       filteredClients.map((client) => {
                         const fullName = `${client.nombre} ${client.apellido}`.trim();
+                        const isSelected = String(selectedClient?.id) === String(client.id);
+                        const isActive = client.status === "en_espera" || client.status === "en_servicio";
+                        const statusLabel = client.status === "en_servicio" ? "En servicio" : client.status === "en_espera" ? "En espera" : null;
                         return (
                           <button
                             key={client.id}
                             type="button"
-                            onClick={() => { setClientId(String(client.id)); setClientSearch(fullName); setIsClientMenuOpen(false); }}
-                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-[#f3f2f1]"
+                            onClick={() => {
+                              if (!isSelected) {
+                                setClientId(String(client.id));
+                                setClientSearch(fullName);
+                              }
+                              setIsClientMenuOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-[#f3f2f1] ${isSelected ? "bg-[#eef6ff]" : ""}`}
                           >
-                            <span className="truncate text-[#323130]">{fullName}</span>
-                            <span className="ml-3 shrink-0 text-xs text-[#605e5c]">{client.phone || "Sin tel."}</span>
+                            <span className={`truncate ${isSelected ? "font-semibold text-[#0078d4]" : "text-[#323130]"}`}>{fullName}</span>
+                            <div className="ml-3 flex shrink-0 items-center gap-2">
+                              {isSelected && <span className="text-[10px] font-bold text-[#0078d4]">✓</span>}
+                              {isActive && statusLabel && (
+                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                  client.status === "en_servicio"
+                                    ? "bg-[#dff6dd] text-[#107c10]"
+                                    : "bg-[#fff4ce] text-[#8a6a1f]"
+                                }`}>
+                                  {statusLabel}
+                                </span>
+                              )}
+                              <span className="text-xs text-[#605e5c]">{client.phone || "Sin tel."}</span>
+                            </div>
                           </button>
                         );
                       })
@@ -378,8 +493,8 @@ export default function PosSaleDrawer({
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          {!selectedClient && clientSearch.length === 0 && (
-            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-[#d13438]">
+          {!selectedClient && step1Done && (
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#d13438]">
               ⚠ Selecciona o crea un cliente para continuar
             </p>
           )}
@@ -400,6 +515,19 @@ export default function PosSaleDrawer({
             </div>
           )}
         </div>
+        {!step1Done && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-5 py-3.5 shadow-md">
+              <Lock className="h-4 w-4 text-[#605e5c]" />
+              <p className="text-[11px] font-semibold text-[#605e5c]">Paso 1: agrega un servicio</p>
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Tickets + Operaria + Pago — bloqueados hasta que haya cliente */}
+        <div className="relative" ref={paymentSectionRef}>
+        <div className={`transition-[filter,opacity] duration-200 ${!step2Done ? "blur-[3px] opacity-40 pointer-events-none select-none" : ""}`}>
 
         {/* Tickets preview + modo — colapsable */}
         {cartCount > 0 && !linkAppointmentId && (
@@ -418,29 +546,6 @@ export default function PosSaleDrawer({
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {ticketPreviews.length > 0 && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); handlePrintTickets(); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handlePrintTickets(); } }}
-                    className="text-[#605e5c] transition hover:text-[#0078d4]"
-                    title="Imprimir tickets"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                  </span>
-                )}
-                {onGoToScheduleStep && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); onGoToScheduleStep(); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onGoToScheduleStep(); } }}
-                    className="text-xs font-semibold text-[#0078d4] underline-offset-2 hover:underline"
-                  >
-                    Ajustar
-                  </span>
-                )}
                 {ticketsOpen
                   ? <ChevronUp className="h-4 w-4 text-[#605e5c]" />
                   : <ChevronDown className="h-4 w-4 text-[#605e5c]" />
@@ -552,29 +657,100 @@ export default function PosSaleDrawer({
         )}
 
         {/* Operaria */}
-        <div className="border-b border-[#edebe9] px-4 py-4">
-          <label className={labelClass} htmlFor="pos-drawer-seller">Operaria</label>
-          <p className="mb-2 text-[11px] text-[#605e5c]">
-            Se asignará a los tickets que aún no tengan operaria.
-          </p>
-          <div className="relative">
-            <select
-              id="pos-drawer-seller"
-              value={sellerId}
-              onChange={(e) => setSellerId(e.target.value)}
-              className={`${bcField} cursor-pointer appearance-none pr-8`}
-            >
-              <option value="">Seleccionar operaria...</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.username}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
-          </div>
-        </div>
+        {(() => {
+          const selectedPro = professionals.find((p) => String(p.id) === sellerId);
+          const isBusy = selectedPro?.is_busy === true;
+          return (
+            <div className={`border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
+              <label className={labelClass}>Operaria</label>
+              <p className="mb-2 text-[11px] text-[#605e5c]">
+                Se asignará a los tickets que aún no tengan operaria.
+              </p>
+              <div className="relative" ref={sellerDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsSellerOpen((o) => !o)}
+                  className={`${bcField} flex cursor-pointer items-center justify-between pr-8 text-left ${isBusy ? "border-[#d13438] bg-[#fff4f5]" : ""}`}
+                >
+                  {selectedPro ? (
+                    <span className={`flex items-center gap-2 ${isBusy ? "text-[#a19f9d] line-through" : "text-[#323130]"}`}>
+                      {selectedPro.username}
+                      {selectedPro.skill_level ? (
+                        <span className="text-amber-400 text-xs">{"★".repeat(selectedPro.skill_level)}{"☆".repeat(5 - (selectedPro.skill_level ?? 0))}</span>
+                      ) : null}
+                      {isBusy && <span className="text-[11px] font-semibold text-[#d13438] no-underline not-line-through ml-1">(ocupada)</span>}
+                    </span>
+                  ) : (
+                    <span className="text-[#605e5c]">Seleccionar operaria...</span>
+                  )}
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+                </button>
+
+                {isSellerOpen && (
+                  <div className="absolute z-70 mt-1 w-full overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-lg">
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setSellerId(""); setIsSellerOpen(false); }}
+                        className="flex w-full items-center px-3 py-2 text-sm text-[#605e5c] transition hover:bg-[#f3f2f1]"
+                      >
+                        Sin operaria asignada
+                      </button>
+                      {professionals.map((p) => {
+                        const busy = p.is_busy === true;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => { if (!busy) { setSellerId(String(p.id)); setIsSellerOpen(false); } }}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
+                              busy
+                                ? "cursor-not-allowed opacity-60"
+                                : String(p.id) === sellerId
+                                  ? "bg-[#eef6ff]"
+                                  : "hover:bg-[#f3f2f1]"
+                            }`}
+                          >
+                            <span className={`flex items-center gap-2 ${busy ? "line-through text-[#a19f9d]" : "text-[#323130]"}`}>
+                              {p.username}
+                              {p.skill_level ? (
+                                <span className="text-amber-400 text-xs">{"★".repeat(p.skill_level)}{"☆".repeat(5 - p.skill_level)}</span>
+                              ) : null}
+                            </span>
+                            <div className="flex shrink-0 items-center gap-2 ml-2">
+                              {busy && (
+                                <span className="rounded-full bg-[#fde7e9] px-2 py-0.5 text-[10px] font-bold text-[#d13438]">
+                                  Ocupada
+                                </span>
+                              )}
+                              {!busy && String(p.id) === sellerId && (
+                                <span className="text-[10px] font-bold text-[#0078d4]">✓</span>
+                              )}
+                              {p.branch_name && (
+                                <span className="text-[11px] text-[#a19f9d]">{p.branch_name}</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {isBusy && (
+                <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#d13438]">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  Esta operaria está ocupada. Espera a que termine o elige otra.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Descuento + Método de pago + Notas */}
-        <div className="space-y-4 border-b border-[#edebe9] px-4 py-4">
+        <div className={`space-y-4 border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)} ${step2Done && !step3Done ? "bg-[#fffdf5]" : ""}`}>
           <div>
             <label className={labelClass} htmlFor="pos-drawer-discount">Descuento</label>
             <div className="flex gap-2">
@@ -602,11 +778,28 @@ export default function PosSaleDrawer({
                 <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#605e5c]" />
               </div>
             </div>
+            {(() => {
+              const d = parseFloat(discountValue) || 0;
+              const applied = discountType === "percent" ? subtotal * (d / 100) : d;
+              return applied > 0 && applied >= subtotal ? (
+                <p className="mt-1 text-[11px] font-semibold text-[#d13438]">
+                  ⚠ El descuento no puede igualar o superar el subtotal (Bs {subtotal.toFixed(2)})
+                </p>
+              ) : null;
+            })()}
           </div>
 
           <div>
-            <p className={labelClass}>Método de pago</p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className="mb-1 flex items-center gap-1.5">
+              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#8a6a1f] text-white"}`}>
+                {step3Done ? "✓" : "3"}
+              </span>
+              <p className="text-xs font-semibold text-[#323130]">Método de pago <span className="text-[#d13438]">*</span></p>
+              {!step3Done && step1Done && (
+                <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>
+              )}
+            </div>
+            <div className={`grid grid-cols-2 gap-1.5 sm:grid-cols-4 ${!step3Done && step1Done ? "rounded-sm ring-2 ring-[#f0c477] ring-offset-1" : ""}`}>
               {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
@@ -637,6 +830,18 @@ export default function PosSaleDrawer({
             />
           </div>
         </div>
+
+        </div>{/* fin blur wrapper */}
+        {!step2Done && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-5 py-3.5 shadow-md">
+              <Lock className="h-4 w-4 text-[#605e5c]" />
+              <p className="text-[11px] font-semibold text-[#605e5c]">Paso 2: selecciona un cliente</p>
+            </div>
+          </div>
+        )}
+        </div>{/* fin relative wrapper */}
+
       </div>
     </div>
   );
@@ -672,27 +877,40 @@ export default function PosSaleDrawer({
       )}
 
       {/* Botón principal de cobro con hint de por qué está deshabilitado */}
-      {primaryActionDisabled && !isSubmitting && (
-        <p className="mb-1.5 rounded-sm bg-[#fff4ce] px-3 py-1.5 text-center text-[11px] font-medium text-[#8a6a1f]">
-          {cartCount === 0
-            ? "⚠ Agrega al menos un servicio"
-            : !selectedClient
-              ? "⚠ Selecciona un cliente para continuar"
-              : "⚠ Completa los datos para continuar"}
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={onPrimaryAction}
-        disabled={primaryActionDisabled || isSubmitting}
-        className={`flex h-11 w-full items-center justify-center gap-2 rounded-sm text-sm font-semibold transition-all ${
-          primaryActionDisabled || isSubmitting
-            ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
-            : "bg-[#0078d4] text-white shadow-sm hover:bg-[#005a9e] active:bg-[#004578]"
-        }`}
-      >
-        {isSubmitting ? "Procesando…" : primaryActionLabel}
-      </button>
+      {(() => {
+        const sellerPro = professionals.find((p) => String(p.id) === sellerId);
+        const sellerBusy = sellerPro?.is_busy === true;
+        const isDisabled = primaryActionDisabled || sellerBusy;
+        return (
+          <>
+            {isDisabled && !isSubmitting && (
+              <p className={`mb-1.5 rounded-sm px-3 py-1.5 text-center text-[11px] font-medium ${sellerBusy ? "bg-[#fde7e9] text-[#d13438]" : "bg-[#fff4ce] text-[#8a6a1f]"}`}>
+                {sellerBusy
+                  ? "⛔ La operaria seleccionada está ocupada. Espera o elige otra."
+                  : cartCount === 0
+                    ? "⚠ Paso 1: Agrega al menos un servicio"
+                    : !selectedClient
+                      ? "⚠ Paso 2: Selecciona o crea un cliente"
+                      : !paymentMethod
+                        ? "⚠ Paso 3: Selecciona un método de pago"
+                        : "⚠ Completa los datos para continuar"}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={onPrimaryAction}
+              disabled={isDisabled || isSubmitting}
+              className={`flex h-11 w-full items-center justify-center gap-2 rounded-sm text-sm font-semibold transition-all ${
+                isDisabled || isSubmitting
+                  ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
+                  : "bg-[#0078d4] text-white shadow-sm hover:bg-[#005a9e] active:bg-[#004578]"
+              }`}
+            >
+              {isSubmitting ? "Procesando…" : primaryActionLabel}
+            </button>
+          </>
+        );
+      })()}
       <p className="mt-2 text-center text-[11px] text-[#605e5c]">{footerHint}</p>
     </div>
   );

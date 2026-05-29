@@ -6,6 +6,7 @@ export interface IClient {
   sexo: 'Masculino' | 'Femenino' | 'Otro';
   tipoOjos: string;
   phone?: string;
+  email?: string;
   eye_type_id?: number;
   branch_id?: number;
   branch_name?: string;

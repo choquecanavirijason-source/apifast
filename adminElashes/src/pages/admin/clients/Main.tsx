@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import FilterActionBar from "../../../components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "../../../components/common/ui";
 import RegisterClientModal from "./RegisterClientModal";
-import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
 
 const SEEDED_EYE_TYPES_FALLBACK: EyeTypeOption[] = [
@@ -66,7 +66,7 @@ export default function ClientListPage() {
     setIsLoadingClients(true);
     setClientError(null);
     try {
-      const clients = await ClientService.list({ branch_id: activeBranchId ?? undefined });
+      const clients = await ClientService.list({ branch_id: activeBranchId ?? undefined, limit: 1000 });
       setItems(clients);
     } catch (error) {
       console.error("Error cargando clientes:", error);
@@ -97,7 +97,15 @@ export default function ClientListPage() {
 
   useEffect(() => {
     BranchService.list({ limit: 200 })
-      .then((data) => setBranches(data))
+      .then((data) => {
+        setBranches(data);
+        // Validar que el branch en localStorage aún exista; si no, limpiar y recargar
+        const currentBranchId = getSelectedBranchId();
+        if (currentBranchId && !data.some((b) => b.id === currentBranchId)) {
+          setSelectedBranchId(null);
+          setActiveBranchId(null);
+        }
+      })
       .catch((error) => {
         console.error("Error cargando sucursales:", error);
         setBranches([]);
@@ -193,6 +201,7 @@ export default function ClientListPage() {
     const edadRaw = String(formData.get("edad") ?? "").trim();
     const phoneCountryCode = String(formData.get("phone_country_code") ?? "+591").trim();
     const phone = String(formData.get("phone") ?? "").trim();
+    const emailRaw = String(formData.get("email") ?? "").trim();
     const sexo = String(formData.get("sexo") ?? "").trim();
     const eyeTypeRaw = String(formData.get("eye_type_id") ?? "").trim();
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
@@ -232,6 +241,7 @@ export default function ClientListPage() {
           last_name: apellido,
           age: edad,
           phone: formattedPhone,
+          email: emailRaw || undefined,
           eye_type_id,
           branch_id,
         });
@@ -254,6 +264,7 @@ export default function ClientListPage() {
         last_name: apellido,
         age: edad,
         phone: formattedPhone,
+        email: emailRaw || undefined,
         eye_type_id,
         branch_id,
       });
@@ -531,7 +542,7 @@ export default function ClientListPage() {
       <Button
         onClick={handleScrollToTop}
         aria-label="Volver arriba"
-        className={`fixed bottom-6 right-6 z-40 !rounded-full !p-3 shadow-lg shadow-emerald-900/30 ${
+        className={`fixed bottom-6 right-6 z-40 rounded-full! p-3! shadow-lg shadow-emerald-900/30 ${
           showScrollTop ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
         }`}
       >

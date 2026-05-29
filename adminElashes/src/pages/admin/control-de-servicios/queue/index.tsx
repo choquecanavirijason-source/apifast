@@ -2,8 +2,8 @@ import { useState, useRef, useMemo } from "react";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button } from "../../../components/common/ui";
 import { AgendaService } from "../../../core/services/agenda/agenda.service";
+import { getApiErrorMessage } from "../../../core/services/pos-sale/pos-sale.service";
 import { toast } from "react-toastify";
-import { AgendaService } from "../../../core/services/agenda/agenda.service";
 import { DeleteTicketModal } from "./modals";
 import { todayDate } from "../control.constants";
 import { useQueueTickets } from "./useQueueTickets";
@@ -100,15 +100,27 @@ export default function QueuePage() {
   // Iniciar servicio
   const handleStartService = async (ticket) => {
     if (!ticket.professional_id) {
-      toast.warning("Asigna una operaria antes de iniciar la atencion.");
+      toast.warning("Asigna una operaria antes de iniciar la atención.");
       return;
     }
+
+    const alreadyInService = inServiceTickets.find(
+      (t) => t.professional_id === ticket.professional_id && t.id !== ticket.id
+    );
+    if (alreadyInService) {
+      const clientName = alreadyInService.client_name ?? "otro cliente";
+      toast.error(
+        `La operaria ya está atendiendo a ${clientName}. Finaliza ese servicio antes de iniciar uno nuevo.`
+      );
+      return;
+    }
+
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "in_service" });
-      toast.success("Atencion iniciada.");
+      toast.success("Atención iniciada.");
       loadTickets();
     } catch (error) {
-      toast.error("No se pudo iniciar la atencion.");
+      toast.error(getApiErrorMessage(error, "No se pudo iniciar la atención."));
     }
   };
 

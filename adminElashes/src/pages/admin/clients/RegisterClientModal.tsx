@@ -149,6 +149,7 @@ export default function RegisterClientModal({
     sexo: "",
     phone_country_code: "+591",
     phone: "",
+    email: "",
     eye_type_id: "",
     branch_id: "",
   });
@@ -156,6 +157,7 @@ export default function RegisterClientModal({
     nombre: "",
     apellido: "",
     edad: "",
+    email: "",
     branch_id: "",
   });
   const bcLabelClass = "block text-xs font-semibold uppercase tracking-wide text-[#605e5c]";
@@ -167,7 +169,7 @@ export default function RegisterClientModal({
   useEffect(() => {
     if (!isOpen) {
       setIsConfirmOpen(false);
-      setFieldErrors({ nombre: "", apellido: "", edad: "", branch_id: "" });
+      setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "" });
       setFormValues({
         nombre: "",
         apellido: "",
@@ -175,6 +177,7 @@ export default function RegisterClientModal({
         sexo: "",
         phone_country_code: "+591",
         phone: "",
+        email: "",
         eye_type_id: "",
         branch_id: "",
       });
@@ -183,7 +186,7 @@ export default function RegisterClientModal({
 
     const initialPhone = getInitialPhoneParts(initialClient?.phone);
     const defaultBranchId = defaultBranchIdProp ?? getSelectedBranchId();
-    setFieldErrors({ nombre: "", apellido: "", edad: "", branch_id: "" });
+    setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "" });
     setFormValues({
       nombre: initialClient?.nombre ?? "",
       apellido: initialClient?.apellido ?? "",
@@ -191,6 +194,7 @@ export default function RegisterClientModal({
       sexo: initialClient?.sexo ?? "",
       phone_country_code: initialPhone.phone_country_code,
       phone: initialPhone.phone,
+      email: initialClient?.email ?? "",
       eye_type_id: initialClient?.eye_type_id ? String(initialClient.eye_type_id) : "",
       branch_id: initialClient?.branch_id ? String(initialClient.branch_id) : defaultBranchId ? String(defaultBranchId) : "",
     });
@@ -207,6 +211,12 @@ export default function RegisterClientModal({
     const trimmed = value.trim();
     if (!trimmed) return "El apellido es obligatorio.";
     if (trimmed.length < 2) return "El apellido debe tener al menos 2 caracteres.";
+    return "";
+  };
+
+  const validateEmail = (value: string) => {
+    if (!value.trim()) return "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return "Ingresa un correo válido.";
     return "";
   };
 
@@ -245,6 +255,10 @@ export default function RegisterClientModal({
       setFieldErrors((prev) => ({ ...prev, apellido: validateApellido(value) }));
     }
 
+    if (name === "email") {
+      setFieldErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+    }
+
     if (name === "branch_id") {
       setFieldErrors((prev) => ({ ...prev, branch_id: validateBranch(value) }));
     }
@@ -261,10 +275,11 @@ export default function RegisterClientModal({
       nombre: validateNombre(formValues.nombre),
       apellido: validateApellido(formValues.apellido),
       edad: validateEdad(formValues.edad),
+      email: validateEmail(formValues.email),
       branch_id: validateBranch(formValues.branch_id),
     };
     setFieldErrors(nextErrors);
-    return !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.branch_id;
+    return !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.email && !nextErrors.branch_id;
   };
 
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -382,6 +397,18 @@ export default function RegisterClientModal({
               />
             </div>
           </div>
+
+          <InputField
+            name="email"
+            type="email"
+            label="Gmail / Correo electrónico"
+            placeholder="ejemplo@gmail.com (opcional)"
+            value={formValues.email}
+            onChange={handleInputChange}
+            error={fieldErrors.email || undefined}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2"
+          />
 
           <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
             <label className={bcLabelClass} htmlFor="tipo-ojos-registro">

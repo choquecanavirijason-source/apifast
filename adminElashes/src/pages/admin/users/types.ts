@@ -28,6 +28,7 @@ export interface UserItem {
   branch_id?: number | null;
   is_active?: boolean;
   created_at?: string | null;
+  skill_level?: number | null;
   direct_permissions?: PermissionItem[];
 }
 

@@ -152,6 +152,7 @@ def create_new_product(
         image_url=payload.image_url,
         initial_stock=payload.initial_stock,
         branch_id=payload.branch_id,
+        min_stock=payload.min_stock,
     )
 
 
@@ -172,6 +173,7 @@ def update_existing_product(
         cost=payload.cost,
         status_value=payload.status,
         image_url=payload.image_url,
+        min_stock=payload.min_stock,
     )
 
 

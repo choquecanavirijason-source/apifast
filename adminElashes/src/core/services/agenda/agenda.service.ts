@@ -141,6 +141,7 @@ export interface AppointmentUpdatePayload {
   start_time?: string;
   end_time?: string;
   status?: string;
+  skip_availability_check?: boolean;
 }
 
 export interface TicketClientInfo {
@@ -267,6 +268,7 @@ export interface ClientForSelect {
   nombre: string;
   apellido: string;
   phone?: string | null;
+  status?: string | null;
 }
 
 export interface ProfessionalForSelect {
@@ -274,6 +276,9 @@ export interface ProfessionalForSelect {
   username: string;
   email: string;
   branch_id?: number | null;
+  branch_name?: string | null;
+  skill_level?: number | null;
+  is_busy?: boolean | null;
 }
 
 export const AgendaService = {
@@ -485,6 +490,7 @@ export const AgendaService = {
       ...(payload.start_time && { start_time: payload.start_time }),
       ...(payload.end_time && { end_time: payload.end_time }),
       ...(payload.status && { status: payload.status }),
+      ...(payload.skip_availability_check && { skip_availability_check: true }),
     };
     const response = await api.put<BackendAppointment>(`/agenda/appointments/${id}`, body);
     return mapToTicket(response.data);

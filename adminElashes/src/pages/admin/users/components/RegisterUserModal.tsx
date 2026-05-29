@@ -23,6 +23,7 @@ interface RegisterUserModalProps {
   branches: BranchItem[];
   isSubmitting: boolean;
   onSubmit: (payload: RegisterUserPayload) => void;
+  lockRole?: boolean;
 }
 
 export default function RegisterUserModal({
@@ -32,24 +33,29 @@ export default function RegisterUserModal({
   branches,
   isSubmitting,
   onSubmit,
+  lockRole = false,
 }: RegisterUserModalProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const singleRole = roles.length === 1 ? roles[0] : null;
   const [values, setValues] = useState({
     username: "",
     email: "",
     password: "",
     phone: "",
-    role_id: "",
+    role_id: singleRole ? String(singleRole.id) : "",
     branch_id: "",
   });
 
   useEffect(() => {
+    const autoRoleId = roles.length === 1 ? String(roles[0].id) : "";
     if (!isOpen) {
       setIsConfirmOpen(false);
-      setValues({ username: "", email: "", password: "", phone: "", role_id: "", branch_id: "" });
+      setValues({ username: "", email: "", password: "", phone: "", role_id: autoRoleId, branch_id: "" });
+    } else {
+      setValues((prev) => ({ ...prev, role_id: prev.role_id || autoRoleId }));
     }
-  }, [isOpen]);
+  }, [isOpen, roles]);
 
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,7 +94,7 @@ export default function RegisterUserModal({
       <GenericModal
         isOpen={isOpen}
         onClose={onClose}
-        title="Registrar Usuario"
+        title={singleRole ? `Registrar ${singleRole.name}` : "Registrar Usuario"}
         asForm
         onSubmit={handleBeforeSubmit}
         size="lg"
@@ -139,23 +145,27 @@ export default function RegisterUserModal({
               placeholder="+59170000000"
             />
           </div>
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Rol</label>
-            <select
-              name="role_id"
-              required
-              value={values.role_id}
-              onChange={(event) => setValues((prev) => ({ ...prev, role_id: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#094732]"
-            >
-              <option value="">Selecciona un rol</option>
-              {roles.map((role) => (
-                <option key={role.id} value={String(role.id)}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {singleRole ? (
+            <input type="hidden" name="role_id" value={String(singleRole.id)} />
+          ) : (
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Rol</label>
+              <select
+                name="role_id"
+                required
+                value={values.role_id}
+                onChange={(event) => setValues((prev) => ({ ...prev, role_id: event.target.value }))}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#094732]"
+              >
+                <option value="">Selecciona un rol</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={String(role.id)}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Sucursal</label>
             <select

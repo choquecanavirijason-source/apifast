@@ -27,7 +27,7 @@ export default function Login() {
     try {
       await dispatch(login({ email: usuario, password })).unwrap();
       await dispatch(getMe()).unwrap();
-      navigate('/') 
+      navigate('/')
     } catch (err) {
       setError(typeof err === "string" ? err : 'No se pudo iniciar sesión. Verifica el backend y tus credenciales.')
       setLoading(false)

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_any_permission, require_permission
 from app.domain.entities.user import User
+from app.domain.entities.service_agenda import Appointment
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.service_agenda import (
     AppointmentCreate,
@@ -187,7 +188,7 @@ def get_clients_for_select(
 ):
     clients = list_clients_service(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
     return [
-        {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone}
+        {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone, "status": c.status}
         for c in clients
     ]
 
@@ -212,7 +213,30 @@ def get_professionals_for_select(
         role_name=role_name,
         branch_id=branch_id,
     )
-    return [{"id": p.id, "username": p.username, "email": p.email} for p in professionals]
+    today_str = datetime.today().date().isoformat()
+    busy_ids = {
+        row[0]
+        for row in db.query(Appointment.professional_id)
+        .filter(
+            Appointment.status == "in_service",
+            Appointment.professional_id.isnot(None),
+            Appointment.start_time >= f"{today_str}T00:00:00",
+            Appointment.start_time <= f"{today_str}T23:59:59",
+        )
+        .all()
+    }
+    return [
+        {
+            "id": p.id,
+            "username": p.username,
+            "email": p.email,
+            "branch_id": p.branch_id,
+            "branch_name": p.branch.name if p.branch else None,
+            "skill_level": p.skill_level,
+            "is_busy": p.id in busy_ids,
+        }
+        for p in professionals
+    ]
 
 
 # ==========================================
@@ -360,6 +384,7 @@ def update_existing_appointment(
         start_time=payload.start_time,
         end_time=payload.end_time,
         status_value=payload.status,
+        skip_availability_check=payload.skip_availability_check,
     )
 
 

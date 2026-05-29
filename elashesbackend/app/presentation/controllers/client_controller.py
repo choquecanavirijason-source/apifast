@@ -33,7 +33,7 @@ router = APIRouter(
 )
 def get_clients(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=1000),
     search: Optional[str] = Query(default=None),
     branch_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),

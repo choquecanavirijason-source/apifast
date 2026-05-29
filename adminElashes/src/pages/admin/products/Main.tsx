@@ -303,6 +303,7 @@ export default function Main() {
       status: normalized.active,
       image_url: normalized.imageUrl?.trim() || undefined,
       initial_stock: normalized.stock,
+      min_stock: normalized.minStock > 0 ? normalized.minStock : undefined,
     };
 
     setIsMutating(true);

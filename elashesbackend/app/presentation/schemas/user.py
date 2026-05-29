@@ -74,10 +74,11 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=3, max_length=100)
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(default=None, min_length=6, max_length=100)
-    phone : Optional[str] = Field(default=None, max_length=20)
+    phone: Optional[str] = Field(default=None, max_length=20)
     is_active: Optional[bool] = None
     role_id: Optional[int] = None
     branch_id: Optional[int] = None
+    skill_level: Optional[int] = Field(default=None, ge=1, le=5)
     permission_ids: Optional[List[int]] = None
 
     @field_validator("phone")
@@ -101,10 +102,17 @@ class UserSummary(BaseModel):
     created_at: Optional[datetime] = None
 
 
+class SkillLevelUpdate(BaseModel):
+    skill_level: Optional[int] = Field(default=None, ge=1, le=5)
+    branch_id: Optional[int] = None
+    phone: Optional[str] = None
+
+
 class UserResponse(UserSummary):
     role_id: Optional[int] = None
     branch_id: Optional[int] = None
     role: Optional[RoleResponse] = None
     branch: Optional[BranchSummary] = None
     phone: Optional[str] = None
+    skill_level: Optional[int] = None
     direct_permissions: List[PermissionResponse] = []

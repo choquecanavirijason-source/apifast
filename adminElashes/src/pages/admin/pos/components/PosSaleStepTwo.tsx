@@ -249,6 +249,28 @@ export default function PosSaleStepTwo({
     [professionals]
   );
 
+  const busyProfessionalIdsByLine = useMemo(() => {
+    const result: Record<string, Set<string>> = {};
+    cartLines.forEach((line) => {
+      if (!line.date || line.without_time || !line.time) return;
+      const lineStart = new Date(`${line.date}T${line.time}`);
+      const lineEnd = new Date(lineStart.getTime() + Math.max(Number(line.duration_minutes) || 60, 1) * 60 * 1000);
+      const busy = new Set<string>();
+      existingTickets.forEach((ticket) => {
+        if (!ticket.professional_id) return;
+        const s = ticket.status ?? "";
+        if (s === "cancelled" || s === "completed") return;
+        const tStart = new Date(ticket.start_time);
+        const tEnd = new Date(ticket.end_time);
+        if (lineStart < tEnd && lineEnd > tStart) {
+          busy.add(String(ticket.professional_id));
+        }
+      });
+      result[line.localId] = busy;
+    });
+    return result;
+  }, [cartLines, existingTickets]);
+
   const fixedTicketsByCell = useMemo(() => {
     const grouped = new Map<string, (typeof existingTickets)[number][]>();
 
@@ -317,6 +339,7 @@ export default function PosSaleStepTwo({
       date: targetDate,
       time: toTimeValue(hour, minute),
       without_time: false,
+      time_manual: true,   // preservar la hora elegida en el planificador
     });
   };
 
@@ -375,6 +398,15 @@ export default function PosSaleStepTwo({
   }, [cartLines, lineAvailability]);
 
   const primaryActionLabel = editingSaleCode ? "Guardar cambios de venta" : "Confirmar venta";
+
+  const invalidLines = cartLines.filter((line) => {
+    const v = lineValidationMap.get(line.localId);
+    return !v?.valid;
+  });
+  const hasConflicts = invalidLines.length > 0;
+  const conflictSummary = hasConflicts
+    ? invalidLines.map((l) => lineValidationMap.get(l.localId)?.message).join(" · ")
+    : "";
 
   const cacheTicketsBeforeCheckout = () => {
     const cacheKey = "pos_finalized_tickets_cache";
@@ -562,18 +594,22 @@ export default function PosSaleStepTwo({
                               type="time"
                               min="09:00"
                               max="19:00"
-                              value={line.time}
+                              value={line.without_time ? "" : line.time}
                               onChange={(event) =>
                                 updateLine(line.localId, {
                                   time: normalizeTimeForDate(normalizeLineDate(line), event.target.value),
+                                  without_time: false,
+                                  time_manual: true,
                                 })
                               }
                               onBlur={(event) =>
                                 updateLine(line.localId, {
                                   time: normalizeTimeForDate(normalizeLineDate(line), event.target.value),
+                                  without_time: false,
+                                  time_manual: true,
                                 })
                               }
-                              disabled={!canScheduleTickets || line.without_time}
+                              disabled={!canScheduleTickets}
                               className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
                             />
                           </div>
@@ -588,11 +624,17 @@ export default function PosSaleStepTwo({
                               className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
                             >
                               <option value="">Operaria…</option>
-                              {professionals.map((professional) => (
-                                <option key={professional.id} value={String(professional.id)}>
-                                  {professional.username}
-                                </option>
-                              ))}
+                              {professionals.map((professional) => {
+                                const lineBusy = busyProfessionalIdsByLine[line.localId];
+                                const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
+                                const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
+                                const branchTag = professional.branch_name ? ` — ${professional.branch_name}` : "";
+                                return (
+                                  <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
+                                    {professional.username}{skillTag}{branchTag}{isBusy ? " (Ocupada)" : ""}
+                                  </option>
+                                );
+                              })}
                             </select>
                             <label
                               className={`inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-sm border border-[#edebe9] px-2 text-[11px] ${
@@ -927,19 +969,20 @@ export default function PosSaleStepTwo({
                                         type="time"
                                         min="09:00"
                                         max="19:00"
-                                        value={line.time}
+                                        value={line.without_time ? "" : line.time}
                                         onChange={(event) =>
                                           updateLine(line.localId, {
                                             time: normalizeTimeForDate(normalizeLineDate(line), event.target.value),
+                                            without_time: false,
                                           })
                                         }
                                         onBlur={(event) =>
                                           updateLine(line.localId, {
                                             time: normalizeTimeForDate(normalizeLineDate(line), event.target.value),
+                                            without_time: false,
                                           })
                                         }
-                                        disabled={line.without_time}
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1]"
+                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                                       />
                                       <select
                                         value={line.professional_id}
@@ -949,11 +992,16 @@ export default function PosSaleStepTwo({
                                         className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                                       >
                                         <option value="">Operaria…</option>
-                                        {professionals.map((professional) => (
-                                          <option key={professional.id} value={String(professional.id)}>
-                                            {professional.username}
-                                          </option>
-                                        ))}
+                                        {professionals.map((professional) => {
+                                          const lineBusy = busyProfessionalIdsByLine[line.localId];
+                                          const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
+                                          const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
+                                          return (
+                                            <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
+                                              {professional.username}{skillTag}{isBusy ? " (Ocupada)" : ""}
+                                            </option>
+                                          );
+                                        })}
                                       </select>
                                     </div>
                                   </article>
@@ -989,26 +1037,31 @@ export default function PosSaleStepTwo({
         >
           Bs {total.toFixed(2)}
         </button>
-        <button
-          type="button"
-          onClick={handleConfirmSaleFlow}
-          disabled={isSubmitting || cartLines.length === 0}
-          className={`flex h-14 min-w-14 items-center justify-center rounded-full px-4 text-sm font-semibold text-white shadow-lg shadow-slate-900/25 transition-all focus:outline-none focus-visible:ring-2 ${
-            isSubmitting || cartLines.length === 0
-              ? "cursor-not-allowed bg-[#a19f9d] focus-visible:ring-[#a19f9d]"
-              : "bg-[#0078d4] hover:bg-[#005a9e] focus-visible:ring-[#0078d4]"
-          }`}
-          aria-label={primaryActionLabel}
-          title={primaryActionLabel}
-        >
-          {isSubmitting ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          ) : (
-            <>
-              <CheckCircle2 className="h-7 w-7" />
-            </>
+        <div className="flex flex-col items-end gap-1">
+          {hasConflicts && !isSubmitting && (
+            <p className="max-w-xs rounded-sm border border-[#f1b6b8] bg-[#fde7e9] px-3 py-1.5 text-right text-[11px] font-semibold text-[#a4262c]">
+              ⚠ {conflictSummary}
+            </p>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={handleConfirmSaleFlow}
+            disabled={isSubmitting || cartLines.length === 0 || hasConflicts}
+            className={`flex h-14 min-w-14 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/25 transition-all focus:outline-none focus-visible:ring-2 ${
+              isSubmitting || cartLines.length === 0 || hasConflicts
+                ? "cursor-not-allowed bg-[#a19f9d] focus-visible:ring-[#a19f9d]"
+                : "bg-[#0078d4] hover:bg-[#005a9e] focus-visible:ring-[#0078d4]"
+            }`}
+            aria-label={primaryActionLabel}
+            title={hasConflicts ? "Resuelve los conflictos antes de confirmar" : primaryActionLabel}
+          >
+            {isSubmitting ? (
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <CheckCircle2 className="h-7 w-7" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="fixed bottom-6 right-6 z-[42] flex items-center gap-3">
@@ -1082,6 +1135,9 @@ export default function PosSaleStepTwo({
             ? "Guarda cambios para actualizar la venta."
             : "Confirma venta para guardar en base de datos y actualizar cache local."
         }
+        onUpdateTicketTime={(localId, date, time) => {
+          updateLine(localId, { date, time, without_time: false, time_manual: true });
+        }}
       />
     </div>
   );

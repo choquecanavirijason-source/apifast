@@ -7,7 +7,13 @@
       "Bash(venv/Scripts/python.exe -m py_compile app/application/services/auth_service.py)",
       "Bash(venv/Scripts/python.exe -c ' *)",
       "Bash(python -m app.infrastructure.database.run_seeders_cli)",
-      "Bash(.\\\\venv\\\\Scripts\\\\python.exe -m app.infrastructure.database.run_seeders_cli)"
+      "Bash(.\\\\venv\\\\Scripts\\\\python.exe -m app.infrastructure.database.run_seeders_cli)",
+      "Bash(python -c ' *)",
+      "Bash(venvScriptspython -c ' *)",
+      "Bash(.venvScriptspython.exe -c ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\elashesbackend\\\\app\\\\application\\\\services\" -Name)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

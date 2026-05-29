@@ -10,6 +10,7 @@ from app.domain.entities.client import (
     CLIENT_STATUS_EN_SERVICIO,
     CLIENT_STATUS_FINALIZADO,
     CLIENT_STATUS_PAGADO,
+    CLIENT_STATUS_SIN_ESTADO,
 )
 from app.domain.entities.branch import Branch
 from app.domain.entities.tracking import EyeType
@@ -158,9 +159,10 @@ def create_client(db: Session, payload: ClientCreate) -> Client:
         last_name=payload.last_name,
         age=payload.age,
         phone=payload.phone,
+        email=payload.email,
         branch_id=payload.branch_id,
         eye_type_id=payload.eye_type_id,
-        status=CLIENT_STATUS_EN_ESPERA,
+        status=CLIENT_STATUS_SIN_ESTADO,
         last_activity_at=now,
     )
 

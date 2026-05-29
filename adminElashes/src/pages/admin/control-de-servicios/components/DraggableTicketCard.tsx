@@ -177,30 +177,34 @@ export default function DraggableTicketCard({
           <div
             ref={popoverRef}
             onPointerDown={stopDragPointer}
-            className="absolute left-1/2 top-2 z-[70] w-[95%] -translate-x-1/2 border border-[#c8c6c4] bg-white p-3 shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+            className="absolute left-1/2 top-2 z-[70] w-[95%] -translate-x-1/2 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
           >
-            <div className="mb-3 flex items-center justify-between border-b border-[#edebe9] pb-2">
+            {/* Franja azul superior */}
+            <div className="h-0.5 bg-[#0078d4]" />
+
+            {/* Cabecera */}
+            <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-2.5">
               <div>
-                <h4 className="text-sm font-semibold text-[#201f1e]">Ajustar turno</h4>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                  Cambios automáticos
-                </p>
+                <h4 className="text-sm font-semibold text-[#323130]">Ajustar turno</h4>
+                <p className="text-[11px] text-[#605e5c]">Cambios automáticos</p>
               </div>
               <button
                 type="button"
                 onPointerDown={stopDragPointer}
                 onClick={() => setIsPopupOpen(false)}
-                className="border border-transparent p-1 text-[#605e5c] hover:border-[#c8c6c4] hover:bg-[#f3f2f1]"
+                className="rounded-sm p-1 text-[#605e5c] transition hover:bg-[#edebe9] hover:text-[#323130]"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
-            <div className="space-y-3">
+            {/* Cuerpo */}
+            <div className="space-y-3 p-3">
+              {/* Fecha y Hora */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
-                    <Calendar size={11} /> Fecha
+                  <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                    <Calendar size={10} /> Fecha
                   </label>
                   <input
                     type="date"
@@ -211,8 +215,8 @@ export default function DraggableTicketCard({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
-                    <Clock size={11} /> Hora
+                  <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                    <Clock size={10} /> Hora
                   </label>
                   <input
                     type="time"
@@ -224,9 +228,28 @@ export default function DraggableTicketCard({
                 </div>
               </div>
 
+              {/* Accesos rápidos */}
+              <div className="flex gap-1.5">
+                {["Ahora", "+15 min", "+30 min"].map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onPointerDown={stopDragPointer}
+                    onClick={() => {
+                      if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
+                      else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
+                    }}
+                    className="flex-1 rounded-sm border border-[#8a8886] bg-[#f3f2f1] py-1.5 text-[11px] font-semibold text-[#323130] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Operaria */}
               <div>
-                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-[#605e5c]">
-                  <User size={11} /> Profesional
+                <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                  <User size={10} /> Operaria
                 </label>
                 <select
                   value={quickProfessionalId}
@@ -243,32 +266,16 @@ export default function DraggableTicketCard({
                 </select>
               </div>
 
-              <div className="flex gap-1">
-                {["Ahora", "+15 min", "+30 min"].map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onPointerDown={stopDragPointer}
-                    onClick={() => {
-                      if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
-                      else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
-                    }}
-                    className="flex-1 border border-[#8a8886] bg-[#f3f2f1] py-1.5 text-[10px] font-semibold text-[#323130] hover:bg-white hover:border-[#0078d4] hover:text-[#0078d4]"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* Cambios pendientes */}
+              {hasQuickChanges && (
+                <div className="flex items-center gap-2 border border-[#9dc4e6] bg-[#eff6fc] px-2.5 py-1.5">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
+                  <span className="text-[11px] font-semibold text-[#005a9e]">
+                    {isSavingEdit ? "Sincronizando…" : "Cambios pendientes"}
+                  </span>
+                </div>
+              )}
             </div>
-
-            {hasQuickChanges ? (
-              <div className="mt-3 flex items-center justify-center gap-2 border border-[#9dc4e6] bg-[#eff6fc] py-1.5">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
-                <span className="text-[10px] font-semibold text-[#005a9e]">
-                  {isSavingEdit ? "Sincronizando…" : "Cambios pendientes"}
-                </span>
-              </div>
-            ) : null}
           </div>
         </>
       ) : null}

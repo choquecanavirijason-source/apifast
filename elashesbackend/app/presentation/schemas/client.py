@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 from app.presentation.schemas.catalog import EyeTypeSummary
 from app.presentation.schemas.branch import BranchSummary
 
@@ -12,6 +12,7 @@ class ClientBase(BaseModel):
     last_name: str = Field(..., min_length=2, max_length=100)
     age: Optional[int] = Field(default=None, ge=1, le=100)
     phone: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[EmailStr] = None
     branch_id: Optional[int] = None
     eye_type_id: Optional[int] = None
     status: Optional[str] = Field(default="en_espera", max_length=32)
@@ -26,6 +27,7 @@ class ClientUpdate(BaseModel):
     last_name: Optional[str] = Field(default=None, min_length=2, max_length=100)
     age: Optional[int] = Field(default=None, ge=1, le=100)
     phone: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[EmailStr] = None
     branch_id: Optional[int] = None
     eye_type_id: Optional[int] = None
     status: Optional[str] = Field(default=None, max_length=32)
@@ -39,6 +41,7 @@ class ClientSummary(BaseModel):
     last_name: str
     age: Optional[int] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
     branch_id: Optional[int] = None
     eye_type_id: Optional[int] = None
     status: str

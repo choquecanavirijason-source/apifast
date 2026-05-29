@@ -48,6 +48,7 @@ interface EditUserModalProps {
   editUserRoleId: number | null;
   editUserBranchId: number | null;
   editUserIsActive: boolean;
+  editUserSkillLevel: number | null;
   editUserDirectPermissionIds: number[];
   updatingUser: boolean;
   onClose: () => void;
@@ -59,6 +60,7 @@ interface EditUserModalProps {
   onRoleChange: (value: number | null) => void;
   onBranchChange: (value: number | null) => void;
   onActiveChange: (value: boolean) => void;
+  onSkillLevelChange: (value: number | null) => void;
   onDirectPermissionIdsChange: (ids: number[]) => void;
 }
 
@@ -80,6 +82,7 @@ export default function EditUserModal({
   editUserRoleId,
   editUserBranchId,
   editUserIsActive,
+  editUserSkillLevel,
   editUserDirectPermissionIds,
   updatingUser,
   onClose,
@@ -91,6 +94,7 @@ export default function EditUserModal({
   onRoleChange,
   onBranchChange,
   onActiveChange,
+  onSkillLevelChange,
   onDirectPermissionIdsChange,
 }: EditUserModalProps) {
   const [permOpen, setPermOpen] = useState(false);
@@ -199,6 +203,35 @@ export default function EditUserModal({
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Nivel de habilidad */}
+        <div>
+          <label className={labelClass}>Nivel de habilidad (1-5 estrellas)</label>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => onSkillLevelChange(star === editUserSkillLevel ? null : star)}
+                className="text-2xl leading-none transition-transform hover:scale-110 focus:outline-none"
+                title={`Nivel ${star}`}
+              >
+                <span className={star <= (editUserSkillLevel ?? 0) ? "text-amber-400" : "text-slate-300"}>
+                  ★
+                </span>
+              </button>
+            ))}
+            {editUserSkillLevel != null && (
+              <button
+                type="button"
+                onClick={() => onSkillLevelChange(null)}
+                className="ml-2 text-xs text-slate-400 hover:text-slate-600 underline"
+              >
+                quitar
+              </button>
+            )}
           </div>
         </div>
 

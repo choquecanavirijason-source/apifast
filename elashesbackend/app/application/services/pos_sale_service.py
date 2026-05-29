@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.branch import Branch
-from app.domain.entities.client import Client, CLIENT_STATUS_PAGADO
+from app.domain.entities.client import Client, CLIENT_STATUS_EN_ESPERA
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, Service
@@ -258,7 +258,6 @@ def create_sale(
                 client_id=payload.client_id,
                 created_by_id=current_user.id,
                 professional_id=item.professional_id,
-                # Ticket grupal: service_ids; ticket individual: service_id
                 service_id=item.service_id if not item.service_ids else None,
                 service_ids=item.service_ids or None,
                 branch_id=item.branch_id or payload.branch_id,
@@ -283,7 +282,7 @@ def create_sale(
     db.add(payment)
     db.commit()
 
-    update_client_status(db, payload.client_id, CLIENT_STATUS_PAGADO)
+    update_client_status(db, payload.client_id, CLIENT_STATUS_EN_ESPERA)
 
     return get_sale_by_id(db, sale.id)
 

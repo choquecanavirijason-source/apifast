@@ -19,6 +19,7 @@ interface BackendClient {
   last_name: string;
   age?: number | null;
   phone?: string | null;
+  email?: string | null;
   branch_id?: number | null;
   branch?: { id: number; name: string } | null;
   eye_type_id?: number | null;
@@ -33,6 +34,7 @@ export interface ClientCreatePayload {
   last_name: string;
   age?: number;
   phone?: string;
+  email?: string;
   branch_id?: number;
   eye_type_id?: number;
 }
@@ -47,6 +49,7 @@ const mapBackendClientToIClient = (client: BackendClient): IClient => ({
   sexo: "Otro",
   tipoOjos: client.eye_type?.name ?? "-",
   phone: client.phone ?? undefined,
+  email: client.email ?? undefined,
   eye_type_id: client.eye_type_id ?? undefined,
   branch_id: client.branch_id ?? undefined,
   branch_name: client.branch?.name ?? undefined,

@@ -25,6 +25,7 @@ class Product(Base):
     cost = Column(Float, default=0.0, nullable=False)    # costo base
     status = Column(Boolean, default=True, nullable=False)
     image_url = Column(String(500), nullable=True)
+    min_stock = Column(Float, nullable=True)  # umbral de alerta de stock mínimo
 
     category = relationship("Category", back_populates="products")
     batches = relationship("Batch", back_populates="product", cascade="all, delete-orphan")

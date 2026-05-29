@@ -6,7 +6,11 @@ import AppSidebar from './AppSidebar'
 
 export default function Layout(){
   const location = useLocation()
-  const [collapsed, setCollapsed] = React.useState(true)
+  const [collapsed, setCollapsed] = React.useState<boolean>(false)
+
+  const toggleCollapsed = (value: boolean) => {
+    setCollapsed(value);
+  }
   const isPosTrackingFullscreen = location.pathname.startsWith('/admin/pos-tracking')
 
   // Estado para el botón flotante
@@ -76,7 +80,7 @@ export default function Layout(){
     <div className="app-layout">
       <AppSidebar collapsed={collapsed} />
       <div className="content">
-        <Header setCollapsed={setCollapsed} collapsed={collapsed} />
+        <Header setCollapsed={toggleCollapsed} collapsed={collapsed} />
         <main className="main"><Outlet /></main>
         {/* Botón flotante movible */}
         <div

@@ -42,6 +42,7 @@ class ProductBase(BaseModel):
     cost: float = Field(..., ge=0)
     status: bool = True
     image_url: Optional[str] = Field(default=None, max_length=500)
+    min_stock: Optional[float] = Field(default=None, ge=0)
 
 
 class ProductCreate(ProductBase):
@@ -57,6 +58,7 @@ class ProductUpdate(BaseModel):
     cost: Optional[float] = Field(default=None, ge=0)
     status: Optional[bool] = None
     image_url: Optional[str] = Field(default=None, max_length=500)
+    min_stock: Optional[float] = Field(default=None, ge=0)
 
 
 class ProductCategorySummary(BaseModel):
@@ -77,6 +79,7 @@ class ProductResponse(BaseModel):
     cost: float
     status: bool
     image_url: Optional[str] = None
+    min_stock: Optional[float] = None
     category: Optional[ProductCategorySummary] = None
 
 

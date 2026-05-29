@@ -19,9 +19,10 @@ class Client(Base):
     last_name = Column(String(100), index=True, nullable=False)
     age = Column(Integer, nullable=True)
     phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     eye_type_id = Column(Integer, ForeignKey("eye_types.id"), nullable=True)
-    status = Column(String(32), nullable=False, default=CLIENT_STATUS_EN_ESPERA)
+    status = Column(String(32), nullable=False, default=CLIENT_STATUS_SIN_ESTADO)
     last_activity_at = Column(DateTime(timezone=True), nullable=True)
 
     eye_type = relationship("EyeType", back_populates="clients")

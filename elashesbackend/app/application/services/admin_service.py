@@ -331,6 +331,12 @@ def update_user(
             )
         user.is_active = update_data["is_active"]
 
+    if "phone" in update_data:
+        user.phone = update_data["phone"]
+
+    if "skill_level" in update_data:
+        user.skill_level = update_data["skill_level"]
+
     if "password" in update_data and update_data["password"]:
         user.hashed_password = get_password_hash(update_data["password"])
 
@@ -344,6 +350,30 @@ def update_user(
     db.commit()
     db.refresh(user)
 
+    return get_user_by_id(db, user.id)
+
+
+def update_skill_level(
+    db: Session,
+    user_id: int,
+    skill_level: Optional[int],
+    branch_id: Optional[int] = None,
+    phone: Optional[str] = None,
+) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+    user.skill_level = skill_level
+    if branch_id is not None:
+        _validate_role_and_branch(db, None, branch_id)
+        user.branch_id = branch_id
+    if phone is not None:
+        user.phone = phone.strip() if phone.strip() else None
+    db.commit()
+    db.refresh(user)
     return get_user_by_id(db, user.id)
 
 

@@ -68,6 +68,7 @@ export interface ProductCreatePayload {
   image_url?: string;
   initial_stock?: number;
   branch_id?: number;
+  min_stock?: number;
 }
 
 export type ProductUpdatePayload = Partial<ProductCreatePayload>;

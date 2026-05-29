@@ -116,6 +116,7 @@ class AppointmentUpdate(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     status: Optional[str] = None
+    skip_availability_check: bool = False
 
 
 class CallNextAppointment(BaseModel):

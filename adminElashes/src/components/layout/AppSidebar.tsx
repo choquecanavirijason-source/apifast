@@ -145,7 +145,9 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           "services:view",
           "services:manage",
           "appointments:view",
-          "appointments:manage"
+          "appointments:manage",
+          "inventory:view",
+          "users:manage"
         );
       } else if (roleName === "encargadaalmacen" || roleName === "encargada_almacen") {
         perms.push("inventory:view", "inventory:manage", "catalog:view");
@@ -203,6 +205,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           { name: "Nueva venta", path: "/admin/pos", permission: ["payments:view", "payments:manage"] },
           { name: "Historial de ventas", path: "/admin/pos/history", permission: ["payments:view", "payments:manage"] },
           { name: "Caja y seguimiento", path: "/admin/pos-tracking", permission: ["payments:view", "payments:manage"] },
+          { name: "Cierre de caja", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
         ],
         permission: ["payments:view", "payments:manage"],
       },

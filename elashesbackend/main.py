@@ -41,12 +41,15 @@ import app.infrastructure.database.migrations.add_branch_opening_hours as m14
 import app.infrastructure.database.migrations.add_branch_integration_profiles as m15
 import app.infrastructure.database.migrations.add_admin_ai_settings as m16
 import app.infrastructure.database.migrations.add_ai_permissions as m17
+import app.infrastructure.database.migrations.add_skill_level_to_users as m18
+import app.infrastructure.database.migrations.add_min_stock_to_products as m19
+import app.infrastructure.database.migrations.add_email_to_clients as m20
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
-    service_agenda_controller,
+    service_agenda_controller, reports_controller,
 )
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 
@@ -75,6 +78,9 @@ async def lifespan(app: FastAPI):
         ("branch_integration_profiles", m15.upgrade),
         ("admin_ai_settings", m16.upgrade),
         ("ai_permissions", m17.upgrade),
+        ("skill_level_to_users", m18.upgrade),
+        ("min_stock_to_products", m19.upgrade),
+        ("email_to_clients", m20.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -139,6 +145,7 @@ def create_app() -> FastAPI:
     app.include_router(payment_controller.router)
     app.include_router(pos_sale_controller.router)
     app.include_router(inventory_controller.router)
+    app.include_router(reports_controller.router)
     app.include_router(admin.router)
     app.include_router(admin_ai_controller.router)
     app.include_router(auth_routes.router)      

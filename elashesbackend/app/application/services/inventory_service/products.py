@@ -59,6 +59,7 @@ def create_product(
     image_url: Optional[str],
     initial_stock: float = 0,
     branch_id: Optional[int] = None,
+    min_stock: Optional[float] = None,
 ) -> Product:
     existing_sku = db.query(Product).filter(Product.sku == sku.strip()).first()
     if existing_sku:
@@ -77,6 +78,7 @@ def create_product(
         cost=cost,
         status=status_value,
         image_url=image_url,
+        min_stock=min_stock,
     )
     db.add(product)
     db.flush()
@@ -135,6 +137,7 @@ def update_product(
     cost: Optional[float] = None,
     status_value: Optional[bool] = None,
     image_url: Optional[str] = None,
+    min_stock: Optional[float] = None,
 ) -> Product:
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -174,6 +177,9 @@ def update_product(
 
     if image_url is not None:
         product.image_url = image_url
+
+    if min_stock is not None:
+        product.min_stock = min_stock
 
     db.commit()
     db.refresh(product)
