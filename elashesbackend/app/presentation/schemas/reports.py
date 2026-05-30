@@ -20,6 +20,7 @@ class DailyClosingItem(BaseModel):
     commission_rate: float                   # porcentaje real de la operaria (0.0–1.0)
     commission: float
     branch_name: str
+    sale_id: Optional[int] = None           # id de la venta POS vinculada (para cobrar al finalizar)
     payment_method: Optional[str] = None    # efectivo, QR, transferencia, tarjeta
     is_paid: bool = False                   # tiene venta POS pagada vinculada
     advance_payment_amount: float = 0.0    # adelanto registrado al hacer la reserva

@@ -243,6 +243,16 @@ const Main = () => {
     [filteredTickets]
   );
 
+  const handleNoShow = async (ticket: TicketItem) => {
+    try {
+      await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
+      toast.success(`Turno ${ticket.ticket_code ?? `#${ticket.id}`} cancelado — no se presentó.`);
+      void loadTickets();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo cancelar el turno."));
+    }
+  };
+
   const handleStartService = async (ticket: TicketItem) => {
     if (!ticket.professional_id) {
       toast.warning("Asigna una operaria antes de iniciar la atención.");
@@ -787,14 +797,23 @@ const Main = () => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className={`${BC_BTN_SECONDARY} w-full`}
-                    onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
-                  >
-                    Iniciar atención
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className={`${BC_BTN_SECONDARY} w-full`}
+                      onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
+                    >
+                      Iniciar atención
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleNoShow(ticket); }}
+                      className="w-full rounded-sm border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438]"
+                    >
+                      No se presentó
+                    </button>
+                  </div>
                 }
                 showRemaining
                 statusColors={{}}

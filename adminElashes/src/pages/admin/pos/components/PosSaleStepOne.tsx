@@ -53,6 +53,7 @@ export default function PosSaleStepOne({
   professionals,
   isCartOpen,
   setIsCartOpen,
+  onUpdateLine,
   finalizeSaleLabel,
   finalizeFooterHint,
   onFinalizeSale,
@@ -115,9 +116,12 @@ export default function PosSaleStepOne({
   const handleChangeLineService = (localId: string, serviceId: string) => {
     const svc = services.find((s) => String(s.id) === serviceId);
     if (!svc) return;
-    onRemoveLine(localId);
-    onAddServiceToCart(svc);
-    showAddedMessage(svc.name || "Servicio");
+    // Actualiza la línea existente en su lugar (sin remove+add para evitar duplicados y reordenamiento)
+    onUpdateLine(localId, {
+      service_id: String(svc.id),
+      price: Number(svc.price ?? 0),
+      duration_minutes: svc.duration_minutes,
+    });
   };
 
   return (

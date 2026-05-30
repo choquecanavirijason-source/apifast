@@ -187,11 +187,12 @@ export type PosPageProps = {
   initialDate?: string;
   section?: "sale" | "history" | "tickets";
   onCartCountChange?: (count: number) => void;
+  onPendingPaymentCountChange?: (count: number) => void;
   cartDrawerSignal?: number;
   onRequestSwitchToPos?: () => void;
 };
 
-export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, cartDrawerSignal, onRequestSwitchToPos }: PosPageProps) {
+export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, onRequestSwitchToPos }: PosPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
@@ -600,7 +601,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
       if (settled[4].status === "fulfilled") {
         const salesData = settled[4].value;
-        setSales(activeBranchId ? salesData.filter((s) => s.branch_id === activeBranchId) : salesData);
+        const filtered = activeBranchId ? salesData.filter((s) => s.branch_id === activeBranchId) : salesData;
+        setSales(filtered);
+        // Ventas pendientes de cobro: status != "paid" y tienen appointments completados
+        const pendingCount = filtered.filter(
+          (s) => s.status !== "paid" && s.status !== "cancelled" &&
+          s.appointments.some((a) => a.status === "completed")
+        ).length;
+        onPendingPaymentCountChange?.(pendingCount);
       } else {
         failures.push(`${labels[4]}: ${getApiErrorMessage(settled[4].reason, "Error al cargar ventas.")}`);
         setSales([]);
@@ -2058,6 +2066,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               subtotal={subtotal}
               total={total}
               onRemoveLine={removeLine}
+              onUpdateLine={(localId, patch) => updateLine(localId, patch)}
               clientComboboxRef={clientComboboxRef}
               clientSearch={clientSearch}
               setClientSearch={setClientSearch}

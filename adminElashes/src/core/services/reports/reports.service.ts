@@ -3,6 +3,7 @@ import api from "../api";
 export interface DailyClosingItem {
   appointment_id: number;
   ticket_code: string | null;
+  sale_id: number | null;
   sale_code: string | null;
   client_name: string;
   service_names: string[];

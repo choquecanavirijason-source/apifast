@@ -28,6 +28,7 @@ export default function PosTrackingHub() {
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [posCartCount, setPosCartCount] = useState(0);
+  const [posPendingPayCount, setPosPendingPayCount] = useState(0);
   const [cartDrawerSignal, setCartDrawerSignal] = useState(0);
 
   const resolveSection = (pathname: string): HubSection => {
@@ -130,6 +131,11 @@ export default function PosTrackingHub() {
                       {posCartCount}
                     </span>
                   )}
+                  {id === "pos" && posPendingPayCount > 0 && (
+                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d83b01] px-1 text-[9px] font-bold text-white" title="Ventas pendientes de cobro">
+                      {posPendingPayCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -154,6 +160,7 @@ export default function PosTrackingHub() {
             <PosPage
               embedded
               onCartCountChange={setPosCartCount}
+              onPendingPaymentCountChange={setPosPendingPayCount}
               cartDrawerSignal={cartDrawerSignal}
               onRequestSwitchToPos={() => go("pos")}
             />

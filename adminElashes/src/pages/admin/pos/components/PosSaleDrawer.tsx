@@ -128,6 +128,25 @@ export default function PosSaleDrawer({
   const [showSinHoraConfirm, setShowSinHoraConfirm] = useState(false);
   const [payLater, setPayLater] = useState(false);
 
+  // Historial de la clienta: últimos servicios completados
+  const [clientHistory, setClientHistory] = useState<Array<{ id: number; ticket_code: string | null; service_names: string[] | undefined; start_time: string }>>([]);
+
+  useEffect(() => {
+    if (!selectedClient) { setClientHistory([]); return; }
+    AgendaService.listTickets({
+      client_id: Number(selectedClient.id),
+      status_filter: "completed",
+      limit: 3,
+    }).then((items) => {
+      setClientHistory(items.map((t) => ({
+        id: t.id,
+        ticket_code: t.ticket_code,
+        service_names: t.service_names,
+        start_time: t.start_time,
+      })));
+    }).catch(() => setClientHistory([]));
+  }, [selectedClient?.id]);
+
   // Datos del tutor para clientes menores de edad
   const [tutorNombre, setTutorNombre] = useState("");
   const [tutorCI, setTutorCI] = useState("");
@@ -185,6 +204,17 @@ export default function PosSaleDrawer({
       counts.set(key, (counts.get(key) ?? 0) + 1);
     });
     return counts;
+  }, [cartLines]);
+
+  // Agrupar líneas por service_id para mostrar una sola fila por servicio con cantidad
+  const groupedCartLines = useMemo(() => {
+    const groups = new Map<string, CartLine[]>();
+    cartLines.forEach((line) => {
+      const key = String(line.service_id || line.localId);
+      const existing = groups.get(key) ?? [];
+      groups.set(key, [...existing, line]);
+    });
+    return Array.from(groups.values());
   }, [cartLines]);
 
   // En modo drawer, si no está abierto no se renderiza
@@ -363,15 +393,21 @@ export default function PosSaleDrawer({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f3f2f1]">
-                {cartLines.map((line) => {
-                  const repeatedCount = lineCountByServiceId.get(String(line.service_id || "")) ?? 0;
+                {groupedCartLines.map((group, groupIdx) => {
+                  const repLine = group[0];
+                  const count = group.length;
+                  const groupTotal = group.reduce((s, l) => s + l.price, 0);
                   return (
-                    <tr key={line.localId} className="transition-colors hover:bg-[#f3f2f1]">
+                    <tr key={repLine.localId} className="transition-colors hover:bg-[#f3f2f1]">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
+                          <span className="shrink-0 text-[11px] text-[#a19f9d]">{groupIdx + 1}.</span>
                           <select
-                            value={line.service_id}
-                            onChange={(e) => onChangeLineService(line.localId, e.target.value)}
+                            value={repLine.service_id}
+                            onChange={(e) => {
+                              // Actualizar todas las líneas del grupo al nuevo servicio
+                              group.forEach((l) => onChangeLineService(l.localId, e.target.value));
+                            }}
                             className="h-9 w-full rounded-sm border border-[#8a8886] bg-white px-2 text-sm text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
                           >
                             <option value="">Servicio...</option>
@@ -379,22 +415,23 @@ export default function PosSaleDrawer({
                               <option key={s.id} value={String(s.id)}>{s.name}</option>
                             ))}
                           </select>
-                          {repeatedCount > 1 && (
+                          {count > 1 && (
                             <span className="shrink-0 rounded-full bg-[#eef6ff] px-2 py-0.5 text-[11px] font-bold text-[#0078d4]">
-                              x{repeatedCount}
+                              x{count}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-semibold text-[#323130]">
-                        Bs {line.price.toFixed(2)}
+                        Bs {groupTotal.toFixed(2)}
                       </td>
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => onRemoveLine(line.localId)}
+                          onClick={() => onRemoveLine(group[group.length - 1].localId)}
                           className="text-[#a19f9d] transition-colors hover:text-[#d13438]"
-                          aria-label="Quitar línea"
+                          aria-label="Quitar una unidad"
+                          title={count > 1 ? `Quitar 1 de ${count}` : "Quitar servicio"}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -519,6 +556,29 @@ export default function PosSaleDrawer({
             <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#d13438]">
               ⚠ Selecciona o crea un cliente para continuar
             </p>
+          )}
+          {/* Historial reciente de la clienta */}
+          {selectedClient && clientHistory.length > 0 && (
+            <div className="mt-3 rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                Últimas visitas
+              </p>
+              <ul className="space-y-1.5">
+                {clientHistory.map((h) => {
+                  const date = new Date(h.start_time);
+                  const dateLabel = Number.isNaN(date.getTime())
+                    ? "—"
+                    : date.toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "2-digit" });
+                  const svcLabel = h.service_names?.join(", ") ?? "—";
+                  return (
+                    <li key={h.id} className="flex items-start justify-between gap-2 text-[11px]">
+                      <span className="truncate text-[#323130]">{svcLabel}</span>
+                      <span className="shrink-0 text-[#a19f9d]">{dateLabel}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
           {selectedClient && (
             <div className="mt-3 grid grid-cols-2 gap-2">

@@ -128,6 +128,7 @@ def get_daily_closing(
         items.append(DailyClosingItem(
             appointment_id=appt.id,
             ticket_code=appt.ticket_code,
+            sale_id=appt.sale_id,
             sale_code=sale_code,
             client_name=client_name,
             service_names=service_names,

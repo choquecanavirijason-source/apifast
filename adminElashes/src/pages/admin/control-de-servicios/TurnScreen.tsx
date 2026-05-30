@@ -58,12 +58,19 @@ export default function TurnScreen() {
               {nowServing.length === 0 ? (
                 <p className="text-emerald-200/80">Sin turnos en servicio.</p>
               ) : (
-                nowServing.slice(0, 3).map((ticket) => (
-                  <div key={ticket.id} className="rounded-2xl bg-emerald-900/50 p-5">
-                    <p className="text-4xl font-black text-white">{ticket.ticket_code ?? `#${ticket.id}`}</p>
-                    <p className="mt-2 text-emerald-200">{ticket.client_name}</p>
-                  </div>
-                ))
+                nowServing.slice(0, 3).map((ticket) => {
+                  const svcLabel = ticket.service_names?.join(", ") ?? ticket.service_name ?? null;
+                  return (
+                    <div key={ticket.id} className="rounded-2xl bg-emerald-900/50 p-5">
+                      <p className="text-4xl font-black text-white">{ticket.ticket_code ?? `#${ticket.id}`}</p>
+                      <p className="mt-2 text-emerald-200">{ticket.client_name}</p>
+                      {svcLabel && <p className="mt-1 text-sm text-emerald-300/70">{svcLabel}</p>}
+                      {ticket.professional_name && (
+                        <p className="mt-1 text-xs text-emerald-400/60">{ticket.professional_name}</p>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -74,18 +81,22 @@ export default function TurnScreen() {
               {waiting.length === 0 ? (
                 <p className="text-emerald-200/80">Sin turnos en espera.</p>
               ) : (
-                waiting.slice(0, 6).map((ticket, index) => (
-                  <div
-                    key={ticket.id}
-                    className="flex items-center justify-between rounded-2xl bg-emerald-900/40 px-4 py-3"
-                  >
-                    <div>
-                      <p className="text-lg font-bold text-white">{ticket.ticket_code ?? `#${ticket.id}`}</p>
-                      <p className="text-xs text-emerald-200">{ticket.client_name}</p>
+                waiting.slice(0, 6).map((ticket, index) => {
+                  const svcLabel = ticket.service_names?.join(", ") ?? ticket.service_name ?? null;
+                  return (
+                    <div
+                      key={ticket.id}
+                      className="flex items-center justify-between rounded-2xl bg-emerald-900/40 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-lg font-bold text-white">{ticket.ticket_code ?? `#${ticket.id}`}</p>
+                        <p className="text-xs text-emerald-200">{ticket.client_name}</p>
+                        {svcLabel && <p className="text-[11px] text-emerald-300/60">{svcLabel}</p>}
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-300">Turno {index + 1}</span>
                     </div>
-                    <span className="text-xs font-semibold text-emerald-300">Turno {index + 1}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

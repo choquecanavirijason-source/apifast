@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 
 import { AgendaService, type ProfessionalForSelect } from "../../../core/services/agenda/agenda.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
+import { PosSaleService } from "../../../core/services/pos-sale/pos-sale.service";
 import {
   ReportsService,
   type DailyClosingItem,
@@ -219,6 +220,28 @@ export default function CierreDeCaja() {
   const [report, setReport] = useState<DailyClosingResponse>(EMPTY_REPORT);
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  // Cobro al finalizar: cual sale_id está siendo cobrado ahora
+  const [cobrandoSaleId, setCobrandoSaleId] = useState<number | null>(null);
+  const [cobrandoMethod, setCobrandoMethod] = useState("cash");
+  const [cobrandoLoading, setCobrandoLoading] = useState(false);
+
+  const registrarPago = async (saleId: number) => {
+    setCobrandoLoading(true);
+    try {
+      await PosSaleService.update(saleId, { payment_method: cobrandoMethod, status: "paid" });
+      toast.success("Pago registrado correctamente.");
+      setCobrandoSaleId(null);
+      // Recargar reporte
+      setLoading(true);
+      setPaymentConfirmations({});
+      ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+        .then(setReport).catch(() => {}).finally(() => setLoading(false));
+    } catch {
+      toast.error("No se pudo registrar el pago.");
+    } finally {
+      setCobrandoLoading(false);
+    }
+  };
   // Confirmaciones de pago: key = professionalId o nombre, value = { confirmedAt, amount }
   const [paymentConfirmations, setPaymentConfirmations] = useState<Record<string, { confirmedAt: string; amount: number }>>({});
 
@@ -539,28 +562,67 @@ export default function CierreDeCaja() {
                         Bs {item.commission.toFixed(2)}
                       </td>
                       <td className="px-3 py-2">
-                        {isActionable(item.status) ? (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => updateStatus(item.appointment_id, "completed")}
-                              disabled={updatingId === item.appointment_id}
-                              title="Finalizar"
-                              className="flex items-center gap-1 rounded-sm bg-green-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-                            >
-                              <CheckCircle size={11} /> Finalizar
-                            </button>
-                            <button
-                              onClick={() => updateStatus(item.appointment_id, "cancelled")}
-                              disabled={updatingId === item.appointment_id}
-                              title="Cancelar"
-                              className="flex items-center gap-1 rounded-sm bg-red-500 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-                            >
-                              <XCircle size={11} /> Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-[#a19f9d]">—</span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {/* Cobrar: solo para tickets con venta pendiente de pago */}
+                          {!item.is_paid && item.sale_id ? (
+                            cobrandoSaleId === item.sale_id ? (
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={cobrandoMethod}
+                                  onChange={(e) => setCobrandoMethod(e.target.value)}
+                                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1 text-[10px] text-[#323130] outline-none"
+                                >
+                                  <option value="cash">Efectivo</option>
+                                  <option value="qr">QR</option>
+                                  <option value="transfer">Transferencia</option>
+                                  <option value="card">Tarjeta</option>
+                                </select>
+                                <button
+                                  onClick={() => void registrarPago(item.sale_id!)}
+                                  disabled={cobrandoLoading}
+                                  className="rounded-sm bg-[#107c10] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#0b5e0b] disabled:opacity-50"
+                                >
+                                  {cobrandoLoading ? "…" : "Confirmar"}
+                                </button>
+                                <button
+                                  onClick={() => setCobrandoSaleId(null)}
+                                  className="rounded-sm border border-[#edebe9] bg-white px-2 py-1 text-[10px] font-semibold text-[#323130] hover:bg-[#f3f2f1]"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setCobrandoSaleId(item.sale_id!); setCobrandoMethod("cash"); }}
+                                className="rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-2 py-1 text-[10px] font-semibold text-[#323130] hover:bg-[#edebe9]"
+                              >
+                                Registrar pago
+                              </button>
+                            )
+                          ) : null}
+                          {/* Finalizar / cancelar ticket */}
+                          {isActionable(item.status) && (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => updateStatus(item.appointment_id, "completed")}
+                                disabled={updatingId === item.appointment_id}
+                                className="flex items-center gap-1 rounded-sm bg-green-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                              >
+                                <CheckCircle size={11} /> Finalizar
+                              </button>
+                              <button
+                                onClick={() => updateStatus(item.appointment_id, "cancelled")}
+                                disabled={updatingId === item.appointment_id}
+                                className="flex items-center gap-1 rounded-sm bg-red-500 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+                              >
+                                <XCircle size={11} /> Cancelar
+                              </button>
+                            </div>
+                          )}
+                          {item.is_paid && !isActionable(item.status) && (
+                            <span className="text-[10px] text-[#a19f9d]">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

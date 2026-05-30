@@ -70,6 +70,7 @@ export type PosSaleStepOneProps = {
   subtotal: number;
   total: number;
   onRemoveLine: (localId: string) => void;
+  onUpdateLine: (localId: string, patch: Partial<{ service_id: string; price: number; duration_minutes: number }>) => void;
   clientComboboxRef: RefObject<HTMLDivElement | null>;
   clientSearch: string;
   setClientSearch: (value: string) => void;
