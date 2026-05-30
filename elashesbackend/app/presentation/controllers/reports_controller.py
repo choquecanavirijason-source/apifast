@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -8,12 +8,17 @@ from sqlalchemy import func
 
 from app.core.dependencies import get_db, require_any_permission
 from app.domain.entities.branch import Branch
+from app.domain.entities.cash_close import CashClose, CommissionReceipt
 from app.domain.entities.inventory import Batch, Product
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
 from app.presentation.schemas.reports import (
     DEFAULT_COMMISSION_RATE,
+    CashCloseCreate,
+    CashCloseResponse,
+    CommissionReceiptCreate,
+    CommissionReceiptResponse,
     DailyClosingItem,
     DailyClosingResponse,
     ProfessionalSummary,
@@ -215,6 +220,195 @@ def update_appointment_status(
     appt.status = body.status
     db.commit()
     return {"ok": True, "appointment_id": appointment_id, "status": appt.status}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cierre de Caja
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/cash-close", response_model=Optional[CashCloseResponse])
+def get_cash_close(
+    date: str = Query(...),
+    branch_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+):
+    """Devuelve el cierre de caja de esa fecha/sucursal, o null si no existe."""
+    q = db.query(CashClose).filter(CashClose.date == date)
+    if branch_id:
+        q = q.filter(CashClose.branch_id == branch_id)
+    else:
+        q = q.filter(CashClose.branch_id.is_(None))
+    record = q.first()
+    if not record:
+        return None
+
+    branch_name = record.branch.name if record.branch else None
+    closed_by_name = record.closed_by.username if record.closed_by else None
+
+    return CashCloseResponse(
+        id=record.id,
+        date=record.date,
+        branch_id=record.branch_id,
+        branch_name=branch_name,
+        closed_by_id=record.closed_by_id,
+        closed_by_name=closed_by_name,
+        closed_at=record.closed_at,
+        grand_total=record.grand_total,
+        grand_commission=record.grand_commission,
+        total_paid=record.total_paid,
+        total_unpaid=record.total_unpaid,
+        notes=record.notes,
+    )
+
+
+@router.post("/cash-close", response_model=CashCloseResponse, status_code=201)
+def close_cash_register(
+    body: CashCloseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("payments:manage")),
+):
+    """Cierra la caja para la fecha/sucursal indicada."""
+    q = db.query(CashClose).filter(CashClose.date == body.date)
+    if body.branch_id:
+        q = q.filter(CashClose.branch_id == body.branch_id)
+    else:
+        q = q.filter(CashClose.branch_id.is_(None))
+
+    if q.first():
+        raise HTTPException(status_code=409, detail="La caja ya está cerrada para esta fecha y sucursal.")
+
+    record = CashClose(
+        date=body.date,
+        branch_id=body.branch_id,
+        closed_by_id=current_user.id,
+        closed_at=datetime.utcnow(),
+        grand_total=body.grand_total,
+        grand_commission=body.grand_commission,
+        total_paid=body.total_paid,
+        total_unpaid=body.total_unpaid,
+        notes=body.notes,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    branch_name = record.branch.name if record.branch else None
+
+    return CashCloseResponse(
+        id=record.id,
+        date=record.date,
+        branch_id=record.branch_id,
+        branch_name=branch_name,
+        closed_by_id=record.closed_by_id,
+        closed_by_name=current_user.username,
+        closed_at=record.closed_at,
+        grand_total=record.grand_total,
+        grand_commission=record.grand_commission,
+        total_paid=record.total_paid,
+        total_unpaid=record.total_unpaid,
+        notes=record.notes,
+    )
+
+
+@router.delete("/cash-close/{cash_close_id}", status_code=200)
+def reopen_cash_register(
+    cash_close_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("payments:manage")),
+):
+    """Reabre la caja eliminando el registro de cierre."""
+    record = db.query(CashClose).filter(CashClose.id == cash_close_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Registro de cierre no encontrado.")
+    db.delete(record)
+    db.commit()
+    return {"ok": True, "message": "Caja reabierta correctamente."}
+
+
+@router.get("/commission-receipts", response_model=List[CommissionReceiptResponse])
+def get_commission_receipts(
+    date: str = Query(...),
+    branch_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+):
+    """Lista las confirmaciones de comisión para la fecha/sucursal."""
+    q = db.query(CommissionReceipt).filter(CommissionReceipt.date == date)
+    if branch_id:
+        q = q.filter(CommissionReceipt.branch_id == branch_id)
+    else:
+        q = q.filter(CommissionReceipt.branch_id.is_(None))
+
+    records = q.order_by(CommissionReceipt.confirmed_at).all()
+    result = []
+    for r in records:
+        confirmed_by_name = r.confirmed_by.username if r.confirmed_by else None
+        result.append(CommissionReceiptResponse(
+            id=r.id,
+            date=r.date,
+            branch_id=r.branch_id,
+            professional_id=r.professional_id,
+            professional_name=r.professional_name,
+            amount=r.amount,
+            confirmed_by_id=r.confirmed_by_id,
+            confirmed_by_name=confirmed_by_name,
+            confirmed_at=r.confirmed_at,
+        ))
+    return result
+
+
+@router.post("/commission-receipts", response_model=CommissionReceiptResponse, status_code=201)
+def save_commission_receipt(
+    body: CommissionReceiptCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("payments:manage")),
+):
+    """Guarda (o actualiza) la confirmación de comisión de una operaria."""
+    q = db.query(CommissionReceipt).filter(
+        CommissionReceipt.date == body.date,
+        CommissionReceipt.professional_name == body.professional_name,
+    )
+    if body.branch_id:
+        q = q.filter(CommissionReceipt.branch_id == body.branch_id)
+    else:
+        q = q.filter(CommissionReceipt.branch_id.is_(None))
+
+    existing = q.first()
+    if existing:
+        existing.amount = body.amount
+        existing.confirmed_by_id = current_user.id
+        existing.confirmed_at = datetime.utcnow()
+        if body.professional_id:
+            existing.professional_id = body.professional_id
+        db.commit()
+        db.refresh(existing)
+        record = existing
+    else:
+        record = CommissionReceipt(
+            date=body.date,
+            branch_id=body.branch_id,
+            professional_id=body.professional_id,
+            professional_name=body.professional_name,
+            amount=body.amount,
+            confirmed_by_id=current_user.id,
+            confirmed_at=datetime.utcnow(),
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+
+    return CommissionReceiptResponse(
+        id=record.id,
+        date=record.date,
+        branch_id=record.branch_id,
+        professional_id=record.professional_id,
+        professional_name=record.professional_name,
+        amount=record.amount,
+        confirmed_by_id=record.confirmed_by_id,
+        confirmed_by_name=current_user.username,
+        confirmed_at=record.confirmed_at,
+    )
 
 
 @router.get("/low-stock")

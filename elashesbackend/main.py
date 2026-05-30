@@ -46,6 +46,7 @@ import app.infrastructure.database.migrations.add_min_stock_to_products as m19
 import app.infrastructure.database.migrations.add_email_to_clients as m20
 import app.infrastructure.database.migrations.add_advance_payment_to_appointments as m21
 import app.infrastructure.database.migrations.add_commission_rate_to_users as m22
+import app.infrastructure.database.migrations.add_cash_close_tables as m23
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -85,6 +86,7 @@ async def lifespan(app: FastAPI):
         ("email_to_clients", m20.upgrade),
         ("advance_payment_to_appointments", m21.upgrade),
         ("commission_rate_to_users", m22.upgrade),
+        ("cash_close_tables", m23.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

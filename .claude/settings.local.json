@@ -21,7 +21,9 @@
       "Bash(Select-Object -First 30)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(node_modules/.bin/vite build *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(xargs grep -l \"cierre\\\\|caja\")",
+      "Bash(xargs grep -l \"DailyClosing\")"
     ]
   }
 }
