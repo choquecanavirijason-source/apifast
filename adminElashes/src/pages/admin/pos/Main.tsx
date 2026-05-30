@@ -197,7 +197,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const location = useLocation();
   const loggedUser = useSelector((state: RootState) => state.auth.user);
 
-  const [activeTab, setActiveTab] = useState<"sale" | "history">(
+  const [activeTab, setActiveTab] = useState<"sale" | "history" | "lastticket">(
     section === "history" ? "history" : "sale"
   );
   // Nuevo: estado para el paso del wizard
@@ -234,6 +234,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [sellerId,         setSellerId]          = useState("");
   /** Modo de emisión de tickets: un ticket por servicio, o todos en un solo ticket grupal. */
   const [ticketMode, setTicketMode] = useState<"individual" | "group">("individual");
+  /** Feature 2: pagos divididos. */
+  const [splitPayments, setSplitPayments] = useState<import("./pos.types").SplitPayment[]>([]);
+  /** Feature 6: venta sin cliente registrado. */
+  const [isAnonymousSale, setIsAnonymousSale] = useState(false);
+  const [anonymousName,   setAnonymousName]   = useState("");
 
   // UI
   const [isSubmitting,        setIsSubmitting]        = useState(false);
@@ -292,10 +297,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           const fullName = `${client.nombre} ${client.apellido}`.toLowerCase();
           const phone    = (client.phone ?? "").toLowerCase();
           const phoneDigits = phone.replace(/\D/g, "");
+          // Feature 4: búsqueda por CI
+          const ci = (client.ci ?? "").toLowerCase();
           return (
             fullName.includes(term) ||
             (Boolean(phone) && phone.includes(term)) ||
-            (Boolean(normalizedTermDigits) && phone.replace(/\D/g, "").includes(normalizedTermDigits))
+            (Boolean(normalizedTermDigits) && phoneDigits.includes(normalizedTermDigits)) ||
+            (Boolean(ci) && ci.includes(term)) ||
+            (Boolean(normalizedTermDigits) && ci.replace(/\D/g, "").includes(normalizedTermDigits))
           );
         })
       : clients;
@@ -678,6 +687,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         typeof parsed.selectedServiceCategoryId === "string" ? parsed.selectedServiceCategoryId : "all"
       );
       setSellerId(typeof parsed.sellerId === "string" ? parsed.sellerId : "");
+      setSplitPayments(Array.isArray(parsed.splitPayments) ? parsed.splitPayments : []);
+      setIsAnonymousSale(parsed.isAnonymousSale === true);
+      setAnonymousName(typeof parsed.anonymousName === "string" ? parsed.anonymousName : "");
     } catch (error) {
       console.error("Error leyendo borrador POS:", error);
       sessionStorage.removeItem(draftKey);
@@ -849,7 +861,10 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       cartLines.length === 0 &&
       !serviceSearch &&
       selectedServiceCategoryId === "all" &&
-      !sellerId;
+      !sellerId &&
+      splitPayments.length === 0 &&
+      !isAnonymousSale &&
+      !anonymousName;
 
     if (isEmptyDraft) {
       sessionStorage.removeItem(draftKey);
@@ -867,6 +882,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       serviceSearch,
       selectedServiceCategoryId,
       sellerId,
+      splitPayments,
+      isAnonymousSale,
+      anonymousName,
     };
 
     sessionStorage.setItem(draftKey, JSON.stringify(draft));
@@ -883,6 +901,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     serviceSearch,
     selectedServiceCategoryId,
     sellerId,
+    splitPayments,
+    isAnonymousSale,
+    anonymousName,
   ]);
 
   useEffect(() => {
@@ -1193,6 +1214,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     setNotes("");
     setCartLines([]);
     setSellerId("");
+    setSplitPayments([]);
+    setIsAnonymousSale(false);
+    setAnonymousName("");
     sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     if (embedded) {
       setActiveTab("sale");
@@ -1378,11 +1402,53 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   // ── Turno inmediato (walk-in sin planificador) ────────────────────────────
 
+  const resolveClientIdForCheckout = async (): Promise<number | null> => {
+    if (clientId) return Number(clientId);
+    if (!isAnonymousSale) return null;
+
+    try {
+      const namePart = anonymousName.trim() || "Anónima";
+      const created = await ClientService.create({
+        name: namePart,
+        last_name: "",
+        branch_id: activeBranchId ?? undefined,
+      });
+      setClients((prev) => {
+        const exists = prev.some((c) => String(c.id) === String(created.id));
+        return exists ? prev : [created, ...prev];
+      });
+      setClientId(String(created.id));
+      setClientSearch(namePart);
+      return created.id;
+    } catch {
+      toast.error("No se pudo crear el cliente temporal para la venta anónima.");
+      return null;
+    }
+  };
+
+  const buildEffectivePayment = () => {
+    if (splitPayments.length > 1) {
+      const splitLabel = splitPayments
+        .map((sp) => `${sp.method === "cash" ? "Efectivo" : sp.method === "qr" ? "QR" : sp.method === "card" ? "Tarjeta" : "Transferencia"} Bs ${parseFloat(sp.amount).toFixed(2)}`)
+        .join(" + ");
+      const primaryMethod = splitPayments[0].method;
+      const splitNote = `[Pago mixto: ${splitLabel}]`;
+      const combinedNotes = notes.trim() ? `${splitNote} ${notes.trim()}` : splitNote;
+      return { method: primaryMethod, notes: combinedNotes };
+    }
+    return { method: paymentMethod, notes: notes.trim() || undefined };
+  };
+
   const handleImmediateCheckout = async (payLater: boolean) => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal.");
-    if (!clientId)       return toast.warning("Selecciona una clienta.");
+    if (!isAnonymousSale && !clientId) return toast.warning("Selecciona una clienta.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
-    if (!payLater && !paymentMethod) return toast.warning("Selecciona un método de pago.");
+    if (!payLater && splitPayments.length === 0 && !paymentMethod) return toast.warning("Selecciona un método de pago.");
+
+    const effectiveClientId = await resolveClientIdForCheckout();
+    if (!effectiveClientId) return;
+
+    const { method: effectiveMethod, notes: effectiveNotes } = buildEffectivePayment();
 
     setIsSubmitting(true);
     try {
@@ -1405,25 +1471,22 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       });
 
       const payload = {
-        client_id: Number(clientId),
+        client_id: effectiveClientId,
         branch_id: activeBranchId,
-        payment_method: payLater ? "cash" : paymentMethod,
+        payment_method: payLater ? "cash" : effectiveMethod,
         discount_type: discountType,
         discount_value: numericDiscount,
-        notes: notes.trim() || undefined,
+        notes: effectiveNotes || undefined,
         items,
         ...(payLater ? { reservation_only: true } : {}),
       };
 
       const sale = await PosSaleService.create(payload);
       const codes = sale.appointments.map((a) => a.ticket_code).filter(Boolean);
-      toast.success(
-        payLater
-          ? `Turno creado. Tickets: ${codes.join(", ")} (cobrar al finalizar)`
-          : `Venta completada. Tickets: ${codes.join(", ")}`
-      );
+      toast.success(`Venta completada. Tickets: ${codes.join(", ")}`);
       setReceiptSale(sale);
       resetSaleForm();
+      setActiveTab("lastticket");
       await loadContext();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Error al crear el turno."));
@@ -1436,7 +1499,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   const handleCheckout = async () => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal para la venta.");
-    if (!clientId)       return toast.warning("Selecciona un cliente.");
+    if (!isAnonymousSale && !clientId) return toast.warning("Selecciona un cliente.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
 
     const missingInServiceProfessional = cartLines.some(
@@ -1505,12 +1568,13 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             .map((appointment) => AgendaService.deleteAppointment(appointment.id))
         );
 
+        const { method: editMethod, notes: editNotes } = buildEffectivePayment();
         const updatedSale = await PosSaleService.update(editingSale.id, {
           client_id: Number(clientId),
-          payment_method: paymentMethod,
+          payment_method: editMethod,
           discount_type: discountType,
           discount_value: numericDiscount,
-          notes: notes.trim() || "",
+          notes: editNotes || "",
         });
 
         const refreshedSale = await PosSaleService.getById(updatedSale.id);
@@ -1578,13 +1642,18 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         });
       };
 
+      const effectiveClientId = await resolveClientIdForCheckout();
+      if (!effectiveClientId) { setIsSubmitting(false); return; }
+
+      const { method: effectiveMethod, notes: effectiveNotes } = buildEffectivePayment();
+
       const payload = {
-        client_id: Number(clientId),
+        client_id: effectiveClientId,
         branch_id: activeBranchId,
-        payment_method: paymentMethod,
+        payment_method: effectiveMethod,
         discount_type: discountType,
         discount_value: numericDiscount,
-        notes: notes.trim() || undefined,
+        notes: effectiveNotes || undefined,
         items: buildItems(),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
       };
@@ -1950,7 +2019,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
           <div className="inline-flex  rounded-sm border border-[#edebe9] bg-[#faf9f8]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            {(["sale", "history"] as const).map((tab) => (
+            {(["sale", "history", "lastticket"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -1965,7 +2034,16 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                     : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
                 }`}
               >
-                {tab === "sale" ? "Nueva venta" : "Historial"}
+                {tab === "sale" ? "Nueva venta" : tab === "history" ? "Historial" : (
+                  <span className="flex items-center gap-1.5">
+                    Último ticket
+                    {receiptSale && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#107c10] px-1 text-[10px] font-bold text-white">
+                        ✓
+                      </span>
+                    )}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -2108,13 +2186,138 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               ticketMode={ticketMode}
               setTicketMode={setTicketMode}
               onUpdateTicketTime={handleUpdateTicketTime}
+              existingTickets={existingTickets}
+              splitPayments={splitPayments}
+              setSplitPayments={setSplitPayments}
+              isAnonymousSale={isAnonymousSale}
+              setIsAnonymousSale={setIsAnonymousSale}
+              anonymousName={anonymousName}
+              setAnonymousName={setAnonymousName}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))
           )
-        ) : (
+        ) : activeTab === "history" ? (
           <HistorySection />
-        )}
+        ) : (() => {
+          // ── Tab "Último ticket": todas las ventas del día, la más reciente primero
+          const todayStr = getLocalDateInputValue();
+          const todaySales = [
+            ...(receiptSale ? [receiptSale] : []),
+            ...sales.filter((s) =>
+              String(s.created_at ?? "").slice(0, 10) === todayStr &&
+              s.id !== receiptSale?.id
+            ),
+          ];
+          const todayTotal = todaySales.reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+          const todayTickets = todaySales.reduce((sum, s) => sum + s.appointments.length, 0);
+          const inQueueCount = existingTickets.filter((t) =>
+            ["pending", "confirmed", "in_service"].includes(t.status)
+          ).length;
+
+          const payLabel = (method: string) =>
+            method === "cash" ? "Efectivo"
+            : method === "qr" ? "QR"
+            : method === "transfer" ? "Transferencia"
+            : method === "card" ? "Tarjeta"
+            : method;
+
+          return (
+            <div className="overflow-y-auto px-4 py-4">
+              {/* Resumen del día */}
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                {[
+                  { label: "Ventas hoy", value: String(todaySales.length) },
+                  { label: "Tickets hoy", value: String(todayTickets) },
+                  { label: "En cola", value: String(inQueueCount) },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-sm border border-[#edebe9] bg-white p-2.5 text-center">
+                    <p className="text-base font-bold text-[#323130]">{stat.value}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+              {todayTotal > 0 && (
+                <div className="mb-4 rounded-sm border border-[#edebe9] bg-white px-4 py-2.5 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Total cobrado hoy</p>
+                  <p className="text-lg font-bold text-[#107c10]">Bs {todayTotal.toFixed(2)}</p>
+                </div>
+              )}
+
+              {/* Lista de ventas */}
+              {todaySales.length === 0 ? (
+                <div className="py-12 text-center text-[#605e5c]">
+                  <p className="text-sm font-semibold text-[#323130]">Sin ventas hoy</p>
+                  <p className="mt-1 text-xs">El resumen aparecerá aquí tras crear un turno.</p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("sale")}
+                    className="mt-4 rounded-sm border border-[#edebe9] bg-white px-4 py-2 text-xs font-semibold text-[#323130] hover:bg-[#f3f2f1]"
+                  >
+                    Nueva venta
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todaySales.map((sale, idx) => (
+                    <div
+                      key={sale.id}
+                      className={`overflow-hidden rounded-sm border ${idx === 0 && receiptSale?.id === sale.id ? "border-[#107c10]" : "border-[#edebe9]"} bg-white`}
+                    >
+                      {/* Cabecera de la venta */}
+                      <div className={`flex items-center justify-between px-3 py-2 ${idx === 0 && receiptSale?.id === sale.id ? "bg-[#f0fdf0]" : "bg-[#faf9f8]"}`}>
+                        <div>
+                          <p className="font-mono text-xs font-bold text-[#0078d4]">{sale.sale_code}</p>
+                          <p className="text-sm font-semibold text-[#323130]">
+                            {sale.client.name} {sale.client.last_name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-[#323130]">Bs {Number(sale.total).toFixed(2)}</p>
+                          <p className="text-[11px] text-[#605e5c]">{payLabel(sale.payment_method)}</p>
+                        </div>
+                      </div>
+                      {/* Tickets de la venta */}
+                      <ul className="divide-y divide-[#edebe9]">
+                        {sale.appointments.map((appt) => {
+                          const svcNames = appt.services?.map((s) => s.name).join(", ") ?? appt.service?.name ?? "Sin servicio";
+                          const start = new Date(appt.start_time);
+                          const timeLabel = Number.isNaN(start.getTime())
+                            ? ""
+                            : `${String(start.getHours()).padStart(2,"0")}:${String(start.getMinutes()).padStart(2,"0")}`;
+                          const statusColors: Record<string, string> = {
+                            pending: "bg-yellow-100 text-yellow-800",
+                            in_service: "bg-blue-100 text-blue-800",
+                            completed: "bg-green-100 text-green-800",
+                            cancelled: "bg-red-100 text-red-800",
+                          };
+                          const statusLabels: Record<string, string> = {
+                            pending: "En espera",
+                            in_service: "En servicio",
+                            completed: "Completado",
+                            cancelled: "Cancelado",
+                          };
+                          return (
+                            <li key={appt.id} className="flex items-center gap-3 px-3 py-2">
+                              <p className="font-mono text-[11px] font-bold text-[#605e5c] w-28 shrink-0">
+                                {appt.ticket_code ?? `#${appt.id}`}
+                              </p>
+                              <p className="min-w-0 flex-1 truncate text-xs text-[#323130]">{svcNames}</p>
+                              {timeLabel && <p className="shrink-0 text-[11px] text-[#605e5c]">{timeLabel}</p>}
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColors[appt.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                {statusLabels[appt.status] ?? appt.status}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <PosReceiptModals
           receiptSale={receiptSale}

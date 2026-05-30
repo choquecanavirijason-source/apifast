@@ -271,6 +271,7 @@ export interface ClientForSelect {
   phone?: string | null;
   status?: string | null;
   age?: number | null;
+  ci?: string | null;
 }
 
 export interface ProfessionalForSelect {

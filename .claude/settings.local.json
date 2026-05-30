@@ -20,7 +20,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\\\\src\" -Recurse -Include \"*.jsx\", \"*.js\", \"*.tsx\", \"*.ts\")",
       "Bash(Select-Object -First 30)",
       "Bash(node_modules/.bin/tsc --noEmit)",
-      "Bash(node_modules/.bin/vite build *)"
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(npx vite *)"
     ]
   }
 }
