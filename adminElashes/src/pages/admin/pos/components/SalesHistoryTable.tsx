@@ -91,6 +91,8 @@ export default function SalesHistoryTable({
         { key: "sale_code", header: "Código" },
         { key: "client", header: "Cliente" },
         { key: "services", header: "Servicios" },
+        { key: "created_by", header: "Registró" },
+        { key: "operarias", header: "Operaria(s)" },
         { key: "payment_method", header: "Método de pago" },
         { key: "subtotal", header: "Subtotal" },
         { key: "descuento", header: "Descuento" },
@@ -102,6 +104,8 @@ export default function SalesHistoryTable({
         sale_code: s.sale_code,
         client: `${s.client?.name ?? ""} ${s.client?.last_name ?? ""}`.trim(),
         services: s.appointments?.map((a) => a.service?.name ?? a.services?.map((sv) => sv.name).join(", ") ?? "").filter(Boolean).join(" | ") || "—",
+        created_by: s.created_by?.username ?? "—",
+        operarias: [...new Set((s.appointments ?? []).map((a) => a.professional?.username).filter(Boolean))].join(", ") || "—",
         payment_method: s.payment_method ?? "—",
         subtotal: `Bs ${Number(s.subtotal ?? 0).toFixed(2)}`,
         descuento: s.discount_value ? `${s.discount_type === "percent" ? `${s.discount_value}%` : `Bs ${s.discount_value}`}` : "—",
@@ -159,6 +163,54 @@ export default function SalesHistoryTable({
           </span>
         ),
         getValue: (sale) => sale.appointments?.length ?? 0,
+      },
+      {
+        key: "created_by",
+        header: "Registró",
+        sortable: true,
+        render: (sale) =>
+          sale.created_by ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+              {sale.created_by.username}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          ),
+        getValue: (sale) => sale.created_by?.username ?? "",
+      },
+      {
+        key: "operarias",
+        header: "Operaria(s)",
+        sortable: false,
+        filterable: false,
+        searchable: false,
+        render: (sale) => {
+          const names = [
+            ...new Set(
+              (sale.appointments ?? [])
+                .map((a) => a.professional?.username)
+                .filter((n): n is string => Boolean(n))
+            ),
+          ];
+          if (names.length === 0) return <span className="text-xs text-slate-400">—</span>;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {names.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+        getValue: (sale) =>
+          (sale.appointments ?? [])
+            .map((a) => a.professional?.username)
+            .filter(Boolean)
+            .join(", "),
       },
       {
         key: "created_at",

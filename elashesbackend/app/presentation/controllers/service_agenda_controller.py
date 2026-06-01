@@ -213,18 +213,36 @@ def get_professionals_for_select(
         role_name=role_name,
         branch_id=branch_id,
     )
+    from collections import defaultdict
     today_str = datetime.today().date().isoformat()
-    busy_ids = {
-        row[0]
-        for row in db.query(Appointment.professional_id)
+
+    active_appts = (
+        db.query(Appointment)
         .filter(
-            Appointment.status == "in_service",
             Appointment.professional_id.isnot(None),
+            Appointment.status.in_(["in_service", "pending", "confirmed"]),
             Appointment.start_time >= f"{today_str}T00:00:00",
             Appointment.start_time <= f"{today_str}T23:59:59",
         )
+        .order_by(Appointment.start_time)
         .all()
-    }
+    )
+
+    in_service_ids: set[int] = set()
+    pending_count: dict[int, int] = defaultdict(int)
+    busy_until: dict[int, datetime] = {}
+
+    for appt in active_appts:
+        pid = appt.professional_id
+        if appt.status == "in_service":
+            in_service_ids.add(pid)
+        pending_count[pid] += 1
+        if appt.end_time and (pid not in busy_until or appt.end_time > busy_until[pid]):
+            busy_until[pid] = appt.end_time
+
+    def fmt_time(dt: datetime) -> str:
+        return dt.strftime("%H:%M") if dt else ""
+
     return [
         {
             "id": p.id,
@@ -233,7 +251,14 @@ def get_professionals_for_select(
             "branch_id": p.branch_id,
             "branch_name": p.branch.name if p.branch else None,
             "skill_level": p.skill_level,
-            "is_busy": p.id in busy_ids,
+            "is_busy": p.id in in_service_ids,
+            "active_count_today": pending_count.get(p.id, 0),
+            "busy_until_time": fmt_time(busy_until[p.id]) if p.id in busy_until else None,
+            "effective_branch_id": p.effective_branch_id,
+            "is_temp_assigned": p.is_temp_assigned,
+            "temp_branch_id": p.temp_branch_id,
+            "temp_branch_until": p.temp_branch_until.isoformat() if p.temp_branch_until else None,
+            "temp_branch_name": p.temp_branch.name if p.temp_branch else None,
         }
         for p in professionals
     ]

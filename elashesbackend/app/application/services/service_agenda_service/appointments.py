@@ -556,12 +556,14 @@ def update_appointment(
 
     if status_value is not None:
         if status_value == "in_service" and final_professional_id:
+            today_start = datetime.combine(date.today(), time.min)
             conflict = (
                 db.query(Appointment)
                 .filter(
                     Appointment.professional_id == final_professional_id,
                     Appointment.status == "in_service",
                     Appointment.id != appointment_id,
+                    Appointment.start_time >= today_start,
                 )
                 .first()
             )

@@ -2,7 +2,7 @@
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -67,10 +67,30 @@ def list_professionals_for_select(
     role_name: Optional[str] = None,
     branch_id: Optional[int] = None,
 ):
+    from datetime import date as date_type
+
     query = db.query(User).filter(User.is_active.is_(True))
 
     if branch_id is not None:
-        query = query.filter(User.branch_id == branch_id)
+        today = date_type.today()
+        # Sucursal efectiva = temporal (si está activa hoy) o la de origen
+        query = query.filter(
+            or_(
+                # Tiene asignación temporal activa apuntando a esta sucursal
+                and_(
+                    User.temp_branch_id == branch_id,
+                    User.temp_branch_until >= today,
+                ),
+                # O su sucursal de origen es esta (sin asignación temporal activa)
+                and_(
+                    User.branch_id == branch_id,
+                    or_(
+                        User.temp_branch_id.is_(None),
+                        User.temp_branch_until < today,
+                    ),
+                ),
+            )
+        )
 
     if role_name and role_name.strip():
         query = query.join(User.role).filter(Role.name.ilike(f"%{role_name.strip()}%"))

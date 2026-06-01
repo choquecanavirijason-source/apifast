@@ -1,4 +1,4 @@
-import { CalendarClock, Info, Settings2, Trash2 } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, Info, Settings2, Trash2 } from "lucide-react";
 
 import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
@@ -11,9 +11,11 @@ interface UsersSectionProps {
   loading: boolean;
   onEditUser: (user: UserItem) => void;
   onDeleteUser?: (user: UserItem) => void;
+  onAssignBranch?: (user: UserItem) => void;
 }
 
-export default function UsersSection({ users, loading, onEditUser, onDeleteUser }: UsersSectionProps) {
+export default function UsersSection({ users, loading, onEditUser, onDeleteUser, onAssignBranch }: UsersSectionProps) {
+  const today = new Date().toISOString().slice(0, 10);
   const formatCreatedAt = (value?: string | null) => {
     if (!value) return "Sin fecha";
     const parsed = new Date(value);
@@ -68,7 +70,22 @@ export default function UsersSection({ users, loading, onEditUser, onDeleteUser 
       header: "Sucursal",
       sortable: true,
       getValue: (item) => item.branch?.name ?? "Sin sucursal",
-      render: (item) => item.branch?.name ?? "Sin sucursal",
+      render: (item) => {
+        const hasTempActive =
+          !!item.temp_branch_id &&
+          !!item.temp_branch_until &&
+          item.temp_branch_until >= today;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-[#323130]">{item.branch?.name ?? "Sin sucursal"}</span>
+            {hasTempActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4ce] px-1.5 py-0.5 text-[9px] font-bold text-[#8a6a1f]">
+                ⚡ Temp. hasta {item.temp_branch_until}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "created_at",
@@ -106,6 +123,11 @@ export default function UsersSection({ users, loading, onEditUser, onDeleteUser 
       icon: <Settings2 className="h-4 w-4" />,
       onClick: onEditUser,
     },
+    ...(onAssignBranch ? [{
+      label: "Reasignar sucursal",
+      icon: <ArrowLeftRight className="h-4 w-4" />,
+      onClick: onAssignBranch,
+    }] : []),
     ...(onDeleteUser ? [{
       label: "Eliminar",
       icon: <Trash2 className="h-4 w-4" />,

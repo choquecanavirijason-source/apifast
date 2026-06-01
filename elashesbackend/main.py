@@ -21,7 +21,8 @@ from app.config.settings import settings
 from app.presentation.routes import auth_routes, admin
 from app.infrastructure.database.init_db import init_db
 from app.infrastructure.database.session import SessionLocal   
-from app.infrastructure.database.seeders import run_seeders   
+from app.infrastructure.database.seeders import run_seeders
+from app.infrastructure.database.seed_operarias import seed_operarias   
 
 # Importaciones explícitas para evitar que PyInstaller las ignore
 import app.infrastructure.database.migrations.add_ticket_code_to_appointments as m1
@@ -46,7 +47,7 @@ import app.infrastructure.database.migrations.add_min_stock_to_products as m19
 import app.infrastructure.database.migrations.add_email_to_clients as m20
 import app.infrastructure.database.migrations.add_advance_payment_to_appointments as m21
 import app.infrastructure.database.migrations.add_commission_rate_to_users as m22
-import app.infrastructure.database.migrations.add_cash_close_tables as m23
+import app.infrastructure.database.migrations.add_temp_branch_to_users as m23
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -86,7 +87,7 @@ async def lifespan(app: FastAPI):
         ("email_to_clients", m20.upgrade),
         ("advance_payment_to_appointments", m21.upgrade),
         ("commission_rate_to_users", m22.upgrade),
-        ("cash_close_tables", m23.upgrade),
+        ("temp_branch_to_users", m23.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -100,6 +101,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         run_seeders(db)
+        seed_operarias(db)
         print(">>> Sistema listo para operar <<<")
     except Exception as e:
         print(f"Error al ejecutar seeders: {e}")
@@ -121,9 +123,15 @@ def create_app() -> FastAPI:
     async def global_exception_handler(request: Request, exc: Exception):
         tb = traceback.format_exc()
         print(f">>> ERROR 500: {exc}\n{tb}")
+        origin = request.headers.get("origin", "")
+        headers = {}
+        if origin:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
         return JSONResponse(
             status_code=500,
             content={"detail": str(exc), "type": type(exc).__name__},
+            headers=headers,
         )
 
     app.add_middleware(

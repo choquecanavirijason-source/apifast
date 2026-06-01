@@ -271,7 +271,6 @@ export interface ClientForSelect {
   phone?: string | null;
   status?: string | null;
   age?: number | null;
-  ci?: string | null;
 }
 
 export interface ProfessionalForSelect {
@@ -282,6 +281,16 @@ export interface ProfessionalForSelect {
   branch_name?: string | null;
   skill_level?: number | null;
   is_busy?: boolean | null;
+  /** Sucursal donde trabaja hoy (temporal si está activa, sino la de origen). */
+  effective_branch_id?: number | null;
+  is_temp_assigned?: boolean | null;
+  temp_branch_id?: number | null;
+  temp_branch_until?: string | null;
+  temp_branch_name?: string | null;
+  /** Turnos activos hoy (in_service + pending). 0 = completamente libre. */
+  active_count_today?: number | null;
+  /** Hora estimada de fin del último turno activo hoy (HH:MM). */
+  busy_until_time?: string | null;
 }
 
 export const AgendaService = {
@@ -505,6 +514,14 @@ export const AgendaService = {
   async callNextAppointment(payload: { branch_id: number; professional_id?: number | null }): Promise<TicketItem> {
     const response = await api.post<BackendAppointment>("/agenda/appointments/call-next", payload);
     return mapToTicket(response.data);
+  },
+
+  async assignBranch(userId: number, payload: {
+    branch_id: number | null;
+    permanent: boolean;
+    temp_until?: string;
+  }): Promise<void> {
+    await api.patch(`/admin/users/${userId}/branch-assignment`, payload);
   },
 
   async sendWhatsappValidation(appointmentId: number): Promise<{

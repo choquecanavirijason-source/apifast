@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -8,17 +8,13 @@ from sqlalchemy import func
 
 from app.core.dependencies import get_db, require_any_permission
 from app.domain.entities.branch import Branch
-from app.domain.entities.cash_close import CashClose, CommissionReceipt
 from app.domain.entities.inventory import Batch, Product
+from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
 from app.presentation.schemas.reports import (
     DEFAULT_COMMISSION_RATE,
-    CashCloseCreate,
-    CashCloseResponse,
-    CommissionReceiptCreate,
-    CommissionReceiptResponse,
     DailyClosingItem,
     DailyClosingResponse,
     ProfessionalSummary,
@@ -64,15 +60,22 @@ def get_daily_closing(
     # Cargar ventas POS vinculadas en una sola consulta
     sale_ids = [a.sale_id for a in appointments if a.sale_id is not None]
     sales_by_id: dict[int, PosSale] = {}
+    payments_by_sale: dict[int, list[Payment]] = defaultdict(list)
     if sale_ids:
         sales = db.query(PosSale).filter(PosSale.id.in_(sale_ids)).all()
         sales_by_id = {s.id: s for s in sales}
+        # Cargar payments individuales para desglosar pago mixto
+        all_payments = db.query(Payment).filter(Payment.sale_id.in_(sale_ids), Payment.status == "paid").all()
+        for p in all_payments:
+            payments_by_sale[p.sale_id].append(p)
 
     items: list[DailyClosingItem] = []
     totals_by_payment: dict[str, float] = defaultdict(float)
     total_paid = 0.0
     total_unpaid = 0.0
 
+    # Solo tickets completados cuentan para comisiones y totales de ingresos
+    COMPLETED_STATUS = {"completed", "confirmed"}
     prof_agg: dict[int | None, dict] = {}
 
     for appt in appointments:
@@ -93,13 +96,14 @@ def get_daily_closing(
         if not service_names:
             service_names = ["Sin servicio"]
 
-        # ── Comisión por operaria ─────────────────────────────────────────
+        # ── Comisión: solo si el ticket está completado ───────────────────
         commission_rate = (
             appt.professional.commission_rate
             if appt.professional and appt.professional.commission_rate is not None
             else DEFAULT_COMMISSION_RATE
         )
-        commission = round(total_price * commission_rate, 2)
+        is_completed = appt.status in COMPLETED_STATUS
+        commission = round(total_price * commission_rate, 2) if is_completed else 0.0
 
         # ── Datos de la venta POS vinculada ───────────────────────────────
         sale = sales_by_id.get(appt.sale_id) if appt.sale_id else None
@@ -107,11 +111,19 @@ def get_daily_closing(
         is_paid = sale is not None and sale.status == "paid"
         sale_code = sale.sale_code if sale else None
 
-        # ── Totales agrupados ─────────────────────────────────────────────
-        if is_paid and payment_method:
-            totals_by_payment[payment_method] += total_price
+        # ── Totales por método de pago (solo tickets completados y pagados) ─
+        if is_completed and is_paid:
+            sale_payments = payments_by_sale.get(appt.sale_id, [])
+            if sale_payments:
+                # Pago mixto: distribuir precio del ticket proporcional por método
+                sale_total_paid = sum(p.amount for p in sale_payments)
+                for p in sale_payments:
+                    ratio = (p.amount / sale_total_paid) if sale_total_paid > 0 else (1 / len(sale_payments))
+                    totals_by_payment[p.method] += round(total_price * ratio, 2)
+            elif payment_method and payment_method != "mixed":
+                totals_by_payment[payment_method] += total_price
             total_paid += total_price
-        else:
+        elif not is_paid and appt.status not in {"cancelled"}:
             total_unpaid += total_price
 
         # ── Duración ─────────────────────────────────────────────────────
@@ -152,20 +164,21 @@ def get_daily_closing(
             balance_due=round(balance_due, 2),
         ))
 
-        # ── Acumulado por operaria ────────────────────────────────────────
-        key = professional_id_val
-        if key not in prof_agg:
-            prof_agg[key] = {
-                "professional_id": professional_id_val,
-                "professional_name": professional_name,
-                "ticket_count": 0,
-                "total_price": 0.0,
-                "commission": 0.0,
-                "commission_rate": commission_rate,
-            }
-        prof_agg[key]["ticket_count"] += 1
-        prof_agg[key]["total_price"] += total_price
-        prof_agg[key]["commission"] += commission
+        # ── Acumulado por operaria (solo tickets completados) ─────────────
+        if is_completed:
+            key = professional_id_val
+            if key not in prof_agg:
+                prof_agg[key] = {
+                    "professional_id": professional_id_val,
+                    "professional_name": professional_name,
+                    "ticket_count": 0,
+                    "total_price": 0.0,
+                    "commission": 0.0,
+                    "commission_rate": commission_rate,
+                }
+            prof_agg[key]["ticket_count"] += 1
+            prof_agg[key]["total_price"] += total_price
+            prof_agg[key]["commission"] += commission
 
     summary_by_professional = [
         ProfessionalSummary(
@@ -179,7 +192,8 @@ def get_daily_closing(
         for v in sorted(prof_agg.values(), key=lambda x: x["professional_name"])
     ]
 
-    grand_total = round(sum(i.total_price for i in items), 2)
+    # Grand total y comisión: solo tickets completados
+    grand_total = round(sum(i.total_price for i in items if i.status in COMPLETED_STATUS), 2)
     grand_commission = round(sum(i.commission for i in items), 2)
 
     branch_name_label: Optional[str] = None
@@ -220,195 +234,6 @@ def update_appointment_status(
     appt.status = body.status
     db.commit()
     return {"ok": True, "appointment_id": appointment_id, "status": appt.status}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Cierre de Caja
-# ─────────────────────────────────────────────────────────────────────────────
-
-@router.get("/cash-close", response_model=Optional[CashCloseResponse])
-def get_cash_close(
-    date: str = Query(...),
-    branch_id: Optional[int] = Query(default=None),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
-):
-    """Devuelve el cierre de caja de esa fecha/sucursal, o null si no existe."""
-    q = db.query(CashClose).filter(CashClose.date == date)
-    if branch_id:
-        q = q.filter(CashClose.branch_id == branch_id)
-    else:
-        q = q.filter(CashClose.branch_id.is_(None))
-    record = q.first()
-    if not record:
-        return None
-
-    branch_name = record.branch.name if record.branch else None
-    closed_by_name = record.closed_by.username if record.closed_by else None
-
-    return CashCloseResponse(
-        id=record.id,
-        date=record.date,
-        branch_id=record.branch_id,
-        branch_name=branch_name,
-        closed_by_id=record.closed_by_id,
-        closed_by_name=closed_by_name,
-        closed_at=record.closed_at,
-        grand_total=record.grand_total,
-        grand_commission=record.grand_commission,
-        total_paid=record.total_paid,
-        total_unpaid=record.total_unpaid,
-        notes=record.notes,
-    )
-
-
-@router.post("/cash-close", response_model=CashCloseResponse, status_code=201)
-def close_cash_register(
-    body: CashCloseCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("payments:manage")),
-):
-    """Cierra la caja para la fecha/sucursal indicada."""
-    q = db.query(CashClose).filter(CashClose.date == body.date)
-    if body.branch_id:
-        q = q.filter(CashClose.branch_id == body.branch_id)
-    else:
-        q = q.filter(CashClose.branch_id.is_(None))
-
-    if q.first():
-        raise HTTPException(status_code=409, detail="La caja ya está cerrada para esta fecha y sucursal.")
-
-    record = CashClose(
-        date=body.date,
-        branch_id=body.branch_id,
-        closed_by_id=current_user.id,
-        closed_at=datetime.utcnow(),
-        grand_total=body.grand_total,
-        grand_commission=body.grand_commission,
-        total_paid=body.total_paid,
-        total_unpaid=body.total_unpaid,
-        notes=body.notes,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-
-    branch_name = record.branch.name if record.branch else None
-
-    return CashCloseResponse(
-        id=record.id,
-        date=record.date,
-        branch_id=record.branch_id,
-        branch_name=branch_name,
-        closed_by_id=record.closed_by_id,
-        closed_by_name=current_user.username,
-        closed_at=record.closed_at,
-        grand_total=record.grand_total,
-        grand_commission=record.grand_commission,
-        total_paid=record.total_paid,
-        total_unpaid=record.total_unpaid,
-        notes=record.notes,
-    )
-
-
-@router.delete("/cash-close/{cash_close_id}", status_code=200)
-def reopen_cash_register(
-    cash_close_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:manage")),
-):
-    """Reabre la caja eliminando el registro de cierre."""
-    record = db.query(CashClose).filter(CashClose.id == cash_close_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="Registro de cierre no encontrado.")
-    db.delete(record)
-    db.commit()
-    return {"ok": True, "message": "Caja reabierta correctamente."}
-
-
-@router.get("/commission-receipts", response_model=List[CommissionReceiptResponse])
-def get_commission_receipts(
-    date: str = Query(...),
-    branch_id: Optional[int] = Query(default=None),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
-):
-    """Lista las confirmaciones de comisión para la fecha/sucursal."""
-    q = db.query(CommissionReceipt).filter(CommissionReceipt.date == date)
-    if branch_id:
-        q = q.filter(CommissionReceipt.branch_id == branch_id)
-    else:
-        q = q.filter(CommissionReceipt.branch_id.is_(None))
-
-    records = q.order_by(CommissionReceipt.confirmed_at).all()
-    result = []
-    for r in records:
-        confirmed_by_name = r.confirmed_by.username if r.confirmed_by else None
-        result.append(CommissionReceiptResponse(
-            id=r.id,
-            date=r.date,
-            branch_id=r.branch_id,
-            professional_id=r.professional_id,
-            professional_name=r.professional_name,
-            amount=r.amount,
-            confirmed_by_id=r.confirmed_by_id,
-            confirmed_by_name=confirmed_by_name,
-            confirmed_at=r.confirmed_at,
-        ))
-    return result
-
-
-@router.post("/commission-receipts", response_model=CommissionReceiptResponse, status_code=201)
-def save_commission_receipt(
-    body: CommissionReceiptCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("payments:manage")),
-):
-    """Guarda (o actualiza) la confirmación de comisión de una operaria."""
-    q = db.query(CommissionReceipt).filter(
-        CommissionReceipt.date == body.date,
-        CommissionReceipt.professional_name == body.professional_name,
-    )
-    if body.branch_id:
-        q = q.filter(CommissionReceipt.branch_id == body.branch_id)
-    else:
-        q = q.filter(CommissionReceipt.branch_id.is_(None))
-
-    existing = q.first()
-    if existing:
-        existing.amount = body.amount
-        existing.confirmed_by_id = current_user.id
-        existing.confirmed_at = datetime.utcnow()
-        if body.professional_id:
-            existing.professional_id = body.professional_id
-        db.commit()
-        db.refresh(existing)
-        record = existing
-    else:
-        record = CommissionReceipt(
-            date=body.date,
-            branch_id=body.branch_id,
-            professional_id=body.professional_id,
-            professional_name=body.professional_name,
-            amount=body.amount,
-            confirmed_by_id=current_user.id,
-            confirmed_at=datetime.utcnow(),
-        )
-        db.add(record)
-        db.commit()
-        db.refresh(record)
-
-    return CommissionReceiptResponse(
-        id=record.id,
-        date=record.date,
-        branch_id=record.branch_id,
-        professional_id=record.professional_id,
-        professional_name=record.professional_name,
-        amount=record.amount,
-        confirmed_by_id=record.confirmed_by_id,
-        confirmed_by_name=current_user.username,
-        confirmed_at=record.confirmed_at,
-    )
 
 
 @router.get("/low-stock")

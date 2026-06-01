@@ -128,12 +128,23 @@ def create_sale(
 ) -> PosSale:
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
 
-    payment_method = _normalize_payment_method(payload.payment_method)
-    if payment_method not in ALLOWED_POS_PAYMENT_METHODS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Método de pago no válido. Usa uno de: {', '.join(sorted(ALLOWED_POS_PAYMENT_METHODS))}",
-        )
+    # Pago mixto: valida métodos y que la suma cubra el total
+    if payload.mixed_payments:
+        for entry in payload.mixed_payments:
+            m = _normalize_payment_method(entry.method)
+            if m not in ALLOWED_POS_PAYMENT_METHODS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Método de pago mixto no válido '{entry.method}'. Usa: {', '.join(sorted(ALLOWED_POS_PAYMENT_METHODS))}",
+                )
+        payment_method = "mixed"
+    else:
+        payment_method = _normalize_payment_method(payload.payment_method)
+        if payment_method not in ALLOWED_POS_PAYMENT_METHODS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Método de pago no válido. Usa uno de: {', '.join(sorted(ALLOWED_POS_PAYMENT_METHODS))}",
+            )
 
     if payload.discount_type not in ALLOWED_DISCOUNT_TYPES:
         raise HTTPException(
@@ -221,6 +232,8 @@ def create_sale(
                 detail="Los servicios cobrados deben coincidir exactamente con los de la reserva",
             )
 
+    sale_status = "reserved" if payload.reservation_only else "paid"
+
     sale = PosSale(
         sale_code=_generate_sale_code(db),
         client_id=payload.client_id,
@@ -231,7 +244,7 @@ def create_sale(
         discount_value=payload.discount_value,
         total=total,
         payment_method=payment_method,
-        status="paid",
+        status=sale_status,
         notes=payload.notes,
     )
     db.add(sale)
@@ -252,6 +265,7 @@ def create_sale(
     elif payload.sale_without_appointments:
         pass
     else:
+        appointment_status = "pending"
         for item in payload.items:
             create_appointment(
                 db=db,
@@ -265,21 +279,43 @@ def create_sale(
                 is_ia=item.is_ia,
                 start_time=item.start_time,
                 end_time=item.end_time,
-                status_value="pending",
+                status_value=appointment_status,
+                skip_availability_check=True,
             )
 
-    payment = Payment(
-        client_id=payload.client_id,
-        branch_id=payload.branch_id,
-        sale_id=sale.id,
-        registered_by_id=current_user.id,
-        amount=total,
-        method=payment_method,
-        status="paid",
-        notes=payload.notes,
-        paid_at=datetime.utcnow(),
-    )
-    db.add(payment)
+    if not payload.reservation_only:
+        if payload.mixed_payments:
+            mixed_sum = sum(e.amount for e in payload.mixed_payments)
+            if round(mixed_sum, 2) < round(total, 2):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"La suma del pago mixto ({mixed_sum:.2f}) no cubre el total ({total:.2f}).",
+                )
+            for entry in payload.mixed_payments:
+                db.add(Payment(
+                    client_id=payload.client_id,
+                    branch_id=payload.branch_id,
+                    sale_id=sale.id,
+                    registered_by_id=current_user.id,
+                    amount=float(entry.amount),
+                    method=_normalize_payment_method(entry.method),
+                    status="paid",
+                    notes=payload.notes,
+                    paid_at=datetime.utcnow(),
+                ))
+        else:
+            db.add(Payment(
+                client_id=payload.client_id,
+                branch_id=payload.branch_id,
+                sale_id=sale.id,
+                registered_by_id=current_user.id,
+                amount=total,
+                method=payment_method,
+                status="paid",
+                notes=payload.notes,
+                paid_at=datetime.utcnow(),
+            ))
+
     db.commit()
 
     update_client_status(db, payload.client_id, CLIENT_STATUS_EN_ESPERA)

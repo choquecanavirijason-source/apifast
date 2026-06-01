@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle, Banknote, CheckCircle, CheckCircle2,
-  CreditCard, Lock, LockOpen, Printer, QrCode, Wallet, XCircle,
-} from "lucide-react";
+import { Banknote, CheckCircle, CreditCard, Printer, QrCode, Wallet, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
 
+import StatCard from "@/components/common/ui/StatCard";
+import SectionCard from "@/components/common/ui/SectionCard";
+import Button from "@/components/common/ui/Button";
+import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { AgendaService, type ProfessionalForSelect } from "../../../core/services/agenda/agenda.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import { PosSaleService } from "../../../core/services/pos-sale/pos-sale.service";
 import {
   ReportsService,
-  type CashCloseRecord,
-  type CommissionReceiptRecord,
   type DailyClosingItem,
   type DailyClosingResponse,
 } from "../../../core/services/reports/reports.service";
+import { getLogoBase64 } from "../../../core/hooks/useLogo";
+
+type DailyClosingItemWithId = DailyClosingItem & { id: number };
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   qr:       "QR",
   transfer: "Transferencia",
   card:     "Tarjeta",
+  mixed:    "Mixto",
 };
 
 const PAYMENT_ICONS: Record<string, typeof Banknote> = {
@@ -69,11 +72,6 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function fmtDateTime(iso: string) {
-  const d = new Date(iso);
-  return `${fmtDate(iso)} ${d.toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}`;
-}
-
 function PaymentBadge({ method }: { method: string | null }) {
   if (!method) return <span className="text-[10px] text-[#a19f9d]">Sin cobrar</span>;
   const Icon = PAYMENT_ICONS[method] ?? Banknote;
@@ -93,11 +91,12 @@ function printReport(
   branchName: string,
   professionalName: string,
   report: DailyClosingResponse,
-  receipts: CommissionReceiptRecord[],
-  cashClose: CashCloseRecord | null,
+  paymentConfirmations: Record<string, { confirmedAt: string; amount: number }> = {},
 ) {
-  const receiptMap = new Map(receipts.map((r) => [r.professional_name, r]));
-
+  const logoBase64 = getLogoBase64();
+  const logoHtml = logoBase64
+    ? `<div style="text-align:center;margin-bottom:12px"><img src="${logoBase64}" alt="Logo" style="max-height:85px;max-width:260px;object-fit:contain" /></div>`
+    : "";
   const rows = report.items
     .map((item, i) => `
       <tr>
@@ -117,8 +116,9 @@ function printReport(
     .join("");
 
   const summaryRows = report.summary_by_professional
-    .map((p) => {
-      const conf = receiptMap.get(p.professional_name);
+    .map(p => {
+      const key = String(p.professional_id ?? p.professional_name);
+      const conf = paymentConfirmations[key];
       return `
       <tr>
         <td>${p.professional_name}</td>
@@ -126,7 +126,7 @@ function printReport(
         <td>Bs ${p.total_price.toFixed(2)}</td>
         <td>${(p.commission_rate * 100).toFixed(0)}%</td>
         <td>Bs ${p.commission.toFixed(2)}</td>
-        <td>${conf ? `✓ Confirmado por ${conf.confirmed_by_name ?? "—"} (${fmtDateTime(conf.confirmed_at)})` : "Pendiente"}</td>
+        <td>${conf ? `✓ Confirmado (${conf.confirmedAt})` : "Pendiente"}</td>
       </tr>`;
     })
     .join("");
@@ -134,10 +134,6 @@ function printReport(
   const paymentRows = Object.entries(report.totals_by_payment)
     .map(([method, total]) => `<tr><td>${PAYMENT_LABELS[method] ?? method}</td><td>Bs ${total.toFixed(2)}</td></tr>`)
     .join("");
-
-  const closeInfo = cashClose
-    ? `<p style="color:#107c10;font-weight:bold;">✓ Caja cerrada el ${fmtDateTime(cashClose.closed_at)} por ${cashClose.closed_by_name ?? "—"}</p>`
-    : `<p style="color:#d83b01;font-weight:bold;">⚠ Caja NO cerrada formalmente</p>`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -160,10 +156,10 @@ function printReport(
   </style>
 </head>
 <body>
+  ${logoHtml}
   <h2>Cierre de Caja</h2>
   <p class="sub">Fecha: ${date}${branchName ? " · " + branchName : ""}${professionalName ? " · Operaria: " + professionalName : ""}</p>
-  ${closeInfo}
-  <br/>
+
   <div class="summary-grid">
     <div>
       <h3>Resumen por método de pago</h3>
@@ -183,6 +179,7 @@ function printReport(
       </table>
     </div>
   </div>
+
   <h3>Detalle de tickets</h3>
   <table>
     <thead>
@@ -212,114 +209,34 @@ function printReport(
   setTimeout(() => win.print(), 300);
 }
 
-// ── Constante vacía ───────────────────────────────────────────────────────────
+// ── Componente principal ──────────────────────────────────────────────────────
 
 const EMPTY_REPORT: DailyClosingResponse = {
-  date: "", branch_id: null, branch_name: null, items: [],
-  grand_total: 0, grand_commission: 0, total_paid: 0, total_unpaid: 0,
-  totals_by_payment: {}, summary_by_professional: [],
+  date: "",
+  branch_id: null,
+  branch_name: null,
+  items: [],
+  grand_total: 0,
+  grand_commission: 0,
+  total_paid: 0,
+  total_unpaid: 0,
+  totals_by_payment: {},
+  summary_by_professional: [],
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// Componente principal
-// ════════════════════════════════════════════════════════════════════════════
-
 export default function CierreDeCaja() {
-  const [date, setDate]                 = useState(todayStr());
-  const [branchId, setBranchId]         = useState<number | null>(null);
+  const [date, setDate] = useState(todayStr());
+  const [branchId, setBranchId] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
-  const [branches, setBranches]         = useState<{ id: number; name: string }[]>([]);
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
-  const [report, setReport]             = useState<DailyClosingResponse>(EMPTY_REPORT);
-  const [loading, setLoading]           = useState(false);
-  const [updatingId, setUpdatingId]     = useState<number | null>(null);
-
-  // Cobro rápido
-  const [cobrandoSaleId, setCobrandoSaleId]   = useState<number | null>(null);
-  const [cobrandoMethod, setCobrandoMethod]   = useState("cash");
+  const [report, setReport] = useState<DailyClosingResponse>(EMPTY_REPORT);
+  const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  // Cobro al finalizar: cual sale_id está siendo cobrado ahora
+  const [cobrandoSaleId, setCobrandoSaleId] = useState<number | null>(null);
+  const [cobrandoMethod, setCobrandoMethod] = useState("cash");
   const [cobrandoLoading, setCobrandoLoading] = useState(false);
-
-  // Cierre de caja
-  const [cashClose, setCashClose]       = useState<CashCloseRecord | null>(null);
-  const [loadingClose, setLoadingClose] = useState(false);
-  const [showCloseDialog, setShowCloseDialog] = useState(false);
-  const [closeNotes, setCloseNotes]     = useState("");
-  const [closingInProgress, setClosingInProgress] = useState(false);
-  const [reopeningInProgress, setReopeningInProgress] = useState(false);
-
-  // Confirmaciones de comisión (persistidas en BD)
-  const [receipts, setReceipts]                 = useState<CommissionReceiptRecord[]>([]);
-  const [confirmingKey, setConfirmingKey]       = useState<string | null>(null);
-
-  // ── Carga inicial ─────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    BranchService.list({ limit: 100 }).then(setBranches).catch(() => {});
-    AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria" })
-      .then(setProfessionals).catch(() => {});
-  }, []);
-
-  const loadAll = async (d: string, bId: number | null, pId: number | null) => {
-    setLoading(true);
-    try {
-      const [rep, close, recs] = await Promise.allSettled([
-        ReportsService.getDailyClosing({ date: d, branch_id: bId, professional_id: pId }),
-        ReportsService.getCashClose({ date: d, branch_id: bId }),
-        ReportsService.getCommissionReceipts({ date: d, branch_id: bId }),
-      ]);
-      if (rep.status === "fulfilled") setReport(rep.value);
-      else toast.error("Error al cargar el reporte");
-      setCashClose(close.status === "fulfilled" ? close.value : null);
-      setReceipts(recs.status === "fulfilled" ? recs.value : []);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadAll(date, branchId, professionalId);
-  }, [date, branchId, professionalId]);
-
-  // ── Derived state ─────────────────────────────────────────────────────────
-
-  const isClosed = cashClose !== null;
-
-  const receiptMap = useMemo(
-    () => new Map(receipts.map((r) => [r.professional_name, r])),
-    [receipts]
-  );
-
-  const pendingCount = useMemo(
-    () => report.items.filter((i) => i.status === "pending" || i.status === "in_service").length,
-    [report.items]
-  );
-
-  const unpaidCount = useMemo(
-    () => report.items.filter((i) => !i.is_paid && i.sale_id !== null).length,
-    [report.items]
-  );
-
-  const allCommissionsConfirmed = useMemo(
-    () => report.summary_by_professional.every((p) => receiptMap.has(p.professional_name)),
-    [report.summary_by_professional, receiptMap]
-  );
-
-  const selectedBranchName = useMemo(
-    () => branches.find((b) => b.id === branchId)?.name ?? "",
-    [branches, branchId]
-  );
-
-  const selectedProfessionalName = useMemo(
-    () => professionals.find((p) => p.id === professionalId)?.username ?? "",
-    [professionals, professionalId]
-  );
-
-  const isActionable = (status: string) =>
-    !isClosed && status !== "completed" && status !== "cancelled";
-
-  const paymentSummaryEntries = Object.entries(report.totals_by_payment);
-
-  // ── Acciones ──────────────────────────────────────────────────────────────
 
   const registrarPago = async (saleId: number) => {
     setCobrandoLoading(true);
@@ -327,13 +244,56 @@ export default function CierreDeCaja() {
       await PosSaleService.update(saleId, { payment_method: cobrandoMethod, status: "paid" });
       toast.success("Pago registrado correctamente.");
       setCobrandoSaleId(null);
-      await loadAll(date, branchId, professionalId);
+      // Recargar reporte
+      setLoading(true);
+      setPaymentConfirmations({});
+      ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+        .then(setReport).catch(() => {}).finally(() => setLoading(false));
     } catch {
       toast.error("No se pudo registrar el pago.");
     } finally {
       setCobrandoLoading(false);
     }
   };
+  // Confirmaciones de pago: key = professionalId o nombre, value = { confirmedAt, amount }
+  const [paymentConfirmations, setPaymentConfirmations] = useState<Record<string, { confirmedAt: string; amount: number }>>({});
+
+  const confirmPayment = (professionalKey: string, amount: number) => {
+    setPaymentConfirmations((prev) => ({
+      ...prev,
+      [professionalKey]: { confirmedAt: new Date().toLocaleString("es-BO"), amount },
+    }));
+  };
+
+  useEffect(() => {
+    BranchService.list({ limit: 100 }).then(setBranches).catch(() => {});
+  }, []);
+
+  // Recargar operarias cuando cambia la sucursal y limpiar selección si ya no aplica
+  useEffect(() => {
+    AgendaService.listProfessionalsForSelect({
+      limit: 200,
+      role_name: "Operaria",
+      branch_id: branchId ?? undefined,
+    })
+      .then((data) => {
+        setProfessionals(data);
+        // Si la operaria seleccionada no está en la nueva sucursal, limpiarla
+        if (professionalId && !data.some((p) => p.id === professionalId)) {
+          setProfessionalId(null);
+        }
+      })
+      .catch(() => {});
+  }, [branchId]);
+
+  useEffect(() => {
+    setLoading(true);
+    setPaymentConfirmations({});
+    ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+      .then(setReport)
+      .catch(() => toast.error("Error al cargar el reporte"))
+      .finally(() => setLoading(false));
+  }, [date, branchId, professionalId]);
 
   const updateStatus = async (id: number, newStatus: string) => {
     setUpdatingId(id);
@@ -353,66 +313,211 @@ export default function CierreDeCaja() {
     }
   };
 
-  const confirmCommission = async (p: { professional_id: number | null; professional_name: string; commission: number }) => {
-    const key = p.professional_name;
-    setConfirmingKey(key);
-    try {
-      const saved = await ReportsService.saveCommissionReceipt({
-        date,
-        branch_id: branchId,
-        professional_id: p.professional_id,
-        professional_name: p.professional_name,
-        amount: p.commission,
-      });
-      setReceipts((prev) => {
-        const filtered = prev.filter((r) => r.professional_name !== key);
-        return [...filtered, saved];
-      });
-      toast.success(`Comisión de ${p.professional_name} confirmada.`);
-    } catch {
-      toast.error("No se pudo guardar la confirmación.");
-    } finally {
-      setConfirmingKey(null);
-    }
-  };
+  const selectedBranchName = useMemo(
+    () => branches.find((b) => b.id === branchId)?.name ?? "",
+    [branches, branchId]
+  );
 
-  const handleCloseCaja = async () => {
-    setClosingInProgress(true);
-    try {
-      const record = await ReportsService.closeCashRegister({
-        date,
-        branch_id: branchId,
-        grand_total: report.grand_total,
-        grand_commission: report.grand_commission,
-        total_paid: report.total_paid,
-        total_unpaid: report.total_unpaid,
-        notes: closeNotes.trim() || null,
-      });
-      setCashClose(record);
-      setShowCloseDialog(false);
-      setCloseNotes("");
-      toast.success("Caja cerrada correctamente.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo cerrar la caja.";
-      toast.error(msg);
-    } finally {
-      setClosingInProgress(false);
-    }
-  };
+  const selectedProfessionalName = useMemo(
+    () => professionals.find((p) => p.id === professionalId)?.username ?? "",
+    [professionals, professionalId]
+  );
 
-  const handleReopenCaja = async () => {
-    if (!cashClose) return;
-    setReopeningInProgress(true);
-    try {
-      await ReportsService.reopenCashRegister(cashClose.id);
-      setCashClose(null);
-      toast.success("Caja reabierta. Ya podés registrar cambios.");
-    } catch {
-      toast.error("No se pudo reabrir la caja.");
-    } finally {
-      setReopeningInProgress(false);
-    }
-  };
+  const isActionable = (status: string) =>
+    status !== "completed" && status !== "cancelled";
+
+  const paymentSummaryEntries = Object.entries(report.totals_by_payment);
+
+  const tableData = useMemo<DailyClosingItemWithId[]>(
+    () => report.items.map((item) => ({ ...item, id: item.appointment_id })),
+    [report.items]
+  );
+
+  const columns: DataTableColumn<DailyClosingItemWithId>[] = [
+    {
+      key: "codes",
+      header: "Ticket / Venta",
+      render: (item) => (
+        <div>
+          <p className="font-mono text-[11px] font-bold text-[#323130]">
+            {item.ticket_code ?? `#${item.appointment_id}`}
+          </p>
+          {item.sale_code && (
+            <p className="font-mono text-[10px] text-[#a19f9d]">{item.sale_code}</p>
+          )}
+        </div>
+      ),
+      getValue: (item) => item.ticket_code ?? String(item.appointment_id),
+    },
+    {
+      key: "client_name",
+      header: "Cliente",
+      render: (item) => (
+        <span className="font-medium text-[#323130]">{item.client_name}</span>
+      ),
+      sortable: true,
+      getValue: (item) => item.client_name,
+    },
+    {
+      key: "services",
+      header: "Servicio(s)",
+      render: (item) => (
+        <div className="flex flex-wrap gap-1">
+          {item.service_names.map((svc, i) => (
+            <span
+              key={i}
+              className="rounded-sm border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]"
+            >
+              {svc}
+            </span>
+          ))}
+        </div>
+      ),
+      getValue: (item) => item.service_names.join(", "),
+    },
+    {
+      key: "professional_name",
+      header: "Operaria",
+      render: (item) => (
+        <span className="whitespace-nowrap">
+          {item.professional_name}
+          <span className="ml-1 text-[10px] text-[#a19f9d]">
+            {(item.commission_rate * 100).toFixed(0)}%
+          </span>
+        </span>
+      ),
+      sortable: true,
+      getValue: (item) => item.professional_name,
+    },
+    {
+      key: "start_time",
+      header: "Hora",
+      render: (item) => (
+        <span className="whitespace-nowrap font-mono text-[11px] text-[#605e5c]">
+          {fmtTime(item.start_time)}
+          <span className="block text-[9px] text-[#a19f9d]">{fmtDate(item.start_time)}</span>
+        </span>
+      ),
+      sortable: true,
+      getValue: (item) => item.start_time,
+    },
+    {
+      key: "status",
+      header: "Estado",
+      render: (item) => (
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_CLASS[item.status] ?? "bg-gray-100 text-gray-700"}`}>
+          {STATUS_LABELS[item.status] ?? item.status}
+        </span>
+      ),
+      sortable: true,
+      getValue: (item) => STATUS_LABELS[item.status] ?? item.status,
+    },
+    {
+      key: "payment_method",
+      header: "Pago",
+      render: (item) => <PaymentBadge method={item.is_paid ? (item.payment_method ?? null) : null} />,
+      getValue: (item) => item.is_paid ? (item.payment_method ?? "") : "",
+    },
+    {
+      key: "total_price",
+      header: "Monto / Saldo",
+      render: (item) => (
+        <div className="whitespace-nowrap">
+          <p className="font-semibold text-[#323130]">Bs {item.total_price.toFixed(2)}</p>
+          {item.balance_due > 0 ? (
+            <p className="text-[10px] font-semibold text-[#d83b01]">
+              Debe Bs {item.balance_due.toFixed(2)}
+            </p>
+          ) : item.is_paid ? (
+            <p className="text-[10px] font-semibold text-[#107c10]">Saldado</p>
+          ) : null}
+        </div>
+      ),
+      sortable: true,
+      getValue: (item) => item.total_price,
+    },
+    {
+      key: "commission",
+      header: "Comisión",
+      render: (item) => {
+        const isCompleted = item.status === "completed" || item.status === "confirmed";
+        if (isCompleted)
+          return <span className="whitespace-nowrap font-semibold text-[#0078d4]">Bs {item.commission.toFixed(2)}</span>;
+        if (item.status === "cancelled")
+          return <span className="text-[10px] text-[#a19f9d]">—</span>;
+        return <span className="text-[10px] text-[#8a6a1f]">Pend.</span>;
+      },
+      sortable: true,
+      getValue: (item) => item.commission,
+    },
+    {
+      key: "row_actions",
+      header: "Acciones",
+      filterable: false,
+      searchable: false,
+      render: (item) => (
+        <div className="flex flex-col gap-1">
+          {!item.is_paid && item.sale_id ? (
+            cobrandoSaleId === item.sale_id ? (
+              <div className="flex flex-wrap items-center gap-1">
+                <select
+                  value={cobrandoMethod}
+                  onChange={(e) => setCobrandoMethod(e.target.value)}
+                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1 text-[10px] text-[#323130] outline-none"
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="qr">QR</option>
+                  <option value="transfer">Transferencia</option>
+                  <option value="card">Tarjeta</option>
+                </select>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => void registrarPago(item.sale_id!)}
+                  disabled={cobrandoLoading}
+                >
+                  {cobrandoLoading ? "…" : "OK"}
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setCobrandoSaleId(null)}>
+                  ✕
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setCobrandoSaleId(item.sale_id!); setCobrandoMethod("cash"); }}
+              >
+                Cobrar
+              </Button>
+            )
+          ) : null}
+          {isActionable(item.status) && (
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="primary"
+                leftIcon={<CheckCircle size={10} />}
+                onClick={() => updateStatus(item.appointment_id, "completed")}
+                disabled={updatingId === item.appointment_id}
+              >
+                Finalizar
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                leftIcon={<XCircle size={10} />}
+                onClick={() => updateStatus(item.appointment_id, "cancelled")}
+                disabled={updatingId === item.appointment_id}
+              >
+                Cancelar
+              </Button>
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -424,67 +529,15 @@ export default function CierreDeCaja() {
           <h1 className="text-xl font-bold text-[#1b1a19]">Cierre de Caja</h1>
           <p className="mt-0.5 text-sm text-[#605e5c]">Reporte diario de tickets por operaria</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => printReport(date, selectedBranchName, selectedProfessionalName, report, receipts, cashClose)}
-            disabled={report.items.length === 0}
-            className="flex items-center gap-2 rounded-sm border border-[#063324] bg-white px-3 py-2 text-sm font-semibold text-[#063324] hover:bg-[#f0fdf4] disabled:opacity-40"
-          >
-            <Printer size={15} />
-            Imprimir PDF
-          </button>
-
-          {/* Botón principal: Cerrar / Reabrir caja */}
-          {!isClosed ? (
-            <button
-              onClick={() => setShowCloseDialog(true)}
-              disabled={report.items.length === 0 || loading}
-              className="flex items-center gap-2 rounded-sm bg-[#063324] px-4 py-2 text-sm font-semibold text-white hover:bg-[#094d33] disabled:opacity-40"
-            >
-              <Lock size={15} />
-              Cerrar Caja
-            </button>
-          ) : (
-            <button
-              onClick={() => void handleReopenCaja()}
-              disabled={reopeningInProgress}
-              className="flex items-center gap-2 rounded-sm border border-[#d83b01] bg-white px-3 py-2 text-sm font-semibold text-[#d83b01] hover:bg-[#fff4f0] disabled:opacity-40"
-            >
-              <LockOpen size={15} />
-              {reopeningInProgress ? "Reabriendo…" : "Reabrir Caja"}
-            </button>
-          )}
-        </div>
+        <Button
+          variant="primary"
+          leftIcon={<Printer size={15} />}
+          onClick={() => printReport(date, selectedBranchName, selectedProfessionalName, report, paymentConfirmations)}
+          disabled={report.items.length === 0}
+        >
+          Imprimir PDF
+        </Button>
       </div>
-
-      {/* Banner de caja cerrada */}
-      {isClosed && cashClose && (
-        <div className="mb-5 flex items-center gap-3 rounded-sm border border-[#107c10] bg-[#f0fdf4] px-4 py-3">
-          <Lock size={18} className="shrink-0 text-[#107c10]" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-[#107c10]">Caja cerrada</p>
-            <p className="text-xs text-[#605e5c]">
-              Cerrada el {fmtDateTime(cashClose.closed_at)}
-              {cashClose.closed_by_name ? ` por ${cashClose.closed_by_name}` : ""}
-              {cashClose.notes ? ` · "${cashClose.notes}"` : ""}
-            </p>
-          </div>
-          <div className="hidden shrink-0 gap-4 text-right sm:flex">
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#605e5c]">Cobrado</p>
-              <p className="text-sm font-bold text-[#107c10]">Bs {cashClose.total_paid.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#605e5c]">Sin cobrar</p>
-              <p className="text-sm font-bold text-[#d83b01]">Bs {cashClose.total_unpaid.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase text-[#605e5c]">Comisiones</p>
-              <p className="text-sm font-bold text-[#0078d4]">Bs {cashClose.grand_commission.toFixed(2)}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filtros */}
       <div className="mb-5 flex flex-wrap gap-3">
@@ -492,7 +545,9 @@ export default function CierreDeCaja() {
           {
             label: "Fecha",
             content: (
-              <input type="date" value={date}
+              <input
+                type="date"
+                value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
               />
@@ -501,7 +556,8 @@ export default function CierreDeCaja() {
           {
             label: "Sucursal",
             content: (
-              <select value={branchId ?? ""}
+              <select
+                value={branchId ?? ""}
                 onChange={(e) => setBranchId(e.target.value === "" ? null : Number(e.target.value))}
                 className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
               >
@@ -513,7 +569,8 @@ export default function CierreDeCaja() {
           {
             label: "Operaria",
             content: (
-              <select value={professionalId ?? ""}
+              <select
+                value={professionalId ?? ""}
                 onChange={(e) => setProfessionalId(e.target.value === "" ? null : Number(e.target.value))}
                 className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
               >
@@ -537,329 +594,126 @@ export default function CierreDeCaja() {
       {/* Tarjetas de resumen */}
       {!loading && report.items.length > 0 && (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <div className="rounded-sm border border-[#edebe9] bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Total cobrado</p>
-            <p className="mt-1 text-lg font-bold text-[#107c10]">Bs {report.total_paid.toFixed(2)}</p>
-          </div>
-          <div className="rounded-sm border border-[#edebe9] bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Sin cobrar</p>
-            <p className={`mt-1 text-lg font-bold ${report.total_unpaid > 0 ? "text-[#d83b01]" : "text-[#a19f9d]"}`}>
-              Bs {report.total_unpaid.toFixed(2)}
-            </p>
-          </div>
+          <StatCard
+            label="Total cobrado"
+            value={`Bs ${report.total_paid.toFixed(2)}`}
+            tone="emerald"
+            icon={<Banknote size={14} />}
+          />
+          {report.total_unpaid > 0 && (
+            <StatCard
+              label="Sin cobrar"
+              value={`Bs ${report.total_unpaid.toFixed(2)}`}
+              tone="amber"
+              helperText="Tickets completados sin pago"
+            />
+          )}
           {paymentSummaryEntries.map(([method, total]) => {
             const Icon = PAYMENT_ICONS[method] ?? Banknote;
             return (
-              <div key={method} className="rounded-sm border border-[#edebe9] bg-white p-3 shadow-sm">
-                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                  <Icon size={11} />{PAYMENT_LABELS[method] ?? method}
-                </p>
-                <p className="mt-1 text-lg font-bold text-[#323130]">Bs {total.toFixed(2)}</p>
-              </div>
+              <StatCard
+                key={method}
+                label={PAYMENT_LABELS[method] ?? method}
+                value={`Bs ${total.toFixed(2)}`}
+                tone="slate"
+                icon={<Icon size={14} />}
+              />
             );
           })}
-          <div className="rounded-sm border border-[#edebe9] bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Comisiones</p>
-            <p className="mt-1 text-lg font-bold text-[#0078d4]">Bs {report.grand_commission.toFixed(2)}</p>
-          </div>
+          <StatCard
+            label="Comisiones a pagar"
+            value={`Bs ${report.grand_commission.toFixed(2)}`}
+            tone="blue"
+            icon={<Wallet size={14} />}
+          />
         </div>
       )}
 
-      {/* Resumen por operaria con confirmación de comisión persistida */}
+      {/* Confirmación de comisiones por operaria */}
       {!loading && report.summary_by_professional.length > 0 && (
-        <div className="mb-5 overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#f3f2f1] px-4 py-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#323130]">Resumen por operaria</p>
-            {!isClosed && !allCommissionsConfirmed && (
-              <span className="text-[11px] text-[#8a6a1f]">⚠ Confirma las comisiones antes de cerrar</span>
-            )}
-            {allCommissionsConfirmed && (
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-[#107c10]">
-                <CheckCircle2 size={13} /> Todas las comisiones confirmadas
-              </span>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-[#edebe9] bg-[#faf9f8]">
-                  {["Operaria", "Tickets", "Total Bs", "% Comisión", "Comisión Bs", "Confirmación"].map((h) => (
-                    <th key={h} className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[#605e5c]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {report.summary_by_professional.map((p) => {
-                  const conf = receiptMap.get(p.professional_name);
-                  const isConfirming = confirmingKey === p.professional_name;
-                  return (
-                    <tr key={p.professional_name} className="border-b border-[#edebe9]">
-                      <td className="px-4 py-2 font-medium text-[#323130]">{p.professional_name}</td>
-                      <td className="px-4 py-2 text-[#605e5c]">{p.ticket_count}</td>
-                      <td className="px-4 py-2 font-semibold text-[#323130]">Bs {p.total_price.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-[#605e5c]">{(p.commission_rate * 100).toFixed(0)}%</td>
-                      <td className="px-4 py-2 font-semibold text-[#0078d4]">Bs {p.commission.toFixed(2)}</td>
-                      <td className="px-4 py-2">
-                        {conf ? (
-                          <div>
-                            <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800">
-                              ✓ Confirmado
-                            </span>
-                            <p className="mt-0.5 text-[10px] text-[#605e5c]">
-                              {fmtDateTime(conf.confirmed_at)}
-                              {conf.confirmed_by_name ? ` · por ${conf.confirmed_by_name}` : ""}
-                            </p>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isClosed || isConfirming}
-                            onClick={() => void confirmCommission({ professional_id: p.professional_id, professional_name: p.professional_name, commission: p.commission })}
-                            className="rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-3 py-1 text-[11px] font-semibold text-[#323130] hover:bg-[#edebe9] disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isConfirming ? "Guardando…" : "Confirmar recibo"}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tabla de tickets */}
-      <div className={`overflow-hidden rounded-sm border bg-white shadow-sm ${isClosed ? "border-[#107c10]/30" : "border-[#edebe9]"}`}>
-        {isClosed && (
-          <div className="flex items-center gap-2 border-b border-[#107c10]/20 bg-[#f0fdf4] px-4 py-2 text-xs font-semibold text-[#107c10]">
-            <Lock size={13} />
-            Caja cerrada — los tickets no se pueden modificar
-          </div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-250 border-collapse text-sm">
+        <SectionCard
+          variant="business"
+          className="mb-5"
+          bodyClassName="!p-0"
+          title="Confirmación de comisiones"
+          subtitle="Marcá cada operaria cuando le hayas entregado su comisión · Solo tickets completados"
+        >
+          <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-[#edebe9] bg-[#f3f2f1]">
-                {["#", "Ticket", "Venta", "Cliente", "Servicio(s)", "Operaria",
-                  "Fecha/Hora", "Estado", "Pago", "Precio", "Adelanto", "Saldo", "Comisión", "Acciones"].map((col) => (
-                  <th key={col} className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#605e5c]">{col}</th>
+              <tr className="border-b border-[#edebe9] bg-[#faf9f8]">
+                {["Operaria", "Tickets", "Total Bs", "% Com.", "Comisión Bs", "Confirmación"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#605e5c]">
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={14} className="py-10 text-center text-sm text-[#605e5c]">Cargando...</td></tr>
-              ) : report.items.length === 0 ? (
-                <tr><td colSpan={14} className="py-10 text-center text-sm text-[#605e5c]">No hay tickets para esta fecha y sucursal.</td></tr>
-              ) : (
-                <>
-                  {report.items.map((item, idx) => (
-                    <tr key={item.appointment_id}
-                      className={`border-b border-[#edebe9] transition hover:bg-[#faf9f8] ${item.status === "cancelled" ? "opacity-60" : ""}`}>
-                      <td className="px-3 py-2 text-[#605e5c]">{idx + 1}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-[#323130]">{item.ticket_code ?? "-"}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-[#605e5c]">{item.sale_code ?? <span className="text-[#a19f9d]">—</span>}</td>
-                      <td className="px-3 py-2 text-[#323130]">{item.client_name}</td>
-                      <td className="max-w-45 px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {item.service_names.map((svc, i) => (
-                            <span key={i} className="rounded-sm border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]">{svc}</span>
-                          ))}
+              {report.summary_by_professional.map((p) => {
+                const key = String(p.professional_id ?? p.professional_name);
+                const conf = paymentConfirmations[key];
+                return (
+                  <tr key={key} className="border-b border-[#edebe9]">
+                    <td className="px-3 py-2 font-medium text-[#323130]">{p.professional_name}</td>
+                    <td className="px-3 py-2 text-[#605e5c]">{p.ticket_count}</td>
+                    <td className="px-3 py-2 font-semibold text-[#323130]">Bs {p.total_price.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-[#605e5c]">{(p.commission_rate * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-2 font-semibold text-[#0078d4]">Bs {p.commission.toFixed(2)}</td>
+                    <td className="px-4 py-2">
+                      {conf ? (
+                        <div>
+                          <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800">
+                            ✓ Confirmado
+                          </span>
+                          <p className="mt-0.5 text-[10px] text-[#605e5c]">{conf.confirmedAt}</p>
                         </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-[#323130]">
-                        {item.professional_name}
-                        <span className="ml-1 text-[10px] text-[#a19f9d]">({(item.commission_rate * 100).toFixed(0)}%)</span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-xs text-[#605e5c]">
-                        {fmtDate(item.start_time)}<br />
-                        <span className="font-semibold text-[#323130]">{fmtTime(item.start_time)}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_CLASS[item.status] ?? "bg-gray-100 text-gray-700"}`}>
-                          {STATUS_LABELS[item.status] ?? item.status}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <PaymentBadge method={item.is_paid ? (item.payment_method ?? null) : null} />
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 font-semibold text-[#323130]">Bs {item.total_price.toFixed(2)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        {item.advance_payment_amount > 0 ? (
-                          <span className="font-semibold text-emerald-700">Bs {item.advance_payment_amount.toFixed(2)}</span>
-                        ) : <span className="text-[10px] text-[#a19f9d]">—</span>}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        {item.balance_due > 0 ? (
-                          <span className="font-semibold text-[#d83b01]">Bs {item.balance_due.toFixed(2)}</span>
-                        ) : item.is_paid ? (
-                          <span className="text-[10px] font-semibold text-[#107c10]">Saldado</span>
-                        ) : <span className="text-[10px] text-[#a19f9d]">—</span>}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 font-semibold text-[#0078d4]">Bs {item.commission.toFixed(2)}</td>
-                      <td className="px-3 py-2">
-                        {isClosed ? (
-                          <span className="text-[10px] text-[#a19f9d]">—</span>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            {!item.is_paid && item.sale_id ? (
-                              cobrandoSaleId === item.sale_id ? (
-                                <div className="flex items-center gap-1">
-                                  <select value={cobrandoMethod} onChange={(e) => setCobrandoMethod(e.target.value)}
-                                    className="h-7 rounded-sm border border-[#8a8886] bg-white px-1 text-[10px] text-[#323130] outline-none">
-                                    <option value="cash">Efectivo</option>
-                                    <option value="qr">QR</option>
-                                    <option value="transfer">Transferencia</option>
-                                    <option value="card">Tarjeta</option>
-                                  </select>
-                                  <button onClick={() => void registrarPago(item.sale_id!)} disabled={cobrandoLoading}
-                                    className="rounded-sm bg-[#107c10] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#0b5e0b] disabled:opacity-50">
-                                    {cobrandoLoading ? "…" : "Confirmar"}
-                                  </button>
-                                  <button onClick={() => setCobrandoSaleId(null)}
-                                    className="rounded-sm border border-[#edebe9] bg-white px-2 py-1 text-[10px] font-semibold text-[#323130] hover:bg-[#f3f2f1]">
-                                    Cancelar
-                                  </button>
-                                </div>
-                              ) : (
-                                <button onClick={() => { setCobrandoSaleId(item.sale_id!); setCobrandoMethod("cash"); }}
-                                  className="rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-2 py-1 text-[10px] font-semibold text-[#323130] hover:bg-[#edebe9]">
-                                  Registrar pago
-                                </button>
-                              )
-                            ) : null}
-                            {isActionable(item.status) && (
-                              <div className="flex gap-1">
-                                <button onClick={() => updateStatus(item.appointment_id, "completed")}
-                                  disabled={updatingId === item.appointment_id}
-                                  className="flex items-center gap-1 rounded-sm bg-green-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-                                  <CheckCircle size={11} /> Finalizar
-                                </button>
-                                <button onClick={() => updateStatus(item.appointment_id, "cancelled")}
-                                  disabled={updatingId === item.appointment_id}
-                                  className="flex items-center gap-1 rounded-sm bg-red-500 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-600 disabled:opacity-50">
-                                  <XCircle size={11} /> Cancelar
-                                </button>
-                              </div>
-                            )}
-                            {item.is_paid && !isActionable(item.status) && (
-                              <span className="text-[10px] text-[#a19f9d]">—</span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Fila de totales */}
-                  <tr className="border-t-2 border-[#063324] bg-[#f0fdf4]">
-                    <td colSpan={9} className="px-3 py-2.5 text-right text-sm font-bold text-[#323130]">TOTALES</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-[#323130]">Bs {report.grand_total.toFixed(2)}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-emerald-700">
-                      Bs {report.items.reduce((s, i) => s + i.advance_payment_amount, 0).toFixed(2)}
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => confirmPayment(key, p.commission)}
+                        >
+                          Confirmar recibo
+                        </Button>
+                      )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-[#d83b01]">
-                      Bs {report.items.reduce((s, i) => s + i.balance_due, 0).toFixed(2)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-[#0078d4]">Bs {report.grand_commission.toFixed(2)}</td>
-                    <td />
                   </tr>
-                </>
-              )}
+                );
+              })}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* ── Modal de confirmación de cierre ──────────────────────────────── */}
-      {showCloseDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-2xl">
-            {/* Header */}
-            <div className="border-b border-[#edebe9] bg-[#063324] px-5 py-4">
-              <p className="flex items-center gap-2 text-base font-bold text-white">
-                <Lock size={18} /> Cerrar Caja — {date}
-              </p>
-              {selectedBranchName && (
-                <p className="mt-0.5 text-xs text-white/70">{selectedBranchName}</p>
-              )}
-            </div>
-
-            {/* Resumen */}
-            <div className="px-5 py-4">
-              <div className="mb-4 grid grid-cols-2 gap-3">
-                {[
-                  { label: "Total cobrado", value: `Bs ${report.total_paid.toFixed(2)}`, color: "text-[#107c10]" },
-                  { label: "Sin cobrar", value: `Bs ${report.total_unpaid.toFixed(2)}`, color: report.total_unpaid > 0 ? "text-[#d83b01]" : "text-[#a19f9d]" },
-                  { label: "Total general", value: `Bs ${report.grand_total.toFixed(2)}`, color: "text-[#323130]" },
-                  { label: "Total comisiones", value: `Bs ${report.grand_commission.toFixed(2)}`, color: "text-[#0078d4]" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2.5">
-                    <p className="text-[10px] font-semibold uppercase text-[#605e5c]">{label}</p>
-                    <p className={`text-base font-bold ${color}`}>{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Advertencias */}
-              {(pendingCount > 0 || unpaidCount > 0 || !allCommissionsConfirmed) && (
-                <div className="mb-4 space-y-2">
-                  {pendingCount > 0 && (
-                    <div className="flex items-start gap-2 rounded-sm border border-[#ffd7c1] bg-[#fff4f0] px-3 py-2 text-xs">
-                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#d83b01]" />
-                      <span className="text-[#d83b01]">
-                        <strong>{pendingCount}</strong> ticket(s) aún pendientes o en servicio. Podés cerrar igual, pero quedarán registrados como incompletos.
-                      </span>
-                    </div>
-                  )}
-                  {unpaidCount > 0 && (
-                    <div className="flex items-start gap-2 rounded-sm border border-[#ffd7c1] bg-[#fff4f0] px-3 py-2 text-xs">
-                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#d83b01]" />
-                      <span className="text-[#d83b01]">
-                        <strong>{unpaidCount}</strong> venta(s) sin cobrar. El total sin cobrar es Bs {report.total_unpaid.toFixed(2)}.
-                      </span>
-                    </div>
-                  )}
-                  {!allCommissionsConfirmed && (
-                    <div className="flex items-start gap-2 rounded-sm border border-[#fff4ce] bg-[#fffbf0] px-3 py-2 text-xs">
-                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#8a6a1f]" />
-                      <span className="text-[#8a6a1f]">
-                        Hay comisiones sin confirmar. Podés cerrar igual, pero se recomienda confirmarlas antes.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Notas */}
-              <div className="mb-4">
-                <label className="mb-1 block text-xs font-semibold text-[#605e5c]">Notas del cierre (opcional)</label>
-                <textarea
-                  value={closeNotes}
-                  onChange={(e) => setCloseNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Observaciones, diferencias, incidencias..."
-                  className="w-full resize-none rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none focus:border-[#063324] focus:ring-1 focus:ring-[#063324]/20"
-                />
-              </div>
-            </div>
-
-            {/* Acciones */}
-            <div className="flex gap-2 border-t border-[#edebe9] bg-[#faf9f8] px-5 py-3">
-              <button type="button" onClick={() => setShowCloseDialog(false)} disabled={closingInProgress}
-                className="flex-1 rounded-sm border border-[#edebe9] bg-white py-2 text-sm font-semibold text-[#323130] hover:bg-[#f3f2f1] disabled:opacity-50">
-                Cancelar
-              </button>
-              <button type="button" onClick={() => void handleCloseCaja()} disabled={closingInProgress}
-                className="flex flex-1 items-center justify-center gap-2 rounded-sm bg-[#063324] py-2 text-sm font-semibold text-white hover:bg-[#094d33] disabled:opacity-50">
-                <Lock size={14} />
-                {closingInProgress ? "Cerrando…" : "Confirmar cierre"}
-              </button>
-            </div>
-          </div>
-        </div>
+        </SectionCard>
       )}
+
+      {/* Tabla de tickets — DataTable común */}
+      <SectionCard
+        variant="business"
+        title="Detalle de tickets"
+        subtitle={`${report.items.length} ticket(s) · Solo completados cuentan para comisión`}
+        bodyClassName="!p-3"
+      >
+        {!loading && report.items.length > 0 && (
+          <div className="mb-3 flex items-center gap-4 rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-xs">
+            <span className="font-bold text-[#323130]">
+              Total: <span className="text-[#0078d4]">Bs {report.grand_total.toFixed(2)}</span>
+            </span>
+            <span className="text-[#605e5c]">|</span>
+            <span className="font-bold text-[#323130]">
+              Comisiones: <span className="text-[#0078d4]">Bs {report.grand_commission.toFixed(2)}</span>
+            </span>
+          </div>
+        )}
+        <DataTable
+          data={tableData}
+          columns={columns}
+          loading={loading}
+          enableGlobalSearch
+          globalSearchPlaceholder="Buscar ticket, cliente, servicio…"
+          enableColumnFilters
+          tableMinWidth="min-w-[920px]"
+          availableLimits={[10, 25, 50]}
+        />
+      </SectionCard>
     </div>
   );
 }

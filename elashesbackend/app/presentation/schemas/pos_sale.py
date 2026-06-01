@@ -21,6 +21,11 @@ class PosSaleItemCreate(BaseModel):
     branch_id: Optional[int] = Field(default=None, ge=1)
 
 
+class MixedPaymentEntry(BaseModel):
+    method: str = Field(..., min_length=2, max_length=50)
+    amount: float = Field(..., gt=0)
+
+
 class PosSaleCreate(BaseModel):
     client_id: int = Field(..., ge=1)
     branch_id: Optional[int] = Field(default=None, ge=1)
@@ -41,6 +46,10 @@ class PosSaleCreate(BaseModel):
     reservation_only: bool = Field(
         default=False,
         description="Solo reserva en agenda: una venta reserved, varios tickets, sin pago.",
+    )
+    mixed_payments: Optional[List[MixedPaymentEntry]] = Field(
+        default=None,
+        description="Pago mixto: lista de {method, amount}. Si se provee, payment_method se ignora y se usa 'mixed'.",
     )
 
 

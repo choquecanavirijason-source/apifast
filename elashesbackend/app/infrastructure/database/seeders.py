@@ -208,39 +208,6 @@ def seed_users(db: Session, roles: dict, branches: dict):
             "skill_level": None,
             "is_active": True,
         },
-        # Nivel 5: atiende servicios complejos, varios servicios por cita
-        {
-            "username": "operaria1",
-            "email": "operaria1@elashes.com",
-            "phone": "+59170000003",
-            "password": "operaria123",
-            "role": "Operaria",
-            "branch": "Sucursal Principal",
-            "skill_level": 5,
-            "is_active": True,
-        },
-        # Nivel 2: en formación, atiende retoques simples
-        {
-            "username": "operaria2",
-            "email": "operaria2@elashes.com",
-            "phone": "+59170000005",
-            "password": "operaria123",
-            "role": "Operaria",
-            "branch": "Sucursal Principal",
-            "skill_level": 2,
-            "is_active": True,
-        },
-        # Nivel 4: experimentada, puede moverse entre sucursales
-        {
-            "username": "operaria3",
-            "email": "operaria3@elashes.com",
-            "phone": "+59170000006",
-            "password": "operaria123",
-            "role": "Operaria",
-            "branch": "Sucursal Norte",
-            "skill_level": 4,
-            "is_active": True,
-        },
         {
             "username": "almacen1",
             "email": "almacen1@elashes.com",
@@ -1057,7 +1024,7 @@ def run_seeders(db: Session):
     seed_inventory(db, branches)
 
     print(">>> Seeders ejecutados correctamente <<<")
-    print("   Usuarios: admin / secretaria1 / operaria1 / operaria2 / operaria3 / almacen1")
-    print("   Contraseñas: admin123 | secretaria123 | operaria123 | almacen123")
+    print("   Usuarios: admin / secretaria1 / almacen1")
+    print("   Contraseñas: admin123 | secretaria123 | almacen123")
     print("   Sucursales: Sucursal Principal | Sucursal Norte")
     print("   Sin clientes de prueba — créalos desde el POS")

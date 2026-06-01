@@ -1,9 +1,12 @@
+from datetime import date as date_type
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_role, require_any_role, SUPER_ADMIN_ROLE
+from app.domain.entities.branch import Branch
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.user import (
@@ -258,3 +261,61 @@ def delete_existing_user(
         current_user_id=current_user.id,
     )
     return MessageResponse(message="Usuario eliminado correctamente")
+
+
+# ── Reasignación de sucursal ──────────────────────────────────────────────────
+
+class BranchAssignmentPayload(BaseModel):
+    """
+    Reasignación de sucursal para una operaria.
+    - permanent=True  → mueve branch_id permanentemente, borra temp.
+    - permanent=False → asigna temp_branch_id hasta temp_until (YYYY-MM-DD).
+    - branch_id=None  → limpia la asignación temporal (vuelve a la de origen).
+    """
+    branch_id: Optional[int] = None
+    permanent: bool = False
+    temp_until: Optional[str] = None   # YYYY-MM-DD, requerido si permanent=False y branch_id != None
+
+
+@router.patch("/users/{user_id}/branch-assignment", response_model=UserResponse)
+def assign_branch(
+    user_id: int,
+    payload: BranchAssignmentPayload,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if payload.branch_id is None:
+        # Limpiar asignación temporal
+        user.temp_branch_id = None
+        user.temp_branch_until = None
+        db.commit()
+        db.refresh(user)
+        return user
+
+    branch = db.query(Branch).filter(Branch.id == payload.branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
+    if payload.permanent:
+        user.branch_id = payload.branch_id
+        user.temp_branch_id = None
+        user.temp_branch_until = None
+    else:
+        if not payload.temp_until:
+            raise HTTPException(status_code=400, detail="temp_until es requerido para asignaciones temporales (YYYY-MM-DD)")
+        try:
+            until = date_type.fromisoformat(payload.temp_until)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+        if until < date_type.today():
+            raise HTTPException(status_code=400, detail="La fecha de fin no puede ser en el pasado")
+        user.temp_branch_id = payload.branch_id
+        user.temp_branch_until = until
+
+    db.commit()
+    db.refresh(user)
+    return user

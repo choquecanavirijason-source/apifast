@@ -13,6 +13,11 @@ export interface PosSaleItemPayload {
   branch_id?: number | null;
 }
 
+export interface MixedPaymentEntry {
+  method: string;
+  amount: number;
+}
+
 export interface PosSaleCreatePayload {
   client_id: number;
   branch_id?: number | null;
@@ -27,6 +32,8 @@ export interface PosSaleCreatePayload {
   sale_without_appointments?: boolean;
   /** Reserva en agenda: venta reserved + tickets, sin cobro. */
   reservation_only?: boolean;
+  /** Pago mixto: lista de {method, amount}. Cuando se usa, payment_method se ignora. */
+  mixed_payments?: MixedPaymentEntry[];
 }
 
 export interface PosSaleUpdatePayload {
@@ -81,10 +88,11 @@ export interface PosSaleItem {
 
 /** Normaliza el body para FastAPI (evita strings vacíos en professional_id, etc.) */
 function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, unknown> {
+  const hasMixed = payload.mixed_payments && payload.mixed_payments.length > 0;
   return {
     client_id: payload.client_id,
     branch_id: payload.branch_id ?? null,
-    payment_method: payload.payment_method.trim().toLowerCase(),
+    payment_method: hasMixed ? "mixed" : payload.payment_method.trim().toLowerCase(),
     discount_type: payload.discount_type,
     discount_value: Number(payload.discount_value) || 0,
     ...(payload.notes?.trim() ? { notes: payload.notes.trim() } : {}),
@@ -93,6 +101,14 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       : {}),
     ...(payload.sale_without_appointments ? { sale_without_appointments: true } : {}),
     ...(payload.reservation_only ? { reservation_only: true } : {}),
+    ...(hasMixed
+      ? {
+          mixed_payments: payload.mixed_payments!.map((e) => ({
+            method: e.method.trim().toLowerCase(),
+            amount: Number(e.amount),
+          })),
+        }
+      : {}),
     items: payload.items.map((item) => ({
       ...(item.service_ids?.length ? { service_ids: item.service_ids } : {}),
       ...(item.service_id != null && item.service_id > 0 && !item.service_ids?.length

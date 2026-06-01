@@ -21,7 +21,7 @@ import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import Layout from "../../../components/common/layout";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
 import SalesHistoryTable from "./components/SalesHistoryTable";
@@ -225,6 +225,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [clientId,         setClientId]         = useState("");
   const [clientSearch,     setClientSearch]     = useState("");
   const [paymentMethod,    setPaymentMethod]     = useState("");
+  const [mixedPayments,    setMixedPayments]     = useState<Array<{ method: string; amount: number }>>([]);
   const [discountType,     setDiscountType]      = useState<"amount" | "percent">("amount");
   const [discountValue,    setDiscountValue]     = useState("0");
   const [notes,            setNotes]             = useState("");
@@ -234,11 +235,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [sellerId,         setSellerId]          = useState("");
   /** Modo de emisión de tickets: un ticket por servicio, o todos en un solo ticket grupal. */
   const [ticketMode, setTicketMode] = useState<"individual" | "group">("individual");
-  /** Feature 2: pagos divididos. */
-  const [splitPayments, setSplitPayments] = useState<import("./pos.types").SplitPayment[]>([]);
-  /** Feature 6: venta sin cliente registrado. */
-  const [isAnonymousSale, setIsAnonymousSale] = useState(false);
-  const [anonymousName,   setAnonymousName]   = useState("");
 
   // UI
   const [isSubmitting,        setIsSubmitting]        = useState(false);
@@ -297,14 +293,10 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           const fullName = `${client.nombre} ${client.apellido}`.toLowerCase();
           const phone    = (client.phone ?? "").toLowerCase();
           const phoneDigits = phone.replace(/\D/g, "");
-          // Feature 4: búsqueda por CI
-          const ci = (client.ci ?? "").toLowerCase();
           return (
             fullName.includes(term) ||
             (Boolean(phone) && phone.includes(term)) ||
-            (Boolean(normalizedTermDigits) && phoneDigits.includes(normalizedTermDigits)) ||
-            (Boolean(ci) && ci.includes(term)) ||
-            (Boolean(normalizedTermDigits) && ci.replace(/\D/g, "").includes(normalizedTermDigits))
+            (Boolean(normalizedTermDigits) && phone.replace(/\D/g, "").includes(normalizedTermDigits))
           );
         })
       : clients;
@@ -687,9 +679,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         typeof parsed.selectedServiceCategoryId === "string" ? parsed.selectedServiceCategoryId : "all"
       );
       setSellerId(typeof parsed.sellerId === "string" ? parsed.sellerId : "");
-      setSplitPayments(Array.isArray(parsed.splitPayments) ? parsed.splitPayments : []);
-      setIsAnonymousSale(parsed.isAnonymousSale === true);
-      setAnonymousName(typeof parsed.anonymousName === "string" ? parsed.anonymousName : "");
     } catch (error) {
       console.error("Error leyendo borrador POS:", error);
       sessionStorage.removeItem(draftKey);
@@ -861,10 +850,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       cartLines.length === 0 &&
       !serviceSearch &&
       selectedServiceCategoryId === "all" &&
-      !sellerId &&
-      splitPayments.length === 0 &&
-      !isAnonymousSale &&
-      !anonymousName;
+      !sellerId;
 
     if (isEmptyDraft) {
       sessionStorage.removeItem(draftKey);
@@ -882,9 +868,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       serviceSearch,
       selectedServiceCategoryId,
       sellerId,
-      splitPayments,
-      isAnonymousSale,
-      anonymousName,
     };
 
     sessionStorage.setItem(draftKey, JSON.stringify(draft));
@@ -901,9 +884,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     serviceSearch,
     selectedServiceCategoryId,
     sellerId,
-    splitPayments,
-    isAnonymousSale,
-    anonymousName,
   ]);
 
   useEffect(() => {
@@ -1210,13 +1190,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     setServiceSearch("");
     setSelectedServiceCategoryId("all");
     setPaymentMethod("");
+    setMixedPayments([]);
     setDiscountValue("0");
     setNotes("");
     setCartLines([]);
     setSellerId("");
-    setSplitPayments([]);
-    setIsAnonymousSale(false);
-    setAnonymousName("");
     sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     if (embedded) {
       setActiveTab("sale");
@@ -1402,61 +1380,26 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   // ── Turno inmediato (walk-in sin planificador) ────────────────────────────
 
-  const resolveClientIdForCheckout = async (): Promise<number | null> => {
-    if (clientId) return Number(clientId);
-    if (!isAnonymousSale) return null;
-
-    try {
-      const namePart = anonymousName.trim() || "Anónima";
-      const created = await ClientService.create({
-        name: namePart,
-        last_name: "",
-        branch_id: activeBranchId ?? undefined,
-      });
-      setClients((prev) => {
-        const exists = prev.some((c) => String(c.id) === String(created.id));
-        return exists ? prev : [created, ...prev];
-      });
-      setClientId(String(created.id));
-      setClientSearch(namePart);
-      return created.id;
-    } catch {
-      toast.error("No se pudo crear el cliente temporal para la venta anónima.");
-      return null;
-    }
-  };
-
-  const buildEffectivePayment = () => {
-    if (splitPayments.length > 1) {
-      const splitLabel = splitPayments
-        .map((sp) => `${sp.method === "cash" ? "Efectivo" : sp.method === "qr" ? "QR" : sp.method === "card" ? "Tarjeta" : "Transferencia"} Bs ${parseFloat(sp.amount).toFixed(2)}`)
-        .join(" + ");
-      const primaryMethod = splitPayments[0].method;
-      const splitNote = `[Pago mixto: ${splitLabel}]`;
-      const combinedNotes = notes.trim() ? `${splitNote} ${notes.trim()}` : splitNote;
-      return { method: primaryMethod, notes: combinedNotes };
-    }
-    return { method: paymentMethod, notes: notes.trim() || undefined };
-  };
-
   const handleImmediateCheckout = async (payLater: boolean) => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal.");
-    if (!isAnonymousSale && !clientId) return toast.warning("Selecciona una clienta.");
+    if (!clientId)       return toast.warning("Selecciona una clienta.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
-    if (!payLater && splitPayments.length === 0 && !paymentMethod) return toast.warning("Selecciona un método de pago.");
-
-    const effectiveClientId = await resolveClientIdForCheckout();
-    if (!effectiveClientId) return;
-
-    const { method: effectiveMethod, notes: effectiveNotes } = buildEffectivePayment();
+    if (!payLater && mixedPayments.length === 0 && !paymentMethod) return toast.warning("Selecciona un método de pago.");
 
     setIsSubmitting(true);
     try {
       let cursor = Date.now();
       const items = cartLines.map((line) => {
-        const start = new Date(cursor);
         const duration = Math.max(15, line.duration_minutes || 60);
-        const end = new Date(cursor + duration * 60_000);
+        let start: Date;
+        if (line.time_manual && line.date && line.time) {
+          // El usuario fijó una hora manualmente: respetarla
+          const parsed = new Date(`${line.date}T${line.time}:00`);
+          start = Number.isNaN(parsed.getTime()) ? new Date(cursor) : parsed;
+        } else {
+          start = new Date(cursor);
+        }
+        const end = new Date(start.getTime() + duration * 60_000);
         cursor = end.getTime();
         const profId = line.professional_id
           ? Number(line.professional_id)
@@ -1471,14 +1414,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       });
 
       const payload = {
-        client_id: effectiveClientId,
+        client_id: Number(clientId),
         branch_id: activeBranchId,
-        payment_method: payLater ? "cash" : effectiveMethod,
+        payment_method: payLater ? "cash" : (mixedPayments.length > 0 ? "mixed" : paymentMethod),
         discount_type: discountType,
         discount_value: numericDiscount,
-        notes: effectiveNotes || undefined,
+        notes: notes.trim() || undefined,
         items,
         ...(payLater ? { reservation_only: true } : {}),
+        ...(!payLater && mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
       };
 
       const sale = await PosSaleService.create(payload);
@@ -1499,7 +1443,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   const handleCheckout = async () => {
     if (!activeBranchId) return toast.warning("Selecciona una sucursal para la venta.");
-    if (!isAnonymousSale && !clientId) return toast.warning("Selecciona un cliente.");
+    if (!clientId)       return toast.warning("Selecciona un cliente.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
 
     const missingInServiceProfessional = cartLines.some(
@@ -1568,13 +1512,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             .map((appointment) => AgendaService.deleteAppointment(appointment.id))
         );
 
-        const { method: editMethod, notes: editNotes } = buildEffectivePayment();
         const updatedSale = await PosSaleService.update(editingSale.id, {
           client_id: Number(clientId),
-          payment_method: editMethod,
+          payment_method: paymentMethod,
           discount_type: discountType,
           discount_value: numericDiscount,
-          notes: editNotes || "",
+          notes: notes.trim() || "",
         });
 
         const refreshedSale = await PosSaleService.getById(updatedSale.id);
@@ -1642,20 +1585,16 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         });
       };
 
-      const effectiveClientId = await resolveClientIdForCheckout();
-      if (!effectiveClientId) { setIsSubmitting(false); return; }
-
-      const { method: effectiveMethod, notes: effectiveNotes } = buildEffectivePayment();
-
       const payload = {
-        client_id: effectiveClientId,
+        client_id: Number(clientId),
         branch_id: activeBranchId,
-        payment_method: effectiveMethod,
+        payment_method: mixedPayments.length > 0 ? "mixed" : paymentMethod,
         discount_type: discountType,
         discount_value: numericDiscount,
-        notes: effectiveNotes || undefined,
+        notes: notes.trim() || undefined,
         items: buildItems(),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
+        ...(mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
       };
 
       // El backend ya crea los appointments con los datos correctos del planificador.
@@ -2088,7 +2027,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden pb-2 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
         {activeTab === "sale" && !activeBranchId ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8">
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3f2f1]">
               <Building2 className="h-8 w-8 text-[#a19f9d]" />
             </div>
@@ -2096,12 +2035,37 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               <p className="text-base font-semibold text-[#323130]">Selecciona una sucursal</p>
               <p className="mt-1.5 text-sm text-[#605e5c]">
                 Para registrar una venta debes elegir una sucursal específica.
-                Con <strong>«Todas»</strong> el sistema no puede asignar la venta.
               </p>
             </div>
-            <div className="flex items-center gap-2 rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-4 py-2.5 text-xs font-semibold text-[#8a6a1f]">
-              ↑ Usa el selector de sucursal en la barra superior
+            {/* Selector de sucursal inline */}
+            <div className="w-full max-w-xs space-y-2">
+              {branches.length === 0 ? (
+                <p className="text-center text-xs text-[#a19f9d]">Cargando sucursales…</p>
+              ) : (
+                branches.map((branch) => (
+                  <button
+                    key={branch.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBranchId(branch.id);
+                      setActiveBranchId(branch.id);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#0078d4] hover:bg-[#eef6ff]"
+                  >
+                    <Building2 className="h-5 w-5 shrink-0 text-[#0078d4]" />
+                    <div>
+                      <p className="text-sm font-semibold text-[#323130]">{branch.name}</p>
+                      {branch.address && (
+                        <p className="text-xs text-[#605e5c]">{branch.address}</p>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
+            <p className="text-xs text-[#a19f9d]">
+              También puedes cambiarla desde el selector en la barra superior
+            </p>
           </div>
         ) : activeTab === "sale" ? (
           step === 1 ? (
@@ -2163,6 +2127,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               setDiscountType={setDiscountType}
               paymentMethod={paymentMethod}
               setPaymentMethod={setPaymentMethod}
+              mixedPayments={mixedPayments}
+              setMixedPayments={setMixedPayments}
               notes={notes}
               setNotes={setNotes}
               onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
@@ -2186,13 +2152,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               ticketMode={ticketMode}
               setTicketMode={setTicketMode}
               onUpdateTicketTime={handleUpdateTicketTime}
-              existingTickets={existingTickets}
-              splitPayments={splitPayments}
-              setSplitPayments={setSplitPayments}
-              isAnonymousSale={isAnonymousSale}
-              setIsAnonymousSale={setIsAnonymousSale}
-              anonymousName={anonymousName}
-              setAnonymousName={setAnonymousName}
+              onUpdateCartLine={(localId, patch) => updateLine(localId, patch)}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))

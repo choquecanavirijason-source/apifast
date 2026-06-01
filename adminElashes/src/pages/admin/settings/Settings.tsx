@@ -2,9 +2,11 @@ import React, { useRef } from 'react'
 import { applyTheme, themes } from '../../../theme'
 import { theme as defaultColors } from '../../../styles/colors'
 import { useLogo } from '../../../core/hooks/useLogo'
+import useAuth from '../../../core/hooks/useAuth'
 import { ImagePlus, Trash2, CheckCircle2 } from 'lucide-react'
 
 export default function Settings() {
+  const { isAdmin } = useAuth()
   const [theme, setTheme] = React.useState<string>(() => localStorage.getItem('ui:theme') || 'light')
   const [primary, setPrimary] = React.useState<string>(() => localStorage.getItem('ui:primary') || '')
   const [secondary, setSecondary] = React.useState<string>(() => localStorage.getItem('ui:secondary') || '')
@@ -129,114 +131,116 @@ export default function Settings() {
     <div>
       <h2 className="page-title">Ajustes</h2>
 
-      {/* ── LOGO ────────────────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Logo de la aplicación</h3>
-        <p style={{ color: '#8a8a8a', fontSize: 13, marginBottom: 16 }}>
-          Este logo aparece en el menú lateral y en los comprobantes de pago PDF. Formato recomendado: PNG o SVG con fondo transparente. Máx. 500 KB.
-        </p>
+      {/* ── LOGO — solo SuperAdmin ──────────────────────────────────────────── */}
+      {isAdmin() && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Logo de la aplicación</h3>
+          <p style={{ color: '#8a8a8a', fontSize: 13, marginBottom: 16 }}>
+            Este logo aparece en el menú lateral y en los comprobantes de pago PDF. Formato recomendado: PNG o SVG con fondo transparente. Máx. 500 KB.
+          </p>
 
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          {/* Preview del logo actual */}
-          <div style={{
-            width: 160, height: 100,
-            border: '2px dashed #d1d5db',
-            borderRadius: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f9fafb',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}>
-            {logoBase64 ? (
-              <img
-                src={logoBase64}
-                alt="Logo actual"
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: 8 }}
-              />
-            ) : (
-              <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-                <ImagePlus style={{ width: 28, height: 28, margin: '0 auto 4px' }} />
-                <span style={{ fontSize: 11 }}>Sin logo</span>
-              </div>
-            )}
-          </div>
-
-          {/* Zona de subida */}
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                border: '2px dashed #d1d5db',
-                borderRadius: 10,
-                padding: '20px 16px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                background: '#f9fafb',
-                transition: 'border-color .15s, background .15s',
-                marginBottom: 10,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = '#6ee7b7'
-                ;(e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'
-                ;(e.currentTarget as HTMLDivElement).style.background = '#f9fafb'
-              }}
-            >
-              <ImagePlus style={{ width: 22, height: 22, margin: '0 auto 6px', color: '#6ee7b7' }} />
-              <p style={{ fontSize: 13, color: '#4b5563', margin: 0 }}>
-                <strong>Clic para subir</strong> o arrastra aquí
-              </p>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, SVG, WebP — máx. 500 KB</p>
+            {/* Preview del logo actual */}
+            <div style={{
+              width: 200, height: 130,
+              border: '2px dashed #d1d5db',
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#f9fafb',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}>
+              {logoBase64 ? (
+                <img
+                  src={logoBase64}
+                  alt="Logo actual"
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: 8 }}
+                />
+              ) : (
+                <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+                  <ImagePlus style={{ width: 28, height: 28, margin: '0 auto 4px' }} />
+                  <span style={{ fontSize: 11 }}>Sin logo</span>
+                </div>
+              )}
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/svg+xml,image/webp"
-              onChange={handleFileInputChange}
-              style={{ display: 'none' }}
-            />
-
-            {/* Feedback */}
-            {logoError && (
-              <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>⚠ {logoError}</p>
-            )}
-            {logoSuccess && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontSize: 12, marginBottom: 8 }}>
-                <CheckCircle2 style={{ width: 14, height: 14 }} />
-                <span>Logo guardado correctamente.</span>
+            {/* Zona de subida */}
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: '2px dashed #d1d5db',
+                  borderRadius: 10,
+                  padding: '20px 16px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: '#f9fafb',
+                  transition: 'border-color .15s, background .15s',
+                  marginBottom: 10,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = '#6ee7b7'
+                  ;(e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'
+                  ;(e.currentTarget as HTMLDivElement).style.background = '#f9fafb'
+                }}
+              >
+                <ImagePlus style={{ width: 22, height: 22, margin: '0 auto 6px', color: '#6ee7b7' }} />
+                <p style={{ fontSize: 13, color: '#4b5563', margin: 0 }}>
+                  <strong>Clic para subir</strong> o arrastra aquí
+                </p>
+                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, SVG, WebP — máx. 500 KB</p>
               </div>
-            )}
 
-            {/* Nombre del archivo + botón eliminar */}
-            {logoBase64 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {logoName ?? 'logo.png'}
-                </span>
-                <button
-                  onClick={removeLogo}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5',
-                    background: '#fff1f2', color: '#dc2626', fontSize: 12, cursor: 'pointer',
-                  }}
-                >
-                  <Trash2 style={{ width: 13, height: 13 }} />
-                  Quitar logo
-                </button>
-              </div>
-            )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                onChange={handleFileInputChange}
+                style={{ display: 'none' }}
+              />
+
+              {/* Feedback */}
+              {logoError && (
+                <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>⚠ {logoError}</p>
+              )}
+              {logoSuccess && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontSize: 12, marginBottom: 8 }}>
+                  <CheckCircle2 style={{ width: 14, height: 14 }} />
+                  <span>Logo guardado correctamente.</span>
+                </div>
+              )}
+
+              {/* Nombre del archivo + botón eliminar */}
+              {logoBase64 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {logoName ?? 'logo.png'}
+                  </span>
+                  <button
+                    onClick={removeLogo}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5',
+                      background: '#fff1f2', color: '#dc2626', fontSize: 12, cursor: 'pointer',
+                    }}
+                  >
+                    <Trash2 style={{ width: 13, height: 13 }} />
+                    Quitar logo
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── TEMAS ───────────────────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: 16 }}>

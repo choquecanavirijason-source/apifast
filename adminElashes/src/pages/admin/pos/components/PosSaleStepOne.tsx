@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
-import PosQueuePanel from "./PosQueuePanel";
 import type { PosSaleStepOneProps } from "../pos.types";
 
 export default function PosSaleStepOne({
@@ -48,6 +47,8 @@ export default function PosSaleStepOne({
   setDiscountType,
   paymentMethod,
   setPaymentMethod,
+  mixedPayments,
+  setMixedPayments,
   notes,
   setNotes,
   onOpenRegisterClient,
@@ -66,25 +67,10 @@ export default function PosSaleStepOne({
   ticketMode,
   setTicketMode,
   onUpdateTicketTime,
-  existingTickets,
-  splitPayments,
-  setSplitPayments,
-  isAnonymousSale,
-  setIsAnonymousSale,
-  anonymousName,
-  setAnonymousName,
 }: PosSaleStepOneProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const [animateCart, setAnimateCart] = useState(false);
   const cartCount = cartLines.length;
-
-  const todayStr = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, []);
 
   const cartCountByServiceId = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -132,14 +118,13 @@ export default function PosSaleStepOne({
   const handleChangeLineService = (localId: string, serviceId: string) => {
     const svc = services.find((s) => String(s.id) === serviceId);
     if (!svc) return;
+    // Actualiza la línea existente en su lugar (sin remove+add para evitar duplicados y reordenamiento)
     onUpdateLine(localId, {
       service_id: String(svc.id),
       price: Number(svc.price ?? 0),
       duration_minutes: svc.duration_minutes,
     });
   };
-
-  const hasClient = isAnonymousSale || !!selectedClient;
 
   return (
     <div
@@ -155,14 +140,7 @@ export default function PosSaleStepOne({
         </div>
       )}
 
-      {/* Feature 3: Cola visual — barra colapsable en la parte superior */}
-      <PosQueuePanel
-        existingTickets={existingTickets}
-        professionals={professionals}
-        todayStr={todayStr}
-      />
-
-      {/* Catálogo — ocupa todo el espacio restante */}
+      {/* Catálogo — ocupa todo el espacio */}
       <div className="min-h-0 w-full flex-1 overflow-hidden">
         <ServiceSelectorCard
           labelClass="mb-2 block text-sm font-semibold text-[#323130]"
@@ -231,25 +209,27 @@ export default function PosSaleStepOne({
         setDiscountType={setDiscountType}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
+        mixedPayments={mixedPayments}
+        setMixedPayments={setMixedPayments}
         notes={notes}
         setNotes={setNotes}
         onOpenRegisterClient={onOpenRegisterClient}
         professionals={professionals}
         primaryActionLabel={
           linkAppointmentId
-            ? finalizeSaleLabel
-            : "Confirmar venta"
+            ? finalizeSaleLabel          // cobrar reserva → directo
+            : "Confirmar venta"          // modo planificador (step2)
         }
         onPrimaryAction={() => {
           setIsCartOpen(false);
           if (linkAppointmentId) {
-            onFinalizeSale();
+            onFinalizeSale();            // reserva: cobra directo
           } else {
-            onGoToScheduleStep();
+            onGoToScheduleStep();        // venta con planificador: ir al paso 2
           }
         }}
         primaryActionDisabled={
-          cartLines.length === 0 || !hasClient || !paymentMethod || isSubmittingCheckout
+          cartCount === 0 || !selectedClient || (mixedPayments.length === 0 && !paymentMethod) || isSubmittingCheckout
         }
         footerHint={
           linkAppointmentId
@@ -265,12 +245,7 @@ export default function PosSaleStepOne({
         ticketMode={ticketMode}
         setTicketMode={setTicketMode}
         onUpdateTicketTime={onUpdateTicketTime}
-        splitPayments={splitPayments}
-        setSplitPayments={setSplitPayments}
-        isAnonymousSale={isAnonymousSale}
-        setIsAnonymousSale={setIsAnonymousSale}
-        anonymousName={anonymousName}
-        setAnonymousName={setAnonymousName}
+        onUpdateCartLine={(localId, patch) => onUpdateLine(localId, patch)}
       />
     </div>
   );

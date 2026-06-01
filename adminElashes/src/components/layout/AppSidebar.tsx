@@ -556,13 +556,13 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
             <img
               src={logoBase64}
               alt="Logo"
-              className="h-9 w-9 rounded-lg object-contain"
+              className="h-12 w-12 rounded-lg object-contain"
             />
           ) : (
             <img
               src={logoBase64}
               alt="Logo"
-              className="h-11 max-w-40 object-contain"
+              className="h-16 max-w-48 object-contain"
             />
           )
         ) : (

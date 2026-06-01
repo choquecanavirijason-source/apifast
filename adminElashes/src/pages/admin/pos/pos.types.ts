@@ -6,6 +6,7 @@ import type {
   ServiceOption,
   TicketItem,
 } from "../../../core/services/agenda/agenda.service";
+import type { MixedPaymentEntry } from "../../../core/services/pos-sale/pos-sale.service";
 
 export type CartLine = {
   localId: string;
@@ -22,11 +23,6 @@ export type CartLine = {
   price: number;
 };
 
-export type SplitPayment = {
-  method: string;
-  amount: string;
-};
-
 export type PosSaleClientOption = {
   id: string | number;
   nombre: string;
@@ -34,7 +30,6 @@ export type PosSaleClientOption = {
   phone?: string | null;
   status?: string | null;
   age?: number | null;
-  ci?: string | null;
 };
 
 export type LineAvailabilityState = Record<string, { available: boolean; conflictCount: number }>;
@@ -95,6 +90,8 @@ export type PosSaleStepOneProps = {
   setDiscountType: (value: "amount" | "percent") => void;
   paymentMethod: string;
   setPaymentMethod: (value: string) => void;
+  mixedPayments: MixedPaymentEntry[];
+  setMixedPayments: (value: MixedPaymentEntry[]) => void;
   notes: string;
   setNotes: (value: string) => void;
   onOpenRegisterClient: () => void;
@@ -116,16 +113,7 @@ export type PosSaleStepOneProps = {
   setTicketMode: (mode: "individual" | "group") => void;
   /** Editar hora de un ticket directamente desde el panel lateral. */
   onUpdateTicketTime: (localId: string, date: string, time: string) => void;
-  /** Tickets de agenda para la cola visual. */
-  existingTickets: TicketItem[];
-  /** Pagos divididos (pago mixto). */
-  splitPayments: SplitPayment[];
-  setSplitPayments: (value: SplitPayment[]) => void;
-  /** Venta sin cliente registrado. */
-  isAnonymousSale: boolean;
-  setIsAnonymousSale: (value: boolean) => void;
-  anonymousName: string;
-  setAnonymousName: (value: string) => void;
+  onUpdateCartLine?: (localId: string, patch: Partial<{ date: string; time: string; without_time: boolean; time_manual: boolean }>) => void;
 };
 
 export type PosSaleStepTwoProps = {
@@ -195,7 +183,6 @@ export type PosSaleDraft = {
   serviceSearch: string;
   selectedServiceCategoryId: string;
   sellerId: string;
-  splitPayments: SplitPayment[];
-  isAnonymousSale: boolean;
-  anonymousName: string;
 };
+
+export type { MixedPaymentEntry };

@@ -15,7 +15,7 @@ class Branch(Base):
     integration_profile_id = Column(Integer, ForeignKey("branch_integration_profiles.id"), nullable=True)
 
     integration_profile = relationship("BranchIntegrationProfile", back_populates="branches")
-    users = relationship("User", back_populates="branch")
+    users = relationship("User", foreign_keys="User.branch_id", back_populates="branch")
     batches = relationship("Batch", back_populates="branch")
     appointments = relationship("Appointment", back_populates="branch")
     payments = relationship("Payment", back_populates="branch")

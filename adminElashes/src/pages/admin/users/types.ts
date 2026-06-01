@@ -30,6 +30,9 @@ export interface UserItem {
   created_at?: string | null;
   skill_level?: number | null;
   direct_permissions?: PermissionItem[];
+  /** Asignación temporal de sucursal */
+  temp_branch_id?: number | null;
+  temp_branch_until?: string | null;
 }
 
 export type SectionTab = "users" | "roles" | "permissions";

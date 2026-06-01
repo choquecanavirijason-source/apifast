@@ -37,8 +37,8 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
       // jsPDF soporta PNG, JPEG, WEBP (no SVG directo → fallback a PNG)
       const imgFormat = ["PNG", "JPEG", "JPG", "WEBP"].includes(rawFormat) ? rawFormat : "PNG";
 
-      const logoMaxW = 40;
-      const logoMaxH = 16;
+      const logoMaxW = 55;
+      const logoMaxH = 24;
 
       // Calcular dimensiones manteniendo aspecto
       const img = new Image();

@@ -12,6 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { RefreshCw, Tv2 } from "lucide-react";
 import { toast } from "react-toastify";
 
 import Layout from "../../../components/common/layout";
@@ -39,6 +40,7 @@ import {
 import DraggableTicketCard from "./components/DraggableTicketCard";
 import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
+import QueueTvDisplay from "./components/QueueTvDisplay";
 
 const Main = () => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -64,6 +66,9 @@ const Main = () => {
   const [isQuestionnaireModalOpen, setIsQuestionnaireModalOpen] = useState(false);
   const [isSubmittingTracking, setIsSubmittingTracking] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [countdown, setCountdown] = useState(15);
+  const [tvMode, setTvMode] = useState(false);
   const [filterService] = useState("");
   const [filterClient] = useState("");
   const [filterDate] = useState(todayDate());
@@ -91,6 +96,8 @@ const Main = () => {
     return closestCenter(args);
   };
 
+  const REFRESH_INTERVAL = 15;
+
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -102,6 +109,8 @@ const Main = () => {
         end_date: filterDate || today,
       });
       setTickets(data);
+      setLastRefresh(new Date());
+      setCountdown(REFRESH_INTERVAL);
     } catch (error) {
       console.error("Error cargando tickets:", error);
       toast.error("No se pudo cargar el tablero de atencion.");
@@ -115,11 +124,20 @@ const Main = () => {
     void loadTickets();
   }, [loadTickets]);
 
+  // Auto-refresh cada 15 segundos
   useEffect(() => {
     const interval = window.setInterval(() => {
       void loadTickets();
-    }, 30000);
+    }, REFRESH_INTERVAL * 1000);
     return () => window.clearInterval(interval);
+  }, [loadTickets]);
+
+  // Contador regresivo
+  useEffect(() => {
+    const tick = window.setInterval(() => {
+      setCountdown((prev) => (prev <= 1 ? REFRESH_INTERVAL : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(tick);
   }, [loadTickets]);
 
   useEffect(() => {
@@ -250,6 +268,16 @@ const Main = () => {
       void loadTickets();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "No se pudo cancelar el turno."));
+    }
+  };
+
+  const handleCancelTicket = async (ticket: TicketItem) => {
+    try {
+      await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
+      toast.success(`Ticket ${ticket.ticket_code ?? `#${ticket.id}`} cancelado.`);
+      void loadTickets();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo cancelar el ticket."));
     }
   };
 
@@ -736,8 +764,8 @@ const Main = () => {
         ))}
       </div>
 
-      {/* Llamar siguiente */}
-      <div className="flex items-center px-4 py-2">
+      {/* Llamar siguiente + refresh */}
+      <div className="flex items-center gap-2 px-4 py-2">
         <button
           type="button"
           onClick={() => void handleCallNext()}
@@ -757,12 +785,39 @@ const Main = () => {
             </span>
           )}
         </button>
+
+        {/* Indicador de auto-refresh */}
+        <div className="flex flex-col items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => void loadTickets()}
+            disabled={isLoading}
+            title="Actualizar ahora"
+            className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
+          <span className="text-[9px] font-semibold tabular-nums text-[#a19f9d]">
+            {isLoading ? "•••" : `${countdown}s`}
+          </span>
+        </div>
+
+        {/* Botón TV */}
+        <button
+          type="button"
+          onClick={() => setTvMode(true)}
+          title="Abrir pantalla TV"
+          className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+        >
+          <Tv2 className="h-4 w-4" />
+        </button>
       </div>
 
     </div>
   );
 
   return (
+  <>
     <Layout
       title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
       subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
@@ -806,13 +861,22 @@ const Main = () => {
                     >
                       Iniciar atención
                     </Button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void handleNoShow(ticket); }}
-                      className="w-full rounded-sm border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438]"
-                    >
-                      No se presentó
-                    </button>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void handleNoShow(ticket); }}
+                        className="rounded-sm border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438]"
+                      >
+                        No se presentó
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
+                        className="rounded-sm border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb]"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 }
                 showRemaining
@@ -839,14 +903,23 @@ const Main = () => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className={`${BC_BTN_PRIMARY} w-full`}
-                    onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
-                  >
-                    Finalizar
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className={`${BC_BTN_PRIMARY} w-full`}
+                      onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
+                    >
+                      Finalizar
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
+                      className="w-full rounded-sm border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb]"
+                    >
+                      Cancelar ticket
+                    </button>
+                  </div>
                 }
                 showRemaining
                 statusColors={{}}
@@ -1114,6 +1187,16 @@ const Main = () => {
           </div>
         </GenericModal>
     </Layout>
+
+    {/* Pantalla TV */}
+    {tvMode && (
+      <QueueTvDisplay
+        waitingTickets={waitingTickets}
+        inServiceTickets={inServiceTickets}
+        onClose={() => setTvMode(false)}
+      />
+    )}
+  </>
   );
 };
 

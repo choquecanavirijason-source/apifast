@@ -18,6 +18,7 @@ import RegisterUserModal from "./components/RegisterUserModal";
 import RolesSection from "./components/RolesSection";
 import SkillLevelModal from "./components/SkillLevelModal";
 import UsersSection from "./components/UsersSection";
+import BranchAssignModal from "./components/BranchAssignModal";
 import UsersStats from "./components/UsersStats";
 import UsersTabs from "./components/UsersTabs";
 import type { BranchItem, PermissionItem, RoleItem, SectionTab, UserItem } from "./types";
@@ -54,6 +55,7 @@ export default function UsersMain() {
   const [isSkillLevelModalOpen, setIsSkillLevelModalOpen] = useState(false);
   const [selectedUserForSkill, setSelectedUserForSkill] = useState<UserItem | null>(null);
   const [submittingSkillLevel, setSubmittingSkillLevel] = useState(false);
+  const [branchAssignUser, setBranchAssignUser] = useState<UserItem | null>(null);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
 
   const { user, roles: authRoles } = useAuth();
@@ -510,6 +512,7 @@ export default function UsersMain() {
           loading={loading}
           onEditUser={isSecretary ? openSkillLevelModal : openEditUserModal}
           onDeleteUser={(isSuperAdmin || isSecretary) ? handleDeleteUser : undefined}
+          onAssignBranch={(isSuperAdmin || isAdmin || isSecretary) ? setBranchAssignUser : undefined}
         />
       )}
 
@@ -587,6 +590,18 @@ export default function UsersMain() {
         onSubmit={handleUpdateSkillLevel}
         submitting={submittingSkillLevel}
       />
+
+      {branchAssignUser && (
+        <BranchAssignModal
+          user={branchAssignUser}
+          branches={branches}
+          onClose={() => setBranchAssignUser(null)}
+          onSuccess={(updated) => {
+            setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+            setBranchAssignUser(null);
+          }}
+        />
+      )}
     </Layout>
   );
 }
