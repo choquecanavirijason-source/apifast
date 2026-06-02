@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getLogoBase64 } from "../hooks/useLogo";
 
 export interface PdfColumn {
   header: string;
@@ -16,7 +17,7 @@ export interface GenerateTablePdfOptions {
   orientation?: "portrait" | "landscape";
 }
 
-export function generateTablePdf({
+export async function generateTablePdf({
   title,
   subtitle,
   filename,
@@ -24,11 +25,52 @@ export function generateTablePdf({
   rows,
   meta = [],
   orientation = "landscape",
-}: GenerateTablePdfOptions): void {
+}: GenerateTablePdfOptions): Promise<void> {
   const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 14;
-  let y = 16;
+  let y = 12;
+
+  // ── Logo ──────────────────────────────────────────────────────────────────
+  const logoDataUrl = getLogoBase64();
+  if (logoDataUrl) {
+    try {
+      const img = new Image();
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = logoDataUrl;
+      });
+
+      let pdfData = logoDataUrl;
+      if (img.naturalWidth && img.naturalHeight) {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          pdfData = canvas.toDataURL("image/png");
+        }
+      }
+
+      const logoMaxW = 60;
+      const logoMaxH = 26;
+      let logoW = logoMaxW;
+      let logoH = logoMaxH;
+      if (img.naturalWidth && img.naturalHeight) {
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio > logoMaxW / logoMaxH) {
+          logoW = logoMaxW; logoH = logoMaxW / ratio;
+        } else {
+          logoH = logoMaxH; logoW = logoMaxH * ratio;
+        }
+      }
+
+      doc.addImage(pdfData, "PNG", (pageW - logoW) / 2, y, logoW, logoH);
+      y += logoH + 4;
+    } catch { /* sin logo */ }
+  }
 
   // Title
   doc.setFont("helvetica", "bold");

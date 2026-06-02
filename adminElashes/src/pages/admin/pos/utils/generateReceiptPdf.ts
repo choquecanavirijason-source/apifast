@@ -31,16 +31,10 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
   const logoDataUrl = getLogoBase64();
   if (logoDataUrl) {
     try {
-      // Detectar formato a partir del data URL
-      const formatMatch = logoDataUrl.match(/^data:image\/([a-zA-Z+]+);base64,/);
-      const rawFormat = formatMatch?.[1]?.toUpperCase() ?? "PNG";
-      // jsPDF soporta PNG, JPEG, WEBP (no SVG directo → fallback a PNG)
-      const imgFormat = ["PNG", "JPEG", "JPG", "WEBP"].includes(rawFormat) ? rawFormat : "PNG";
+      const logoMaxW = 70;
+      const logoMaxH = 30;
 
-      const logoMaxW = 55;
-      const logoMaxH = 24;
-
-      // Calcular dimensiones manteniendo aspecto
+      // Cargar imagen y convertir a PNG vía canvas (maneja SVG y todos los formatos)
       const img = new Image();
       await new Promise<void>((resolve) => {
         img.onload = () => resolve();
@@ -48,10 +42,25 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
         img.src = logoDataUrl;
       });
 
+      // Canvas → PNG: garantiza compatibilidad con jsPDF (SVG falla sin esto)
+      let pdfData = logoDataUrl;
+      if (img.naturalWidth && img.naturalHeight) {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            pdfData = canvas.toDataURL("image/png");
+          }
+        } catch { /* usar original */ }
+      }
+
       let logoW = logoMaxW;
       let logoH = logoMaxH;
-      if (img.width && img.height) {
-        const ratio = img.width / img.height;
+      if (img.naturalWidth && img.naturalHeight) {
+        const ratio = img.naturalWidth / img.naturalHeight;
         if (ratio > logoMaxW / logoMaxH) {
           logoW = logoMaxW;
           logoH = logoMaxW / ratio;
@@ -62,8 +71,8 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
       }
 
       const logoX = (pageW - logoW) / 2;
-      doc.addImage(logoDataUrl, imgFormat as "PNG", logoX, y, logoW, logoH);
-      y += logoH + 5;
+      doc.addImage(pdfData, "PNG", logoX, y, logoW, logoH);
+      y += logoH + 6;
     } catch {
       // Si falla cargar el logo, continuar sin él
     }

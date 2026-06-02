@@ -572,7 +572,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           branch_id: branchFilter,
         }),
         PosSaleService.list({ limit: 100 }),
-        AgendaService.listTickets({ limit: 500, branch_id: branchFilter }),
+        AgendaService.listTickets({
+          limit: 500,
+          branch_id: branchFilter,
+          start_date: saleBaseDate,
+          end_date: saleBaseDate,
+        }),
       ]);
 
       const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda"] as const;

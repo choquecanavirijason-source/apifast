@@ -420,7 +420,7 @@ export default function UsersMain() {
   ];
 
   const handleExportUsersPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: "Listado de Usuarios",
       subtitle: "Usuarios registrados en el sistema",
       filename: "usuarios",

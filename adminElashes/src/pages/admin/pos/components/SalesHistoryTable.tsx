@@ -78,7 +78,7 @@ export default function SalesHistoryTable({
   allFilteredSales,
 }: SalesHistoryTableProps) {
   const handleExportPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: "Historial de Ventas POS",
       subtitle: "Ventas registradas en el punto de venta",
       filename: "ventas-pos",

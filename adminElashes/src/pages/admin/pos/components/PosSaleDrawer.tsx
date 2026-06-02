@@ -825,9 +825,6 @@ export default function PosSaleDrawer({
                   {selectedPro ? (
                     <span className={`flex items-center gap-2 ${isBusy ? "text-[#a19f9d] line-through" : "text-[#323130]"}`}>
                       {selectedPro.username}
-                      {selectedPro.skill_level ? (
-                        <span className="text-amber-400 text-xs">{"★".repeat(selectedPro.skill_level)}{"☆".repeat(5 - (selectedPro.skill_level ?? 0))}</span>
-                      ) : null}
                       {isBusy && <span className="text-[11px] font-semibold text-[#d13438] no-underline not-line-through ml-1">(ocupada)</span>}
                     </span>
                   ) : (
@@ -867,9 +864,6 @@ export default function PosSaleDrawer({
                           >
                             <span className={`flex items-center gap-2 ${inService ? "line-through text-[#a19f9d]" : "text-[#323130]"}`}>
                               {p.username}
-                              {p.skill_level ? (
-                                <span className="text-amber-400 text-xs">{"★".repeat(p.skill_level)}{"☆".repeat(5 - p.skill_level)}</span>
-                              ) : null}
                             </span>
                             <div className="flex shrink-0 items-center gap-2 ml-2">
                               {inService ? (

@@ -489,7 +489,7 @@ export default function TicketsPage() {
   );
 
   const handleExportPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: "Listado de Tickets",
       subtitle: "Tickets registrados en el sistema",
       filename: "tickets",

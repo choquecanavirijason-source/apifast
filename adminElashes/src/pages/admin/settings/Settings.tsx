@@ -94,21 +94,44 @@ export default function Settings() {
       setLogoError('Solo se admiten archivos de imagen (PNG, JPG, SVG, WebP).')
       return
     }
-    // Limit ~500 KB to avoid filling localStorage
     if (file.size > 500 * 1024) {
       setLogoError('El archivo no puede superar 500 KB. Comprime la imagen antes de subirla.')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = e.target?.result as string
+    const persist = (dataUrl: string) => {
       try {
-        saveLogo(result, file.name)
+        saveLogo(dataUrl, file.name)
         setLogoSuccess(true)
         setTimeout(() => setLogoSuccess(false), 3000)
       } catch (err) {
         setLogoError(err instanceof Error ? err.message : 'No se pudo guardar el logo.')
+      }
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const raw = e.target?.result as string
+
+      if (file.type === 'image/svg+xml') {
+        // SVG no funciona en jsPDF → convertir a PNG vía canvas
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth || 800
+          canvas.height = img.naturalHeight || 400
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            persist(canvas.toDataURL('image/png'))
+          } else {
+            persist(raw)
+          }
+        }
+        img.onerror = () => persist(raw)
+        img.src = raw
+      } else {
+        persist(raw)
       }
     }
     reader.readAsDataURL(file)

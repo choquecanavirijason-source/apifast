@@ -425,7 +425,7 @@ export default function ClientSalesHistoryModal({
   const clientName = client ? `${client.nombre} ${client.apellido}`.trim() : "Cliente";
 
   const exportSalesPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: `Ventas — ${clientName}`,
       subtitle: "Historial de ventas del cliente",
       filename: `ventas-cliente-${client?.id ?? "x"}`,
@@ -452,7 +452,7 @@ export default function ClientSalesHistoryModal({
   };
 
   const exportTicketsPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: `Tickets — ${clientName}`,
       subtitle: "Historial de tickets en agenda",
       filename: `tickets-cliente-${client?.id ?? "x"}`,

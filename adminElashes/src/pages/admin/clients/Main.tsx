@@ -372,7 +372,7 @@ export default function ClientListPage() {
   ];
 
   const handleExportClientsPdf = () => {
-    generateTablePdf({
+    void generateTablePdf({
       title: "Listado de Clientes",
       subtitle: "Clientes registrados en el sistema",
       filename: "clientes",
