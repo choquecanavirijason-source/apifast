@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, ChevronLeft, ChevronRight, Columns3, List, MessageCircle, Plus, Printer } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Columns3, List, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
 import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
@@ -38,10 +38,12 @@ import { buildRescheduleTimes, groupTicketsByHourAndStation } from "./dailyAgend
 import AgendaDropCell from "./components/AgendaDropCell";
 import AgendaTicketCard from "./components/AgendaTicketCard";
 import DraggableAgendaTicketCard from "./components/DraggableAgendaTicketCard";
+import StationSectionsModal from "./components/StationSectionsModal";
+import { useStationSections } from "../../../core/hooks/useStationSections";
+import useAuth from "../../../core/hooks/useAuth";
 
 const GRID_FIRST_HOUR = 9;
 const GRID_LAST_HOUR = 20;
-const STATION_COUNT = 8;
 
 const AGENDA_VIEW_STORAGE_KEY = "daily-agenda-view-mode";
 const AGENDA_REFRESH_EVENT = "agendarefresh";
@@ -147,6 +149,15 @@ export type DailyAgendaPageProps = {
 };
 
 export default function DailyAgendaPage({ embedded = false }: DailyAgendaPageProps) {
+  const { isAdmin } = useAuth();
+  const { sections: stationSections, saveSections, totalStations } = useStationSections();
+  const [sectionsModalOpen, setSectionsModalOpen] = useState(false);
+
+  // Mapa columna (0-based) → sección
+  const stationColSection = stationSections.flatMap((s) =>
+    Array.from({ length: s.count }, () => s)
+  );
+
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateInputValue());
   const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -465,18 +476,18 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   );
 
   const stationGridMap = useMemo(
-    () => groupTicketsByHourAndStation(visibleTickets, selectedDate, professionals),
-    [visibleTickets, selectedDate, professionals]
+    () => groupTicketsByHourAndStation(visibleTickets, selectedDate, professionals.slice(0, totalStations)),
+    [visibleTickets, selectedDate, professionals, totalStations]
   );
 
   const stationLabels = useMemo(() => {
     const labels: string[] = [];
-    for (let i = 0; i < STATION_COUNT; i += 1) {
+    for (let i = 0; i < totalStations; i += 1) {
       const p = professionals[i];
       labels.push(p ? `${i + 1} · ${p.username}` : `${i + 1}`);
     }
     return labels;
-  }, [professionals]);
+  }, [professionals, totalStations]);
 
   const openNewModal = (time: string, professionalId: number | null) => {
     setModalTime(time);
@@ -665,31 +676,43 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               {mainView === "calendar" ? (
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Vista calendario</span>
-                <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("planner")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      agendaView === "planner"
-                        ? "bg-[#0078d4] text-white shadow-sm"
-                        : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                    }`}
-                  >
-                    <List className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    Planilla horaria
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("stations")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      agendaView === "stations"
-                        ? "bg-[#0078d4] text-white shadow-sm"
-                        : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                    }`}
-                  >
-                    <Columns3 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    Puestos 1–8
-                  </button>
+                <div className="flex items-center gap-1">
+                  <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("planner")}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        agendaView === "planner"
+                          ? "bg-[#0078d4] text-white shadow-sm"
+                          : "text-[#605e5c] hover:bg-[#f3f2f1]"
+                      }`}
+                    >
+                      <List className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Planilla horaria
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("stations")}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        agendaView === "stations"
+                          ? "bg-[#0078d4] text-white shadow-sm"
+                          : "text-[#605e5c] hover:bg-[#f3f2f1]"
+                      }`}
+                    >
+                      <Columns3 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Puestos por sección
+                    </button>
+                  </div>
+                  {agendaView === "stations" && isAdmin() && (
+                    <button
+                      type="button"
+                      onClick={() => setSectionsModalOpen(true)}
+                      title="Configurar secciones"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
               ) : null}
@@ -897,37 +920,99 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         {agendaView === "stations" ? (
         <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-sm">
           <div className="border-b border-[#edebe9] bg-[#f3f2f1] px-3 py-2.5">
-            <h2 className="text-sm font-semibold text-[#323130]">Vista puestos (1–8)</h2>
-            <p className="mt-0.5 text-[11px] text-[#605e5c]">
-              Filas por hora ({GRID_FIRST_HOUR}:00–{GRID_LAST_HOUR}:00). Columnas = operarias de{" "}
-              <strong className="text-[#323130]">{activeBranchLabel}</strong> (máx. 8).
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-[#323130]">Puestos por sección</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {stationSections.map((sec, idx) => {
+                    const from = stationSections.slice(0, idx).reduce((s, x) => s + x.count, 0) + 1;
+                    const to = from + sec.count - 1;
+                    return (
+                      <span
+                        key={sec.id}
+                        style={{ background: sec.headerBg, color: sec.headerText }}
+                        className="rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                      >
+                        {from}–{to} · {sec.label}
+                      </span>
+                    );
+                  })}
+                  <span className="text-[10px] text-[#605e5c]">
+                    · {GRID_FIRST_HOUR}:00–{GRID_LAST_HOUR}:00 · <strong className="text-[#323130]">{activeBranchLabel}</strong>
+                  </span>
+                </div>
+              </div>
+              {isAdmin() && (
+                <button
+                  type="button"
+                  onClick={() => setSectionsModalOpen(true)}
+                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border border-[#c8c6c4] bg-white px-2 py-1 text-[10px] font-semibold text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+                >
+                  <Settings2 className="h-3 w-3" />
+                  Configurar
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-[min(72vh,900px)] overflow-auto p-2 sm:p-3">
             <div
               className="grid w-full min-w-[min(100%,920px)]"
               style={{
-                gridTemplateColumns: `72px repeat(${STATION_COUNT}, minmax(88px, 1fr))`,
+                gridTemplateColumns: `72px repeat(${totalStations}, minmax(88px, 1fr))`,
               }}
             >
+              {/* ── Fila 1: encabezados de sección ─────────────────────────── */}
+              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#d0d0d0] px-1 py-2 text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">
+                Sección
+              </div>
+              {(() => {
+                let startNum = 1;
+                return stationSections.map((section) => {
+                  const from = startNum;
+                  const to = startNum + section.count - 1;
+                  startNum = to + 1;
+                  return (
+                    <div
+                      key={section.id}
+                      style={{
+                        gridColumn: `span ${section.count}`,
+                        background: section.headerBg,
+                        color: section.headerText,
+                      }}
+                      className="border border-[#edebe9] py-2 text-center text-[11px] font-bold uppercase tracking-wide"
+                    >
+                      {section.label}
+                      <span className="ml-1.5 rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-semibold">
+                        {from}–{to}
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+
+              {/* ── Fila 2: etiquetas de puesto (hora + operarias) ─────────── */}
               <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#e8e8e8] px-1 py-2 text-[10px] font-semibold uppercase text-[#605e5c]">
                 Hora
               </div>
-              {stationLabels.map((label) => (
-                <div
-                  key={label}
-                  className="border border-[#edebe9] bg-[#deecf9] px-1 py-2 text-center text-[10px] font-semibold leading-tight text-[#004578]"
-                >
-                  {label}
-                </div>
-              ))}
+              {stationLabels.map((label, idx) => {
+                const sec = stationColSection[idx];
+                return (
+                  <div
+                    key={`${label}-${idx}`}
+                    style={{ background: sec?.labelBg ?? "#deecf9", color: sec?.headerText ?? "#004578" }}
+                    className="border border-[#edebe9] px-1 py-2 text-center text-[10px] font-semibold leading-tight"
+                  >
+                    {label}
+                  </div>
+                );
+              })}
 
               {Array.from({ length: GRID_LAST_HOUR - GRID_FIRST_HOUR + 1 }, (_, i) => GRID_FIRST_HOUR + i).map((hour) => (
                 <div key={`row-${hour}`} className="contents">
                   <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#f3f2f1] px-2 py-3 text-xs font-semibold tabular-nums">
                     {String(hour).padStart(2, "0")}:00
                   </div>
-                  {Array.from({ length: STATION_COUNT }, (_, col) => {
+                  {Array.from({ length: totalStations }, (_, col) => {
                     const key = `${hour}__${col}`;
                     const cellTickets = stationGridMap.get(key) ?? [];
                     const pro = professionals[col];
@@ -1028,6 +1113,13 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
           onClose={() => setPrintMode(null)}
         />
       )}
+
+      <StationSectionsModal
+        isOpen={sectionsModalOpen}
+        onClose={() => setSectionsModalOpen(false)}
+        sections={stationSections}
+        onSave={saveSections}
+      />
     </div>
   );
 }
