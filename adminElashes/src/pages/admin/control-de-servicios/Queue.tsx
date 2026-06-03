@@ -42,7 +42,7 @@ import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
 import QueueTvDisplay from "./components/QueueTvDisplay";
 
-const Main = () => {
+const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
@@ -710,67 +710,67 @@ const Main = () => {
     <div className="flex flex-wrap items-stretch gap-0 divide-x divide-[#edebe9] border-b border-[#edebe9] bg-[#f3f2f1]">
 
       {/* En atención */}
-      <div className="flex min-w-[180px] flex-1 items-center gap-3 px-4 py-2">
-        <span className="h-6 w-0.5 shrink-0 bg-[#0078d4]" />
+      <div className="flex min-w-[140px] flex-1 items-center gap-2 px-2 py-1">
+        <span className="h-5 w-0.5 shrink-0 bg-[#0078d4]" />
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">En atención</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">En atención</p>
           {activeTicket ? (
             <>
-              <p className="truncate text-sm font-semibold text-[#201f1e]">
+              <p className="truncate text-xs font-semibold text-[#201f1e]">
                 {activeTicket.ticket_code ?? `#${activeTicket.id}`}
-                <span className="ml-2 font-normal text-[#605e5c]">{activeTicket.client_name}</span>
+                <span className="ml-1.5 font-normal text-[#605e5c]">{activeTicket.client_name}</span>
               </p>
-              <p className="truncate text-xs text-[#605e5c]">
-                {activeTicket.service_names?.join(", ") ?? activeTicket.service_name ?? "—"}
+              <p className="truncate text-[10px] text-[#605e5c]">
+                {activeTicket.service_names?.[0] ?? activeTicket.service_name ?? "—"}
                 {activeTicket.professional_name ? ` · ${activeTicket.professional_name}` : ""}
               </p>
             </>
           ) : (
-            <p className="text-xs text-[#a19f9d]">Sin servicio activo</p>
+            <p className="text-[10px] text-[#a19f9d]">Sin servicio activo</p>
           )}
         </div>
       </div>
 
       {/* Próximo */}
-      <div className="flex min-w-[180px] flex-1 items-center gap-3 px-4 py-2">
-        <span className="h-6 w-0.5 shrink-0 bg-[#D83B01]" />
+      <div className="flex min-w-[140px] flex-1 items-center gap-2 px-2 py-1">
+        <span className="h-5 w-0.5 shrink-0 bg-[#D83B01]" />
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Próximo</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">Próximo</p>
           {nextTicket ? (
             <>
-              <p className="truncate text-sm font-semibold text-[#201f1e]">
+              <p className="truncate text-xs font-semibold text-[#201f1e]">
                 {nextTicket.ticket_code ?? `#${nextTicket.id}`}
-                <span className="ml-2 font-normal text-[#605e5c]">{nextTicket.client_name}</span>
+                <span className="ml-1.5 font-normal text-[#605e5c]">{nextTicket.client_name}</span>
               </p>
-              <p className="text-xs text-[#605e5c]">{waitingTickets.length} en espera</p>
+              <p className="text-[10px] text-[#605e5c]">{waitingTickets.length} en espera</p>
             </>
           ) : (
-            <p className="text-xs text-[#a19f9d]">Cola vacía</p>
+            <p className="text-[10px] text-[#a19f9d]">Cola vacía</p>
           )}
         </div>
       </div>
 
       {/* Contadores */}
-      <div className="flex items-center gap-4 px-4 py-2">
+      <div className="flex items-center gap-3 px-2 py-1">
         {[
           { label: "Espera", count: waitingTickets.length, color: "#D83B01" },
           { label: "Servicio", count: inServiceTickets.length, color: "#0078D4" },
           { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
         ].map((s) => (
           <div key={s.label} className="flex flex-col items-center">
-            <p className="text-base font-semibold tabular-nums" style={{ color: s.color }}>{s.count}</p>
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">{s.label}</p>
+            <p className="text-sm font-semibold tabular-nums" style={{ color: s.color }}>{s.count}</p>
+            <p className="text-[8px] font-semibold uppercase tracking-wide text-[#605e5c]">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Llamar siguiente + refresh */}
-      <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
           onClick={() => void handleCallNext()}
           disabled={waitingTickets.length === 0 || isLoading}
-          className={`flex h-9 items-center gap-2 rounded-sm px-4 text-sm font-semibold transition-all ${
+          className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-xs font-semibold transition-all ${
             waitingTickets.length === 0 || isLoading
               ? "cursor-not-allowed bg-[#edebe9] text-[#a19f9d]"
               : "bg-[#0078d4] text-white hover:bg-[#005a9e]"
@@ -778,7 +778,7 @@ const Main = () => {
         >
           Llamar siguiente
           {waitingTickets.length > 0 && (
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+            <span className={`rounded-full px-1 py-0.5 text-[9px] font-bold ${
               waitingTickets.length === 0 || isLoading ? "bg-[#c8c6c4] text-white" : "bg-white/25 text-white"
             }`}>
               {waitingTickets.length}
@@ -786,56 +786,45 @@ const Main = () => {
           )}
         </button>
 
-        {/* Indicador de auto-refresh */}
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0">
           <button
             type="button"
             onClick={() => void loadTickets()}
             disabled={isLoading}
             title="Actualizar ahora"
-            className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
-          <span className="text-[9px] font-semibold tabular-nums text-[#a19f9d]">
-            {isLoading ? "•••" : `${countdown}s`}
+          <span className="text-[8px] font-semibold tabular-nums text-[#a19f9d]">
+            {isLoading ? "•" : `${countdown}s`}
           </span>
         </div>
 
-        {/* Botón TV */}
         <button
           type="button"
           onClick={() => setTvMode(true)}
-          title="Abrir pantalla TV"
-          className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+          title="Pantalla TV"
+          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
         >
-          <Tv2 className="h-4 w-4" />
+          <Tv2 className="h-3.5 w-3.5" />
         </button>
       </div>
 
     </div>
   );
 
-  return (
-  <>
-    <Layout
-      title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
-      subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
-      variant="cards"
-      pageClassName={BC_PAGE}
-      containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
-      topContent={boardRibbon}
+  const boardGrid = (
+    <DndContext
+      sensors={dndSensors}
+      collisionDetection={collisionDetection}
+      onDragStart={handleDragStart}
+      onDragCancel={handleDragCancel}
+      onDragEnd={handleDragEnd}
     >
-      <DndContext
-        sensors={dndSensors}
-        collisionDetection={collisionDetection}
-        onDragStart={handleDragStart}
-        onDragCancel={handleDragCancel}
-        onDragEnd={handleDragEnd}
+      <div
+        className={`grid h-full gap-1.5 lg:grid-cols-3 lg:items-stretch ${isDraggingBoard ? "select-none" : ""}`}
       >
-        <div
-          className={`grid gap-3 lg:grid-cols-3 lg:items-stretch ${isDraggingBoard ? "select-none" : ""}`}
-        >
           <DroppableColumn
             id="waiting"
             title="En espera"
@@ -853,26 +842,25 @@ const Main = () => {
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
                   <div className="flex flex-col gap-1">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className={`${BC_BTN_SECONDARY} w-full`}
+                    <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
+                      className="w-full rounded-md border border-[#0078d4] bg-[#0078d4] py-1.5 text-xs font-semibold text-white hover:bg-[#005a9e] transition-colors"
                     >
                       Iniciar atención
-                    </Button>
+                    </button>
                     <div className="grid grid-cols-2 gap-1">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); void handleNoShow(ticket); }}
-                        className="rounded-sm border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438]"
+                        className="rounded-md border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438] transition-colors"
                       >
-                        No se presentó
+                        No vino
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                        className="rounded-sm border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb]"
+                        className="rounded-md border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
                       >
                         Cancelar
                       </button>
@@ -903,21 +891,20 @@ const Main = () => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      className={`${BC_BTN_PRIMARY} w-full`}
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
+                      className="flex-1 rounded-md border border-[#0078d4] bg-[#0078d4] py-1.5 text-xs font-semibold text-white hover:bg-[#005a9e] transition-colors"
                     >
                       Finalizar
-                    </Button>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                      className="w-full rounded-sm border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb]"
+                      className="flex-1 rounded-md border border-[#f1adba] bg-[#fde7e9] py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
                     >
-                      Cancelar ticket
+                      Cancelar
                     </button>
                   </div>
                 }
@@ -945,14 +932,13 @@ const Main = () => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className={`${BC_BTN_SECONDARY} w-full`}
+                  <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
+                    className="w-full rounded-md border border-[#107c10] bg-[#f1fbf1] py-1.5 text-xs font-semibold text-[#107c10] hover:bg-[#dff6dd] transition-colors"
                   >
                     Completar
-                  </Button>
+                  </button>
                 }
                 showRemaining={false}
                 statusColors={{}}
@@ -967,7 +953,10 @@ const Main = () => {
           {activeDragTicket ? <TicketDragOverlay ticket={activeDragTicket} /> : null}
         </DragOverlay>
       </DndContext>
+  );
 
+  const dialogs = (
+    <>
       <ConfirmDialog
           isOpen={Boolean(ticketToDelete)}
           title="Eliminar ticket"
@@ -1186,17 +1175,53 @@ const Main = () => {
             </Button>
           </div>
         </GenericModal>
-    </Layout>
+    </>
+  );
 
-    {/* Pantalla TV */}
-    {tvMode && (
-      <QueueTvDisplay
-        waitingTickets={waitingTickets}
-        inServiceTickets={inServiceTickets}
-        onClose={() => setTvMode(false)}
-      />
-    )}
-  </>
+  if (embedded) {
+    return (
+      <>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f2f1]">
+          {/* Ribbon compacto sin título */}
+          <div className="shrink-0">{boardRibbon}</div>
+          {/* Tablero — ocupa todo el espacio restante */}
+          <div className={`min-h-0 flex-1 overflow-hidden p-1.5 ${isDraggingBoard ? "select-none" : ""}`}>
+            {boardGrid}
+          </div>
+        </div>
+        {dialogs}
+        {tvMode && (
+          <QueueTvDisplay
+            waitingTickets={waitingTickets}
+            inServiceTickets={inServiceTickets}
+            onClose={() => setTvMode(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Layout
+        title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
+        subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
+        variant="cards"
+        pageClassName={BC_PAGE}
+        containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
+        topContent={boardRibbon}
+      >
+        {boardGrid}
+        {dialogs}
+      </Layout>
+      {tvMode && (
+        <QueueTvDisplay
+          waitingTickets={waitingTickets}
+          inServiceTickets={inServiceTickets}
+          onClose={() => setTvMode(false)}
+        />
+      )}
+    </>
   );
 };
 

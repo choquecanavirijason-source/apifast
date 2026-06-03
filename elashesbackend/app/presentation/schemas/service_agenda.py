@@ -50,6 +50,7 @@ class ServiceBase(BaseModel):
     category_id: Optional[int] = Field(default=None, ge=1)
     duration_minutes: int = Field(..., gt=0)
     price: float = Field(..., ge=0)
+    commission_rate: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class ServiceCreate(ServiceBase):
@@ -63,6 +64,7 @@ class ServiceUpdate(BaseModel):
     category_id: Optional[int] = Field(default=None, ge=1)
     duration_minutes: Optional[int] = Field(default=None, gt=0)
     price: Optional[float] = Field(default=None, ge=0)
+    commission_rate: Optional[float] = Field(default=None, ge=0, le=1)
     branch_ids: Optional[List[int]] = None
 
 
@@ -76,8 +78,10 @@ class ServiceResponse(BaseModel):
     category_id: Optional[int] = None
     duration_minutes: int
     price: float
+    commission_rate: Optional[float] = None
     branch_ids: Optional[List[int]] = None
     category: Optional[ServiceCategoryResponse] = None
+    ticket_count: int = 0
 
 
 class ServiceImageUploadResponse(BaseModel):

@@ -2,12 +2,12 @@
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.branch import Branch
-from app.domain.entities.service_agenda import BranchService, Service
+from app.domain.entities.service_agenda import AppointmentService, BranchService, Service
 from app.domain.entities.user import Role, User
 
 from .categories import _resolve_service_category_id
@@ -41,7 +41,20 @@ def list_services(
                 BranchService.is_active.is_(True),
             )
 
-    return query.order_by(Service.name.asc()).offset(skip).limit(limit).all()
+    services = query.order_by(Service.name.asc()).offset(skip).limit(limit).all()
+
+    # Conteo de tickets por servicio (una sola query en bulk)
+    if services:
+        ids = [s.id for s in services]
+        counts = dict(
+            db.query(AppointmentService.service_id, func.count(AppointmentService.id))
+            .filter(AppointmentService.service_id.in_(ids))
+            .group_by(AppointmentService.service_id)
+            .all()
+        )
+        for svc in services:
+            svc.ticket_count = counts.get(svc.id, 0)
+    return services
 
 
 def get_service_by_id(db: Session, service_id: int) -> Service:

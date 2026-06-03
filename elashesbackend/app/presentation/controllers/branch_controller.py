@@ -7,12 +7,28 @@ from app.core.dependencies import get_db, require_permission
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.branch import BranchCreate, BranchUpdate, BranchResponse
+from app.presentation.schemas.branch_integration import (
+    BranchIntegrationProfileCreate,
+    BranchIntegrationProfileUpdate,
+    BranchIntegrationProfileResponse,
+    BranchIntegrationsResponse,
+    BranchIntegrationsUpdate,
+)
 from app.application.services.branch_service import (
     list_branches,
     get_branch_by_id,
     create_branch,
     update_branch,
     delete_branch,
+)
+from app.application.services.branch_integration_service import (
+    list_integration_profiles,
+    get_integration_profile,
+    create_integration_profile,
+    update_integration_profile,
+    delete_integration_profile,
+    get_branch_integrations,
+    update_branch_integrations,
 )
 
 
@@ -93,3 +109,63 @@ def delete_existing_branch(
 ):
     delete_branch(db=db, branch_id=branch_id)
     return MessageResponse(message="Sucursal eliminada correctamente")
+
+
+# ── Perfiles de integración compartidos ──────────────────────────────────────
+
+@router.get("/integration-profiles", response_model=List[BranchIntegrationProfileResponse])
+def get_integration_profiles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:view")),
+):
+    return list_integration_profiles(db=db)
+
+
+@router.post("/integration-profiles", response_model=BranchIntegrationProfileResponse, status_code=status.HTTP_201_CREATED)
+def create_new_integration_profile(
+    payload: BranchIntegrationProfileCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    return create_integration_profile(db=db, payload=payload.model_dump())
+
+
+@router.put("/integration-profiles/{profile_id}", response_model=BranchIntegrationProfileResponse)
+def update_existing_integration_profile(
+    profile_id: int,
+    payload: BranchIntegrationProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    return update_integration_profile(db=db, profile_id=profile_id, payload=payload.model_dump(exclude_unset=True))
+
+
+@router.delete("/integration-profiles/{profile_id}", response_model=MessageResponse)
+def delete_existing_integration_profile(
+    profile_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    delete_integration_profile(db=db, profile_id=profile_id)
+    return MessageResponse(message="Perfil de integración eliminado correctamente")
+
+
+# ── Integraciones por sucursal ────────────────────────────────────────────────
+
+@router.get("/{branch_id}/integrations", response_model=BranchIntegrationsResponse)
+def get_branch_integrations_endpoint(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:view")),
+):
+    return get_branch_integrations(db=db, branch_id=branch_id)
+
+
+@router.put("/{branch_id}/integrations", response_model=BranchIntegrationsResponse)
+def update_branch_integrations_endpoint(
+    branch_id: int,
+    payload: BranchIntegrationsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    return update_branch_integrations(db=db, branch_id=branch_id, payload=payload.model_dump(exclude_unset=True))

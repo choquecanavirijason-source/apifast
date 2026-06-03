@@ -843,9 +843,9 @@ export default function PosSaleDrawer({
                       >
                         Sin operaria asignada
                       </button>
-                      {professionals.map((p) => {
-                        const inService = p.is_busy === true;
-                        const hasPending = (p.active_count_today ?? 0) > 0 && !inService;
+                      {professionals.filter((p) => p.is_busy !== true).map((p) => {
+                        const inService = false;
+                        const hasPending = (p.active_count_today ?? 0) > 0;
                         const isUnavailable = inService;
                         const freeAt = p.busy_until_time ?? professionalBusyUntilMap.get(String(p.id));
                         return (

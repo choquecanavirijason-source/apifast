@@ -208,16 +208,6 @@ def seed_users(db: Session, roles: dict, branches: dict):
             "skill_level": None,
             "is_active": True,
         },
-        {
-            "username": "almacen1",
-            "email": "almacen1@elashes.com",
-            "phone": "+59170000007",
-            "password": "almacen123",
-            "role": "EncargadaAlmacen",
-            "branch": "Sucursal Principal",
-            "skill_level": None,
-            "is_active": True,
-        },
     ]
 
     users = {}
@@ -247,6 +237,49 @@ def seed_users(db: Session, roles: dict, branches: dict):
 
     safe_commit(db)
     return users
+
+
+# =========================================================
+# Operarias — 9 operarias distribuidas entre sucursales
+# =========================================================
+def seed_operarias_data(db: Session, roles: dict, branches: dict) -> dict:
+    operarias_data = [
+        # ── Sucursal Principal (6) ────────────────────────────────────────────
+        {"username": "luna",     "email": "luna@elashes.com",     "phone": "+59171100001", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 5},
+        {"username": "sofia",    "email": "sofia@elashes.com",    "phone": "+59171100002", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 4},
+        {"username": "ana",      "email": "ana@elashes.com",      "phone": "+59171100003", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 3},
+        {"username": "mia",      "email": "mia@elashes.com",      "phone": "+59171100004", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 2},
+        {"username": "isabela",  "email": "isabela@elashes.com",  "phone": "+59171100005", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 5},
+        {"username": "natalia",  "email": "natalia@elashes.com",  "phone": "+59171100006", "password": "operaria123", "branch": "Sucursal Principal", "skill_level": 4},
+        # ── Sucursal Norte (3) ────────────────────────────────────────────────
+        {"username": "carla",    "email": "carla@elashes.com",    "phone": "+59171100007", "password": "operaria123", "branch": "Sucursal Norte",      "skill_level": 5},
+        {"username": "valeria",  "email": "valeria@elashes.com",  "phone": "+59171100008", "password": "operaria123", "branch": "Sucursal Norte",      "skill_level": 4},
+        {"username": "luciana",  "email": "luciana@elashes.com",  "phone": "+59171100009", "password": "operaria123", "branch": "Sucursal Norte",      "skill_level": 3},
+    ]
+    operaria_role = roles["Operaria"]
+    operarias = {}
+    for item in operarias_data:
+        user = db.query(User).filter(User.username == item["username"]).first()
+        if not user:
+            user = User(
+                username=item["username"],
+                email=item["email"],
+                phone=item["phone"],
+                hashed_password=get_password_hash(item["password"]),
+                is_active=True,
+                role_id=operaria_role.id,
+                branch_id=branches[item["branch"]].id,
+                skill_level=item["skill_level"],
+            )
+            db.add(user)
+            db.flush()
+        else:
+            user.role_id = operaria_role.id
+            user.branch_id = branches[item["branch"]].id
+            user.skill_level = item["skill_level"]
+        operarias[item["username"]] = user
+    safe_commit(db)
+    return operarias
 
 
 # =========================================================
@@ -372,56 +405,16 @@ def seed_questionnaires(db: Session):
 def seed_clients(db: Session, eye_types: dict, branches: dict):
     now = datetime.now(timezone.utc)
     clients_data = [
-        # Principal — cliente recurrente, varios servicios
-        {
-            "name": "Ana",
-            "last_name": "Pérez",
-            "age": 25,
-            "phone": "70000001",
-            "eye_type": "Almendrado",
-            "branch": "Sucursal Principal",
-            "status": CLIENT_STATUS_EN_ESPERA,
-        },
-        # Principal — clienta activa
-        {
-            "name": "María",
-            "last_name": "Gómez",
-            "age": 29,
-            "phone": "70000002",
-            "eye_type": "Encapotado",
-            "branch": "Sucursal Principal",
-            "status": CLIENT_STATUS_EN_SERVICIO,
-        },
-        # Norte — prueba filtro por sucursal en cierre de caja
-        {
-            "name": "Lucía",
-            "last_name": "Rojas",
-            "age": 22,
-            "phone": "70000003",
-            "eye_type": "Redondo",
-            "branch": "Sucursal Norte",
-            "status": CLIENT_STATUS_FINALIZADO,
-        },
-        # Principal — clienta para probar movilidad de operaria
-        {
-            "name": "Valentina",
-            "last_name": "Cruz",
-            "age": 31,
-            "phone": "70000004",
-            "eye_type": "Rasgado",
-            "branch": "Sucursal Principal",
-            "status": CLIENT_STATUS_EN_ESPERA,
-        },
-        # Principal — clienta para turno pendiente
-        {
-            "name": "Isabella",
-            "last_name": "Méndez",
-            "age": 27,
-            "phone": "70000005",
-            "eye_type": "Almendrado",
-            "branch": "Sucursal Principal",
-            "status": CLIENT_STATUS_EN_ESPERA,
-        },
+        {"name": "Ana",       "last_name": "Pérez",    "age": 25, "phone": "70000001", "eye_type": "Almendrado", "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_ESPERA},
+        {"name": "María",     "last_name": "Gómez",    "age": 29, "phone": "70000002", "eye_type": "Encapotado", "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_SERVICIO},
+        {"name": "Lucía",     "last_name": "Rojas",    "age": 22, "phone": "70000003", "eye_type": "Redondo",    "branch": "Sucursal Norte",      "status": CLIENT_STATUS_FINALIZADO},
+        {"name": "Valentina", "last_name": "Cruz",     "age": 31, "phone": "70000004", "eye_type": "Rasgado",    "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_ESPERA},
+        {"name": "Isabella",  "last_name": "Méndez",   "age": 27, "phone": "70000005", "eye_type": "Almendrado", "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_ESPERA},
+        {"name": "Camila",    "last_name": "Torres",   "age": 24, "phone": "70000006", "eye_type": "Encapotado", "branch": "Sucursal Norte",      "status": CLIENT_STATUS_FINALIZADO},
+        {"name": "Sofía",     "last_name": "Vargas",   "age": 33, "phone": "70000007", "eye_type": "Rasgado",    "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_ESPERA},
+        {"name": "Daniela",   "last_name": "Flores",   "age": 28, "phone": "70000008", "eye_type": "Redondo",    "branch": "Sucursal Norte",      "status": CLIENT_STATUS_FINALIZADO},
+        {"name": "Gabriela",  "last_name": "Ríos",     "age": 35, "phone": "70000009", "eye_type": "Almendrado", "branch": "Sucursal Principal", "status": CLIENT_STATUS_EN_ESPERA},
+        {"name": "Patricia",  "last_name": "Salinas",  "age": 30, "phone": "70000010", "eye_type": "Asimétricos","branch": "Sucursal Norte",      "status": CLIENT_STATUS_EN_ESPERA},
     ]
 
     clients = {}
@@ -457,13 +450,14 @@ def seed_clients(db: Session, eye_types: dict, branches: dict):
 
 
 # =========================================================
-# Servicios — 4 servicios disponibles en ambas sucursales
+# Servicios — 6 servicios disponibles en ambas sucursales
 # =========================================================
 def seed_services(db: Session, branches: dict):
     categories_data = [
-        {"name": "Extensiones", "description": "Aplicaciones de extensiones de pestañas"},
-        {"name": "Mantenimiento", "description": "Retoques y mantenimiento"},
-        {"name": "Lifting", "description": "Lifting y permanente de pestañas"},
+        {"name": "Extensiones",  "description": "Aplicaciones de extensiones de pestañas"},
+        {"name": "Mantenimiento","description": "Retoques y mantenimiento"},
+        {"name": "Lifting",      "description": "Lifting y permanente de pestañas"},
+        {"name": "Tratamientos", "description": "Tratamientos especiales para pestañas"},
     ]
     categories = {}
     for item in categories_data:
@@ -477,34 +471,14 @@ def seed_services(db: Session, branches: dict):
         categories[item["name"]] = cat
 
     services_data = [
-        {
-            "name": "Extensiones Clásicas",
-            "description": "Aplicación 1D natural",
-            "category": "Extensiones",
-            "duration_minutes": 90,
-            "price": 120,
-        },
-        {
-            "name": "Extensiones Volumen 3D",
-            "description": "Aplicación con mayor densidad",
-            "category": "Extensiones",
-            "duration_minutes": 120,
-            "price": 180,
-        },
-        {
-            "name": "Retoque de Extensiones",
-            "description": "Mantenimiento parcial — rellenado de extensiones caídas",
-            "category": "Mantenimiento",
-            "duration_minutes": 60,
-            "price": 80,
-        },
-        {
-            "name": "Lifting de Pestañas",
-            "description": "Curvado permanente con queratina",
-            "category": "Lifting",
-            "duration_minutes": 75,
-            "price": 100,
-        },
+        {"name": "Extensiones Clásicas",      "description": "Aplicación 1D natural",                          "category": "Extensiones",  "duration_minutes": 90,  "price": 120, "commission_rate": 0.40},
+        {"name": "Extensiones Volumen 3D",    "description": "Aplicación con mayor densidad",                  "category": "Extensiones",  "duration_minutes": 120, "price": 180, "commission_rate": 0.40},
+        {"name": "Extensiones Volumen 5D",    "description": "Máximo volumen y densidad glam",                 "category": "Extensiones",  "duration_minutes": 150, "price": 220, "commission_rate": 0.42},
+        {"name": "Retoque de Extensiones",    "description": "Relleno parcial de extensiones caídas",         "category": "Mantenimiento","duration_minutes": 60,  "price": 80,  "commission_rate": 0.38},
+        {"name": "Remoción de Extensiones",   "description": "Retiro seguro con solvente especializado",      "category": "Mantenimiento","duration_minutes": 45,  "price": 60,  "commission_rate": 0.35},
+        {"name": "Lifting de Pestañas",       "description": "Curvado permanente con queratina",              "category": "Lifting",      "duration_minutes": 75,  "price": 100, "commission_rate": 0.40},
+        {"name": "Permanente de Pestañas",    "description": "Ondulación duradera con fijación profesional",  "category": "Lifting",      "duration_minutes": 90,  "price": 120, "commission_rate": 0.40},
+        {"name": "Tratamiento de Queratina",  "description": "Hidratación y nutrición de pestañas naturales", "category": "Tratamientos", "duration_minutes": 60,  "price": 90,  "commission_rate": 0.38},
     ]
 
     services = {}
@@ -517,6 +491,7 @@ def seed_services(db: Session, branches: dict):
                 category_id=categories[item["category"]].id,
                 duration_minutes=item["duration_minutes"],
                 price=item["price"],
+                commission_rate=item.get("commission_rate"),
             )
             db.add(svc)
             db.flush()
@@ -525,6 +500,7 @@ def seed_services(db: Session, branches: dict):
             svc.category_id = categories[item["category"]].id
             svc.duration_minutes = item["duration_minutes"]
             svc.price = item["price"]
+            svc.commission_rate = item.get("commission_rate")
         services[item["name"]] = svc
 
     safe_commit(db)
@@ -545,127 +521,33 @@ def seed_services(db: Session, branches: dict):
 
 
 # =========================================================
-# Citas — cubre todos los estados para cierre de caja,
-# movilidad de operaria y agenda de mañana
+# Citas — cubre todos los estados, ambas sucursales, varios días
 # =========================================================
 def seed_appointments(db: Session, clients: dict, users: dict, branches: dict, services: dict):
-    # Hora base: inicio de la hora actual (sin minutos/segundos)
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
 
     appointments_data = [
-        # ── Sucursal Principal — HOY ─────────────────────────────────────────
-
-        # Completada hace ~4h: operaria1 (senior) con Ana — servicio complejo
-        {
-            "client_key": "Ana Pérez",
-            "professional": "operaria1",
-            "service_ids": [services["Extensiones Clásicas"].id, services["Retoque de Extensiones"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now - timedelta(hours=4),
-            "end_time": now - timedelta(hours=2),
-            "status": "completed",
-        },
-
-        # Completada hace ~3h: operaria2 (junior) con María — servicio simple
-        {
-            "client_key": "María Gómez",
-            "professional": "operaria2",
-            "service_ids": [services["Retoque de Extensiones"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now - timedelta(hours=3),
-            "end_time": now - timedelta(hours=2),
-            "status": "completed",
-        },
-
-        # Cancelada: turno que no se presentó
-        {
-            "client_key": "Isabella Méndez",
-            "professional": "operaria2",
-            "service_ids": [services["Extensiones Clásicas"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now - timedelta(hours=5),
-            "end_time": now - timedelta(hours=3, minutes=30),
-            "status": "cancelled",
-        },
-
-        # En servicio AHORA: movilidad de sucursal — operaria3 (de Norte)
-        # trabajando en Principal por alta demanda
-        {
-            "client_key": "Valentina Cruz",
-            "professional": "operaria3",
-            "service_ids": [services["Extensiones Volumen 3D"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now - timedelta(minutes=30),
-            "end_time": now + timedelta(hours=1, minutes=30),
-            "status": "in_service",
-        },
-
-        # Pendiente próximamente: operaria1 libre para turno de tarde
-        {
-            "client_key": "Isabella Méndez",
-            "professional": "operaria1",
-            "service_ids": [services["Lifting de Pestañas"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now + timedelta(hours=1),
-            "end_time": now + timedelta(hours=2, minutes=15),
-            "status": "pending",
-        },
-
-        # Confirmado tarde: cliente recurrente con operaria2
-        {
-            "client_key": "Ana Pérez",
-            "professional": "operaria2",
-            "service_ids": [services["Retoque de Extensiones"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now + timedelta(hours=2),
-            "end_time": now + timedelta(hours=3),
-            "status": "confirmed",
-        },
-
-        # Confirmado tarde: operaria1 con María — 2 servicios
-        {
-            "client_key": "María Gómez",
-            "professional": "operaria1",
-            "service_ids": [services["Extensiones Clásicas"].id, services["Lifting de Pestañas"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now + timedelta(hours=3),
-            "end_time": now + timedelta(hours=5, minutes=30),
-            "status": "confirmed",
-        },
-
-        # ── Sucursal Norte — HOY ─────────────────────────────────────────────
-
-        # Completada: operaria3 en su sucursal de origen esta mañana
-        {
-            "client_key": "Lucía Rojas",
-            "professional": "operaria3",
-            "service_ids": [services["Retoque de Extensiones"].id],
-            "branch": "Sucursal Norte",
-            "start_time": now - timedelta(hours=6),
-            "end_time": now - timedelta(hours=5),
-            "status": "completed",
-        },
-
-        # ── MAÑANA — reservas para probar agenda futura ──────────────────────
-
-        {
-            "client_key": "Valentina Cruz",
-            "professional": "operaria1",
-            "service_ids": [services["Extensiones Volumen 3D"].id],
-            "branch": "Sucursal Principal",
-            "start_time": now + timedelta(days=1, hours=1),
-            "end_time": now + timedelta(days=1, hours=3),
-            "status": "confirmed",
-        },
-        {
-            "client_key": "Lucía Rojas",
-            "professional": "operaria3",
-            "service_ids": [services["Extensiones Clásicas"].id],
-            "branch": "Sucursal Norte",
-            "start_time": now + timedelta(days=1, hours=2),
-            "end_time": now + timedelta(days=1, hours=3, minutes=30),
-            "status": "pending",
-        },
+        # ── Sucursal Principal — HOY completadas ──────────────────────────────
+        {"client_key": "Ana Pérez",      "professional": "luna",    "service_ids": [services["Extensiones Clásicas"].id, services["Retoque de Extensiones"].id], "branch": "Sucursal Principal", "start_time": now - timedelta(hours=5),           "end_time": now - timedelta(hours=3),           "status": "completed"},
+        {"client_key": "María Gómez",    "professional": "sofia",   "service_ids": [services["Extensiones Volumen 3D"].id],                                      "branch": "Sucursal Principal", "start_time": now - timedelta(hours=4),           "end_time": now - timedelta(hours=2),           "status": "completed"},
+        {"client_key": "Sofía Vargas",   "professional": "ana",     "service_ids": [services["Lifting de Pestañas"].id],                                         "branch": "Sucursal Principal", "start_time": now - timedelta(hours=3),           "end_time": now - timedelta(hours=1, minutes=45),"status": "completed"},
+        {"client_key": "Gabriela Ríos",  "professional": "isabela", "service_ids": [services["Extensiones Volumen 5D"].id],                                      "branch": "Sucursal Principal", "start_time": now - timedelta(hours=6),           "end_time": now - timedelta(hours=3, minutes=30),"status": "completed"},
+        # ── Sucursal Principal — en servicio y pendientes ─────────────────────
+        {"client_key": "Valentina Cruz", "professional": "natalia", "service_ids": [services["Extensiones Volumen 3D"].id],                                      "branch": "Sucursal Principal", "start_time": now - timedelta(minutes=45),        "end_time": now + timedelta(hours=1, minutes=15),"status": "in_service"},
+        {"client_key": "Isabella Méndez","professional": "luna",    "service_ids": [services["Lifting de Pestañas"].id],                                         "branch": "Sucursal Principal", "start_time": now + timedelta(hours=1),           "end_time": now + timedelta(hours=2, minutes=15),"status": "pending"},
+        {"client_key": "Ana Pérez",      "professional": "mia",     "service_ids": [services["Retoque de Extensiones"].id],                                      "branch": "Sucursal Principal", "start_time": now + timedelta(hours=2),           "end_time": now + timedelta(hours=3),           "status": "confirmed"},
+        {"client_key": "María Gómez",    "professional": "sofia",   "service_ids": [services["Permanente de Pestañas"].id],                                      "branch": "Sucursal Principal", "start_time": now + timedelta(hours=3),           "end_time": now + timedelta(hours=4, minutes=30),"status": "confirmed"},
+        # ── Cancelada ─────────────────────────────────────────────────────────
+        {"client_key": "Sofía Vargas",   "professional": "ana",     "service_ids": [services["Extensiones Clásicas"].id],                                        "branch": "Sucursal Principal", "start_time": now - timedelta(hours=7),           "end_time": now - timedelta(hours=5, minutes=30),"status": "cancelled"},
+        # ── Sucursal Norte — hoy ──────────────────────────────────────────────
+        {"client_key": "Lucía Rojas",    "professional": "carla",   "service_ids": [services["Retoque de Extensiones"].id],                                      "branch": "Sucursal Norte",      "start_time": now - timedelta(hours=5),           "end_time": now - timedelta(hours=4),           "status": "completed"},
+        {"client_key": "Camila Torres",  "professional": "valeria", "service_ids": [services["Extensiones Clásicas"].id, services["Tratamiento de Queratina"].id],"branch": "Sucursal Norte",      "start_time": now - timedelta(hours=3),           "end_time": now - timedelta(hours=1),           "status": "completed"},
+        {"client_key": "Daniela Flores", "professional": "luciana", "service_ids": [services["Lifting de Pestañas"].id],                                         "branch": "Sucursal Norte",      "start_time": now - timedelta(minutes=30),        "end_time": now + timedelta(hours=1),           "status": "in_service"},
+        {"client_key": "Patricia Salinas","professional": "carla",  "service_ids": [services["Extensiones Volumen 5D"].id],                                      "branch": "Sucursal Norte",      "start_time": now + timedelta(hours=1, minutes=30),"end_time": now + timedelta(hours=4),          "status": "pending"},
+        # ── Mañana ────────────────────────────────────────────────────────────
+        {"client_key": "Valentina Cruz", "professional": "luna",    "service_ids": [services["Extensiones Volumen 3D"].id],                                      "branch": "Sucursal Principal", "start_time": now + timedelta(days=1, hours=1),   "end_time": now + timedelta(days=1, hours=3),   "status": "confirmed"},
+        {"client_key": "Lucía Rojas",    "professional": "valeria", "service_ids": [services["Extensiones Clásicas"].id],                                        "branch": "Sucursal Norte",      "start_time": now + timedelta(days=1, hours=2),   "end_time": now + timedelta(days=1, hours=3, minutes=30),"status": "pending"},
+        {"client_key": "Gabriela Ríos",  "professional": "natalia", "service_ids": [services["Remoción de Extensiones"].id, services["Extensiones Clásicas"].id],"branch": "Sucursal Principal", "start_time": now + timedelta(days=1, hours=3),   "end_time": now + timedelta(days=1, hours=5),   "status": "confirmed"},
     ]
 
     appointments = {}
@@ -720,36 +602,14 @@ def seed_trackings(
     appointments: dict,
 ):
     trackings_data = [
-        {
-            "client_key": "Ana Pérez",
-            "professional": "operaria1",
-            "eye_type": "Almendrado",
-            "effect": "Natural",
-            "volume": "Clásico (1D)",
-            "lash_design": "Natural",
-            "date": datetime.utcnow() - timedelta(days=20),
-            "notes": "Primera aplicación, look natural. Piel sensible al adhesivo rápido.",
-        },
-        {
-            "client_key": "María Gómez",
-            "professional": "operaria1",
-            "eye_type": "Encapotado",
-            "effect": "Foxy Eye",
-            "volume": "3D",
-            "lash_design": "Cat Eye",
-            "date": datetime.utcnow() - timedelta(days=10),
-            "notes": "Se priorizó elongación visual. Prefiere pegamento lento.",
-        },
-        {
-            "client_key": "Valentina Cruz",
-            "professional": "operaria3",
-            "eye_type": "Rasgado",
-            "effect": "Wet Look",
-            "volume": "5D",
-            "lash_design": "Wispy",
-            "date": datetime.utcnow() - timedelta(days=5),
-            "notes": "Clienta nueva. Quiere volumen máximo para evento.",
-        },
+        {"client_key": "Ana Pérez",       "professional": "luna",    "eye_type": "Almendrado", "effect": "Natural",   "volume": "Clásico (1D)", "lash_design": "Natural",   "date": datetime.utcnow() - timedelta(days=20), "notes": "Primera aplicación, look natural. Piel sensible al adhesivo rápido."},
+        {"client_key": "María Gómez",     "professional": "sofia",   "eye_type": "Encapotado", "effect": "Foxy Eye",  "volume": "3D",           "lash_design": "Cat Eye",   "date": datetime.utcnow() - timedelta(days=10), "notes": "Priorizó elongación visual. Prefiere pegamento lento."},
+        {"client_key": "Valentina Cruz",  "professional": "natalia", "eye_type": "Rasgado",    "effect": "Wet Look",  "volume": "5D",           "lash_design": "Wispy",     "date": datetime.utcnow() - timedelta(days=5),  "notes": "Clienta nueva. Volumen máximo para evento."},
+        {"client_key": "Sofía Vargas",    "professional": "ana",     "eye_type": "Rasgado",    "effect": "Doll Eye",  "volume": "2D",           "lash_design": "Doll",      "date": datetime.utcnow() - timedelta(days=8),  "notes": "Busca efecto muñeca, pestañas de 10–12 mm."},
+        {"client_key": "Lucía Rojas",     "professional": "carla",   "eye_type": "Redondo",    "effect": "Natural",   "volume": "Clásico (1D)", "lash_design": "Natural",   "date": datetime.utcnow() - timedelta(days=15), "notes": "Clienta frecuente de Sucursal Norte. Sin alergias previas."},
+        {"client_key": "Camila Torres",   "professional": "valeria", "eye_type": "Encapotado", "effect": "Kim K",     "volume": "5D",           "lash_design": "Squirrel",  "date": datetime.utcnow() - timedelta(days=3),  "notes": "Efecto Kim K con curva D. Primera vez en el salón."},
+        {"client_key": "Gabriela Ríos",   "professional": "isabela", "eye_type": "Almendrado", "effect": "Foxy Eye",  "volume": "3D",           "lash_design": "Cat Eye",   "date": datetime.utcnow() - timedelta(days=12), "notes": "Retiro de extensiones anteriores antes de nueva aplicación."},
+        {"client_key": "Daniela Flores",  "professional": "luciana", "eye_type": "Redondo",    "effect": "Doll Eye",  "volume": "2D",           "lash_design": "Doll",      "date": datetime.utcnow() - timedelta(days=6),  "notes": "Piel sensible, se usó adhesivo sensitivo de baja retención."},
     ]
 
     for item in trackings_data:
@@ -788,48 +648,18 @@ def seed_trackings(
 # Pagos — para citas completadas de hoy y de historial
 # =========================================================
 def seed_payments(db: Session, clients: dict, branches: dict, appointments: dict):
-    # Buscar las citas completadas de hoy para asociar pagos
-    def find_appointment(client_key: str):
-        return next(
-            (appt for key, appt in appointments.items() if key.startswith(f"{client_key}|")),
-            None,
-        )
-
-    ana_appt = find_appointment("Ana Pérez")
-    maria_appt = find_appointment("María Gómez")
-    lucia_appt = find_appointment("Lucía Rojas")
+    def find_appt(client_key: str):
+        return next((a for k, a in appointments.items() if k.startswith(f"{client_key}|")), None)
 
     payment_data = [
-        {
-            "client_key": "Ana Pérez",
-            "branch": "Sucursal Principal",
-            "appointment": ana_appt,
-            "amount": 200,  # Clásicas 120 + Retoque 80
-            "method": "cash",
-            "status": "paid",
-            "reference": "CASH-001",
-            "paid_at": datetime.utcnow() - timedelta(hours=2),
-        },
-        {
-            "client_key": "María Gómez",
-            "branch": "Sucursal Principal",
-            "appointment": maria_appt,
-            "amount": 80,   # Retoque
-            "method": "qr",
-            "status": "paid",
-            "reference": "QR-001",
-            "paid_at": datetime.utcnow() - timedelta(hours=2),
-        },
-        {
-            "client_key": "Lucía Rojas",
-            "branch": "Sucursal Norte",
-            "appointment": lucia_appt,
-            "amount": 80,   # Retoque
-            "method": "transfer",
-            "status": "paid",
-            "reference": "TRF-001",
-            "paid_at": datetime.utcnow() - timedelta(hours=5),
-        },
+        {"client_key": "Ana Pérez",       "branch": "Sucursal Principal", "appointment": find_appt("Ana Pérez"),       "amount": 200,  "method": "cash",     "status": "paid", "reference": "CASH-001", "paid_at": datetime.utcnow() - timedelta(hours=3)},
+        {"client_key": "María Gómez",     "branch": "Sucursal Principal", "appointment": find_appt("María Gómez"),     "amount": 180,  "method": "qr",       "status": "paid", "reference": "QR-001",   "paid_at": datetime.utcnow() - timedelta(hours=2)},
+        {"client_key": "Sofía Vargas",    "branch": "Sucursal Principal", "appointment": find_appt("Sofía Vargas"),    "amount": 100,  "method": "transfer", "status": "paid", "reference": "TRF-001",  "paid_at": datetime.utcnow() - timedelta(hours=1, minutes=30)},
+        {"client_key": "Gabriela Ríos",   "branch": "Sucursal Principal", "appointment": find_appt("Gabriela Ríos"),   "amount": 220,  "method": "cash",     "status": "paid", "reference": "CASH-002", "paid_at": datetime.utcnow() - timedelta(hours=5)},
+        {"client_key": "Lucía Rojas",     "branch": "Sucursal Norte",      "appointment": find_appt("Lucía Rojas"),     "amount": 80,   "method": "qr",       "status": "paid", "reference": "QR-002",   "paid_at": datetime.utcnow() - timedelta(hours=4)},
+        {"client_key": "Camila Torres",   "branch": "Sucursal Norte",      "appointment": find_appt("Camila Torres"),   "amount": 210,  "method": "card",     "status": "paid", "reference": "CARD-001", "paid_at": datetime.utcnow() - timedelta(hours=2, minutes=30)},
+        {"client_key": "Ana Pérez",       "branch": "Sucursal Principal", "appointment": None,                          "amount": 50,   "method": "cash",     "status": "paid", "reference": "CASH-003", "paid_at": datetime.utcnow() - timedelta(days=3)},
+        {"client_key": "Daniela Flores",  "branch": "Sucursal Norte",      "appointment": find_appt("Daniela Flores"),  "amount": 100,  "method": "transfer", "status": "paid", "reference": "TRF-002",  "paid_at": datetime.utcnow() - timedelta(hours=1)},
     ]
 
     for item in payment_data:
@@ -1011,20 +841,85 @@ def seed_inventory(db: Session, branches: dict):
 
 
 # =========================================================
-# Seeder maestro
+# Seeder maestro — solo datos esenciales de producción
 # =========================================================
 def run_seeders(db: Session):
+    # 1. Permisos y roles
     seed_permissions(db)
     roles = seed_roles(db)
+
+    # 2. Sucursales base
     branches = seed_branches(db)
-    seed_users(db, roles, branches)
-    seed_catalogs(db)
-    seed_questionnaires(db)
-    seed_services(db, branches)
-    seed_inventory(db, branches)
+
+    # 3. Usuarios base: admin + secretaria1
+    staff = seed_users(db, roles=roles, branches=branches)
+
+    # 4. Operarias: 9 distribuidas entre sucursales
+    operarias = seed_operarias_data(db, roles=roles, branches=branches)
+
+    # Diccionario unificado para citas y seguimientos
+    users = {**staff, **operarias}
+
+    # 5. Catálogos (tipos de ojo, efectos, volúmenes, diseños)
+    eye_types, effects, volumes, lash_designs = seed_catalogs(db)
+
+    # 6. Cuestionario de salud inicial
+    questionnaire = seed_questionnaires(db)
+
+    # 7. Clientes de prueba
+    try:
+        clients = seed_clients(db, eye_types=eye_types, branches=branches)
+    except Exception as e:
+        print(f"   [seed_clients] omitido: {e}")
+        clients = {}
+
+    # 8. Servicios y categorías de servicio
+    try:
+        services = seed_services(db, branches=branches)
+    except Exception as e:
+        print(f"   [seed_services] omitido: {e}")
+        services = {}
+
+    # 9. Citas de prueba
+    try:
+        if clients and users and services:
+            appointments = seed_appointments(
+                db, clients=clients, users=users, branches=branches, services=services
+            )
+        else:
+            appointments = {}
+    except Exception as e:
+        print(f"   [seed_appointments] omitido: {e}")
+        appointments = {}
+
+    # 10. Seguimientos de pestañas
+    try:
+        if clients and users and appointments:
+            seed_trackings(
+                db,
+                clients=clients,
+                users=users,
+                eye_types=eye_types,
+                effects=effects,
+                volumes=volumes,
+                lash_designs=lash_designs,
+                questionnaire=questionnaire,
+                appointments=appointments,
+            )
+    except Exception as e:
+        print(f"   [seed_trackings] omitido: {e}")
+
+    # 11. Pagos de prueba
+    try:
+        if clients and appointments:
+            seed_payments(db, clients=clients, branches=branches, appointments=appointments)
+    except Exception as e:
+        print(f"   [seed_payments] omitido: {e}")
+
+    # 12. Inventario (categorías, productos, lotes)
+    try:
+        seed_inventory(db, branches=branches)
+    except Exception as e:
+        print(f"   [seed_inventory] omitido: {e}")
 
     print(">>> Seeders ejecutados correctamente <<<")
-    print("   Usuarios: admin / secretaria1 / almacen1")
-    print("   Contraseñas: admin123 | secretaria123 | almacen123")
-    print("   Sucursales: Sucursal Principal | Sucursal Norte")
-    print("   Sin clientes de prueba — créalos desde el POS")

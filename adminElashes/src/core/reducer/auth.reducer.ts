@@ -153,11 +153,15 @@ export const login = createAsyncThunk(
         sessionDurationMinutes,
       };
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        'Login failed'
-      );
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail || error.response?.data?.message;
+      if (status === 401) {
+        return rejectWithValue(detail || 'Usuario o contraseña incorrectos.');
+      }
+      if (status === 403) {
+        return rejectWithValue(detail || 'Tu cuenta está inactiva. Contacta al administrador.');
+      }
+      return rejectWithValue(detail || 'No se pudo conectar con el servidor. Verifica que el backend esté activo.');
     }
   }
 );

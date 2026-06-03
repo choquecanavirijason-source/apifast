@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { MessageCircle, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageCircle, Save } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   BranchService,
@@ -7,6 +7,7 @@ import {
   type BranchIntegrations,
   type BranchIntegrationsPayload,
 } from "../../../../core/services/branch/branch.service";
+import { CatalogService, type QuestionnaireItem } from "../../../../core/services/catalog/catalog.service";
 import { getApiErrorMessage } from "../../../../core/utils/apiError";
 import { Button, InputField } from "../../../../components/common/ui";
 
@@ -60,6 +61,8 @@ export default function BranchIntegrationsPanel({
   const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireItem | null>(null);
+  const [showQuestions, setShowQuestions] = useState(false);
 
   const load = useCallback(async () => {
     if (!branchId) return;
@@ -85,6 +88,12 @@ export default function BranchIntegrationsPanel({
     }
     void load();
   }, [branchId, load]);
+
+  useEffect(() => {
+    CatalogService.listQuestionnaires({ limit: 1 })
+      .then((list) => { if (list.length > 0) void CatalogService.getQuestionnaire(list[0].id).then(setQuestionnaire); })
+      .catch(() => {});
+  }, []);
 
   const handleSave = async () => {
     if (!branchId) return;
@@ -265,6 +274,63 @@ export default function BranchIntegrationsPanel({
               />
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* ── Preguntas que se enviarán por WhatsApp al reservar ─────────────── */}
+      {questionnaire && (
+        <div className="mt-4 rounded-xl border border-[#0078d4]/30 bg-[#f0f6ff]">
+          <button
+            type="button"
+            onClick={() => setShowQuestions((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-[#0078d4]" />
+              <div>
+                <p className="text-xs font-bold text-[#004578]">
+                  Preguntas que se enviarán al cliente por WhatsApp al agendar
+                </p>
+                <p className="text-[10px] text-[#605e5c]">
+                  {questionnaire.questions?.length ?? 0} preguntas · {questionnaire.title}
+                  {!form.whatsapp_enabled && " · (WhatsApp desactivado)"}
+                </p>
+              </div>
+            </div>
+            {showQuestions ? <ChevronUp className="h-4 w-4 text-[#0078d4]" /> : <ChevronDown className="h-4 w-4 text-[#0078d4]" />}
+          </button>
+
+          {showQuestions && questionnaire.questions && (
+            <div className="border-t border-[#0078d4]/20 px-4 pb-4 pt-3">
+              {!form.whatsapp_enabled && (
+                <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                  ⚠️ Activa WhatsApp API arriba y guarda las llaves para enviar estas preguntas automáticamente.
+                </div>
+              )}
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                Vista previa del mensaje al cliente:
+              </p>
+              <div className="rounded-xl bg-white border border-[#edebe9] p-3 text-xs text-[#323130] space-y-1.5 font-mono shadow-sm">
+                <p className="font-bold text-[#0078d4]">Hola! Para confirmar tu cita necesitamos saber:</p>
+                {questionnaire.questions
+                  .filter((q) => q.is_required)
+                  .slice(0, 8)
+                  .map((q, i) => (
+                    <p key={q.id} className="text-slate-700">
+                      {i + 1}. {q.text}{q.question_type === "bool" ? " (Sí / No)" : " (Respuesta libre)"}
+                    </p>
+                  ))}
+                {(questionnaire.questions.filter((q) => q.is_required).length > 8) && (
+                  <p className="text-slate-400">…y {questionnaire.questions.filter((q) => q.is_required).length - 8} preguntas más</p>
+                )}
+                <p className="pt-1 font-bold text-[#0078d4]">Responde y te confirmamos tu cita ✅</p>
+              </div>
+              <p className="mt-2 text-[10px] text-[#605e5c]">
+                Solo se muestran las preguntas marcadas como obligatorias ({questionnaire.questions.filter((q) => q.is_required).length} de {questionnaire.questions.length}).
+                Edita el cuestionario en <strong>Cuestionarios</strong>.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </section>

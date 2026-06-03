@@ -11,16 +11,26 @@ from app.presentation.schemas.auth import RegisterRequest
 
 
 def authenticate_user(db: Session, username: str, password: str) -> User:
+    login_input = username.strip().lower()
+    opts = [
+        joinedload(User.role).joinedload(Role.permissions),
+        joinedload(User.direct_permissions),
+        joinedload(User.branch),
+    ]
     user = (
         db.query(User)
-        .options(
-            joinedload(User.role).joinedload(Role.permissions),
-            joinedload(User.direct_permissions),
-            joinedload(User.branch),
-        )
-        .filter(User.username == username)
+        .options(*opts)
+        .filter(User.username.ilike(login_input))
         .first()
     )
+    # Fallback: buscar por email si no coincide por username
+    if not user:
+        user = (
+            db.query(User)
+            .options(*opts)
+            .filter(User.email.ilike(login_input))
+            .first()
+        )
 
     if not user:
         raise HTTPException(

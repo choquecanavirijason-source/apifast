@@ -251,8 +251,8 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         path: "/admin/professionals/history",
         permission: ["appointments:view", "appointments:manage"],
         subItems: [
-          { name: "Historial de servicios", path: "/admin/professionals/history", permission: ["appointments:view", "appointments:manage"] },
-          { name: "Historial de tickets", path: "/admin/professionals/tickets", permission: ["appointments:view", "appointments:manage"] },
+          { name: "Comisiones por operaria", path: "/admin/professionals/history", permission: ["appointments:view", "appointments:manage"] },
+          { name: "Seguimiento de servicios", path: "/admin/professionals/tickets", permission: ["appointments:view", "appointments:manage"] },
         ],
       },
 

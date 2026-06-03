@@ -1,4 +1,5 @@
 """Casos de uso para InventoryMovement (entradas, salidas, ajustes, uso por servicio)."""
+import asyncio
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.branch import Branch
 from app.domain.entities.inventory import Batch, InventoryMovement, Product
+from app.domain.entities.user import Role, User
 
 
 ALLOWED_MOVEMENT_TYPES = {"in", "out", "adjustment", "service_use"}
@@ -110,6 +112,8 @@ def create_inventory_movement(
         )
 
     # Aplicar efecto al stock del lote si corresponde
+    stock_before = batch.current_quantity if batch is not None else None
+
     if batch is not None:
         if normalized_type in {"out", "service_use"}:
             if batch.current_quantity < quantity:
@@ -137,4 +141,72 @@ def create_inventory_movement(
     db.commit()
     db.refresh(movement)
 
+    # ── Alerta automática de stock bajo ──────────────────────────────────
+    # Dispara solo cuando el stock cruza el umbral mínimo (antes estaba OK, ahora está bajo)
+    if batch is not None and normalized_type in {"out", "service_use"} and product is not None:
+        min_s = product.min_stock or 0
+        if min_s > 0:
+            # Stock total del producto en todos los lotes
+            total_stock = sum(
+                b.current_quantity
+                for b in db.query(Batch).filter(Batch.product_id == product_id).all()
+            )
+            just_crossed = stock_before is not None and stock_before > min_s and total_stock <= min_s
+            if just_crossed:
+                _fire_stock_alert_background(db, product, total_stock, min_s)
+
     return movement
+
+
+def _fire_stock_alert_background(db: Session, product: Product, total_stock: int, min_stock: int) -> None:
+    """Envía alerta WhatsApp en background sin bloquear la respuesta HTTP."""
+    from app.application.services.branch_integration_service import get_whatsapp_config_for_branch
+    from app.application.services.whatsapp_service import normalize_phone_e164, send_whatsapp_text
+
+    try:
+        secretaria_roles = db.query(Role).filter(Role.name.in_(["Secretaria", "Admin", "SuperAdmin"])).all()
+        role_ids = [r.id for r in secretaria_roles]
+        recipients = (
+            db.query(User)
+            .filter(User.role_id.in_(role_ids), User.is_active.is_(True), User.phone.isnot(None))
+            .all()
+        )
+        if not recipients:
+            return
+
+        branch = db.query(Branch).first()
+        wa_config = get_whatsapp_config_for_branch(db, branch.id if branch else None)
+
+        agotado = total_stock == 0
+        if agotado:
+            msg = (
+                f"🚨 *PRODUCTO AGOTADO — New Elashes*\n\n"
+                f"❌ *{product.name}* (SKU: {product.sku}) se quedó sin stock.\n"
+                f"Stock actual: 0 / Mínimo: {min_stock}\n\n"
+                "Por favor realizar pedido urgente. ✅"
+            )
+        else:
+            faltan = min_stock - total_stock
+            msg = (
+                f"⚠️ *STOCK BAJO — New Elashes*\n\n"
+                f"*{product.name}* (SKU: {product.sku}) bajó del mínimo.\n"
+                f"Stock actual: {total_stock} / Mínimo: {min_stock} (faltan {faltan})\n\n"
+                "Por favor gestionar reposición. ✅"
+            )
+
+        async def _send_all():
+            for user in recipients:
+                phone = normalize_phone_e164(user.phone)
+                if phone:
+                    await send_whatsapp_text(phone_e164=phone, message=msg, branch_config=wa_config)
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(_send_all())
+            else:
+                loop.run_until_complete(_send_all())
+        except RuntimeError:
+            asyncio.run(_send_all())
+    except Exception as e:
+        print(f"[StockAlert] Error enviando alerta WhatsApp: {e}")

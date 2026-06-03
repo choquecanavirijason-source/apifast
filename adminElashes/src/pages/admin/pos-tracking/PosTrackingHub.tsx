@@ -167,7 +167,7 @@ export default function PosTrackingHub() {
           </div>
 
           {effectiveSection === "tracking" ? <FollowUpPage embedded /> : null}
-          {effectiveSection === "queue" ? <QueuePage /> : null}
+          {effectiveSection === "queue" ? <QueuePage embedded /> : null}
           {effectiveSection === "agenda" ? (
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <DailyAgendaPage embedded />

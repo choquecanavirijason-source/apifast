@@ -25,6 +25,7 @@ class Service(Base):
     category_id = Column(Integer, ForeignKey("service_categories.id"), nullable=True)
     duration_minutes = Column(Integer, nullable=False)
     price = Column(Float, nullable=False)
+    commission_rate = Column(Float, nullable=True, default=None)  # None = usa la tasa de la operaria
 
     category = relationship("ServiceCategory", back_populates="services")
     appointments = relationship("Appointment", back_populates="service")

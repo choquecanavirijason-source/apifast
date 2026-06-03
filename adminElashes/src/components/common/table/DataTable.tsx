@@ -287,7 +287,7 @@ function DataTable<T extends { id: number | string }>({
         </div>
       </div>
 
-      <div className="relative z-0 min-h-0 flex-1 overflow-auto overscroll-contain">
+      <div className="relative z-0 min-h-0 flex-1 overflow-x-auto">
         <table className={`w-full ${tableMinWidth} border-collapse text-left text-[12px] leading-snug`}>
           <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_rgb(203_213_225)]">
             <tr>

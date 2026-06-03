@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, List, Search, UserCheck, X } from "lucide-react";
+import { Banknote, Download, List, Search, UserCheck, X } from "lucide-react";
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
@@ -9,6 +9,7 @@ import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 import {
   formatCommissionRatePercent,
   getTicketCommission,
@@ -325,7 +326,7 @@ export default function ProfessionalServiceHistory() {
     },
     {
       key: "commission",
-      header: `Comisión (${formatCommissionRatePercent()})`,
+      header: "Comisión",
       sortable: true,
       getValue: (t) => String(getTicketCommission(t)),
       render: (t) => {
@@ -376,6 +377,45 @@ export default function ProfessionalServiceHistory() {
     },
   ], [trackingByAppointment]);
 
+  const handleDownloadPdf = () => {
+    void generateTablePdf({
+      title: "Comisiones por Operaria",
+      subtitle: selectedProfName ? `Operaria: ${selectedProfName}` : "Todas las operarias",
+      filename: "comisiones-operaria",
+      orientation: "landscape",
+      meta: [
+        { label: "Tickets", value: String(filteredTickets.length) },
+        { label: "Completados", value: String(completedTickets.length) },
+        { label: "Ingresos", value: moneyFormatter.format(totalRevenue) },
+        { label: "Comisiones", value: moneyFormatter.format(totalCommission) },
+      ],
+      columns: [
+        { header: "Código", key: "ticket_code" },
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio(s)", key: "services" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Estado", key: "status" },
+        { header: "Precio", key: "precio" },
+        { header: "Comisión", key: "comision" },
+        { header: "Sucursal", key: "branch_name" },
+      ],
+      rows: filteredTickets.map((t) => ({
+        ticket_code: t.ticket_code ?? `#${t.id}`,
+        client_name: t.client_name,
+        services: t.service_names?.join(" · ") ?? t.service_name ?? "",
+        professional_name: t.professional_name ?? "Sin asignar",
+        fecha: t.start_time ? new Date(t.start_time).toLocaleDateString("es-BO") : "",
+        status: STATUS_LABELS[t.status] ?? t.status,
+        precio: getTicketPriceTotal(t) > 0 ? moneyFormatter.format(getTicketPriceTotal(t)) : "—",
+        comision: t.status === "completed" && getTicketCommission(t) > 0
+          ? moneyFormatter.format(getTicketCommission(t))
+          : "—",
+        branch_name: t.branch_name ?? "",
+      })),
+    });
+  };
+
   const renderToolbar = () => (
     <FilterActionBar
       left={
@@ -393,6 +433,10 @@ export default function ProfessionalServiceHistory() {
       }
       right={
         <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={handleDownloadPdf} disabled={filteredTickets.length === 0}>
+            <Download className="h-3.5 w-3.5" />
+            PDF
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>Actualizar</Button>
           <Button
             variant="secondary"
@@ -408,8 +452,8 @@ export default function ProfessionalServiceHistory() {
 
   return (
     <Layout
-      title="Tickets por operaria"
-      subtitle={`Tickets por operaria con comisión del ${formatCommissionRatePercent()} sobre trabajos completados.`}
+      title="Comisiones por operaria"
+      subtitle="Rendimiento y comisiones por operaria. Incluye registro de pagos y liquidación de comisiones."
       variant="table"
       topContent={
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

@@ -48,6 +48,8 @@ import app.infrastructure.database.migrations.add_email_to_clients as m20
 import app.infrastructure.database.migrations.add_advance_payment_to_appointments as m21
 import app.infrastructure.database.migrations.add_commission_rate_to_users as m22
 import app.infrastructure.database.migrations.add_temp_branch_to_users as m23
+import app.infrastructure.database.migrations.add_cash_close_tables as m24
+import app.infrastructure.database.migrations.add_commission_rate_to_services as m25
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -55,6 +57,7 @@ from app.presentation.controllers import (
     payment_controller, inventory_controller, branch_controller,
     service_agenda_controller, reports_controller,
 )
+from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 
 @asynccontextmanager
@@ -88,6 +91,8 @@ async def lifespan(app: FastAPI):
         ("advance_payment_to_appointments", m21.upgrade),
         ("commission_rate_to_users", m22.upgrade),
         ("temp_branch_to_users", m23.upgrade),
+        ("cash_close_tables", m24.upgrade),
+        ("commission_rate_to_services", m25.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -101,7 +106,6 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         run_seeders(db)
-        seed_operarias(db)
         print(">>> Sistema listo para operar <<<")
     except Exception as e:
         print(f"Error al ejecutar seeders: {e}")
@@ -167,7 +171,8 @@ def create_app() -> FastAPI:
     app.include_router(reports_controller.router)
     app.include_router(admin.router)
     app.include_router(admin_ai_controller.router)
-    app.include_router(auth_routes.router)      
+    app.include_router(notifications_router)
+    app.include_router(auth_routes.router)
     
     return app
 

@@ -69,10 +69,23 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "section-caja", label: "Caja & Seguimiento", href: "/admin/pos-tracking" },
 ];
 
-const NOTIFICATION_STATUS_CLASS: Record<string, string> = {
-  pending: "border-amber-500/40 bg-amber-500/15 text-amber-100",
-  confirmed: "border-sky-500/40 bg-sky-500/15 text-sky-100",
+
+const STATUS_ES: Record<string, string> = {
+  pending:    "En espera",
+  waiting:    "En espera",
+  confirmed:  "Confirmado",
+  in_service: "En servicio",
+  completed:  "Completado",
+  cancelled:  "Cancelado",
+};
+
+const STATUS_BADGE_CLASS: Record<string, string> = {
+  pending:    "border-amber-500/40 bg-amber-500/15 text-amber-100",
+  waiting:    "border-amber-500/40 bg-amber-500/15 text-amber-100",
+  confirmed:  "border-sky-500/40 bg-sky-500/15 text-sky-100",
   in_service: "border-emerald-500/40 bg-emerald-500/15 text-emerald-100",
+  completed:  "border-slate-500/40 bg-slate-500/15 text-slate-100",
+  cancelled:  "border-rose-500/40 bg-rose-500/15 text-rose-100",
 };
 
 export default function Header({ 
@@ -760,12 +773,8 @@ export default function Header({
                           <p className="truncate text-sm font-semibold text-white">{item.title}</p>
                           {item.subtitle && <p className="truncate text-xs text-emerald-200">{item.subtitle}</p>}
                         </div>
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            NOTIFICATION_STATUS_CLASS[item.status] ?? "border-slate-500/40 bg-slate-500/15 text-slate-100"
-                          }`}
-                        >
-                          {item.status}
+                        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_CLASS[item.status] ?? "border-slate-500/40 bg-slate-500/15 text-slate-100"}`}>
+                          {STATUS_ES[item.status] ?? item.status}
                         </span>
                       </div>
                     </button>

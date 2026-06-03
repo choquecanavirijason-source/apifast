@@ -2,13 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Calendar, ChevronDown, ChevronRight, ChevronUp,
-  Clock, GripVertical, Scissors, Trash2, User, X,
+  Calendar, ChevronRight,
+  Clock, GripVertical, Info, Scissors, Trash2, User, X,
 } from "lucide-react";
 
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
-import { formatTime, STATUS_LABELS } from "../control.constants";
-import { BC_FIELD } from "../control.bc365.styles";
+import { formatTime } from "../control.constants";
 
 const getDateInputValue = (iso: string) => {
   const parsed = new Date(iso);
@@ -22,25 +21,22 @@ const getDateInputValue = (iso: string) => {
 const getTimeInputValue = (iso: string) => {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return "";
-  const h = String(parsed.getHours()).padStart(2, "0");
-  const m = String(parsed.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
 };
 
-const addMinutesToTime = (time: string, minutesToAdd: number) => {
-  if (!time || !Number.isFinite(minutesToAdd)) return time;
-  const [rawHour, rawMinute] = time.split(":").map(Number);
-  const total = (rawHour || 0) * 60 + (rawMinute || 0) + minutesToAdd;
-  const normalized = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
-  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+const addMinutesToTime = (time: string, mins: number) => {
+  if (!time || !Number.isFinite(mins)) return time;
+  const [h, m] = time.split(":").map(Number);
+  const total = ((h || 0) * 60 + (m || 0) + mins + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
 
-const STATUS_STRIP: Record<string, string> = {
+const ACCENT: Record<string, string> = {
   pending: "#D83B01", waiting: "#D83B01", confirmed: "#D83B01",
   in_service: "#0078D4", completed: "#107C10", cancelled: "#A4262C",
 };
 
-const stopDragPointer = (e: React.PointerEvent) => e.stopPropagation();
+const stopPtr = (e: React.PointerEvent) => e.stopPropagation();
 
 export default function DraggableTicketCard({
   ticket, actions, showRemaining, getRemainingLabel,
@@ -53,84 +49,77 @@ export default function DraggableTicketCard({
   getRemainingLabel: (endTime: string) => string;
   onDelete: (ticket: TicketItem) => void;
   professionals: ProfessionalForSelect[];
-  onSaveEdits: (
-    ticket: TicketItem,
-    payload: { date: string; time: string; professionalId: string; isIa: boolean }
-  ) => void;
+  onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string; isIa: boolean }) => void;
   isSavingEdit: boolean;
 }) {
   const [quickDate, setQuickDate] = useState(getDateInputValue(ticket.start_time));
-  const [quickProfessionalId, setQuickProfessionalId] = useState(
-    ticket.professional_id ? String(ticket.professional_id) : ""
-  );
+  const [quickProId, setQuickProId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
   const [quickTime, setQuickTime] = useState(getTimeInputValue(ticket.start_time));
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
-  const quickSaveTimerRef = useRef<number | null>(null);
-  const lastAutoSubmitKeyRef = useRef<string>("");
-  const isSavingEditRef = useRef(isSavingEdit);
+  const timerRef = useRef<number | null>(null);
+  const lastKeyRef = useRef("");
+  const savingRef = useRef(isSavingEdit);
 
-  useEffect(() => { isSavingEditRef.current = isSavingEdit; }, [isSavingEdit]);
+  useEffect(() => { savingRef.current = isSavingEdit; }, [isSavingEdit]);
 
   useEffect(() => {
     setQuickDate(getDateInputValue(ticket.start_time));
-    setQuickProfessionalId(ticket.professional_id ? String(ticket.professional_id) : "");
+    setQuickProId(ticket.professional_id ? String(ticket.professional_id) : "");
     setQuickTime(getTimeInputValue(ticket.start_time));
   }, [ticket.id, ticket.start_time, ticket.professional_id]);
 
   useEffect(() => {
-    if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current);
-    const hasChanges =
+    if (timerRef.current != null) clearTimeout(timerRef.current);
+    const changed =
       quickDate !== getDateInputValue(ticket.start_time) ||
-      quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
+      quickProId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
       quickTime !== getTimeInputValue(ticket.start_time);
-    if (!hasChanges || isSavingEditRef.current) return;
-    const submitKey = `${quickDate}|${quickTime}|${quickProfessionalId}`;
-    if (submitKey === lastAutoSubmitKeyRef.current) return;
-    quickSaveTimerRef.current = window.setTimeout(() => {
-      lastAutoSubmitKeyRef.current = submitKey;
-      onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId: quickProfessionalId, isIa: Boolean(ticket.is_ia) });
+    if (!changed || savingRef.current) return;
+    const key = `${quickDate}|${quickTime}|${quickProId}`;
+    if (key === lastKeyRef.current) return;
+    timerRef.current = window.setTimeout(() => {
+      lastKeyRef.current = key;
+      onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId: quickProId, isIa: Boolean(ticket.is_ia) });
     }, 800);
-    return () => { if (quickSaveTimerRef.current != null) window.clearTimeout(quickSaveTimerRef.current); };
+    return () => { if (timerRef.current != null) clearTimeout(timerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quickDate, quickProfessionalId, quickTime]);
+  }, [quickDate, quickProId, quickTime]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (editRef.current && !editRef.current.contains(e.target as Node)) setIsEditOpen(false);
+    const handler = (e: MouseEvent) => {
+      if (editRef.current && !editRef.current.contains(e.target as Node)) setEditOpen(false);
     };
-    if (isEditOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isEditOpen]);
+    if (editOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [editOpen]);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `ticket-${ticket.id}`,
     data: { ticket, column: ticket.status },
-    disabled: isEditOpen || isDetailOpen,
+    disabled: editOpen || detailOpen,
   });
 
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-    opacity: isDragging ? 0.4 : 1,
-    borderLeft: `4px solid ${STATUS_STRIP[ticket.status] ?? "#D2D0CE"}`,
+    opacity: isDragging ? 0.35 : 1,
+    borderLeft: `3px solid ${ACCENT[ticket.status] ?? "#D2D0CE"}`,
     touchAction: "none",
   };
 
-  const hasQuickChanges =
+  const hasChanges =
     quickDate !== getDateInputValue(ticket.start_time) ||
-    quickProfessionalId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
+    quickProId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
     quickTime !== getTimeInputValue(ticket.start_time);
 
-  const primaryService =
-    ticket.service_names?.[0] ?? ticket.service_name ?? "Sin servicio";
-  const extraServices = (ticket.service_names?.length ?? 0) > 1
-    ? ticket.service_names!.slice(1)
-    : [];
+  const primarySvc = ticket.service_names?.[0] ?? ticket.service_name ?? "Sin servicio";
+  const extraCount = (ticket.service_names?.length ?? 0) - 1;
   const remaining = showRemaining ? getRemainingLabel(ticket.end_time) : "";
   const proName = professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username
-    ?? ticket.professional_name
-    ?? "Sin asignar";
+    ?? ticket.professional_name ?? null;
+
+  const inputCls = "h-8 w-full rounded-md border border-[#d0cece] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20";
 
   return (
     <div
@@ -138,201 +127,196 @@ export default function DraggableTicketCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`group relative cursor-grab touch-none border border-[#c8c6c4] bg-white transition-shadow active:cursor-grabbing ${
-        isDragging
-          ? "z-0 shadow-none ring-2 ring-dashed ring-[#8a8886]"
-          : "shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)]"
+      className={`group relative cursor-grab touch-none rounded-md border border-[#e0dedd] bg-white transition-all active:cursor-grabbing ${
+        isDragging ? "shadow-none ring-2 ring-dashed ring-[#8a8886]" : "shadow-sm hover:shadow-md hover:border-[#c8c6c4]"
       }`}
     >
-      {/* ── Panel de edición rápida ──────────────────────────────────────────── */}
-      {isEditOpen ? (
+      {/* ── Popup de edición ────────────────────────────────────────────────── */}
+      {editOpen && (
         <>
-          <div className="absolute inset-0 z-[60] bg-[#f3f2f1]/60" />
+          <div className="absolute inset-0 z-40 rounded-md bg-white/50 backdrop-blur-[2px]" />
           <div
             ref={editRef}
-            onPointerDown={stopDragPointer}
-            className="absolute left-1/2 top-2 z-[70] w-[95%] -translate-x-1/2 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
+            onPointerDown={stopPtr}
+            className="absolute inset-x-0 top-0 z-50 rounded-md bg-white shadow-2xl ring-1 ring-black/10"
           >
-            <div className="h-0.5 bg-[#0078d4]" />
-            <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-2.5">
-              <div>
-                <h4 className="text-sm font-semibold text-[#323130]">Ajustar turno</h4>
-                <p className="text-[11px] text-[#605e5c]">Cambios automáticos</p>
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-md bg-linear-to-r from-[#f8f7f6] to-[#f3f2f1] px-3 py-2 border-b border-[#e8e6e4]">
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-0.5 rounded-full bg-[#0078d4]" />
+                <span className="text-[11px] font-semibold text-[#201f1e]">Ajustar turno</span>
+                {hasChanges && (
+                  <span className="flex items-center gap-1 rounded-full bg-[#0078d4]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#0078d4]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
+                    {isSavingEdit ? "Guardando…" : "Sin guardar"}
+                  </span>
+                )}
               </div>
-              <button type="button" onPointerDown={stopDragPointer} onClick={() => setIsEditOpen(false)}
-                className="rounded-sm p-1 text-[#605e5c] hover:bg-[#edebe9]">
-                <X size={15} />
+              <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(false)}
+                className="rounded-md p-1 text-[#8a8886] hover:bg-[#edebe9] hover:text-[#201f1e] transition-colors">
+                <X size={12} />
               </button>
             </div>
-            <div className="space-y-3 p-3">
+
+            {/* Cuerpo */}
+            <div className="space-y-2 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                    <Calendar size={10} /> Fecha
+                  <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                    <Calendar size={8} /> Fecha
                   </label>
-                  <input type="date" value={quickDate} onPointerDown={stopDragPointer}
-                    onChange={(e) => setQuickDate(e.target.value)} className={BC_FIELD} />
+                  <input type="date" value={quickDate} onPointerDown={stopPtr}
+                    onChange={(e) => setQuickDate(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                    <Clock size={10} /> Hora
+                  <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                    <Clock size={8} /> Hora
                   </label>
-                  <input type="time" value={quickTime} onPointerDown={stopDragPointer}
-                    onChange={(e) => setQuickTime(e.target.value)} className={BC_FIELD} />
+                  <input type="time" value={quickTime} onPointerDown={stopPtr}
+                    onChange={(e) => setQuickTime(e.target.value)} className={inputCls} />
                 </div>
               </div>
-              <div className="flex gap-1.5">
+
+              <div className="flex gap-1">
                 {["Ahora", "+15 min", "+30 min"].map((label) => (
-                  <button key={label} type="button" onPointerDown={stopDragPointer}
+                  <button key={label} type="button" onPointerDown={stopPtr}
                     onClick={() => {
                       if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
                       else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
                     }}
-                    className="flex-1 rounded-sm border border-[#8a8886] bg-[#f3f2f1] py-1.5 text-[11px] font-semibold text-[#323130] hover:border-[#0078d4] hover:text-[#0078d4]">
+                    className="flex-1 rounded-md border border-[#d0cece] bg-[#f8f7f6] py-1 text-[10px] font-medium text-[#323130] transition hover:border-[#0078d4] hover:bg-[#deecf9] hover:text-[#0078d4]">
                     {label}
                   </button>
                 ))}
               </div>
+
               <div>
-                <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
-                  <User size={10} /> Operaria
+                <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                  <User size={8} /> Operaria
                 </label>
-                <select value={quickProfessionalId} onPointerDown={stopDragPointer}
-                  onChange={(e) => setQuickProfessionalId(e.target.value)} className={`${BC_FIELD} cursor-pointer`}>
+                <select value={quickProId} onPointerDown={stopPtr}
+                  onChange={(e) => setQuickProId(e.target.value)}
+                  className={`${inputCls} cursor-pointer`}>
                   <option value="">Sin operaria</option>
                   {professionals.map((p) => (
                     <option key={p.id} value={String(p.id)}>{p.username}</option>
                   ))}
                 </select>
               </div>
-              {hasQuickChanges && (
-                <div className="flex items-center gap-2 border border-[#9dc4e6] bg-[#eff6fc] px-2.5 py-1.5">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
-                  <span className="text-[11px] font-semibold text-[#005a9e]">
-                    {isSavingEdit ? "Sincronizando…" : "Cambios pendientes"}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </>
-      ) : null}
+      )}
 
-      {/* ── Cuerpo mínimo ────────────────────────────────────────────────────── */}
-      <div className="p-2">
-        {/* Fila superior: drag + nombre + botón editar */}
-        <div className="flex items-center gap-1.5">
-          <GripVertical size={13} className="shrink-0 text-[#c8c6c4] group-hover:text-[#0078d4]" aria-hidden />
-          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-[#201f1e]">
+      {/* ── Cuerpo de la tarjeta ─────────────────────────────────────────────── */}
+      <div className="p-3.5">
+
+        {/* Fila 1: drag + nombre + iconos */}
+        <div className="flex items-center gap-2">
+          <GripVertical size={15} className="shrink-0 text-[#d0cece] group-hover:text-[#0078d4] transition-colors" aria-hidden />
+          <p className="min-w-0 flex-1 truncate text-[15px] font-bold leading-tight text-[#201f1e]">
             {ticket.client_name}
-          </h3>
-          <button type="button" onPointerDown={stopDragPointer} onClick={() => setIsEditOpen(true)}
-            className={`shrink-0 flex items-center gap-0.5 border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-              hasQuickChanges ? "border-[#f4b8a0] bg-[#fff4f0] text-[#bc4b09]" : "border-[#c8c6c4] bg-[#f3f2f1] text-[#323130] hover:bg-white"
+          </p>
+          <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
+            title="Ver detalles"
+            className={`shrink-0 rounded-lg p-1.5 transition-colors ${detailOpen ? "bg-[#deecf9] text-[#0078d4]" : "text-[#c8c6c4] hover:bg-[#f3f2f1] hover:text-[#605e5c]"}`}>
+            <Info size={14} />
+          </button>
+          <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
+            title="Editar turno"
+            className={`shrink-0 rounded-lg p-1.5 transition-colors ${
+              hasChanges ? "bg-[#fff4f0] text-[#bc4b09]" : "text-[#c8c6c4] hover:bg-[#f3f2f1] hover:text-[#605e5c]"
             }`}>
-            Editar <ChevronRight size={10} />
+            <ChevronRight size={14} />
           </button>
         </div>
 
-        {/* Servicio principal */}
-        <div className="mt-1 flex items-center gap-1">
-          <Scissors size={9} className="shrink-0 text-[#005a9e]" />
-          <span className="truncate text-[11px] font-medium text-[#005a9e]">{primaryService}</span>
-          {extraServices.length > 0 && (
-            <span className="shrink-0 rounded-sm bg-[#eff6fc] px-1 text-[9px] font-semibold text-[#005a9e]">
-              +{extraServices.length}
+        {/* Fila 2: servicio */}
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <Scissors size={12} className="shrink-0 text-[#0078d4]" />
+          <span className="min-w-0 truncate text-xs font-semibold text-[#0078d4]">{primarySvc}</span>
+          {extraCount > 0 && (
+            <span className="shrink-0 rounded-md bg-[#deecf9] px-1.5 py-0.5 text-[10px] font-bold text-[#0078d4]">
+              +{extraCount}
             </span>
           )}
         </div>
 
-        {/* Hora + operaria */}
-        <div className="mt-1 flex items-center justify-between">
-          <span className="text-[11px] font-semibold tabular-nums text-[#323130]">
-            {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
+        {/* Fila 3: operaria */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <User size={12} className={proName ? "shrink-0 text-[#107c10]" : "shrink-0 text-[#c8c6c4]"} />
+          <span className={`truncate text-xs font-medium ${proName ? "text-[#107c10]" : "italic text-[#a19f9d]"}`}>
+            {proName ?? "Sin asignar"}
           </span>
-          <span className="truncate text-[10px] text-[#605e5c]">{proName}</span>
         </div>
 
-        {remaining ? (
-          <p className="text-[10px] font-semibold text-[#0078d4]">{remaining}</p>
-        ) : null}
-
-        {/* Ver detalles */}
-        <button
-          type="button"
-          onPointerDown={stopDragPointer}
-          onClick={() => setIsDetailOpen((v) => !v)}
-          className="mt-1.5 flex w-full items-center gap-1 text-[10px] font-semibold text-[#605e5c] hover:text-[#0078d4]"
-        >
-          {isDetailOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-          {isDetailOpen ? "Ocultar detalles" : "Ver detalles"}
-        </button>
+        {/* Fila 4: horario + tiempo espera */}
+        <div className="mt-2 flex items-center justify-between border-t border-[#f0efed] pt-2">
+          <div className="flex items-center gap-1.5">
+            <Clock size={12} className="shrink-0 text-[#8a8886]" />
+            <span className="text-xs font-semibold tabular-nums text-[#323130]">
+              {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
+            </span>
+          </div>
+          {remaining && (
+            <span className="rounded-full bg-[#eff6fc] px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
+              {remaining}
+            </span>
+          )}
+        </div>
 
         {/* Panel de detalles expandible */}
-        {isDetailOpen && (
-          <div className="mt-1.5 space-y-1 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2 text-[10px]"
-            onPointerDown={stopDragPointer}>
+        {detailOpen && (
+          <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-[#edebe9] bg-[#faf9f8] p-2.5 text-[11px]"
+            onPointerDown={stopPtr}>
             {ticket.ticket_code && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Código:</span>
+              <div className="col-span-2 flex gap-1.5">
+                <span className="shrink-0 font-semibold text-[#8a8886]">Código:</span>
                 <span className="font-mono text-[#323130]">{ticket.ticket_code}</span>
               </div>
             )}
-            {(ticket.service_names?.length ?? 0) > 1 && (
-              <div>
-                <span className="font-semibold text-[#605e5c]">Servicios:</span>
-                <div className="mt-0.5 flex flex-wrap gap-0.5">
-                  {ticket.service_names!.map((s, i) => (
-                    <span key={i} className="rounded-sm bg-[#eff6fc] px-1 text-[9px] font-semibold text-[#005a9e]">{s}</span>
-                  ))}
-                </div>
-              </div>
-            )}
             {ticket.client_phone && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Teléfono:</span>
-                <span className="text-[#323130]">{ticket.client_phone}</span>
+              <div className="flex gap-1.5">
+                <span className="shrink-0 font-semibold text-[#8a8886]">Tel:</span>
+                <span className="truncate text-[#323130]">{ticket.client_phone}</span>
               </div>
             )}
             {ticket.client_age != null && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Edad:</span>
+              <div className="flex gap-1.5">
+                <span className="shrink-0 font-semibold text-[#8a8886]">Edad:</span>
                 <span className="text-[#323130]">{ticket.client_age} años</span>
               </div>
             )}
             {ticket.client_eye_type_name && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Tipo de ojo:</span>
-                <span className="text-[#323130]">{ticket.client_eye_type_name}</span>
-              </div>
-            )}
-            {ticket.branch_name && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Sucursal:</span>
-                <span className="text-[#323130]">{ticket.branch_name}</span>
+              <div className="flex gap-1.5">
+                <span className="shrink-0 font-semibold text-[#8a8886]">Ojos:</span>
+                <span className="truncate text-[#323130]">{ticket.client_eye_type_name}</span>
               </div>
             )}
             {ticket.sale_id && (
-              <div className="flex gap-1">
-                <span className="font-semibold text-[#605e5c]">Venta:</span>
+              <div className="flex gap-1.5">
+                <span className="shrink-0 font-semibold text-[#8a8886]">Venta:</span>
                 <span className="font-semibold text-emerald-700">#{ticket.sale_id}</span>
               </div>
             )}
-            <div className="flex gap-1">
-              <span className="font-semibold text-[#605e5c]">Estado:</span>
-              <span className="text-[#323130]">{STATUS_LABELS[ticket.status] ?? ticket.status}</span>
-            </div>
+            {(ticket.service_names?.length ?? 0) > 1 && (
+              <div className="col-span-2 mt-0.5 flex flex-wrap gap-1">
+                {ticket.service_names!.map((s, i) => (
+                  <span key={i} className="rounded-md bg-[#deecf9] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]">{s}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ── Acciones (Iniciar / Finalizar / Cancelar) ────────────────────────── */}
-      <div className="flex items-center justify-between border-t border-[#edebe9] px-2 pb-2 pt-1"
-        onPointerDown={stopDragPointer}>
+      {/* ── Acciones ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-t border-[#f0efed] bg-[#faf9f8] px-3.5 pb-3 pt-2.5 rounded-b-md"
+        onPointerDown={stopPtr}>
         <div className="min-w-0 flex-1">{actions}</div>
-        <button type="button" onPointerDown={stopDragPointer} onClick={() => onDelete(ticket)}
-          className="ml-1 shrink-0 border border-transparent p-1 text-[#8a8886] hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]">
-          <Trash2 size={13} />
+        <button type="button" onPointerDown={stopPtr} onClick={() => onDelete(ticket)}
+          className="shrink-0 rounded-lg border border-transparent p-1.5 text-[#d0cece] transition-colors hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]">
+          <Trash2 size={15} />
         </button>
       </div>
     </div>

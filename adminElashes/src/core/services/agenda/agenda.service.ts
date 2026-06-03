@@ -14,6 +14,8 @@ export interface ServiceOption {
   category?: ServiceCategoryOption | null;
   duration_minutes: number;
   price: number;
+  commission_rate?: number | null;
+  ticket_count?: number;
   branch_ids?: number[] | null;
 }
 
@@ -24,6 +26,7 @@ export interface ServiceCreatePayload {
   category_id?: number | null;
   duration_minutes: number;
   price: number;
+  commission_rate?: number | null;
   branch_ids?: number[] | null;
 }
 
@@ -33,6 +36,7 @@ export interface ServiceUpdatePayload {
   image_url?: string | null;
   category_id?: number | null;
   duration_minutes?: number | null;
+  commission_rate?: number | null;
   price?: number | null;
   branch_ids?: number[] | null;
 }
@@ -180,6 +184,7 @@ export interface TicketItem {
   service_names?: string[];
   service_price?: number | null;
   service_prices?: number[];
+  service_commission_rates?: (number | null)[];
   start_time: string;
   end_time: string;
   status: string;
@@ -214,8 +219,8 @@ interface BackendAppointment {
     branch?: { id: number; name: string } | null;
   };
   professional?: { id: number; username: string; email?: string } | null;
-  service?: { id: number; name: string; price?: number } | null;
-  services?: Array<{ id: number; name: string; price?: number }> | null;
+  service?: { id: number; name: string; price?: number; commission_rate?: number | null } | null;
+  services?: Array<{ id: number; name: string; price?: number; commission_rate?: number | null }> | null;
   branch?: { id: number; name: string } | null;
 }
 
@@ -255,6 +260,7 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   service_names: a.services?.map((service) => service.name) ?? (a.service ? [a.service.name] : undefined),
   service_price: a.service?.price ?? null,
   service_prices: a.services?.map((service) => Number(service.price ?? 0)) ?? undefined,
+  service_commission_rates: a.services?.map((service) => service.commission_rate ?? null) ?? undefined,
   start_time: a.start_time,
   end_time: a.end_time,
   status: a.status,

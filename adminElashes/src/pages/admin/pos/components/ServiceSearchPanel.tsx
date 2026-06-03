@@ -18,6 +18,7 @@ interface ServiceSearchPanelProps {
   onOpenCategoryModal: () => void;
   quickServices: ServiceOption[];
   onAddServiceToCart: (service: ServiceOption) => void;
+  onRemoveServiceFromCart: (service: ServiceOption) => void;
   serviceComboboxRef: React.RefObject<HTMLDivElement>;
   serviceMenuRef: React.RefObject<HTMLDivElement>;
 }

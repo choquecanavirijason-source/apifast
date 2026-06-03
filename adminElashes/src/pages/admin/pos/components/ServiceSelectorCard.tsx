@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import type { ServiceCategoryOption, ServiceOption } from "../../../../core/services/agenda/agenda.service";
 
@@ -21,6 +21,7 @@ type ServiceSelectorCardProps = {
   onOpenCategoryModal: () => void;
   quickServices: ServiceOption[];
   onAddServiceToCart: (service: ServiceOption) => void;
+  onRemoveServiceFromCart: (service: ServiceOption) => void;
   serviceComboboxRef: React.RefObject<HTMLDivElement | null>;
   serviceMenuRef: React.RefObject<HTMLDivElement | null>;
   /** Cuántas veces está cada servicio en el carrito (key = String(service.id)) */
@@ -44,49 +45,11 @@ export default function ServiceSelectorCard({
   onOpenCategoryModal,
   quickServices,
   onAddServiceToCart,
+  onRemoveServiceFromCart,
   serviceComboboxRef,
   serviceMenuRef,
   cartCountByServiceId = {},
 }: ServiceSelectorCardProps) {
-  const quickServicesTrackRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const updateQuickScrollState = () => {
-    const track = quickServicesTrackRef.current;
-    if (!track) {
-      setCanScrollLeft(false);
-      setCanScrollRight(false);
-      return;
-    }
-
-    const maxScrollLeft = track.scrollWidth - track.clientWidth;
-    setCanScrollLeft(track.scrollLeft > 4);
-    setCanScrollRight(maxScrollLeft - track.scrollLeft > 4);
-  };
-
-  useEffect(() => {
-    const track = quickServicesTrackRef.current;
-    if (!track) return;
-
-    updateQuickScrollState();
-    track.addEventListener("scroll", updateQuickScrollState, { passive: true });
-    window.addEventListener("resize", updateQuickScrollState);
-
-    return () => {
-      track.removeEventListener("scroll", updateQuickScrollState);
-      window.removeEventListener("resize", updateQuickScrollState);
-    };
-  }, [quickServices.length]);
-
-  const scrollQuickServices = (direction: "left" | "right") => {
-    const track = quickServicesTrackRef.current;
-    if (!track) return;
-    track.scrollBy({
-      left: direction === "left" ? -320 : 320,
-      behavior: "smooth",
-    });
-  };
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-sm border border-[#edebe9] bg-white shadow-sm">
@@ -116,7 +79,7 @@ export default function ServiceSelectorCard({
             {isServiceMenuOpen && serviceMenuPosition && createPortal(
               <div
                 ref={serviceMenuRef}
-                className="fixed z-[3000] bg-white border border-[#edebe9] shadow-xl rounded-sm"
+                className="fixed z-3000 bg-white border border-[#edebe9] shadow-xl rounded-sm"
                 style={{ ...serviceMenuPosition, top: serviceMenuPosition.top + 4 }}
               >
                 <div className="max-h-64 overflow-y-auto py-1">
@@ -180,88 +143,100 @@ export default function ServiceSelectorCard({
 
 
       {quickServices.length > 0 && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[#f3f2f1]">
-          <div className="min-h-0 flex-1 overflow-hidden px-4 pb-5 pt-4 sm:px-5">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#605e5c]">Sugerencias rápidas</p>
-            <div className="relative">
-              {canScrollLeft ? (
-                <button
-                  type="button"
-                  onClick={() => scrollQuickServices("left")}
-                  className="absolute left-1 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#d2d0ce] bg-white/95 text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
-                  aria-label="Desplazar a la izquierda"
+        <div className="border-t border-[#f3f2f1] px-4 pb-4 pt-3 sm:px-5">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#605e5c]">Sugerencias rápidas</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {quickServices.map((service) => {
+              const cartCount = cartCountByServiceId[String(service.id)] ?? 0;
+              const ticketCount = service.ticket_count ?? 0;
+              return (
+                <div
+                  key={service.id}
+                  className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
+                    cartCount > 0
+                      ? "border-[#0078d4] shadow-[0_0_0_2px_rgba(0,120,212,0.15)]"
+                      : "border-[#edebe9] hover:border-[#0078d4]"
+                  }`}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              ) : null}
-              {canScrollRight ? (
-                <button
-                  type="button"
-                  onClick={() => scrollQuickServices("right")}
-                  className="absolute right-1 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#d2d0ce] bg-white/95 text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
-                  aria-label="Desplazar a la derecha"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              ) : null}
+                  {/* Imagen con overlay de detalles al hover */}
+                  <button
+                    type="button"
+                    onClick={() => onAddServiceToCart(service)}
+                    className="relative h-52 w-full shrink-0 bg-[#f3f2f1] focus:outline-none"
+                  >
+                    {service.image_url ? (
+                      <img
+                        src={service.image_url}
+                        alt=""
+                        className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-2xl font-black text-[#c8c6c4]">
+                        {service.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
 
-              {canScrollLeft ? (
-                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-white to-transparent" />
-              ) : null}
-              {canScrollRight ? (
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-white to-transparent" />
-              ) : null}
-
-              <div ref={quickServicesTrackRef} className="overflow-x-auto overflow-y-hidden scroll-smooth pb-1">
-                <div className="flex snap-x snap-mandatory items-stretch gap-3 pb-2">
-                {quickServices.map((service) => {
-                  const cartCount = cartCountByServiceId[String(service.id)] ?? 0;
-                  return (
-                    <button
-                      key={service.id}
-                      type="button"
-                      onClick={() => onAddServiceToCart(service)}
-                      className={`group flex h-[338px] w-[268px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:shadow-md ${
-                        cartCount > 0
-                          ? "border-[#0078d4] shadow-[0_0_0_2px_rgba(0,120,212,0.18)]"
-                          : "border-[#edebe9] hover:border-[#0078d4]"
-                      }`}
-                    >
-                      <div className="relative h-[252px] w-full shrink-0 bg-[#f3f2f1]">
-                        {service.image_url ? (
-                          <img src={service.image_url} alt="" className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#a19f9d]">
-                            {service.name.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        {/* Badge de cantidad en carrito */}
-                        {cartCount > 0 && (
-                          <span className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-[#0078d4] px-2 text-xs font-bold text-white shadow-md">
-                            ×{cartCount}
-                          </span>
-                        )}
-                        <span className="absolute bottom-2 right-2 rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#323130] opacity-0 shadow transition-opacity group-hover:opacity-100">
-                          Bs {service.price.toFixed(2)}
+                    {/* Overlay con detalles — visible solo en hover */}
+                    <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 p-2.5">
+                      {service.description && (
+                        <p className="line-clamp-2 text-[11px] leading-tight text-white/90 mb-1">
+                          {service.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-semibold text-white/80">
+                          {service.duration_minutes} min
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 p-2.5">
-                        <div className="min-w-0">
-                          <p className="line-clamp-1 text-xs font-semibold leading-tight text-[#323130]">{service.name}</p>
-                          <p className="mt-0.5 line-clamp-1 text-[10px] text-[#605e5c]">{service.description || "Servicio disponible"}</p>
-                        </div>
-                        {cartCount > 0 && (
-                          <span className="shrink-0 rounded-full bg-[#eef6ff] px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
-                            en carrito
+                        {ticketCount > 0 && (
+                          <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">
+                            {ticketCount} ticket{ticketCount !== 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
-                    </button>
-                  );
-                })}
+                    </div>
+                  </button>
+
+                  {/* Info mínima: solo nombre + precio + controles */}
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+                    <div className="min-w-0">
+                      <p className="line-clamp-1 text-xs font-semibold text-[#323130]">{service.name}</p>
+                      <p className="text-[11px] font-bold text-[#0050a0]">Bs {service.price.toFixed(2)}</p>
+                    </div>
+
+                    {/* Controles +/- */}
+                    {cartCount === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => onAddServiceToCart(service)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0078d4] text-white shadow transition hover:bg-[#006cbe] text-base font-bold leading-none"
+                      >
+                        +
+                      </button>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onRemoveServiceFromCart(service); }}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-[#d2d0ce] bg-white text-[#323130] text-base font-bold shadow-sm transition hover:bg-[#f3f2f1] leading-none"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center text-xs font-bold text-[#0078d4]">
+                          {cartCount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onAddServiceToCart(service); }}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0078d4] text-white text-base font-bold shadow transition hover:bg-[#006cbe] leading-none"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       )}

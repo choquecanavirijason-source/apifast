@@ -13,7 +13,6 @@ const ACCENT_HEX: Record<string, string> = {
 export default function DroppableColumn({
   id,
   title,
-  subtitle,
   tickets,
   isEmptyLabel,
   renderCard,
@@ -22,7 +21,7 @@ export default function DroppableColumn({
 }: {
   id: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   tickets: TicketItem[];
   isEmptyLabel: string;
   renderCard: (ticket: TicketItem) => ReactNode;
@@ -38,24 +37,21 @@ export default function DroppableColumn({
       {/* Accent stripe */}
       <div style={{ height: 3, backgroundColor: color }} />
 
-      {/* Column header */}
-      <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#f3f2f1] px-3 py-2">
-        <div className="flex items-center gap-2">
-          <div style={{ width: 3, height: 20, backgroundColor: color, flexShrink: 0 }} />
-          <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>
-            <p className="text-[10px] text-[#605e5c]">{subtitle}</p>
-          </div>
+      {/* Column header — compacto */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#edebe9] bg-[#f3f2f1] px-2 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <div style={{ width: 3, height: 14, backgroundColor: color, flexShrink: 0 }} />
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>
         </div>
-        <span className="inline-flex min-w-[24px] items-center justify-center border border-[#8a8886] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#201f1e]">
+        <span className="inline-flex min-w-[20px] items-center justify-center border border-[#8a8886] bg-white px-1 py-0 text-[10px] font-semibold text-[#201f1e]">
           {tickets.length}
         </span>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — llena el espacio disponible */}
       <div
         ref={setNodeRef}
-        className={`flex-1 space-y-2 overflow-y-auto p-2 transition-colors duration-150 lg:min-h-[500px] ${
+        className={`min-h-0 flex-1 space-y-1.5 overflow-y-auto p-1.5 transition-colors duration-150 ${
           isOver ? "bg-[#deecf9] ring-2 ring-inset ring-[#0078d4]/50" : "bg-[#faf9f8]"
         }`}
       >

@@ -342,6 +342,11 @@ export default function ServicesPage() {
     const price = Number(serviceForm.price);
     if (!Number.isFinite(price) || price < 0) return "El precio no puede ser negativo.";
 
+    if (serviceForm.commissionRate.trim()) {
+      const rate = Number(serviceForm.commissionRate);
+      if (!Number.isFinite(rate) || rate < 0 || rate > 100) return "La comisión debe ser un porcentaje entre 0 y 100.";
+    }
+
     return null;
   };
 
@@ -359,6 +364,7 @@ export default function ServicesPage() {
       categoryId: service.category_id ? String(service.category_id) : "",
       durationMinutes: String(service.duration_minutes ?? ""),
       price: String(service.price ?? ""),
+      commissionRate: service.commission_rate != null ? String(Math.round(service.commission_rate * 100)) : "",
     });
     setOpenServiceMenuId(null);
     setIsEditServiceModalOpen(true);
@@ -400,6 +406,7 @@ export default function ServicesPage() {
         category_id: Number(serviceForm.categoryId),
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
+        commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
       });
       setServices((prev) => [created, ...prev]);
       toast.success("Servicio creado correctamente.");
@@ -427,6 +434,7 @@ export default function ServicesPage() {
         category_id: Number(serviceForm.categoryId),
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
+        commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
       });
       setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
       toast.success("Servicio actualizado correctamente.");
@@ -658,6 +666,15 @@ export default function ServicesPage() {
                     <span className="rounded-full bg-slate-100 px-2 py-1">Categoria: {categoryName}</span>
                     <span className="rounded-full bg-slate-100 px-2 py-1">{service.duration_minutes} min</span>
                     <span className="rounded-full bg-slate-100 px-2 py-1">Bs {Number(service.price ?? 0).toFixed(2)}</span>
+                    {service.commission_rate != null ? (
+                      <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700 font-semibold">
+                        Comisión: {Math.round(service.commission_rate * 100)}%
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-50 border border-slate-200 px-2 py-1 text-slate-400">
+                        Comisión: operaria
+                      </span>
+                    )}
                   </div>
 
                   {openServiceMenuId === service.id ? (
@@ -815,16 +832,32 @@ export default function ServicesPage() {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Precio *</label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={serviceForm.price}
-              onChange={(event) => handleServiceFormChange("price", event.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Precio *</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={serviceForm.price}
+                onChange={(event) => handleServiceFormChange("price", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Comisión (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+                placeholder="Ej: 40"
+                value={serviceForm.commissionRate}
+                onChange={(event) => handleServiceFormChange("commissionRate", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+              <p className="text-[10px] text-slate-400">Deja vacío para usar la tasa de la operaria</p>
+            </div>
           </div>
 
           <div className="space-y-1.5">

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\" -Depth 2 -Recurse | Where-Object {$_.PSIsContainer} | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\" -Depth 0 | Where-Object {-not $_.PSIsContainer} | Select-Object Name)",
+      "Bash(grep -E \"\\\\.\\(py|tsx\\)$\")"
+    ]
+  }
+}

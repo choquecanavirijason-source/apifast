@@ -149,7 +149,8 @@ export type DailyAgendaPageProps = {
 };
 
 export default function DailyAgendaPage({ embedded = false }: DailyAgendaPageProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasRole } = useAuth();
+  const canConfigureSections = isAdmin() || hasRole("Secretaria");
   const { sections: stationSections, saveSections, totalStations } = useStationSections();
   const [sectionsModalOpen, setSectionsModalOpen] = useState(false);
 
@@ -703,7 +704,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       Puestos por sección
                     </button>
                   </div>
-                  {agendaView === "stations" && isAdmin() && (
+                  {agendaView === "stations" && canConfigureSections && (
                     <button
                       type="button"
                       onClick={() => setSectionsModalOpen(true)}
@@ -942,7 +943,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   </span>
                 </div>
               </div>
-              {isAdmin() && (
+              {canConfigureSections && (
                 <button
                   type="button"
                   onClick={() => setSectionsModalOpen(true)}

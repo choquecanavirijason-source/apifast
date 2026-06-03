@@ -22,6 +22,7 @@ export default function PosSaleStepOne({
   onOpenCategoryModal,
   quickServices,
   onAddServiceToCart,
+  onRemoveServiceFromCart,
   serviceComboboxRef,
   serviceMenuRef,
   cartLines,
@@ -159,6 +160,7 @@ export default function PosSaleStepOne({
           onOpenCategoryModal={onOpenCategoryModal}
           quickServices={quickServices}
           onAddServiceToCart={handleAddServiceToCart}
+          onRemoveServiceFromCart={onRemoveServiceFromCart}
           serviceComboboxRef={serviceComboboxRef}
           serviceMenuRef={serviceMenuRef}
           cartCountByServiceId={cartCountByServiceId}

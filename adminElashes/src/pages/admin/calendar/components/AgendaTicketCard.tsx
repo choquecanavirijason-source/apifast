@@ -9,10 +9,6 @@ type AgendaTicketCardProps = {
   compact?: boolean;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pendiente", waiting: "En espera", confirmed: "Confirmado",
-  in_service: "En servicio", completed: "Completado", cancelled: "Cancelado",
-};
 
 function DetailRow({ icon, value }: { icon: React.ReactNode; value: string }) {
   if (!value || value === "—") return null;
@@ -43,8 +39,8 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
     ? ticket.service_names!.length - 1
     : 0;
 
-  const padding = compact ? "p-1" : "p-1.5";
-  const minWidth = compact ? "min-w-[120px]" : "min-w-[140px]";
+  const padding = compact ? "p-0.5" : "p-1";
+  const minWidth = compact ? "min-w-[96px]" : "min-w-[112px]";
 
   return (
     <div
@@ -52,33 +48,25 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
       className={`${minWidth} max-w-[200px] shrink-0 rounded-md border-2 text-left shadow-sm ${padding} ${ticketCardClass(ticket.status)}`}
     >
       {/* ── Info mínima ─────────────────────────────────────────────────── */}
-      <div
-        className="cursor-pointer"
-        onClick={() => setDetailOpen((v) => !v)}
-      >
-        {/* Nombre */}
-        <div className={`truncate font-bold leading-tight text-[#004578] ${compact ? "text-[10px]" : "text-xs"}`}>
-          {nombre}{apellido ? ` ${apellido}` : ""}
+      <div className="cursor-pointer" onClick={() => setDetailOpen((v) => !v)}>
+        {/* Nombre — solo primer nombre */}
+        <div className={`truncate font-bold leading-tight text-[#004578] ${compact ? "text-[9px]" : "text-[10px]"}`}>
+          {nombre}
         </div>
 
-        {/* Servicio */}
-        <div className="mt-0.5 flex items-center gap-0.5">
-          <span className={`truncate font-medium text-[#323130] ${compact ? "text-[9px]" : "text-[10px]"}`}>
+        {/* Servicio principal */}
+        <div className="flex items-center gap-0.5">
+          <span className={`truncate text-[#323130] ${compact ? "text-[8px]" : "text-[9px]"}`}>
             {primaryService}
           </span>
           {extraCount > 0 && (
-            <span className="shrink-0 rounded bg-current/10 px-0.5 text-[8px] font-semibold">
-              +{extraCount}
-            </span>
+            <span className="shrink-0 rounded bg-current/10 px-0.5 text-[7px] font-bold">+{extraCount}</span>
           )}
         </div>
 
-        {/* Icono de expandir */}
-        <div className="mt-0.5 flex items-center gap-0.5 opacity-50">
-          {detailOpen
-            ? <ChevronUp size={9} />
-            : <ChevronDown size={9} />}
-          <span className="text-[8px]">{detailOpen ? "ocultar" : "detalles"}</span>
+        {/* Toggle detalles — solo chevron */}
+        <div className="flex items-center gap-0.5 opacity-40">
+          {detailOpen ? <ChevronUp size={7} /> : <ChevronDown size={7} />}
         </div>
       </div>
 
@@ -110,10 +98,6 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
               ))}
             </div>
           )}
-          <DetailRow
-            icon={null}
-            value={STATUS_LABEL[ticket.status] ?? ticket.status}
-          />
         </div>
       )}
 

@@ -279,90 +279,99 @@ export default function Dashboard() {
   ];
 
   const downloadSectionReport = (section: ExportSection, format: ExportFormat) => {
-    const branchName = branchFilter
-      ? branches.find((branch) => String(branch.id) === branchFilter)?.name ?? `Sucursal ${branchFilter}`
-      : "Todas";
+    try {
+      const branchName = branchFilter
+        ? branches.find((branch) => String(branch.id) === branchFilter)?.name ?? `Sucursal ${branchFilter}`
+        : "Todas";
 
-    const titleMap: Record<ExportSection, string> = {
-      overview: "Resumen operativo",
-      revenue: "Ingresos por periodo",
-      services: "Servicios mas solicitados",
-      inventory: "Inventario relevante",
-      quicklinks: "Accesos directos",
-    };
+      const titleMap: Record<ExportSection, string> = {
+        overview: "Resumen operativo",
+        revenue: "Ingresos por periodo",
+        services: "Servicios mas solicitados",
+        inventory: "Inventario relevante",
+        quicklinks: "Accesos directos",
+      };
 
-    const title = titleMap[section];
+      const title = titleMap[section];
 
-    const rowsBySection: Record<ExportSection, Array<{ label: string; value: string | number }>> = {
-      overview: [
-        { label: "Clientes", value: overview.cards.clients_total },
-        { label: "Clientes con actividad", value: overview.cards.clients_with_activity },
-        { label: "Tickets pendientes", value: overview.cards.appointments_pending },
-        { label: "Tickets confirmados", value: overview.cards.appointments_confirmed },
-        { label: "Tickets completados", value: overview.cards.appointments_completed },
-        { label: "Tickets cancelados", value: overview.cards.appointments_cancelled },
-        { label: "Pagos registrados", value: overview.cards.payments_count },
-        { label: "Ingresos", value: formatCurrency(overview.cards.payments_paid_total) },
-        { label: "Ventas POS", value: overview.cards.pos_sales_count },
-      ],
-      revenue: revenueChartData.map((item) => ({
-        label: item.name,
-        value: `${formatCurrency(item.total)} | pagos: ${item.pagos}`,
-      })),
-      services: serviceChartData.map((item) => ({
-        label: item.name,
-        value: `tickets: ${item.tickets} | completados: ${item.completados} | ingreso: ${formatCurrency(item.total)}`,
-      })),
-      inventory: inventoryChartData.map((item) => ({
-        label: item.name,
-        value: item.value,
-      })),
-      quicklinks: quickLinks.map((item) => ({
-        label: item.label,
-        value: `${item.helper} | ${item.path}`,
-      })),
-    };
+      const rowsBySection: Record<ExportSection, Array<{ label: string; value: string | number }>> = {
+        overview: [
+          { label: "Clientes", value: overview.cards.clients_total },
+          { label: "Clientes con actividad", value: overview.cards.clients_with_activity },
+          { label: "Tickets pendientes", value: overview.cards.appointments_pending },
+          { label: "Tickets confirmados", value: overview.cards.appointments_confirmed },
+          { label: "Tickets completados", value: overview.cards.appointments_completed },
+          { label: "Tickets cancelados", value: overview.cards.appointments_cancelled },
+          { label: "Pagos registrados", value: overview.cards.payments_count },
+          { label: "Ingresos", value: formatCurrency(overview.cards.payments_paid_total) },
+          { label: "Ventas POS", value: overview.cards.pos_sales_count },
+        ],
+        revenue: revenueChartData.map((item) => ({
+          label: item.name,
+          value: `${formatCurrency(item.total)} | pagos: ${item.pagos}`,
+        })),
+        services: serviceChartData.map((item) => ({
+          label: item.name,
+          value: `tickets: ${item.tickets} | completados: ${item.completados} | ingreso: ${formatCurrency(item.total)}`,
+        })),
+        inventory: inventoryChartData.map((item) => ({
+          label: item.name,
+          value: item.value,
+        })),
+        quicklinks: quickLinks.map((item) => ({
+          label: item.label,
+          value: `${item.helper} | ${item.path}`,
+        })),
+      };
 
-    const rows = rowsBySection[section];
-    if (!rows.length) {
-      toast.info("No hay datos para exportar en esta sección.");
-      return;
+      const rows = rowsBySection[section];
+      if (!rows.length) {
+        toast.info("No hay datos para exportar en esta sección.");
+        return;
+      }
+
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const safeTitle = title.toLowerCase().replace(/\s+/g, "-");
+
+      if (format === "excel") {
+        const worksheet = XLSX.utils.json_to_sheet(rows.map((row) => ({
+          Seccion: title,
+          Sucursal: branchName,
+          Desde: fromDate || "-",
+          Hasta: toDate || "-",
+          Item: row.label,
+          Valor: row.value,
+        })));
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Dashboard");
+        const excelFilename = `${safeTitle}-${timestamp}.xlsx`;
+        XLSX.writeFile(workbook, excelFilename);
+        toast.success(`Excel descargado: ${excelFilename}`, { autoClose: 3000 });
+        return;
+      }
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      doc.setFontSize(14);
+      doc.text(title, 40, 48);
+      doc.setFontSize(10);
+      doc.text(`Sucursal: ${branchName}`, 40, 66);
+      doc.text(`Rango: ${fromDate || "-"} a ${toDate || "-"}`, 40, 82);
+
+      autoTable(doc, {
+        startY: 96,
+        head: [["Item", "Valor"]],
+        body: rows.map((row) => [row.label, String(row.value)]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [22, 45, 38] },
+      });
+
+      const pdfFilename = `${safeTitle}-${timestamp}.pdf`;
+      doc.save(pdfFilename);
+      toast.success(`PDF descargado: ${pdfFilename}`, { autoClose: 3000 });
+    } catch (err) {
+      console.error("[Dashboard] Error al generar descarga:", err);
+      toast.error("No se pudo generar el archivo. Intenta de nuevo.");
     }
-
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const safeTitle = title.toLowerCase().replace(/\s+/g, "-");
-
-    if (format === "excel") {
-      const worksheet = XLSX.utils.json_to_sheet(rows.map((row) => ({
-        Seccion: title,
-        Sucursal: branchName,
-        Desde: fromDate || "-",
-        Hasta: toDate || "-",
-        Item: row.label,
-        Valor: row.value,
-      })));
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Dashboard");
-      XLSX.writeFile(workbook, `${safeTitle}-${timestamp}.xlsx`);
-      return;
-    }
-
-    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-    doc.setFontSize(14);
-    doc.text(title, 40, 48);
-    doc.setFontSize(10);
-    doc.text(`Sucursal: ${branchName}`, 40, 66);
-    doc.text(`Rango: ${fromDate || "-"} a ${toDate || "-"}`, 40, 82);
-
-    autoTable(doc, {
-      startY: 96,
-      head: [["Item", "Valor"]],
-      body: rows.map((row) => [row.label, String(row.value)]),
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [22, 45, 38] },
-    });
-
-    doc.save(`${safeTitle}-${timestamp}.pdf`);
   };
 
   const bcInput =
@@ -385,7 +394,7 @@ export default function Dashboard() {
               <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={bcInput} />
             </FilterField>
             <FilterField label="Sucursal">
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-45 ${bcInput}`}>
                 <option value="">Todas las sucursales</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -395,7 +404,7 @@ export default function Dashboard() {
               </select>
             </FilterField>
             <FilterField label="Servicio">
-              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-[180px] ${bcInput}`}>
+              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-45 ${bcInput}`}>
                 <option value="">Todos los servicios</option>
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>

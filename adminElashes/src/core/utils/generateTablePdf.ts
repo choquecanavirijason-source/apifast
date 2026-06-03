@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toast } from "react-toastify";
 import { getLogoBase64 } from "../hooks/useLogo";
 
 export interface PdfColumn {
@@ -135,5 +136,7 @@ export async function generateTablePdf({
     doc.text("New Elashes — Reporte generado automáticamente", margin, doc.internal.pageSize.getHeight() - 6);
   }
 
-  doc.save(`${filename}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  const pdfFilename = `${filename}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(pdfFilename);
+  toast.success(`PDF descargado: ${pdfFilename}`, { autoClose: 3000 });
 }

@@ -17,9 +17,22 @@ export function getTicketPriceTotal(ticket: TicketItem): number {
   return 0;
 }
 
-/** Comisión de la operaria: solo aplica cuando el ticket está completado. */
+/** Comisión de la operaria: solo aplica cuando el ticket está completado.
+ *  Usa la tasa definida por servicio cuando está disponible; sino usa la tasa global. */
 export function getTicketCommission(ticket: TicketItem): number {
   if (ticket.status !== "completed") return 0;
+
+  if (ticket.service_commission_rates?.length && ticket.service_prices?.length) {
+    let total = 0;
+    const len = Math.min(ticket.service_commission_rates.length, ticket.service_prices.length);
+    for (let i = 0; i < len; i++) {
+      const price = ticket.service_prices[i] ?? 0;
+      const rate = ticket.service_commission_rates[i] ?? PROFESSIONAL_COMMISSION_RATE;
+      total += price * rate;
+    }
+    return total;
+  }
+
   return getTicketPriceTotal(ticket) * PROFESSIONAL_COMMISSION_RATE;
 }
 

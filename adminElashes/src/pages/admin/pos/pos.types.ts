@@ -64,6 +64,7 @@ export type PosSaleStepOneProps = {
   onOpenCategoryModal: () => void;
   quickServices: ServiceOption[];
   onAddServiceToCart: (service: ServiceOption) => void;
+  onRemoveServiceFromCart: (service: ServiceOption) => void;
   serviceComboboxRef: RefObject<HTMLDivElement | null>;
   serviceMenuRef: RefObject<HTMLDivElement | null>;
   cartLines: CartLine[];

@@ -28,13 +28,6 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled:  "Cancelado",
 };
 
-const STATUS_CLASS: Record<string, string> = {
-  pending:    "bg-yellow-100 text-yellow-800",
-  in_service: "bg-blue-100 text-blue-800",
-  confirmed:  "bg-indigo-100 text-indigo-800",
-  completed:  "bg-green-100 text-green-800",
-  cancelled:  "bg-red-100 text-red-800",
-};
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash:     "Efectivo",
@@ -402,17 +395,6 @@ export default function CierreDeCaja() {
       getValue: (item) => item.start_time,
     },
     {
-      key: "status",
-      header: "Estado",
-      render: (item) => (
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_CLASS[item.status] ?? "bg-gray-100 text-gray-700"}`}>
-          {STATUS_LABELS[item.status] ?? item.status}
-        </span>
-      ),
-      sortable: true,
-      getValue: (item) => STATUS_LABELS[item.status] ?? item.status,
-    },
-    {
       key: "payment_method",
       header: "Pago",
       render: (item) => <PaymentBadge method={item.is_paid ? (item.payment_method ?? null) : null} />,
@@ -540,55 +522,31 @@ export default function CierreDeCaja() {
       </div>
 
       {/* Filtros */}
-      <div className="mb-5 flex flex-wrap gap-3">
-        {[
-          {
-            label: "Fecha",
-            content: (
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
-              />
-            ),
-          },
-          {
-            label: "Sucursal",
-            content: (
-              <select
-                value={branchId ?? ""}
-                onChange={(e) => setBranchId(e.target.value === "" ? null : Number(e.target.value))}
-                className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
-              >
-                <option value="">Todas las sucursales</option>
-                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            ),
-          },
-          {
-            label: "Operaria",
-            content: (
-              <select
-                value={professionalId ?? ""}
-                onChange={(e) => setProfessionalId(e.target.value === "" ? null : Number(e.target.value))}
-                className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
-              >
-                <option value="">Todas las operarias</option>
-                {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.username}{p.branch_name ? ` — ${p.branch_name}` : ""}
-                  </option>
-                ))}
-              </select>
-            ),
-          },
-        ].map(({ label, content }) => (
-          <div key={label} className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">{label}</label>
-            {content}
-          </div>
-        ))}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
+          <select
+            value={professionalId ?? ""}
+            onChange={(e) => setProfessionalId(e.target.value === "" ? null : Number(e.target.value))}
+            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+          >
+            <option value="">Todas las operarias</option>
+            {professionals.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.username}{p.branch_name ? ` — ${p.branch_name}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Tarjetas de resumen */}

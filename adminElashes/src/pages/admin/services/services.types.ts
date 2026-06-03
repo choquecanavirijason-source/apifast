@@ -19,6 +19,7 @@ export interface ServiceItemFormState {
   categoryId: string;
   durationMinutes: string;
   price: string;
+  commissionRate: string;
 }
 
 export const emptyServiceItemForm: ServiceItemFormState = {
@@ -28,4 +29,5 @@ export const emptyServiceItemForm: ServiceItemFormState = {
   categoryId: "",
   durationMinutes: "",
   price: "",
+  commissionRate: "",
 };

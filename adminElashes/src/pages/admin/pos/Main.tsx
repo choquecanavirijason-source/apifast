@@ -723,32 +723,33 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         const startMs = new Date(ticket.start_time).getTime();
         const endMs = new Date(ticket.end_time).getTime();
         const totalMs = Math.max(endMs - startMs, 60_000);
-        const perMs = totalMs / serviceIds.length;
+        const totalDurationMins = Math.max(15, Math.round(totalMs / 60_000));
 
-        const lines: CartLine[] = [];
-        for (let i = 0; i < serviceIds.length; i += 1) {
-          const svc = services.find((s) => s.id === serviceIds[i]);
-          const segStart = new Date(startMs + i * perMs);
-          const dt = toDateAndTimeInputValues(formatLocalDateTime(segStart));
-          const prices = ticket.service_prices;
-          const fallbackPrice =
-            prices != null && prices[i] !== undefined ? prices[i] : ticket.service_price;
-          lines.push(
-            normalizeCartLine({
-              localId: createLocalId(),
-              appointment_id: appointmentId,
-              service_id: String(serviceIds[i]),
-              professional_id:
-                ticket.professional_id != null ? String(ticket.professional_id) : "",
-              date: dt.date,
-              time: dt.time,
-              without_time: dt.without_time,
-              status: "pending",
-              duration_minutes: Math.max(15, Math.round(perMs / 60_000)),
-              price: svc?.price ?? fallbackPrice ?? 0,
-            })
-          );
-        }
+        // Una sola línea que representa el ticket completo (aunque tenga N servicios).
+        // El precio es la suma de todos los servicios; el appointment_id queda vinculado.
+        const primarySvcId = serviceIds[0];
+        const primarySvc = services.find((s) => s.id === primarySvcId);
+        const totalPrice = serviceIds.reduce((sum, id, i) => {
+          const svc = services.find((s) => s.id === id);
+          const fallback = ticket.service_prices?.[i] ?? ticket.service_price ?? 0;
+          return sum + (svc?.price ?? Number(fallback) ?? 0);
+        }, 0);
+
+        const dt = toDateAndTimeInputValues(formatLocalDateTime(new Date(startMs)));
+        const lines: CartLine[] = [
+          normalizeCartLine({
+            localId: createLocalId(),
+            appointment_id: appointmentId,
+            service_id: String(primarySvcId),
+            professional_id: ticket.professional_id != null ? String(ticket.professional_id) : "",
+            date: dt.date,
+            time: dt.time,
+            without_time: dt.without_time,
+            status: "pending",
+            duration_minutes: totalDurationMins,
+            price: totalPrice || primarySvc?.price || 0,
+          }),
+        ];
 
         agendaHydrateDoneRef.current = appointmentId;
         setClientId(String(ticket.client_id));
@@ -2106,6 +2107,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               onOpenCategoryModal={() => setIsCategoryModalOpen(true)}
               quickServices={quickServices}
               onAddServiceToCart={addServiceToCart}
+              onRemoveServiceFromCart={(service) => removeLastCartLineForService(String(service.id))}
               serviceComboboxRef={serviceComboboxRef}
               serviceMenuRef={serviceMenuRef}
               cartLines={cartLines}
