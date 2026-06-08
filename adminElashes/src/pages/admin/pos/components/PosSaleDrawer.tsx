@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, Printer, Search, ShoppingCart, SplitSquareHorizontal, Tag, Ticket, Trash2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, Tag, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption } from "../pos.types";
@@ -63,6 +63,8 @@ type PosSaleDrawerProps = {
   onApplySellerToAllLines?: () => void;
   /** Turno inmediato: crea tickets con hora actual sin abrir el planificador. */
   onImmediateCheckout?: (payLater: boolean) => void;
+  /** URL de la imagen QR estático de pago de la sucursal. */
+  branchQrImageUrl?: string | null;
 };
 
 export default function PosSaleDrawer({
@@ -117,6 +119,7 @@ export default function PosSaleDrawer({
   professionalBusyUntilMap = new Map(),
   onApplySellerToAllLines,
   onImmediateCheckout,
+  branchQrImageUrl,
 }: PosSaleDrawerProps) {
   const isPanel = mode === "panel";
 
@@ -134,6 +137,23 @@ export default function PosSaleDrawer({
   const [ticketsOpen, setTicketsOpen] = useState(false);
   const [isSellerOpen, setIsSellerOpen] = useState(false);
   const sellerDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [showQrOverlay, setShowQrOverlay] = useState(false);
+  const [qrPendingAction, setQrPendingAction] = useState<(() => void) | null>(null);
+
+  const openQrOverlay = (action: () => void) => {
+    setQrPendingAction(() => action);
+    setShowQrOverlay(true);
+  };
+
+  const closeQrOverlay = () => {
+    setShowQrOverlay(false);
+    setQrPendingAction(null);
+  };
+
+  const confirmQrPayment = () => {
+    qrPendingAction?.();
+    closeQrOverlay();
+  };
 
   const [showSinHoraConfirm, setShowSinHoraConfirm] = useState(false);
   const [payLater, setPayLater] = useState(false);
@@ -1008,23 +1028,40 @@ export default function PosSaleDrawer({
 
             {/* Pago simple */}
             {!isMixedMode && (
-              <div className={`grid grid-cols-2 gap-1.5 sm:grid-cols-4 ${!step3Done && step1Done ? "rounded-sm ring-2 ring-[#f0c477] ring-offset-1" : ""}`}>
-                {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPaymentMethod(value)}
-                    className={`flex flex-col items-center gap-1 rounded-sm border px-1 py-2 text-[11px] font-semibold transition-colors ${
-                      paymentMethod === value
-                        ? "border-[#0078d4] bg-[#0078d4] text-white shadow-sm"
-                        : "border-[#edebe9] bg-[#faf9f8] text-[#605e5c] hover:border-[#c8c6c4] hover:text-[#323130]"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className={`grid grid-cols-2 gap-1.5 sm:grid-cols-4 ${!step3Done && step1Done ? "rounded-sm ring-2 ring-[#f0c477] ring-offset-1" : ""}`}>
+                  {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setPaymentMethod(value)}
+                      className={`flex flex-col items-center gap-1 rounded-sm border px-1 py-2 text-[11px] font-semibold transition-colors ${
+                        paymentMethod === value
+                          ? "border-[#0078d4] bg-[#0078d4] text-white shadow-sm"
+                          : "border-[#edebe9] bg-[#faf9f8] text-[#605e5c] hover:border-[#c8c6c4] hover:text-[#323130]"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Info QR */}
+                {paymentMethod === "qr" && branchQrImageUrl && (
+                  <div className="mt-2 flex items-center gap-2 rounded-sm border border-[#c7e0f4] bg-[#deecf9] px-3 py-2">
+                    <QrCode className="h-3.5 w-3.5 shrink-0 text-[#0078d4]" />
+                    <p className="text-[11px] font-medium text-[#004578]">
+                      Al confirmar el cobro se mostrará el QR para que el cliente escanee y pague.
+                    </p>
+                  </div>
+                )}
+                {paymentMethod === "qr" && !branchQrImageUrl && (
+                  <p className="mt-1.5 rounded-sm bg-[#fff4ce] px-3 py-1.5 text-[11px] font-medium text-[#8a6a1f]">
+                    Sin imagen QR configurada. Ve a Salones → editar sucursal para agregar el QR de pago.
+                  </p>
+                )}
+              </>
             )}
 
             {/* Pago mixto */}
@@ -1162,14 +1199,20 @@ export default function PosSaleDrawer({
           <button
             type="button"
             disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
-            onClick={() => onImmediateCheckout(false)}
+            onClick={() => {
+              if (paymentMethod === "qr" && branchQrImageUrl) {
+                openQrOverlay(() => onImmediateCheckout(false));
+              } else {
+                onImmediateCheckout(false);
+              }
+            }}
             className={`flex h-11 w-full items-center justify-center rounded-sm text-sm font-semibold transition-all ${
               cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
                 ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
                 : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
             }`}
           >
-            {isSubmitting ? "Procesando…" : "Crear turno"}
+            {isSubmitting ? "Procesando…" : paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
           </button>
         </>
       ) : (
@@ -1199,7 +1242,14 @@ export default function PosSaleDrawer({
                 </div>
               </div>
               <div className="flex gap-2 px-3 py-2">
-                <button type="button" onClick={() => { setShowSinHoraConfirm(false); onPrimaryAction(); }}
+                <button type="button" onClick={() => {
+                    setShowSinHoraConfirm(false);
+                    if (paymentMethod === "qr" && branchQrImageUrl) {
+                      openQrOverlay(onPrimaryAction);
+                    } else {
+                      onPrimaryAction();
+                    }
+                  }}
                   className="flex-1 rounded-sm bg-[#8a6a1f] py-1.5 text-xs font-semibold text-white hover:bg-[#6d5218]">
                   Confirmar igual
                 </button>
@@ -1217,11 +1267,18 @@ export default function PosSaleDrawer({
         const sellerBusy = sellerPro?.is_busy === true;
         const isDisabled = primaryActionDisabled || sellerBusy || !tutorDataComplete;
         const sinHoraCount = ticketPreviews.filter((p) => p.scheduleLabel?.includes("Sin hora")).length;
+        const doCheckout = () => {
+          if (paymentMethod === "qr" && branchQrImageUrl) {
+            openQrOverlay(onPrimaryAction);
+          } else {
+            onPrimaryAction();
+          }
+        };
         const handleClick = () => {
           if (!isDisabled && sinHoraCount > 0) {
             setShowSinHoraConfirm(true);
           } else {
-            onPrimaryAction();
+            doCheckout();
           }
         };
         return (
@@ -1268,20 +1325,92 @@ export default function PosSaleDrawer({
     </div>
   );
 
+  // ── Overlay fullscreen QR ────────────────────────────────────────────────
+  const qrOverlay = showQrOverlay && branchQrImageUrl ? (
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4">
+      <div
+        className="relative flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabecera */}
+        <div className="flex w-full items-center justify-between">
+          <p className="text-base font-bold text-[#323130]">Pago con QR</p>
+          <button
+            type="button"
+            onClick={closeQrOverlay}
+            className="rounded-full p-1.5 text-[#605e5c] transition hover:bg-[#f3f2f1]"
+            aria-label="Cancelar pago QR"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Total prominente */}
+        <div className="w-full rounded-xl border-2 border-[#0078d4] bg-[#eef6ff] py-3 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Total a cobrar</p>
+          <p className="mt-0.5 text-3xl font-black text-[#0078d4]">Bs {total.toFixed(2)}</p>
+        </div>
+
+        {/* QR image */}
+        <img
+          src={branchQrImageUrl}
+          alt="QR de pago"
+          className="h-56 w-56 rounded-xl border border-[#edebe9] object-contain bg-white p-2 shadow-sm"
+        />
+
+        <p className="text-center text-xs text-[#605e5c]">
+          Muestra este QR al cliente, espera que escanee y pague,<br />
+          luego presiona <strong>Pago recibido</strong>.
+        </p>
+
+        {/* Acciones */}
+        <div className="flex w-full gap-3">
+          <button
+            type="button"
+            onClick={closeQrOverlay}
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#edebe9] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+          >
+            <X className="h-4 w-4" />
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={confirmQrPayment}
+            disabled={isSubmitting}
+            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold text-white transition ${
+              isSubmitting ? "cursor-not-allowed bg-[#a19f9d]" : "bg-[#107c10] hover:bg-[#0b5e0b]"
+            }`}
+          >
+            {isSubmitting ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {isSubmitting ? "Procesando…" : "Pago recibido ✓"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // ── Panel mode: columna fija en desktop ────────────────────────────────────
   if (isPanel) {
     return (
-      <div className="flex h-full flex-col overflow-hidden border-l border-[#edebe9] bg-[#faf9f8]">
-        {panelHeader}
-        {panelBody}
-        {panelFooter}
-      </div>
+      <>
+        {qrOverlay}
+        <div className="flex h-full flex-col overflow-hidden border-l border-[#edebe9] bg-[#faf9f8]">
+          {panelHeader}
+          {panelBody}
+          {panelFooter}
+        </div>
+      </>
     );
   }
 
-  // ── Drawer mode: overlay deslizable ───────────────────────────────────────
+  // ── Drawer mode: overlay deslizable ───────────────��───────────────────────
   return (
     <>
+      {qrOverlay}
       <button
         type="button"
         className="fixed inset-0 z-43 bg-[#323130]/40 backdrop-blur-[1px]"

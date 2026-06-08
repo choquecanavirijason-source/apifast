@@ -79,31 +79,42 @@ def get_daily_closing(
     prof_agg: dict[int | None, dict] = {}
 
     for appt in appointments:
-        # ── Servicios y precio ────────────────────────────────────────────
+        # ── Servicios, precio y comisión por servicio ────────────────────
         service_names: list[str] = []
         total_price = 0.0
+        commission_total = 0.0
 
-        if appt.appointment_services:
-            for as_item in sorted(appt.appointment_services, key=lambda x: x.sort_order):
-                if as_item.service:
-                    service_names.append(as_item.service.name)
-                    total_price += as_item.service.price
-
-        if not service_names and appt.service:
-            service_names.append(appt.service.name)
-            total_price = appt.service.price
-
-        if not service_names:
-            service_names = ["Sin servicio"]
-
-        # ── Comisión: solo si el ticket está completado ───────────────────
-        commission_rate = (
+        prof_default_rate = (
             appt.professional.commission_rate
             if appt.professional and appt.professional.commission_rate is not None
             else DEFAULT_COMMISSION_RATE
         )
+
+        if appt.appointment_services:
+            for as_item in sorted(appt.appointment_services, key=lambda x: x.sort_order):
+                if as_item.service:
+                    svc = as_item.service
+                    service_names.append(svc.name)
+                    svc_price = svc.price
+                    total_price += svc_price
+                    # Tasa: la del servicio si está definida, si no la del profesional
+                    svc_rate = svc.commission_rate if svc.commission_rate is not None else prof_default_rate
+                    commission_total += svc_price * svc_rate
+
+        if not service_names and appt.service:
+            svc = appt.service
+            service_names.append(svc.name)
+            total_price = svc.price
+            svc_rate = svc.commission_rate if svc.commission_rate is not None else prof_default_rate
+            commission_total = total_price * svc_rate
+
+        if not service_names:
+            service_names = ["Sin servicio"]
+
+        # commission_rate representativo para mostrar en UI (tasa del profesional como referencia)
+        commission_rate = prof_default_rate
         is_completed = appt.status in COMPLETED_STATUS
-        commission = round(total_price * commission_rate, 2) if is_completed else 0.0
+        commission = round(commission_total, 2) if is_completed else 0.0
 
         # ── Datos de la venta POS vinculada ───────────────────────────────
         sale = sales_by_id.get(appt.sale_id) if appt.sale_id else None

@@ -191,7 +191,7 @@ def seed_users(db: Session, roles: dict, branches: dict):
         {
             "username": "admin",
             "email": "admin@elashes.com",
-            "phone": "+59170000001",
+            "phone": "+59175904171",
             "password": "admin123",
             "role": "SuperAdmin",
             "branch": "Sucursal Principal",

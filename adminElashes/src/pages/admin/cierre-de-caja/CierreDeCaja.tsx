@@ -292,13 +292,13 @@ export default function CierreDeCaja() {
     setUpdatingId(id);
     try {
       await ReportsService.updateStatus(id, newStatus);
-      setReport((prev) => ({
-        ...prev,
-        items: prev.items.map((item) =>
-          item.appointment_id === id ? { ...item, status: newStatus } : item
-        ),
-      }));
       toast.success(newStatus === "completed" ? "Ticket finalizado" : "Ticket cancelado");
+      // Recargar reporte completo para que comisiones y totales queden correctos
+      setLoading(true);
+      ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+        .then(setReport)
+        .catch(() => toast.error("Error al recargar el reporte"))
+        .finally(() => setLoading(false));
     } catch {
       toast.error("No se pudo actualizar el estado");
     } finally {

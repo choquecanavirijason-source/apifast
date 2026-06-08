@@ -216,6 +216,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       id: number;
       name: string;
       opening_hours?: Array<{ day: string; ranges: Array<{ open_time: string; close_time: string }> }> | null;
+      qr_image_url?: string | null;
     }>
   >([]);
   const [eyeTypesError,setEyeTypesError]= useState<string | null>(null);
@@ -2160,6 +2161,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               setTicketMode={setTicketMode}
               onUpdateTicketTime={handleUpdateTicketTime}
               onUpdateCartLine={(localId, patch) => updateLine(localId, patch)}
+              branchQrImageUrl={branches.find((b) => b.id === activeBranchId)?.qr_image_url ?? null}
             />
           ) : (
             renderSaleTicketsSection(() => setStep(1))

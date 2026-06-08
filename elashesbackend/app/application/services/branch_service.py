@@ -142,6 +142,7 @@ def update_branch(
     department: Optional[str] = None,
     opening_hours: Optional[list[dict]] = None,
     user_ids: Optional[list[int]] = None,
+    qr_image_url: Optional[str] = None,
 ) -> Branch:
     _ensure_opening_hours_column(db)
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
@@ -176,6 +177,9 @@ def update_branch(
 
     if opening_hours is not None:
         branch.opening_hours = opening_hours
+
+    if qr_image_url is not None:
+        branch.qr_image_url = qr_image_url if qr_image_url.strip() else None
 
     if user_ids is not None:
         _sync_branch_users(db=db, branch_id=branch.id, user_ids=user_ids)

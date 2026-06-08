@@ -205,6 +205,7 @@ export default function SalonsPage() {
       city: salon.city,
       department: salon.department,
       opening_hours: salon.opening_hours?.length ? salon.opening_hours : createDefaultOpeningHours(),
+      qr_image_url: salon.qr_image_url ?? "",
     });
     setIsModalOpen(true);
   };
@@ -327,6 +328,7 @@ export default function SalonsPage() {
           city: normalized.city || undefined,
           department: normalized.department || undefined,
           opening_hours: openingHoursPayload,
+          qr_image_url: normalized.qr_image_url.trim() || null,
         });
         toast.success("Sucursal actualizada correctamente.");
       } else {
@@ -336,6 +338,7 @@ export default function SalonsPage() {
           city: normalized.city || undefined,
           department: normalized.department || undefined,
           opening_hours: openingHoursPayload,
+          qr_image_url: normalized.qr_image_url.trim() || null,
         });
         toast.success("Sucursal creada correctamente.");
       }

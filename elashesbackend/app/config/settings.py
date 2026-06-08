@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     db_password: Optional[str] = None
     db_name: Optional[str] = None
 
+    environment: str = "development"  # "production" en Cloud
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440

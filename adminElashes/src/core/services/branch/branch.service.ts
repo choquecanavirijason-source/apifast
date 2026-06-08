@@ -25,6 +25,7 @@ export interface BranchPayload {
     day: string;
     ranges: Array<{ open_time: string; close_time: string }>;
   }>;
+  qr_image_url?: string | null;
 }
 
 export interface BranchIntegrations {

@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, QrCode, Trash2 } from "lucide-react";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, InputField } from "../../../components/common/ui";
 import type { SalonForm } from "./utils";
@@ -116,6 +116,35 @@ export default function SalonsFormModal({
             ))}
           </select>
           {errors.city ? <p className="text-xs font-semibold text-[#a4262c]">{errors.city}</p> : null}
+        </div>
+
+        {/* QR de pago estático */}
+        <div className="md:col-span-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <QrCode className="h-4 w-4 text-[#0078d4]" />
+            <p className="text-sm font-semibold text-[#323130]">QR de pago</p>
+          </div>
+          <p className="mb-2 text-xs text-[#605e5c]">
+            Pega la URL de la imagen QR del negocio (cuenta bancaria, Tigo Money, etc.). Se mostrará en el POS cuando el cliente pague con QR.
+          </p>
+          <input
+            type="url"
+            value={form.qr_image_url}
+            onChange={(event) => onTextChange("qr_image_url", event.target.value)}
+            placeholder="https://... (URL de la imagen QR)"
+            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+          />
+          {form.qr_image_url && (
+            <div className="mt-2 flex items-center gap-3">
+              <img
+                src={form.qr_image_url}
+                alt="Preview QR"
+                className="h-24 w-24 rounded-sm border border-[#edebe9] object-contain bg-white p-1"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <p className="text-xs text-[#605e5c]">Vista previa del QR</p>
+            </div>
+          )}
         </div>
 
         <div className="order-last md:col-span-2 mt-2 flex items-center justify-end gap-2 border-t border-[#edebe9] pt-3">

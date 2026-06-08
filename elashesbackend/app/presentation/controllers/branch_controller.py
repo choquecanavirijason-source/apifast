@@ -98,6 +98,7 @@ def update_existing_branch(
         department=payload.department,
         opening_hours=[item.model_dump() for item in payload.opening_hours] if payload.opening_hours is not None else None,
         user_ids=payload.user_ids,
+        qr_image_url=payload.qr_image_url,
     )
 
 

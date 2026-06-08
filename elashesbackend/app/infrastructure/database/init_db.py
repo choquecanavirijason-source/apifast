@@ -19,6 +19,7 @@ from app.domain.entities.service_agenda import ServiceCategory, Service, Appoint
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.cash_close import CashClose, CommissionReceipt
+from app.domain.entities.commission_payment import CommissionPayment
 
 
 def init_db():

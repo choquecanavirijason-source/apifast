@@ -57,6 +57,7 @@ class BranchUpdate(BaseModel):
     department: Optional[str] = Field(default=None, max_length=100)
     opening_hours: Optional[list[BranchDaySchedule]] = Field(default=None)
     user_ids: Optional[list[int]] = Field(default=None)
+    qr_image_url: Optional[str] = Field(default=None, max_length=1024)
 
 
 class BranchSummary(BaseModel):
@@ -69,6 +70,7 @@ class BranchSummary(BaseModel):
     department: Optional[str] = None
     opening_hours: list[BranchDaySchedule] = Field(default_factory=list)
     user_ids: list[int] = Field(default_factory=list)
+    qr_image_url: Optional[str] = None
 
     @field_validator("opening_hours", mode="before")
     @classmethod

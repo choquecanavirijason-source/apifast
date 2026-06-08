@@ -115,6 +115,8 @@ export type PosSaleStepOneProps = {
   /** Editar hora de un ticket directamente desde el panel lateral. */
   onUpdateTicketTime: (localId: string, date: string, time: string) => void;
   onUpdateCartLine?: (localId: string, patch: Partial<{ date: string; time: string; without_time: boolean; time_manual: boolean }>) => void;
+  /** URL de la imagen QR de pago estático de la sucursal activa. */
+  branchQrImageUrl?: string | null;
 };
 
 export type PosSaleStepTwoProps = {

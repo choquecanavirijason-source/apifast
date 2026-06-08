@@ -50,6 +50,8 @@ import app.infrastructure.database.migrations.add_commission_rate_to_users as m2
 import app.infrastructure.database.migrations.add_temp_branch_to_users as m23
 import app.infrastructure.database.migrations.add_cash_close_tables as m24
 import app.infrastructure.database.migrations.add_commission_rate_to_services as m25
+import app.infrastructure.database.migrations.add_qr_image_url_to_branches as m26
+import app.infrastructure.database.migrations.add_commission_payments_table as m27
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -59,6 +61,7 @@ from app.presentation.controllers import (
 )
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
+from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,6 +96,8 @@ async def lifespan(app: FastAPI):
         ("temp_branch_to_users", m23.upgrade),
         ("cash_close_tables", m24.upgrade),
         ("commission_rate_to_services", m25.upgrade),
+        ("qr_image_url_to_branches", m26.upgrade),
+        ("commission_payments_table", m27.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -138,16 +143,21 @@ def create_app() -> FastAPI:
             headers=headers,
         )
 
+    allow_origins = [
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://localhost:3000",
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ]
+    # En Cloud permitimos cualquier origen (cubre admin web + app mobile)
+    if settings.environment == "production":
+        allow_origins = ["*"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",   # Vite dev
-            "http://localhost:4173",   # Vite preview
-            "http://localhost:3000",   # Create React App
-            "tauri://localhost",       # Tauri desktop
-            "http://tauri.localhost",
-        ],
-        allow_credentials=True,
+        allow_origins=allow_origins,
+        allow_credentials=settings.environment != "production",
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -172,6 +182,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(admin_ai_controller.router)
     app.include_router(notifications_router)
+    app.include_router(commission_payments_router)
     app.include_router(auth_routes.router)
     
     return app
