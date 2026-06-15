@@ -169,3 +169,25 @@ class StockSummaryResponse(BaseModel):
     branch_id: int
     branch_name: str
     total_stock: float
+
+
+# ==========================================
+# Stock Transfers
+# ==========================================
+class StockTransferCreate(BaseModel):
+    product_id: int
+    from_branch_id: int = Field(..., ge=1)
+    to_branch_id: int = Field(..., ge=1)
+    quantity: float = Field(..., gt=0)
+    note: Optional[str] = Field(default=None, max_length=255)
+
+
+class StockTransferResponse(BaseModel):
+    product_id: int
+    product_name: str
+    from_branch_id: int
+    from_branch_name: str
+    to_branch_id: int
+    to_branch_name: str
+    quantity: float
+    message: str

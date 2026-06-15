@@ -19,6 +19,8 @@ from app.presentation.schemas.inventory import (
     InventoryMovementCreate,
     InventoryMovementResponse,
     StockSummaryResponse,
+    StockTransferCreate,
+    StockTransferResponse,
 )
 from app.application.services.inventory_service import (
     list_categories,
@@ -38,6 +40,7 @@ from app.application.services.inventory_service import (
     list_movements,
     create_inventory_movement,
     get_stock_summary,
+    transfer_stock_between_branches,
 )
 
 
@@ -302,4 +305,23 @@ def get_inventory_stock_summary(
         db=db,
         branch_id=branch_id,
         product_id=product_id,
+    )
+
+
+# ==========================================
+# Stock Transfers
+# ==========================================
+@router.post("/transfers", response_model=StockTransferResponse, status_code=status.HTTP_201_CREATED)
+def create_stock_transfer(
+    payload: StockTransferCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("inventory:manage")),
+):
+    return transfer_stock_between_branches(
+        db=db,
+        product_id=payload.product_id,
+        from_branch_id=payload.from_branch_id,
+        to_branch_id=payload.to_branch_id,
+        quantity=payload.quantity,
+        note=payload.note,
     )

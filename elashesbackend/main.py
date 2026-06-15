@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager 
 import uvicorn
 import traceback
@@ -166,6 +167,11 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         return {"status": "ok"}
+
+    # Servido de imágenes subidas (catálogo de pestañas, etc.) en /media
+    from app.core.media import MEDIA_URL_PREFIX, ensure_media_dirs
+    media_root = ensure_media_dirs()
+    app.mount(MEDIA_URL_PREFIX, StaticFiles(directory=media_root), name="media")
 
     # Registro de rutas
     app.include_router(service_categories_router)

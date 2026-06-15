@@ -5,7 +5,7 @@ Las categorías se registran en main.py con el mismo prefijo /agenda (ver servic
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -214,28 +214,41 @@ def get_professionals_for_select(
         branch_id=branch_id,
     )
     from collections import defaultdict
-    today_str = datetime.today().date().isoformat()
+    # Bolivia = UTC-4. El servidor GCP corre en UTC, por lo que "hoy local" puede
+    # ser ayer en UTC. Cubrimos un rango de 28 h para no perder turnos del día.
+    now_utc = datetime.utcnow()
+    window_start = (now_utc - timedelta(hours=4)).strftime("%Y-%m-%dT00:00:00")
+    window_end = (now_utc + timedelta(hours=4)).strftime("%Y-%m-%dT23:59:59")
 
+    # is_busy: cualquier turno actualmente en servicio (sin filtro de fecha)
+    in_service_appts = (
+        db.query(Appointment)
+        .filter(
+            Appointment.professional_id.isnot(None),
+            Appointment.status == "in_service",
+        )
+        .all()
+    )
+
+    # Turnos activos del día (pending + confirmed + in_service) para conteo y hora libre
     active_appts = (
         db.query(Appointment)
         .filter(
             Appointment.professional_id.isnot(None),
             Appointment.status.in_(["in_service", "pending", "confirmed"]),
-            Appointment.start_time >= f"{today_str}T00:00:00",
-            Appointment.start_time <= f"{today_str}T23:59:59",
+            Appointment.start_time >= window_start,
+            Appointment.start_time <= window_end,
         )
         .order_by(Appointment.start_time)
         .all()
     )
 
-    in_service_ids: set[int] = set()
+    in_service_ids: set[int] = {appt.professional_id for appt in in_service_appts}
     pending_count: dict[int, int] = defaultdict(int)
     busy_until: dict[int, datetime] = {}
 
     for appt in active_appts:
         pid = appt.professional_id
-        if appt.status == "in_service":
-            in_service_ids.add(pid)
         pending_count[pid] += 1
         if appt.end_time and (pid not in busy_until or appt.end_time > busy_until[pid]):
             busy_until[pid] = appt.end_time

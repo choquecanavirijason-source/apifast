@@ -1,9 +1,10 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_permission
+from app.core.media import save_catalog_image
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.catalog import (
@@ -56,6 +57,22 @@ router = APIRouter(
     prefix="/catalogs",
     tags=["Catalogos"],
 )
+
+
+# Subida de imágenes de catálogo (devuelve la ruta pública `/media/...`).
+# El cliente luego envía esa ruta en el campo `image` al crear/actualizar el ítem.
+@router.post("/upload-image", status_code=status.HTTP_201_CREATED)
+def upload_catalog_image(
+    folder: str = Query(
+        default="lash-designs",
+        description="Carpeta destino: lash-designs, eye-types, effects, volumes, misc",
+    ),
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    image_path = save_catalog_image(file=file, folder=folder)
+    return {"image": image_path}
+
 
 # Eye Types
 @router.get("/eye-types", response_model=List[EyeTypeResponse])

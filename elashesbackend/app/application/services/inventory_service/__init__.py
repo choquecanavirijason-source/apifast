@@ -36,6 +36,7 @@ from .products import (
     update_product,
 )
 from .stock import get_stock_summary
+from .transfers import transfer_stock_between_branches
 
 __all__ = [
     # categories
@@ -61,4 +62,6 @@ __all__ = [
     "create_inventory_movement",
     # stock
     "get_stock_summary",
+    # transfers
+    "transfer_stock_between_branches",
 ]
