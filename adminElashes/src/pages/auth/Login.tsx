@@ -23,13 +23,19 @@ export default function Login() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setLoading(true) 
+    setLoading(true)
     try {
       await dispatch(login({ email: usuario, password })).unwrap();
       await dispatch(getMe()).unwrap();
       navigate('/')
     } catch (err) {
-      setError(typeof err === "string" ? err : 'No se pudo iniciar sesión. Verifica el backend y tus credenciales.')
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as { message?: string })?.message
+          ?? 'No se pudo iniciar sesión. Verifica el backend y tus credenciales.'
+      setError(msg)
+    } finally {
       setLoading(false)
     }
   }

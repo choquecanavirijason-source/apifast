@@ -265,9 +265,15 @@ export default function UsersMain() {
     if (updatingUser) return;
     setIsModalOpen(false);
     setSelectedUser(null);
+    setEditUserName("");
+    setEditUserEmail("");
+    setEditUserPhone("");
     setEditUserPassword("");
+    setEditUserRoleId(null);
     setEditUserBranchId(null);
+    setEditUserIsActive(true);
     setEditUserSkillLevel(null);
+    setEditUserDirectPermissionIds([]);
   };
 
   const handleUpdateUser = async () => {
@@ -531,7 +537,7 @@ export default function UsersMain() {
         isOpen={isModalOpen}
         selectedUser={selectedUser}
         roles={roles}
-        branches={branches}
+        branches={activeBranchId ? branches.filter((b) => b.id === activeBranchId) : branches}
         permissions={permissions}
         editUserName={editUserName}
         editUserEmail={editUserEmail}
@@ -560,7 +566,7 @@ export default function UsersMain() {
         isOpen={isCreateUserModalOpen}
         onClose={() => setIsCreateUserModalOpen(false)}
         roles={isSecretary ? roles.filter((r) => r.name === "Operaria") : roles}
-        branches={branches}
+        branches={activeBranchId ? branches.filter((b) => b.id === activeBranchId) : branches}
         isSubmitting={creatingUser || loadingBranches}
         onSubmit={(payload) => void handleCreateUser(payload)}
       />
@@ -594,7 +600,7 @@ export default function UsersMain() {
       {branchAssignUser && (
         <BranchAssignModal
           user={branchAssignUser}
-          branches={branches}
+          branches={activeBranchId ? branches.filter((b) => b.id === activeBranchId) : branches}
           onClose={() => setBranchAssignUser(null)}
           onSuccess={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));

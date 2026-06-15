@@ -179,6 +179,7 @@ export type PosSaleDraft = {
   clientId: string;
   clientSearch: string;
   paymentMethod: string;
+  mixedPayments: Array<{ method: string; amount: number }>;
   discountType: "amount" | "percent";
   discountValue: string;
   notes: string;

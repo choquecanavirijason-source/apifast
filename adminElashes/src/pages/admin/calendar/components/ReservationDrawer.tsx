@@ -138,6 +138,9 @@ export default function ReservationDrawer({
     setIsServiceMenuOpen(false);
     setIsClientMenuOpen(false);
     setDurationMinutes(60);
+    setIsNewClient(false);
+    setAdvanceEnabled(false);
+    setAdvanceAmount("");
   }, [isOpen, initialTime, initialProfessionalId]);
 
   useEffect(() => {
@@ -290,6 +293,7 @@ export default function ReservationDrawer({
           client_id: selectedClient.id,
           branch_id: branchId,
           professional_id,
+          advance_payment_amount: advanceEnabled ? parsedAdvance : 0,
           items: consecutiveSlots.map((slot) => ({
             service_id: slot.line.service_id,
             professional_id,

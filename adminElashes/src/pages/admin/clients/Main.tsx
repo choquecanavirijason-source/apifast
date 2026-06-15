@@ -180,6 +180,8 @@ export default function ClientListPage() {
     } catch (error) {
       const message = getErrorMessage(error, "No se pudo eliminar el cliente.");
       toast.error(message);
+      setIsDeleteConfirmOpen(false);
+      setClientToDelete(null);
     } finally {
       setIsDeletingClient(false);
     }

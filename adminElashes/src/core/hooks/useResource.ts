@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { IPagination, IPaginationRequest } from "@/core/types/IApi";
 
 const defaultPagination = {
@@ -61,14 +61,14 @@ export const useResource = <T>({
   
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-    
+
     setLoading(true);
     try {
       const params: IPaginationRequest = {
@@ -85,26 +85,21 @@ export const useResource = <T>({
       let response;
       if (resourceId !== undefined) {
         response = await (service as ServiceWithId<T>).getAllPaginated(
-          resourceId, 
-          params, 
+          resourceId,
+          params,
           { signal: abortController.signal }
         );
       } else {
         response = await (service as ServiceWithoutId<T>).getAllPaginated(
-          params, 
+          params,
           { signal: abortController.signal }
         );
       }
 
       if (!abortController.signal.aborted && response.success) {
-        console.log('✅ Response from API:', response);
-        console.log('✅ Data received:', response.data);
-        console.log('✅ Data is array?:', Array.isArray(response.data));
-        
-        // Validar que response.data sea un array
         const dataArray = Array.isArray(response.data) ? response.data : [];
         setItems(dataArray);
-        
+
         setPagination(response.meta?.pagination || {
           ...defaultPagination,
           per_page: pagination.per_page,
@@ -120,17 +115,18 @@ export const useResource = <T>({
         setLoading(false);
       }
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourceId, pagination.current_page, pagination.per_page, sort, filters, searchInput]);
 
   useEffect(() => {
     fetchItems();
-    
+
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [resourceId, pagination.current_page, pagination.per_page, sort, filters, searchInput]);
+  }, [fetchItems]);
 
   const handlePageChange = (page: number) => {
     setPagination(prev => ({ ...prev, current_page: page }));

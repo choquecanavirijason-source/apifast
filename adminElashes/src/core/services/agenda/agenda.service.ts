@@ -125,6 +125,7 @@ export interface ReservationSaleCreatePayload {
   professional_id?: number | null;
   items: ReservationSaleItemPayload[];
   notes?: string;
+  advance_payment_amount?: number;
 }
 
 export interface ReservationSaleResponse {
@@ -456,6 +457,9 @@ export const AgendaService = {
       discount_type: "amount",
       discount_value: 0,
       reservation_only: true,
+      ...(payload.advance_payment_amount != null && payload.advance_payment_amount > 0
+        ? { advance_payment_amount: payload.advance_payment_amount }
+        : {}),
       items: payload.items.map((item) => ({
         service_id: item.service_id,
         professional_id: item.professional_id ?? payload.professional_id ?? null,

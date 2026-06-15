@@ -550,7 +550,7 @@ export default function PosSaleDrawer({
                             const checked = e.target.checked;
                             onUpdateCartLine?.(line.localId, {
                               without_time: checked,
-                              time_manual: checked ? false : true,
+                              time_manual: false,
                             });
                           }}
                           className="h-3.5 w-3.5 rounded accent-[#0078d4]"
@@ -1016,7 +1016,6 @@ export default function PosSaleDrawer({
                 type="button"
                 onClick={() => {
                   if (!isMixedMode) {
-                    setPaymentMethod("");
                     setMixedPayments([{ method: "cash", amount: 0 }, { method: "card", amount: 0 }]);
                   }
                 }}
@@ -1200,7 +1199,7 @@ export default function PosSaleDrawer({
             type="button"
             disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
             onClick={() => {
-              if (paymentMethod === "qr" && branchQrImageUrl) {
+              if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
                 openQrOverlay(() => onImmediateCheckout(false));
               } else {
                 onImmediateCheckout(false);
@@ -1212,7 +1211,7 @@ export default function PosSaleDrawer({
                 : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
             }`}
           >
-            {isSubmitting ? "Procesando…" : paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
+            {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
           </button>
         </>
       ) : (
@@ -1244,7 +1243,7 @@ export default function PosSaleDrawer({
               <div className="flex gap-2 px-3 py-2">
                 <button type="button" onClick={() => {
                     setShowSinHoraConfirm(false);
-                    if (paymentMethod === "qr" && branchQrImageUrl) {
+                    if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
                       openQrOverlay(onPrimaryAction);
                     } else {
                       onPrimaryAction();
@@ -1268,7 +1267,7 @@ export default function PosSaleDrawer({
         const isDisabled = primaryActionDisabled || sellerBusy || !tutorDataComplete;
         const sinHoraCount = ticketPreviews.filter((p) => p.scheduleLabel?.includes("Sin hora")).length;
         const doCheckout = () => {
-          if (paymentMethod === "qr" && branchQrImageUrl) {
+          if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
             openQrOverlay(onPrimaryAction);
           } else {
             onPrimaryAction();

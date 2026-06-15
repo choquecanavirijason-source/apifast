@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(variables.session.tokenName || '_tkn');
     localStorage.removeItem(variables.session.userData || 'user_data');
     setUser(null);
-    //AuthService.logout().catch(() => { });
+    AuthService.logout().catch(() => { });
   }, []);
 
   // Sincroniza el usuario con el servidor usando el endpoint /me

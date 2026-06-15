@@ -676,6 +676,13 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       setClientId(typeof parsed.clientId === "string" ? parsed.clientId : "");
       setClientSearch(typeof parsed.clientSearch === "string" ? parsed.clientSearch : "");
       setPaymentMethod(typeof parsed.paymentMethod === "string" ? parsed.paymentMethod : "");
+      setMixedPayments(
+        Array.isArray(parsed.mixedPayments)
+          ? (parsed.mixedPayments as Array<{ method: string; amount: number }>).filter(
+              (e) => typeof e.method === "string" && typeof e.amount === "number"
+            )
+          : []
+      );
       setDiscountType(parsed.discountType === "percent" ? "percent" : "amount");
       setDiscountValue(typeof parsed.discountValue === "string" ? parsed.discountValue : "0");
       setNotes(typeof parsed.notes === "string" ? parsed.notes : "");
@@ -868,6 +875,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       clientId,
       clientSearch,
       paymentMethod,
+      mixedPayments,
       discountType,
       discountValue,
       notes,
@@ -884,6 +892,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     clientId,
     clientSearch,
     paymentMethod,
+    mixedPayments,
     discountType,
     discountValue,
     notes,

@@ -119,7 +119,7 @@ const useAuth = () => {
   };
 
   const hasAllPermissions = (list: IPermission[]): boolean => {
-    return safePermissions.every(p => list.includes(p));
+    return list.every(p => safePermissions.includes(p));
   };
 
   /**

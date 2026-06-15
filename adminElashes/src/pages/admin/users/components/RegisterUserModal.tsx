@@ -36,26 +36,35 @@ export default function RegisterUserModal({
   lockRole = false,
 }: RegisterUserModalProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
+  const wasOpenRef = useRef(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const singleRole = roles.length === 1 ? roles[0] : null;
+  const singleBranch = branches.length === 1 ? branches[0] : null;
   const [values, setValues] = useState({
     username: "",
     email: "",
     password: "",
     phone: "",
     role_id: singleRole ? String(singleRole.id) : "",
-    branch_id: "",
+    branch_id: singleBranch ? String(singleBranch.id) : "",
   });
 
   useEffect(() => {
     const autoRoleId = roles.length === 1 ? String(roles[0].id) : "";
+    const autoBranchId = branches.length === 1 ? String(branches[0].id) : "";
     if (!isOpen) {
+      wasOpenRef.current = false;
       setIsConfirmOpen(false);
-      setValues({ username: "", email: "", password: "", phone: "", role_id: autoRoleId, branch_id: "" });
-    } else {
-      setValues((prev) => ({ ...prev, role_id: prev.role_id || autoRoleId }));
+      setValues({ username: "", email: "", password: "", phone: "", role_id: autoRoleId, branch_id: autoBranchId });
+    } else if (!wasOpenRef.current) {
+      wasOpenRef.current = true;
+      setValues((prev) => ({
+        ...prev,
+        role_id: prev.role_id || autoRoleId,
+        branch_id: prev.branch_id || autoBranchId,
+      }));
     }
-  }, [isOpen, roles]);
+  }, [isOpen, roles, branches]);
 
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -34,6 +34,8 @@ export interface PosSaleCreatePayload {
   reservation_only?: boolean;
   /** Pago mixto: lista de {method, amount}. Cuando se usa, payment_method se ignora. */
   mixed_payments?: MixedPaymentEntry[];
+  /** Monto de adelanto recibido al reservar. */
+  advance_payment_amount?: number;
 }
 
 export interface PosSaleUpdatePayload {
@@ -101,6 +103,9 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       : {}),
     ...(payload.sale_without_appointments ? { sale_without_appointments: true } : {}),
     ...(payload.reservation_only ? { reservation_only: true } : {}),
+    ...(payload.advance_payment_amount != null && payload.advance_payment_amount > 0
+      ? { advance_payment_amount: payload.advance_payment_amount }
+      : {}),
     ...(hasMixed
       ? {
           mixed_payments: payload.mixed_payments!.map((e) => ({
