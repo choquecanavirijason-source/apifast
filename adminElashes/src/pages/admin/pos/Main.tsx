@@ -2110,8 +2110,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               selectedServiceCategoryId={selectedServiceCategoryId}
               onCategoryFilterChange={(value: string) => {
                 setSelectedServiceCategoryId(value);
-                updateServiceMenuPosition();
-                setIsServiceMenuOpen(true);
               }}
               serviceCategories={serviceCategories}
               onOpenCategoryModal={() => setIsCategoryModalOpen(true)}

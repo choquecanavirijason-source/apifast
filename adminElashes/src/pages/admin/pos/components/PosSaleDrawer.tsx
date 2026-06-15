@@ -863,9 +863,9 @@ export default function PosSaleDrawer({
                       >
                         Sin operaria asignada
                       </button>
-                      {professionals.filter((p) => p.is_busy !== true).map((p) => {
-                        const inService = false;
-                        const hasPending = (p.active_count_today ?? 0) > 0;
+                      {professionals.map((p) => {
+                        const inService = p.is_busy === true;
+                        const hasPending = !inService && (p.active_count_today ?? 0) > 0;
                         const isUnavailable = inService;
                         const freeAt = p.busy_until_time ?? professionalBusyUntilMap.get(String(p.id));
                         return (
@@ -888,7 +888,7 @@ export default function PosSaleDrawer({
                             <div className="flex shrink-0 items-center gap-2 ml-2">
                               {inService ? (
                                 <span className="rounded-full bg-[#fde7e9] px-2 py-0.5 text-[10px] font-bold text-[#d13438]">
-                                  {freeAt ? `Libre ~${freeAt}` : "En servicio"}
+                                  {freeAt ? `⛔ En servicio · libre ~${freeAt}` : "⛔ En servicio"}
                                 </span>
                               ) : hasPending ? (
                                 <span className="rounded-full bg-[#fff4ce] px-2 py-0.5 text-[10px] font-bold text-[#8a6a1f]" title={freeAt ? `Termina ~${freeAt}` : ""}>

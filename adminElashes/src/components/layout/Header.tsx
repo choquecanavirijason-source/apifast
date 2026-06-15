@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Menu, Bell, Search, ChevronDown, X, LogOut, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Menu, Bell, Search, ChevronDown, X, LogOut, Users, Settings } from "lucide-react";
+import { useNavigate, NavLink } from "react-router-dom";
 
 import { logout as logoutAction, updateSession } from "@/core/reducer/auth.reducer";
 import type { AppDispatch, RootState } from "@/store";
@@ -821,6 +821,14 @@ export default function Header({
               <p className="text-sm font-semibold text-white">{displayName}</p>
               <p className="mt-1 text-xs text-emerald-200">{displayRole}</p>
               <div className="mt-3 flex items-center gap-2">
+                <NavLink
+                  to="/profile"
+                  onClick={() => setProfileDropdownOpen(false)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-600/20"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Configuraciones
+                </NavLink>
                 <button
                   type="button"
                   onClick={handleLogout}

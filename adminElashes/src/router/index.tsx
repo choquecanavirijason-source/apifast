@@ -41,6 +41,7 @@ import PrivateRoute from "./PrivateRoute";
 import GuestRoute from "./GuestRoute";
 import Question from "@/pages/admin/Questionnaire";
 import Register from "@/pages/auth/Register";
+import ProfilePage from "@/pages/admin/profile/ProfilePage";
 
 export default function AppRouter() {
   const dispatch = useDispatch<AppDispatch>();
@@ -170,6 +171,7 @@ export default function AppRouter() {
             <Route path="admin/pos" element={<PosPage section="sale" />} />
             <Route path="admin/pos/history" element={<PosPage section="history" />} />
             <Route path="admin/cierre-de-caja" element={<CierreDeCajaPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
 

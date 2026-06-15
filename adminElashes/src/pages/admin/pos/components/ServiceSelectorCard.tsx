@@ -201,6 +201,9 @@ export default function ServiceSelectorCard({
                     <div className="min-w-0">
                       <p className="line-clamp-1 text-xs font-semibold text-[#323130]">{service.name}</p>
                       <p className="text-[11px] font-bold text-[#0050a0]">Bs {service.price.toFixed(2)}</p>
+                      {service.commission_rate != null && (
+                        <p className="text-[10px] text-[#8a8886]">Comisión: {service.commission_rate}%</p>
+                      )}
                     </div>
 
                     {/* Controles +/- */}
