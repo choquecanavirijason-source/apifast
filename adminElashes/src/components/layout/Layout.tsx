@@ -73,7 +73,11 @@ export default function Layout(){
   }
 
   if (isPosTrackingFullscreen) {
-    return <Outlet />
+    return (
+      <div className="flex h-screen flex-col overflow-hidden">
+        <Outlet />
+      </div>
+    )
   }
 
   return (

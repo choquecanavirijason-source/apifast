@@ -247,6 +247,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [isProcessingConfirm, setIsProcessingConfirm] = useState(false);
   const [isRegisterClientOpen,setIsRegisterClientOpen]= useState(false);
   const [isClientMenuOpen,    setIsClientMenuOpen]    = useState(false);
+  const [isCartOpen,          setIsCartOpen]          = useState(false);
   const [isServiceMenuOpen,   setIsServiceMenuOpen]   = useState(false);
   const [serviceMenuPosition, setServiceMenuPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -642,6 +643,18 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   };
 
   useEffect(() => { void loadContext(); }, [activeBranchId]);
+
+  // Refrescar operarias cada vez que se abre el carrito para tener disponibilidad actualizada
+  useEffect(() => {
+    if (!isCartOpen) return;
+    AgendaService.listProfessionalsForSelect({
+      limit: 200,
+      role_name: "Operaria",
+      branch_id: activeBranchId ?? undefined,
+    })
+      .then((data) => setProfessionals(data))
+      .catch(() => {});
+  }, [isCartOpen, activeBranchId]);
 
   // Siempre arrancar con el carrito vacío — borrar cualquier borrador guardado
   useEffect(() => {
@@ -1646,7 +1659,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
   // ── Print preview ─────────────────────────────────────────────────────────
 
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [receiptTicketEdits, setReceiptTicketEdits] = useState<Record<number, ReceiptTicketEdit>>({});
   const [isSavingReceiptTickets, setIsSavingReceiptTickets] = useState(false);
@@ -1971,6 +1983,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent !p-0 max-w-none"
           : "border-0 bg-transparent shadow-none w-full max-w-none !rounded-none !p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       }
+      contentClassName="flex-1 min-h-0 overflow-hidden"
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
           <div className="inline-flex  rounded-sm border border-[#edebe9] bg-[#faf9f8]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, MessageCircle, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, MessageCircle, Loader2, ArrowRightLeft, Building2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { NotificationsService } from "../../../core/services/notifications/notifications.service";
 import { useSearchParams } from "react-router-dom";
@@ -68,6 +68,14 @@ export default function Main() {
   const [batchQuantity, setBatchQuantity] = useState<string>("1");
   const [batchCostPerUnit, setBatchCostPerUnit] = useState<string>("0");
   const [batchSalePrice, setBatchSalePrice] = useState<string>("");
+  const [selectedInventoryBranchId, setSelectedInventoryBranchId] = useState<number | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferProduct, setTransferProduct] = useState<Product | null>(null);
+  const [transferFromBranchId, setTransferFromBranchId] = useState<string>("");
+  const [transferToBranchId, setTransferToBranchId] = useState<string>("");
+  const [transferQuantity, setTransferQuantity] = useState<string>("1");
+  const [transferNote, setTransferNote] = useState<string>("");
+  const [isTransferring, setIsTransferring] = useState(false);
 
   const currentSection: ProductSection =
     searchParams.get("section") === "categories" ? "categories" : "products";
@@ -213,20 +221,19 @@ export default function Main() {
       localStorage.setItem(ALERT_KEY, String(Date.now()));
       if (result.sent) {
         toast.success(`📲 Alerta de stock enviada por WhatsApp a secretaria.`, { autoClose: 5000 });
-      } else if (result.has_wa_me && result.wa_me_url) {
-        window.open(result.wa_me_url, "_blank", "noopener,noreferrer");
-        toast.info("WhatsApp sin llaves: se abrió el mensaje listo para enviar.", { autoClose: 6000 });
       }
+      // No auto-abrir WhatsApp: el usuario debe presionar "Notificar por WhatsApp" manualmente
     } catch {
       // silencioso — no interrumpir la carga de inventario
     }
   };
 
-  const loadProducts = async () => {
+  const loadProducts = async (branchId?: number | null) => {
     setIsLoadingProducts(true);
     setProductsError(null);
     try {
-      const data = await ProductService.listProducts({ limit: 200 });
+      const activeBranch = branchId !== undefined ? branchId : selectedInventoryBranchId;
+      const data = await ProductService.listProducts({ limit: 200, branch_id: activeBranch ?? undefined });
       setProducts(data);
       const critical = data.filter((p) => p.stock <= p.minStock);
       if (critical.length > 0) {
@@ -251,9 +258,12 @@ export default function Main() {
 
   useEffect(() => {
     void loadCategories();
-    void loadProducts();
     void loadBranches();
   }, []);
+
+  useEffect(() => {
+    void loadProducts(selectedInventoryBranchId);
+  }, [selectedInventoryBranchId]);
 
   const totalStockUnits = useMemo(() => products.reduce((sum, product) => sum + product.stock, 0), [products]);
   const lowStockCount = useMemo(() => products.filter((product) => product.stock <= product.minStock).length, [products]);
@@ -269,11 +279,6 @@ export default function Main() {
     }
     return products;
   }, [products, viewMode]);
-
-  const lowStockProducts = useMemo(
-    () => products.filter((product) => product.stock <= product.minStock).slice(0, 6),
-    [products],
-  );
 
   const openCreate = () => {
     setIsEditing(false);
@@ -466,6 +471,55 @@ export default function Main() {
     setBatchSalePrice("");
   };
 
+  const openTransferModal = (product: Product) => {
+    setTransferProduct(product);
+    setTransferFromBranchId(selectedInventoryBranchId ? String(selectedInventoryBranchId) : (branches[0]?.id ? String(branches[0].id) : ""));
+    setTransferToBranchId("");
+    setTransferQuantity("1");
+    setTransferNote("");
+    setIsTransferModalOpen(true);
+  };
+
+  const closeTransferModal = () => {
+    if (isTransferring) return;
+    setIsTransferModalOpen(false);
+    setTransferProduct(null);
+    setTransferFromBranchId("");
+    setTransferToBranchId("");
+    setTransferQuantity("1");
+    setTransferNote("");
+  };
+
+  const submitTransfer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!transferProduct) return;
+    const fromId = Number(transferFromBranchId);
+    const toId = Number(transferToBranchId);
+    const qty = Number(transferQuantity);
+    if (!fromId || !toId) { toast.warning("Selecciona sucursal de origen y destino."); return; }
+    if (fromId === toId) { toast.warning("La sucursal de origen y destino deben ser distintas."); return; }
+    if (!qty || qty <= 0) { toast.warning("La cantidad debe ser mayor a 0."); return; }
+    setIsTransferring(true);
+    try {
+      await ProductService.transferStock({
+        product_id: transferProduct.id,
+        from_branch_id: fromId,
+        to_branch_id: toId,
+        quantity: qty,
+        note: transferNote.trim() || undefined,
+      });
+      const fromName = branches.find((b) => b.id === fromId)?.name ?? fromId;
+      const toName = branches.find((b) => b.id === toId)?.name ?? toId;
+      toast.success(`Transferidos ${qty} unidades de "${transferProduct.name}" de ${fromName} → ${toName}.`);
+      closeTransferModal();
+      await loadProducts();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo realizar la transferencia."));
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   const submitNewBatch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!batchProduct) return;
@@ -593,6 +647,11 @@ export default function Main() {
       variant: "primary",
     },
     {
+      label: "Transferir stock",
+      icon: <ArrowRightLeft className="h-4 w-4" />,
+      onClick: (product) => openTransferModal(product),
+    },
+    {
       label: "Editar",
       icon: <Pencil className="h-4 w-4" />,
       onClick: (product) => openEdit(product),
@@ -690,6 +749,25 @@ export default function Main() {
             </Button>
           </div>
 
+          {currentSection === "products" && branches.length > 0 ? (
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100/80 px-3 py-1.5">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <select
+                value={selectedInventoryBranchId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedInventoryBranchId(val ? Number(val) : null);
+                }}
+                className="bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+              >
+                <option value="">Todas las sucursales</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           {currentSection === "products" ? (
             <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
               <Button
@@ -772,55 +850,26 @@ export default function Main() {
         )}
         toolbar={renderToolbar()}
       >
-        {currentSection === "products" && lowStockProducts.length > 0 ? (
-          <SectionCard className="mb-4 border border-amber-300 bg-amber-50" bodyClassName="!p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-700" />
-                <p className="text-sm font-bold text-amber-800">
-                  {lowStockProducts.length} producto{lowStockProducts.length !== 1 ? "s" : ""} requieren reposición
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                  Acción requerida
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleSendStockAlert()}
-                  disabled={isSendingAlert}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-60"
-                >
-                  {isSendingAlert
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <MessageCircle className="h-3.5 w-3.5" />}
-                  {isSendingAlert ? "Enviando…" : "Notificar por WhatsApp"}
-                </button>
-              </div>
+        {currentSection === "products" && lowStockCount > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" />
+              <p className="text-sm font-semibold text-amber-800">
+                {lowStockCount} producto{lowStockCount !== 1 ? "s" : ""} con stock bajo — usa el filtro &quot;Bajo stock&quot; para verlos
+              </p>
             </div>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {lowStockProducts.map((product) => {
-                const faltan = Math.max(0, product.minStock - product.stock);
-                const agotado = product.stock === 0;
-                return (
-                  <div key={product.id} className={`flex items-center justify-between gap-2 rounded-lg border p-2.5 ${agotado ? "border-red-200 bg-red-50" : "border-amber-200 bg-white"}`}>
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-xs font-semibold text-slate-800">{product.name}</p>
-                      <p className="text-[10px] text-slate-400">SKU: {product.sku}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className={`text-xs font-bold ${agotado ? "text-red-700" : "text-amber-700"}`}>
-                        {agotado ? "AGOTADO" : `Stock: ${product.stock}`}
-                      </p>
-                      {!agotado && (
-                        <p className="text-[10px] text-slate-500">Faltan {faltan} (mín {product.minStock})</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </SectionCard>
+            <button
+              type="button"
+              onClick={() => void handleSendStockAlert()}
+              disabled={isSendingAlert}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-60"
+            >
+              {isSendingAlert
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <MessageCircle className="h-3.5 w-3.5" />}
+              {isSendingAlert ? "Enviando…" : "Notificar por WhatsApp"}
+            </button>
+          </div>
         ) : null}
 
         {currentSection === "categories" ? (
@@ -958,6 +1007,85 @@ export default function Main() {
           </Button>
           <Button type="submit" disabled={isMutating}>
             {isMutating ? "Guardando..." : "Registrar lote"}
+          </Button>
+        </div>
+      </GenericModal>
+
+      <GenericModal
+        isOpen={isTransferModalOpen}
+        onClose={closeTransferModal}
+        title={`Transferir stock${transferProduct ? ` · ${transferProduct.name}` : ""}`}
+        asForm
+        onSubmit={submitTransfer}
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-slate-600">
+            Mueve unidades de un lote de una sucursal a otra. El stock se descuenta en origen y se crea un nuevo lote en destino.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-slate-700">Sucursal origen</label>
+              <select
+                value={transferFromBranchId}
+                onChange={(e) => setTransferFromBranchId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+                required
+              >
+                <option value="">Seleccionar</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-slate-700">Sucursal destino</label>
+              <select
+                value={transferToBranchId}
+                onChange={(e) => setTransferToBranchId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+                required
+              >
+                <option value="">Seleccionar</option>
+                {branches.filter((b) => String(b.id) !== transferFromBranchId).map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <InputField
+            name="transfer_quantity"
+            type="number"
+            min={0.01}
+            step={0.01}
+            label="Cantidad a transferir"
+            value={transferQuantity}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setTransferQuantity(e.target.value)}
+            required
+          />
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-slate-700">Nota (opcional)</label>
+            <input
+              type="text"
+              value={transferNote}
+              onChange={(e) => setTransferNote(e.target.value)}
+              placeholder="Ej: Reposición para campaña"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+              maxLength={255}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={closeTransferModal} disabled={isTransferring}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isTransferring} leftIcon={<ArrowRightLeft className="h-4 w-4" />}>
+            {isTransferring ? "Transfiriendo..." : "Transferir stock"}
           </Button>
         </div>
       </GenericModal>

@@ -131,10 +131,11 @@ export const ProductService = {
     return response.data;
   },
 
-  async listProducts(params?: { skip?: number; limit?: number; category_id?: number; active_only?: boolean }): Promise<Product[]> {
+  async listProducts(params?: { skip?: number; limit?: number; category_id?: number; active_only?: boolean; branch_id?: number }): Promise<Product[]> {
+    const { branch_id, ...productParams } = params ?? {};
     const [productsResponse, stockResponse] = await Promise.all([
-      api.get<BackendProduct[]>("/inventory/products", { params }),
-      api.get<BackendStockSummary[]>("/inventory/stock-summary"),
+      api.get<BackendProduct[]>("/inventory/products", { params: productParams }),
+      api.get<BackendStockSummary[]>("/inventory/stock-summary", { params: branch_id ? { branch_id } : undefined }),
     ]);
 
     const stockMap = buildStockMap(stockResponse.data);
@@ -142,6 +143,18 @@ export const ProductService = {
     return productsResponse.data.map((product) =>
       mapBackendProductToProduct(product, stockMap.get(product.id) ?? 0),
     );
+  },
+
+  async getStockByBranch(productId: number): Promise<BackendStockSummary[]> {
+    const response = await api.get<BackendStockSummary[]>("/inventory/stock-summary", {
+      params: { product_id: productId },
+    });
+    return response.data;
+  },
+
+  async transferStock(payload: { product_id: number; from_branch_id: number; to_branch_id: number; quantity: number; note?: string }): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>("/inventory/transfers", payload);
+    return response.data;
   },
 
   async createProduct(payload: ProductCreatePayload): Promise<Product> {
