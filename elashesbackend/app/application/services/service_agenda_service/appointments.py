@@ -526,7 +526,13 @@ def update_appointment(
         branch_id=final_branch_id,
     )
     _validate_appointment_times(final_start_time, final_end_time)
-    if not skip_availability_check:
+    # Estados terminales liberan el horario: completar/cancelar NO debe
+    # re-validar horario de sucursal ni disponibilidad de la operaria. Si no,
+    # una cita a hora atípica (p. ej. creada desde POS) o con choque de agenda
+    # quedaría imposible de finalizar.
+    _TERMINAL_STATUSES = {"completed", "cancelled", "finalizado", "atendido", "no_show", "done"}
+    _skip_checks = skip_availability_check or (status_value in _TERMINAL_STATUSES)
+    if not _skip_checks:
         _validate_branch_opening_hours(db=db, branch_id=final_branch_id, start_time=final_start_time, end_time=final_end_time)
         _validate_professional_availability(
             db=db,

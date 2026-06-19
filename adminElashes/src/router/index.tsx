@@ -40,7 +40,6 @@ import NotFoundPage from "@/pages/NotFoundPage";
 import PrivateRoute from "./PrivateRoute";
 import GuestRoute from "./GuestRoute";
 import Question from "@/pages/admin/Questionnaire";
-import Register from "@/pages/auth/Register";
 import ProfilePage from "@/pages/admin/profile/ProfilePage";
 
 export default function AppRouter() {
@@ -133,7 +132,6 @@ export default function AppRouter() {
       <Routes>
         <Route element={<GuestRoute />}>
           <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register/>} />
         </Route>
 
         <Route element={<PrivateRoute />}>

@@ -1976,7 +1976,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       pageClassName={
         embedded
           ? "!min-h-0 flex h-full flex-1 flex-col !bg-transparent !p-0 overflow-hidden"
-          : "flex h-[100dvh] flex-col overflow-hidden bg-[#f3f2f1] !px-0 md:!px-0"
+          // Llena `.main` (que ya está debajo del Header), no toda la ventana:
+          // con h-[100dvh] el contenido sobresalía por el alto del Header y el scroll quedaba mal.
+          : "flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f2f1] !px-0 md:!px-0"
       }
       containerClassName={
         embedded

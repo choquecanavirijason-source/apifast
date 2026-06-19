@@ -600,7 +600,9 @@ export default function UsersMain() {
       {branchAssignUser && (
         <BranchAssignModal
           user={branchAssignUser}
-          branches={activeBranchId ? branches.filter((b) => b.id === activeBranchId) : branches}
+          // Reasignar es justamente para mover a OTRA sucursal: mostrar todas,
+          // no solo la activa.
+          branches={branches}
           onClose={() => setBranchAssignUser(null)}
           onSuccess={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));

@@ -52,14 +52,15 @@ export default function ClientListPage() {
   };
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const mainEl = document.querySelector<HTMLElement>(".main");
+    mainEl?.scrollTo({ top: 0, behavior: "smooth" });
 
     const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 260);
+      setShowScrollTop((mainEl?.scrollTop ?? 0) > 260);
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    mainEl?.addEventListener("scroll", handleScroll, { passive: true });
+    return () => mainEl?.removeEventListener("scroll", handleScroll);
   }, []);
 
   const loadClients = async () => {
@@ -136,7 +137,8 @@ export default function ClientListPage() {
   }, []);
 
   const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const mainEl = document.querySelector<HTMLElement>(".main");
+    mainEl?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Lógica de Filtrado

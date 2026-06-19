@@ -143,7 +143,11 @@ export default function ServiceSelectorCard({
 
 
       {quickServices.length > 0 && (
-        <div className="border-t border-[#f3f2f1] px-4 pb-4 pt-3 sm:px-5">
+        // Contenedor scrollable: el grid mantiene su tamaño natural y esta
+        // sección absorbe el sobrante con scroll vertical.
+        // `flex-1` lo dimensiona cuando la cadena flex tiene altura definida;
+        // el `max-h` por viewport garantiza scroll aunque esa cadena falle.
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-[#f3f2f1] px-4 pb-4 pt-3 sm:px-5 max-h-[calc(100dvh-15rem)]">
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#605e5c]">Sugerencias rápidas</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {quickServices.map((service) => {
