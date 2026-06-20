@@ -24,16 +24,10 @@ const getTimeInputValue = (iso: string) => {
   return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
 };
 
-const addMinutesToTime = (time: string, mins: number) => {
-  if (!time || !Number.isFinite(mins)) return time;
-  const [h, m] = time.split(":").map(Number);
-  const total = ((h || 0) * 60 + (m || 0) + mins + 24 * 60) % (24 * 60);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-};
-
+// primary=#094732 secondary=#9F8351 cancelled red kept
 const ACCENT: Record<string, string> = {
-  pending: "#D83B01", waiting: "#D83B01", confirmed: "#D83B01",
-  in_service: "#0078D4", completed: "#107C10", cancelled: "#A4262C",
+  pending: "#9F8351", waiting: "#9F8351", confirmed: "#9F8351",
+  in_service: "#094732", completed: "#126b4a", cancelled: "#A4262C",
 };
 
 const stopPtr = (e: React.PointerEvent) => e.stopPropagation();
@@ -88,6 +82,10 @@ export default function DraggableTicketCard({
   }, [quickDate, quickProId, quickTime]);
 
   useEffect(() => {
+    if (editOpen) setQuickTime(getTimeInputValue(new Date().toISOString()));
+  }, [editOpen]);
+
+  useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (editRef.current && !editRef.current.contains(e.target as Node)) setEditOpen(false);
     };
@@ -104,7 +102,7 @@ export default function DraggableTicketCard({
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
     opacity: isDragging ? 0.35 : 1,
-    borderLeft: `3px solid ${ACCENT[ticket.status] ?? "#D2D0CE"}`,
+    borderLeft: `3px solid ${ACCENT[ticket.status] ?? "#c4b08a"}`,
     touchAction: "none",
   };
 
@@ -119,7 +117,7 @@ export default function DraggableTicketCard({
   const proName = professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username
     ?? ticket.professional_name ?? null;
 
-  const inputCls = "h-8 w-full rounded-md border border-[#d0cece] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20";
+  const inputCls = "h-8 w-full rounded-md border border-[#c4b08a] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20";
 
   return (
     <div
@@ -128,7 +126,7 @@ export default function DraggableTicketCard({
       {...attributes}
       {...listeners}
       className={`group relative cursor-grab touch-none rounded-md border border-[#e0dedd] bg-white transition-all active:cursor-grabbing ${
-        isDragging ? "shadow-none ring-2 ring-dashed ring-[#8a8886]" : "shadow-sm hover:shadow-md hover:border-[#c8c6c4]"
+        isDragging ? "shadow-none ring-2 ring-dashed ring-[#9F8351]" : "shadow-sm hover:shadow-md hover:border-[#c4b08a]"
       }`}
     >
       {/* ── Popup de edición ────────────────────────────────────────────────── */}
@@ -141,19 +139,19 @@ export default function DraggableTicketCard({
             className="absolute inset-x-0 top-0 z-50 rounded-md bg-white shadow-2xl ring-1 ring-black/10"
           >
             {/* Header */}
-            <div className="flex items-center justify-between rounded-t-md bg-linear-to-r from-[#f8f7f6] to-[#f3f2f1] px-3 py-2 border-b border-[#e8e6e4]">
+            <div className="flex items-center justify-between rounded-t-md bg-linear-to-r from-[#f8f7f4] to-[#f3f1ec] px-3 py-2 border-b border-[#e8e4dc]">
               <div className="flex items-center gap-2">
-                <div className="h-3.5 w-0.5 rounded-full bg-[#0078d4]" />
+                <div className="h-3.5 w-0.5 rounded-full bg-[#094732]" />
                 <span className="text-[11px] font-semibold text-[#201f1e]">Ajustar turno</span>
                 {hasChanges && (
-                  <span className="flex items-center gap-1 rounded-full bg-[#0078d4]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#0078d4]">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0078d4]" />
+                  <span className="flex items-center gap-1 rounded-full bg-[#094732]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#094732]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#094732]" />
                     {isSavingEdit ? "Guardando…" : "Sin guardar"}
                   </span>
                 )}
               </div>
               <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(false)}
-                className="rounded-md p-1 text-[#8a8886] hover:bg-[#edebe9] hover:text-[#201f1e] transition-colors">
+                className="rounded-md p-1 text-[#8a8886] hover:bg-[#ecfdf5] hover:text-[#094732] transition-colors">
                 <X size={12} />
               </button>
             </div>
@@ -163,31 +161,20 @@ export default function DraggableTicketCard({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
-                    <Calendar size={8} /> Fecha
+                    <Calendar size={8} /> Fecha inicio
                   </label>
-                  <input type="date" value={quickDate} onPointerDown={stopPtr}
-                    onChange={(e) => setQuickDate(e.target.value)} className={inputCls} />
+                  <div className="h-8 w-full rounded-md border border-[#c4b08a] bg-[#faf8f4] px-2.5 text-xs text-[#605e5c] flex items-center select-none cursor-default tabular-nums">
+                    {quickDate}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
-                    <Clock size={8} /> Hora
+                    <Clock size={8} /> Hora actual
                   </label>
-                  <input type="time" value={quickTime} onPointerDown={stopPtr}
-                    onChange={(e) => setQuickTime(e.target.value)} className={inputCls} />
+                  <div className="h-8 w-full rounded-md border border-[#c4b08a] bg-[#faf8f4] px-2.5 text-xs text-[#605e5c] flex items-center select-none cursor-default tabular-nums">
+                    {quickTime}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex gap-1">
-                {["Ahora", "+15 min", "+30 min"].map((label) => (
-                  <button key={label} type="button" onPointerDown={stopPtr}
-                    onClick={() => {
-                      if (label === "Ahora") setQuickTime(getTimeInputValue(new Date().toISOString()));
-                      else setQuickTime((p) => addMinutesToTime(p, label === "+15 min" ? 15 : 30));
-                    }}
-                    className="flex-1 rounded-md border border-[#d0cece] bg-[#f8f7f6] py-1 text-[10px] font-medium text-[#323130] transition hover:border-[#0078d4] hover:bg-[#deecf9] hover:text-[#0078d4]">
-                    {label}
-                  </button>
-                ))}
               </div>
 
               <div>
@@ -213,19 +200,21 @@ export default function DraggableTicketCard({
 
         {/* Fila 1: drag + nombre + iconos */}
         <div className="flex items-center gap-2">
-          <GripVertical size={15} className="shrink-0 text-[#d0cece] group-hover:text-[#0078d4] transition-colors" aria-hidden />
+          <GripVertical size={15} className="shrink-0 text-[#c4b08a] group-hover:text-[#094732] transition-colors" aria-hidden />
           <p className="min-w-0 flex-1 truncate text-[15px] font-bold leading-tight text-[#201f1e]">
             {ticket.client_name}
           </p>
           <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
             title="Ver detalles"
-            className={`shrink-0 rounded-lg p-1.5 transition-colors ${detailOpen ? "bg-[#deecf9] text-[#0078d4]" : "text-[#c8c6c4] hover:bg-[#f3f2f1] hover:text-[#605e5c]"}`}>
+            className={`shrink-0 rounded-lg p-1.5 transition-colors ${
+              detailOpen ? "bg-[#ecfdf5] text-[#094732]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
+            }`}>
             <Info size={14} />
           </button>
           <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
             title="Editar turno"
             className={`shrink-0 rounded-lg p-1.5 transition-colors ${
-              hasChanges ? "bg-[#fff4f0] text-[#bc4b09]" : "text-[#c8c6c4] hover:bg-[#f3f2f1] hover:text-[#605e5c]"
+              hasChanges ? "bg-[#faf7f0] text-[#9F8351]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
             }`}>
             <ChevronRight size={14} />
           </button>
@@ -233,10 +222,10 @@ export default function DraggableTicketCard({
 
         {/* Fila 2: servicio */}
         <div className="mt-2.5 flex items-center gap-1.5">
-          <Scissors size={12} className="shrink-0 text-[#0078d4]" />
-          <span className="min-w-0 truncate text-xs font-semibold text-[#0078d4]">{primarySvc}</span>
+          <Scissors size={12} className="shrink-0 text-[#094732]" />
+          <span className="min-w-0 truncate text-xs font-semibold text-[#094732]">{primarySvc}</span>
           {extraCount > 0 && (
-            <span className="shrink-0 rounded-md bg-[#deecf9] px-1.5 py-0.5 text-[10px] font-bold text-[#0078d4]">
+            <span className="shrink-0 rounded-md bg-[#ecfdf5] px-1.5 py-0.5 text-[10px] font-bold text-[#094732]">
               +{extraCount}
             </span>
           )}
@@ -244,8 +233,8 @@ export default function DraggableTicketCard({
 
         {/* Fila 3: operaria */}
         <div className="mt-1.5 flex items-center gap-1.5">
-          <User size={12} className={proName ? "shrink-0 text-[#107c10]" : "shrink-0 text-[#c8c6c4]"} />
-          <span className={`truncate text-xs font-medium ${proName ? "text-[#107c10]" : "italic text-[#a19f9d]"}`}>
+          <User size={12} className={proName ? "shrink-0 text-[#9F8351]" : "shrink-0 text-[#c8c6c4]"} />
+          <span className={`truncate text-xs font-medium ${proName ? "text-[#9F8351]" : "italic text-[#a19f9d]"}`}>
             {proName ?? "Sin asignar"}
           </span>
         </div>
@@ -259,7 +248,7 @@ export default function DraggableTicketCard({
             </span>
           </div>
           {remaining && (
-            <span className="rounded-full bg-[#eff6fc] px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
+            <span className="rounded-full bg-[#ecfdf5] px-2 py-0.5 text-[10px] font-bold text-[#094732]">
               {remaining}
             </span>
           )}
@@ -267,7 +256,7 @@ export default function DraggableTicketCard({
 
         {/* Panel de detalles expandible */}
         {detailOpen && (
-          <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-[#edebe9] bg-[#faf9f8] p-2.5 text-[11px]"
+          <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-[#e8e4dc] bg-[#faf8f4] p-2.5 text-[11px]"
             onPointerDown={stopPtr}>
             {ticket.ticket_code && (
               <div className="col-span-2 flex gap-1.5">
@@ -296,13 +285,13 @@ export default function DraggableTicketCard({
             {ticket.sale_id && (
               <div className="flex gap-1.5">
                 <span className="shrink-0 font-semibold text-[#8a8886]">Venta:</span>
-                <span className="font-semibold text-emerald-700">#{ticket.sale_id}</span>
+                <span className="font-semibold text-[#9F8351]">#{ticket.sale_id}</span>
               </div>
             )}
             {(ticket.service_names?.length ?? 0) > 1 && (
               <div className="col-span-2 mt-0.5 flex flex-wrap gap-1">
                 {ticket.service_names!.map((s, i) => (
-                  <span key={i} className="rounded-md bg-[#deecf9] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]">{s}</span>
+                  <span key={i} className="rounded-md bg-[#ecfdf5] px-1.5 py-0.5 text-[10px] font-semibold text-[#094732]">{s}</span>
                 ))}
               </div>
             )}
@@ -311,11 +300,11 @@ export default function DraggableTicketCard({
       </div>
 
       {/* ── Acciones ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-t border-[#f0efed] bg-[#faf9f8] px-3.5 pb-3 pt-2.5 rounded-b-md"
+      <div className="flex items-center gap-2 border-t border-[#f0efed] bg-[#faf8f4] px-3.5 pb-3 pt-2.5 rounded-b-md"
         onPointerDown={stopPtr}>
         <div className="min-w-0 flex-1">{actions}</div>
         <button type="button" onPointerDown={stopPtr} onClick={() => onDelete(ticket)}
-          className="shrink-0 rounded-lg border border-transparent p-1.5 text-[#d0cece] transition-colors hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]">
+          className="shrink-0 rounded-lg border border-transparent p-1.5 text-[#c4b08a] transition-colors hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]">
           <Trash2 size={15} />
         </button>
       </div>

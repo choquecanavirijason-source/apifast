@@ -35,5 +35,19 @@ elashesbackend/build/
 server/public/app/assets/index-*.js
 server/public/app/assets/index-*.css
 
-# Uploads de servicios (imágenes generadas/subidas)
-elashesbackend/uploads/services/
+# Uploads e imágenes subidas (todas las carpetas de media)
+elashesbackend/uploads/
+elashesbackend/media/
+
+# Archivos de imagen/video sueltos por si acaso
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.mp4
+*.mov
+*.avi
+*.pdf
