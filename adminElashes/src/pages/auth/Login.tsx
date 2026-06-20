@@ -47,12 +47,8 @@ export default function Login() {
       <div style={styles.card}>
         {/* LADO IZQUIERDO: Branding */}
         <div style={styles.imageSection}>
-          <div style={styles.imageOverlay}>
-            <div style={styles.reactBadge}>
-            </div>
-           
-          </div>
-          <img src="/login-illustration.jpg" alt="Login Illustration" style={styles.image} />
+          <div style={styles.imageOverlay}></div>
+          <img src="/login-illustration.jpeg" alt="Login Illustration" style={styles.image} />
         </div>
 
         {/* LADO DERECHO: Formulario */}
@@ -66,7 +62,7 @@ export default function Login() {
             
             {/* Input Usuario */}
             <div style={{...styles.inputContainer, ...(focusedInput === 'user' ? styles.inputFocus : {})}}>
-              <User size={18} style={styles.icon} color={focusedInput === 'user' ? theme.accent : '#666'} />
+              <User size={18} style={styles.icon} color="#9e8251" />
               <input
                 type="text"
                 placeholder="Usuario o Email"
@@ -81,7 +77,7 @@ export default function Login() {
 
             {/* Input Contraseña con OJO */}
             <div style={{...styles.inputContainer, ...(focusedInput === 'pass' ? styles.inputFocus : {})}}>
-              <Lock size={18} style={styles.icon} color={focusedInput === 'pass' ? theme.accent : '#666'} />
+              <Lock size={18} style={styles.icon} color="#9e8251" />
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Contraseña"
@@ -97,7 +93,7 @@ export default function Login() {
                 onClick={() => setShowPassword(!showPassword)}
                 style={styles.eyeBtn}
               >
-                {showPassword ? <EyeOff size={18} color="#888"/> : <Eye size={18} color="#888"/>}
+                {showPassword ? <EyeOff size={18} color="#9e8251"/> : <Eye size={18} color="#9e8251"/>}
               </button>
             </div>
 
@@ -119,8 +115,8 @@ export default function Login() {
                 }}
             >
               {loading ? 'AUTENTICANDO...' : (
-                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap: '10px'}}>
-                    INGRESAR <LogIn size={18} />
+                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap: '10px', color: '#fff'}}>
+                    INGRESAR <LogIn size={18} color="#FFF" />
                 </div>
               )}
             </button>
@@ -134,7 +130,7 @@ export default function Login() {
 const styles: Record<string, React.CSSProperties> = {
     page: {
         minHeight: '100vh',
-        background: theme.bg,
+        background: 'radial-gradient(circle at top left, rgba(13,92,64,0.30), transparent 28%), linear-gradient(135deg, #094732 0%, #0d5c40 60%, #063324 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -144,13 +140,13 @@ const styles: Record<string, React.CSSProperties> = {
     },
     backgroundShape: {
         position: 'absolute',
-        width: '600px', 
-        height: '600px',
-        background: theme.accent,
+        width: '580px', 
+        height: '580px',
+        background: '#063324',
         borderRadius: '50%',
-        top: '-10%',
+        top: '-12%',
         right: '-5%',
-        opacity: 0.05,
+        opacity: 0.24,
         filter: 'blur(100px)',
         zIndex: 0,
       },
@@ -158,12 +154,12 @@ const styles: Record<string, React.CSSProperties> = {
         zIndex: 1,
         width: '900px',
         minHeight: '550px', 
-        background: theme.secondary,
-        borderRadius: '24px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        background: 'rgba(255,255,255,0.06)',
+        borderRadius: '26px',
+        boxShadow: '0 24px 72px -18px rgba(9, 71, 50, 0.50)',
         display: 'flex',
         overflow: 'hidden',
-        border: `1px solid rgba(255,255,255,0.05)`,
+        border: '1px solid rgba(255,255,255,0.14)',
       },
       imageSection: {
         flex: '1.2',
@@ -173,11 +169,12 @@ const styles: Record<string, React.CSSProperties> = {
         width: '100%',
         height: '100%',
         objectFit: 'cover',
+        objectPosition: 'left center',
       },
       imageOverlay: {
         position: 'absolute',
         inset: 0,
-        background: `linear-gradient(to bottom, transparent, ${theme.secondary})`,
+        background: 'linear-gradient(to bottom, rgba(13,92,64,0.14), rgba(9,71,50,0.65))',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -186,11 +183,11 @@ const styles: Record<string, React.CSSProperties> = {
       reactBadge: {
         display: 'flex',
         alignItems: 'center',
-        background: 'rgba(0,0,0,0.3)',
+        background: '#094732',
         padding: '8px 15px',
         borderRadius: '50px',
         width: 'fit-content',
-        border: '1px solid rgba(255,255,255,0.1)',
+        border: '1px solid rgba(255,255,255,0.14)',
         backdropFilter: 'blur(5px)'
       },
       imageText: {
@@ -205,7 +202,7 @@ const styles: Record<string, React.CSSProperties> = {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        background: theme.secondary,
+        background: 'rgba(255,255,255,0.06)',
       },
       header: {
         marginBottom: '35px',
@@ -213,12 +210,12 @@ const styles: Record<string, React.CSSProperties> = {
       title: {
         fontSize: '1.8rem',
         fontWeight: '700',
-        color: '#fff',
+        color: '#f3f7f2',
         marginBottom: '5px',
       },
       subtitle: {
         fontSize: '0.9rem',
-        color: '#888',
+        color: '#d7e4d7',
       },
       form: {
         display: 'flex',
@@ -228,15 +225,15 @@ const styles: Record<string, React.CSSProperties> = {
       inputContainer: {
         display: 'flex',
         alignItems: 'center',
-        background: 'rgba(255,255,255,0.03)',
-        borderRadius: '12px',
+        background: 'rgba(255,255,255,0.14)',
+        borderRadius: '14px',
         padding: '0 15px',
         transition: 'all 0.2s ease',
-        border: '1px solid rgba(255,255,255,0.1)',
+        border: '1px solid rgba(255,255,255,0.20)',
       },
       inputFocus: {
-        background: 'rgba(255,255,255,0.07)',
-        border: `1px solid ${theme.accent}`,
+        background: 'rgba(255,255,255,0.22)',
+        border: '1px solid #9e8251',
       },
       icon: {
         marginRight: '12px',
@@ -264,23 +261,23 @@ const styles: Record<string, React.CSSProperties> = {
       },
       forgot: {
         fontSize: '0.8rem',
-        color: '#777',
+        color: '#9e8251',
         textDecoration: 'none',
       },
       button: {
         height: '52px',
-        borderRadius: '12px',
+        borderRadius: '14px',
         border: 'none',
-        background: theme.accent,
-        color: '#000', // Texto oscuro sobre fondo brillante suele verse más pro
+        background: '#9e8251',
+        color: '#fff',
         fontSize: '0.95rem',
         fontWeight: '700',
         cursor: 'pointer',
-        boxShadow: `0 8px 20px ${theme.accent}33`,
+        boxShadow: '0 10px 30px rgba(158,130,81,0.32)',
         marginTop: '10px',
       },
       error: {
-        color: '#ff6b6b',
+        color: '#ff9e9e',
         fontSize: '0.85rem',
         textAlign: 'center',
       },
@@ -288,10 +285,10 @@ const styles: Record<string, React.CSSProperties> = {
         marginTop: '25px',
         textAlign: 'center',
         fontSize: '0.85rem',
-        color: '#777',
+        color: '#d1decf',
       },
       link: {
-        color: theme.accent,
+        color: '#eff7ee',
         fontWeight: '600',
         textDecoration: 'none',
       },

@@ -1,3 +1,4 @@
+
 services:
   # MySQL opcional (desactivado: el backend usa SQLite, ver servicio backend).
   # database:
