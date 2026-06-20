@@ -23,7 +23,7 @@ export default function InputField({
   return (
     <div className={`space-y-1.5 ${containerClassName}`}>
       {label ? (
-        <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        <label htmlFor={id} className="block text-sm font-medium text-brand-tertiary">
           {label}
         </label>
       ) : null}
@@ -40,7 +40,7 @@ export default function InputField({
           className={`w-full rounded-xl border bg-white py-2 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:ring-2 ${
             error
               ? "border-rose-300 pr-3 pl-3 focus:border-rose-500 focus:ring-rose-500/20"
-              : "border-slate-300 pr-3 pl-3 focus:border-[#094732] focus:ring-[#094732]/20"
+              : "border-slate-300 pr-3 pl-3 focus:border-brand focus:ring-brand/20"
           } ${leftIcon ? "pl-10" : ""} ${rightElement ? "pr-10" : ""} ${className}`}
           {...rest}
         />

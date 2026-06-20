@@ -601,16 +601,7 @@ export default function TicketsPage() {
         }
         toolbar={renderToolbar()}
       >
-        {error ? (
-          <SectionCard className="mb-4 border border-rose-200 bg-rose-50" bodyClassName="!p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-rose-700">{error}</p>
-              <Button type="button" size="sm" variant="secondary" onClick={() => void loadTickets()}>
-                Reintentar
-              </Button>
-            </div>
-          </SectionCard>
-        ) : null}
+      
 
         <DataTable
           data={filteredTickets}
@@ -736,18 +727,7 @@ export default function TicketsPage() {
             value={String(createDurationMinutes)}
             onChange={(e) => setCreateDurationMinutes(Number(e.target.value) || 60)}
           />
-          <div className="mt-6 flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsCreateTicketOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isCreatingTicket}>
-              {isCreatingTicket ? "Creando…" : "Crear ticket"}
-            </Button>
-          </div>
+         
         </form>
       </GenericModal>
 

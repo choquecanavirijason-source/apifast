@@ -482,7 +482,7 @@ export default function Header({
 
   return (
     // CAMBIO PRINCIPAL: bg-[#094732] (Verde Esmeralda) y texto blanco
-    <header className="h-20 bg-linear-to-r from-[#162d26] via-[#1C352D] to-[#1a312a] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
+    <header className="h-20 bg-linear-to-r from-[#094732] via-[#0d5c40] to-[#094732] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
       
       {/* --- 1. SECCIÓN IZQUIERDA: Toggle & Título --- */}
       <div className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
@@ -523,7 +523,7 @@ export default function Header({
              </kbd>
           </div>
           {searchDropdownOpen && (
-            <div className="absolute left-0 top-12 w-full rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl">
+            <div className="absolute left-0 top-12 w-full rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
               <div className="mb-2 flex items-center justify-between border-b border-emerald-900/70 pb-2">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white">Resultados</p>
@@ -674,7 +674,7 @@ export default function Header({
           </button>
 
           {operariasOpen && (
-            <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl z-50">
+            <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl z-50">
               <div className="flex items-center justify-between border-b border-emerald-900/70 pb-2">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-emerald-300" />
@@ -750,7 +750,7 @@ export default function Header({
             )}
           </button>
           {notificationsOpen && (
-            <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl">
+            <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-white">Notificaciones</p>
                 <span className="text-xs text-emerald-300">Hoy</span>
@@ -801,7 +801,7 @@ export default function Header({
               ) : (
                   <span className="text-sm">{displayName.charAt(0)}</span>
               )}
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#1C352D] bg-emerald-400" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#094732] bg-emerald-400" />
             </div>
             
             <div className="hidden md:flex flex-col items-start text-left">
@@ -817,7 +817,7 @@ export default function Header({
           </button>
 
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-emerald-800/80 bg-[#0F241E]/95 backdrop-blur-md p-4 shadow-2xl">
+            <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
               <p className="text-sm font-semibold text-white">{displayName}</p>
               <p className="mt-1 text-xs text-emerald-200">{displayRole}</p>
               <div className="mt-3 flex items-center gap-2">

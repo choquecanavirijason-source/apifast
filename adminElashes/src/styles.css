@@ -1,17 +1,66 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand: #094732;
+  --color-brand-hover: #063324;
+  --color-brand-dark: #021a12;
+  --color-brand-light: #0d5c40;
+  --color-brand-muted: #126b4a;
+  --color-brand-surface: #062f23;
+
+  --color-brand-secondary: #9F8351;
+  --color-brand-secondary-hover: #85754a;
+  --color-brand-secondary-light: #b5a078;
+  --color-brand-secondary-muted: #c4b08a;
+
+  --color-brand-tertiary: #000000;
+  --color-brand-tertiary-muted: #1a1a1a;
+  --color-brand-tertiary-soft: #333333;
+
+  --color-primary: #094732;
+  --color-primary-50: #ecfdf5;
+  --color-primary-100: #d1fae5;
+  --color-primary-500: #126b4a;
+  --color-primary-600: #094732;
+  --color-primary-700: #063324;
+
+  --color-secondary: #9F8351;
+  --color-secondary-hover: #85754a;
+  --color-secondary-light: #b5a078;
+
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #094732;
+  --color-emerald-700: #063324;
+  --color-emerald-800: #042a1c;
+  --color-emerald-900: #021a12;
+  --color-emerald-950: #010f0a;
+}
+
 :root{
-  --primary: #0f172a;
-  --secondary: #0ea5a6;
-  --accent: #7c3aed;
+  --primary: #094732;
+  --secondary: #9F8351;
+  --tertiary: #000000;
+  --accent: #9F8351;
   --bg: #f8fafc;
   --surface: #ffffff;
   --muted: #64748b;
-  --text: #0f172a;
+  --text: #000000;
+  --brand: #094732;
+  --brand-hover: #063324;
+  --brand-dark: #021a12;
+  --brand-light: #0d5c40;
+  --brand-secondary: #9F8351;
+  --brand-secondary-hover: #85754a;
+  --brand-tertiary: #000000;
 }
 .app-layout{display:flex;height:100vh;min-width:0}
 html,body,#root{height:100%;margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:var(--bg);color:var(--text)}
-.sidebar{width:260px;background:linear-gradient(180deg,var(--primary),#0b1220);color:white;padding:16px;box-sizing:border-box;box-shadow:2px 0 12px rgba(2,6,23,0.12);border-radius:0 16px 16px 0}
+.sidebar{width:260px;background:linear-gradient(180deg,var(--primary),#021a12);color:white;padding:16px;box-sizing:border-box;box-shadow:2px 0 12px rgba(2,6,23,0.12);border-radius:0 16px 16px 0}
 .header{height:64px;background:var(--surface);display:flex;align-items:center;padding:0 20px;box-shadow:0 4px 12px rgba(15,23,42,0.06);justify-content:space-between;gap:12px}
 .content{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .main{padding:10px 12px;flex:1;overflow:auto;min-width:0;overflow-x:hidden}
@@ -105,7 +154,7 @@ html,body,#root{height:100%;margin:0;font-family:Inter, system-ui, Arial, sans-s
 .sidebar{transition:width 180ms ease, padding 180ms ease}
 
 /* logo mark */
-.logo-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#0ea5a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.logo-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#094732,#0d5c40);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
 
 /* active indicator */
 .nav-item.active{position:relative}
@@ -128,7 +177,7 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
 .sidebar.collapsed .nav-item{padding:10px 8px}
 
 /* subtle backdrop for sidebar */
-.sidebar{background:linear-gradient(180deg,rgba(6,10,20,0.95),rgba(4,6,12,0.98));backdrop-filter:blur(6px)}
+.sidebar{background:linear-gradient(180deg,#094732,#021a12);backdrop-filter:blur(6px)}
 
 /* small helpers */
 .sidebar-top{padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.04)}
@@ -139,17 +188,18 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
 .card .muted{font-size:12px;color:var(--muted)}
 
 /* avatar style */
-.avatar{width:40px;height:40px;border-radius:999px;background:linear-gradient(45deg,#7c3aed,#0ea5a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+.avatar{width:40px;height:40px;border-radius:999px;background:linear-gradient(45deg,#094732,#0d5c40);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
 
 /* Theme classes: apply to root element (eg. <html class="theme-ocean">) or to body */
 .theme-light{
-  --primary: #0f172a;
-  --secondary: #0ea5a6;
-  --accent: #7c3aed;
+  --primary: #094732;
+  --secondary: #9F8351;
+  --tertiary: #000000;
+  --accent: #9F8351;
   --bg: #f8fafc;
   --surface: #ffffff;
   --muted: #64748b;
-  --text: #0f172a;
+  --text: #000000;
 }
 
 .theme-ocean{

@@ -36,15 +36,7 @@ export default function Layout({
 
   return (
     <div className={`font-sans ${pageClassName}`}>
-      {(title || subtitle) && (
-        <div className="mb-2 flex min-w-0 items-baseline gap-2">
-          {title && <h1 className="min-w-0 text-base font-semibold leading-tight text-slate-800">{title}</h1>}
-          {title && subtitle ? <span className="text-slate-300">·</span> : null}
-          {subtitle && (
-            <p className="min-w-0 truncate text-xs leading-tight text-slate-400">{subtitle}</p>
-          )}
-        </div>
-      )}
+    
 
       <section className={`rounded-lg shadow-sm ${variantClass} ${containerClassName}`}>
         {topContent ? <div className="border-b border-slate-100 px-3 py-2">{topContent}</div> : null}

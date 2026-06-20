@@ -22,17 +22,17 @@ const shellClass: Record<SectionCardVariant, string> = {
 const headerClass: Record<SectionCardVariant, string> = {
   default: "flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5",
   business:
-    "flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3",
+    "flex items-start justify-between gap-3 border-b border-brand-secondary/25 border-t-2 border-t-brand-secondary bg-[#faf9f8] px-4 py-3",
 };
 
 const titleClass: Record<SectionCardVariant, string> = {
-  default: "text-sm font-semibold text-slate-700",
-  business: "text-sm font-semibold text-[#323130]",
+  default: "text-sm font-semibold text-brand-tertiary",
+  business: "text-sm font-semibold text-brand-tertiary",
 };
 
 const subtitleClass: Record<SectionCardVariant, string> = {
-  default: "mt-0.5 text-xs text-slate-400",
-  business: "mt-0.5 text-xs text-[#605e5c]",
+  default: "mt-0.5 text-xs text-brand-secondary",
+  business: "mt-0.5 text-xs text-brand-secondary",
 };
 
 const bodyPad: Record<SectionCardVariant, string> = {

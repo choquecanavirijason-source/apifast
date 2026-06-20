@@ -330,36 +330,38 @@ export default function PosSaleDrawer({
     </div>
   );
 
-  const panelBody = (
-    <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto bg-white">
-      {/* ── Progreso ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
-        {([
-          { label: "Servicios", done: step1Done, active: !step1Done },
-          { label: "Cliente", done: step2Done, active: step1Done && !step2Done },
-          { label: "Pago", done: step3Done, active: step2Done && !step3Done },
-        ] as { label: string; done: boolean; active: boolean }[]).map((step, i) => (
-          <div
-            key={step.label}
-            className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold border-r last:border-r-0 border-[#edebe9] ${
-              step.done ? "text-[#107c10]" : step.active ? "text-[#0078d4]" : "text-[#a19f9d]"
+  const panelProgress = (
+    <div className="shrink-0 flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
+      {([
+        { label: "Servicios", done: step1Done, active: !step1Done },
+        { label: "Cliente", done: step2Done, active: step1Done && !step2Done },
+        { label: "Pago", done: step3Done, active: step2Done && !step3Done },
+      ] as { label: string; done: boolean; active: boolean }[]).map((step, i) => (
+        <div
+          key={step.label}
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold border-r last:border-r-0 border-[#edebe9] ${
+            step.done ? "text-[#107c10]" : step.active ? "text-[#0078d4]" : "text-[#a19f9d]"
+          }`}
+        >
+          <span
+            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+              step.done
+                ? "bg-[#107c10] text-white"
+                : step.active
+                ? "bg-[#0078d4] text-white"
+                : "bg-[#edebe9] text-[#605e5c]"
             }`}
           >
-            <span
-              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                step.done
-                  ? "bg-[#107c10] text-white"
-                  : step.active
-                  ? "bg-[#0078d4] text-white"
-                  : "bg-[#edebe9] text-[#605e5c]"
-              }`}
-            >
-              {step.done ? "✓" : i + 1}
-            </span>
-            {step.label}
-          </div>
-        ))}
-      </div>
+            {step.done ? "✓" : i + 1}
+          </span>
+          {step.label}
+        </div>
+      ))}
+    </div>
+  );
+
+  const panelBody = (
+    <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto bg-white">
 
       {/* ── Carrito ─────────────────────────────────────────────────────────── */}
       <div className={`border-b border-[#edebe9] ${stepBorder(step1Done, !step1Done)}`}>
@@ -1424,6 +1426,7 @@ export default function PosSaleDrawer({
       >
         <div id="pos-sale-drawer-title" className="sr-only">Detalle de la venta</div>
         {panelHeader}
+        {panelProgress}
         {panelBody}
         {panelFooter}
       </div>

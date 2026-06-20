@@ -49,7 +49,7 @@ function submenuRegionId(menuName: string) {
 
 /** Anillo de foco visible (el preflight suele quitar outline en botones). */
 const navFocusRing =
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#031910]";
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#094732]";
 
 export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -547,7 +547,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       className={`relative z-20 isolate h-screen flex flex-col transition-all duration-300 border-r border-emerald-900/30 shrink-0 [&_button]:cursor-pointer [&_a]:cursor-pointer ${
         collapsed ? "w-20" : "w-64"
       }`}
-      style={{ background: "linear-gradient(180deg, #063324 0%, #021a12 100%)" }}
+      style={{ background: "linear-gradient(180deg, #094732 0%, #021a12 100%)" }}
     >
       {/* Logo */}
       <div className="h-20 flex items-center justify-center px-4 border-b border-emerald-800/30 shrink-0">
@@ -641,7 +641,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                         className={({ isActive }) =>
                           `block px-3 py-2 text-xs rounded-lg outline-none ${navFocusRing} ${
                             isActive
-                              ? "text-white bg-emerald-800 ring-offset-[#031910]"
+                              ? "text-white bg-emerald-800 ring-offset-[#094732]"
                               : "text-emerald-100/80 hover:bg-emerald-900/40 hover:text-white"
                           }`
                         }
@@ -661,7 +661,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                     data-sidebar-submenu
                     role="group"
                     aria-label={item.name}
-                    className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/40 bg-[#062f23] shadow-2xl shadow-black/40"
+                    className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/40 bg-[#094732] shadow-2xl shadow-black/40"
                   >
                     <div className="border-b border-emerald-800/40 px-3 py-2">
                       <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/90">{item.name}</p>
@@ -679,7 +679,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
                           className={({ isActive }) =>
                             `mb-1 block rounded-lg px-3 py-2 text-xs outline-none transition ${navFocusRing} ${
                               isActive
-                                ? "bg-emerald-700/70 text-white ring-offset-[#062f23]"
+                                ? "bg-emerald-700/70 text-white ring-offset-[#094732]"
                                 : "text-emerald-100/80 hover:bg-emerald-800/50 hover:text-white"
                             }`
                           }

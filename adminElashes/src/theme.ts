@@ -3,41 +3,45 @@ export type Theme = {
   vars: Record<string,string>
 }
 
+const brandVars = {
+  '--primary': '#094732',
+  '--secondary': '#9F8351',
+  '--tertiary': '#000000',
+  '--accent': '#9F8351',
+  '--brand': '#094732',
+  '--brand-secondary': '#9F8351',
+  '--brand-tertiary': '#000000',
+}
+
 export const themes: Record<string,Theme> = {
   light: {
     name: 'light',
     vars: {
-      '--primary': '#0f172a',
-      '--secondary': '#0ea5a6',
-      '--accent': '#7c3aed',
+      ...brandVars,
       '--bg': '#f8fafc',
       '--surface': '#ffffff',
       '--muted': '#64748b',
-      '--text': '#0f172a'
+      '--text': '#000000'
     }
   },
   ocean: {
     name: 'ocean',
     vars: {
-      '--primary': '#0b2545',
-      '--secondary': '#0ea5a6',
-      '--accent': '#3dd3c1',
-      '--bg': '#eaf8fb',
+      ...brandVars,
+      '--bg': '#ecfdf5',
       '--surface': '#ffffff',
       '--muted': '#5b6b73',
-      '--text': '#092235'
+      '--text': '#000000'
     }
   },
   dark: {
     name: 'dark',
     vars: {
-      '--primary': '#071126',
-      '--secondary': '#1fb6ff',
-      '--accent': '#8b5cf6',
-      '--bg': '#081023',
-      '--surface': '#0f172a',
+      ...brandVars,
+      '--bg': '#021a12',
+      '--surface': '#042a1c',
       '--muted': '#9aa6b2',
-      '--text': '#e6eef6'
+      '--text': '#ffffff'
     }
   }
 }
@@ -47,7 +51,6 @@ export function applyTheme(themeName: string){
   if(!theme) return
   const root = document.documentElement
   Object.entries(theme.vars).forEach(([k,v])=> root.style.setProperty(k,v))
-  // Also add a class for optional theme-specific selectors
   root.classList.remove(...Object.keys(themes).map(t=>`theme-${t}`))
   root.classList.add(`theme-${themeName}`)
 }

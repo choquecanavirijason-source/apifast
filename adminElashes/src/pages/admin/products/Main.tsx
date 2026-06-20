@@ -862,7 +862,7 @@ export default function Main() {
               type="button"
               onClick={() => void handleSendStockAlert()}
               disabled={isSendingAlert}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-60"
             >
               {isSendingAlert
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

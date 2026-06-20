@@ -12,9 +12,15 @@ import {store} from './store'
 const savedTheme = localStorage.getItem('ui:theme')
 if(savedTheme) applyTheme(savedTheme)
 const savedPrimary = localStorage.getItem('ui:primary')
-if(savedPrimary) document.documentElement.style.setProperty('--primary', savedPrimary)
+document.documentElement.style.setProperty('--primary', savedPrimary ?? '#094732')
 const savedSecondary = localStorage.getItem('ui:secondary')
-if(savedSecondary) document.documentElement.style.setProperty('--secondary', savedSecondary)
+document.documentElement.style.setProperty('--secondary', savedSecondary ?? '#9F8351')
+document.documentElement.style.setProperty('--tertiary', '#000000')
+document.documentElement.style.setProperty('--brand', '#094732')
+document.documentElement.style.setProperty('--brand-hover', '#063324')
+document.documentElement.style.setProperty('--brand-secondary', '#9F8351')
+document.documentElement.style.setProperty('--brand-secondary-hover', '#85754a')
+document.documentElement.style.setProperty('--brand-tertiary', '#000000')
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -98,7 +98,7 @@ export default function Layout(){
             transition: dragging ? 'none' : 'box-shadow 0.2s',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
             borderRadius: '50%',
-            background: '#06420f',
+            background: '#094732',
             width: 42,
             height: 42,
             display: 'flex',

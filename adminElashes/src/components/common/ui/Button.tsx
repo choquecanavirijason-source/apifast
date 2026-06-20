@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "ghost" | "danger" | "outline";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,9 +16,14 @@ const baseClass =
   "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60";
 
 const variantClassMap: Record<ButtonVariant, string> = {
-  primary: "bg-[#094732] text-white hover:bg-[#063324]",
-  secondary: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-  ghost: "text-slate-600 hover:bg-slate-100",
+  /** Primario #094732 — acción principal */
+  primary: "bg-brand text-white hover:bg-brand-hover",
+  /** Secundario #9F8351 — acciones con tonalidad cálida */
+  secondary: "bg-brand-secondary text-white hover:bg-brand-secondary-hover",
+  /** Terciario #000000 — alto contraste */
+  tertiary: "bg-brand-tertiary text-white hover:bg-brand-tertiary-muted",
+  ghost: "text-brand-tertiary hover:bg-black/5",
+  outline: "border border-brand-secondary bg-white text-brand-secondary hover:bg-brand-secondary/10",
   danger: "bg-rose-600 text-white hover:bg-rose-700",
 };
 
