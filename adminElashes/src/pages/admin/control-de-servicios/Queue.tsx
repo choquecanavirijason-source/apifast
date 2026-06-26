@@ -845,7 +845,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       onDragEnd={handleDragEnd}
     >
       <div
-        className={`grid h-full gap-1.5 lg:grid-cols-3 lg:items-stretch ${isDraggingBoard ? "select-none" : ""}`}
+        className={`grid h-full gap-1.5 lg:grid-cols-3 lg:grid-rows-1 ${isDraggingBoard ? "select-none" : ""}`}
       >
           <DroppableColumn
             id="waiting"

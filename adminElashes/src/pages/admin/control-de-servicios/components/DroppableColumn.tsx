@@ -33,7 +33,7 @@ export default function DroppableColumn({
   const hasTickets = tickets.length > 0;
 
   return (
-    <div className="flex h-full flex-col border border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+    <div className="flex min-h-0 h-full flex-col border border-[#c8c6c4] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
       {/* Accent stripe */}
       <div style={{ height: 3, backgroundColor: color }} />
 

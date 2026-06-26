@@ -32,7 +32,7 @@ export default function QueuePage() {
     };
   }, []);
 
-  useWebSocket(activeBranchId, () => { loadTickets(); });
+  useWebSocket(activeBranchId, applyWsEvent);
   // Simulación: deberías cargar los profesionales reales
   const professionals = [
     { id: 1, username: "Operaria 1" },
@@ -52,7 +52,7 @@ export default function QueuePage() {
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
 
   // Tickets hook
-  const { tickets, isLoading, loadTickets } = useQueueTickets(activeBranchId, filterDate);
+  const { tickets, isLoading, loadTickets, applyWsEvent } = useQueueTickets(activeBranchId, filterDate);
 
   // Opciones de filtro de servicio
   const serviceFilterOptions = useMemo(() => {
