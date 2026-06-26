@@ -19,8 +19,9 @@ import Layout from "../../../components/common/layout";
 import { Button } from "../../../components/common/ui";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { AgendaService, type ProfessionalForSelect, type TicketItem } from "../../../core/services/agenda/agenda.service";
+import { AgendaService, type ProfessionalForSelect, type ServiceCategoryOption, type ServiceOption, type TicketItem } from "../../../core/services/agenda/agenda.service";
 import { CatalogService, type CatalogItem, type QuestionnaireItem } from "../../../core/services/catalog/catalog.service";
+import { ClientService } from "../../../core/services/client/client.service";
 import { TrackingService } from "../../../core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
@@ -46,7 +47,21 @@ import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
-  const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(new Set());
+  const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(() => {
+    try {
+      const raw = sessionStorage.getItem("cds_tracked_ids");
+      if (raw) return new Set(JSON.parse(raw) as number[]);
+    } catch { /* ignore */ }
+    return new Set<number>();
+  });
+
+  const addTrackedId = (id: number) => {
+    setTrackedTicketIds((prev) => {
+      const next = new Set([...prev, id]);
+      try { sessionStorage.setItem("cds_tracked_ids", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
@@ -83,6 +98,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
   const [activeDragTicket, setActiveDragTicket] = useState<TicketItem | null>(null);
   const [isDraggingBoard, setIsDraggingBoard] = useState(false);
+  const [servicesLookup, setServicesLookup] = useState<ServiceOption[]>([]);
+  const [categoriesLookup, setCategoriesLookup] = useState<ServiceCategoryOption[]>([]);
+  const [categoryRequiresQuestionnaire, setCategoryRequiresQuestionnaire] = useState(false);
+  const [finishSiblingIds, setFinishSiblingIds] = useState<number[]>([]);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
@@ -101,8 +120,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
   const REFRESH_INTERVAL = 15;
 
-  const loadTickets = useCallback(async () => {
-    setIsLoading(true);
+  const loadTickets = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const today = todayDate();
       const data = await AgendaService.listTickets({
@@ -116,10 +135,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       setCountdown(REFRESH_INTERVAL);
     } catch (error) {
       console.error("Error cargando tickets:", error);
-      toast.error("No se pudo cargar el tablero de atencion.");
-      setTickets([]);
+      if (!silent) toast.error("No se pudo cargar el tablero de atencion.");
+      if (!silent) setTickets([]);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [activeBranchId, filterDate]);
 
@@ -199,6 +218,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     CatalogService.listQuestionnaires({ limit: 200 })
       .then(setQuestionnaires)
       .catch(() => setQuestionnaires([]));
+
+    AgendaService.listServices({ limit: 300 })
+      .then(setServicesLookup)
+      .catch(() => {});
+
+    AgendaService.listServiceCategories()
+      .then(setCategoriesLookup)
+      .catch(() => {});
   }, []);
 
   const getTicketDate = (iso: string) => {
@@ -250,29 +277,43 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   }, [tickets, filterService, filterClient, filterDate, filterTime, filterProfessionalId]);
 
   const waitingTickets = useMemo(
-    () => filteredTickets.filter((ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status)),
+    () => mergeTicketsBySaleId(
+      filteredTickets.filter((ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status))
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredTickets]
   );
 
   const inServiceTickets = useMemo(
-    () => filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "in_service"),
+    () => mergeTicketsBySaleId(
+      filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "in_service")
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredTickets]
   );
 
   const completedTickets = useMemo(
-    () => filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed" && !trackedTicketIds.has(ticket.id)),
+    () => mergeTicketsBySaleId(
+      filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed" && !trackedTicketIds.has(ticket.id))
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredTickets, trackedTicketIds]
   );
 
   const operariaStatuses = useOperariaStatuses(tickets, professionals);
 
   const handleNoShow = async (ticket: TicketItem) => {
+    const siblingIds = getSiblingIds(ticket);
+    const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
-    applyTicketMoveLocally(ticket.id, { status: "cancelled" });
+    applyGroupMoveLocally(allIds, { status: "cancelled" });
     try {
-      await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
+      if (ticket.client_id) {
+        ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+      }
       toast.success(`Turno ${ticket.ticket_code ?? `#${ticket.id}`} cancelado — no se presentó.`);
-      void loadTickets();
+      await loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
       toast.error(getApiErrorMessage(error, "No se pudo cancelar el turno."));
@@ -280,12 +321,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const handleCancelTicket = async (ticket: TicketItem) => {
+    const siblingIds = getSiblingIds(ticket);
+    const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
-    applyTicketMoveLocally(ticket.id, { status: "cancelled" });
+    applyGroupMoveLocally(allIds, { status: "cancelled" });
     try {
-      await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
+      if (ticket.client_id) {
+        ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+      }
       toast.success(`Ticket ${ticket.ticket_code ?? `#${ticket.id}`} cancelado.`);
-      void loadTickets();
+      await loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
       toast.error(getApiErrorMessage(error, "No se pudo cancelar el ticket."));
@@ -309,10 +355,12 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       return;
     }
 
+    const siblingIds = getSiblingIds(ticket);
+    const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
-    applyTicketMoveLocally(ticket.id, { status: "in_service" });
+    applyGroupMoveLocally(allIds, { status: "in_service" });
     try {
-      await AgendaService.updateAppointment(ticket.id, { status: "in_service" });
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "in_service" })));
       toast.success("Atención iniciada.");
       void loadTickets();
     } catch (error) {
@@ -323,17 +371,40 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const handleOpenFinishModal = (ticket: TicketItem) => {
+    // Determine questionnaire from service category config
+    const serviceId = ticket.service_id ?? ticket.service_ids?.[0] ?? null;
+    let autoQuestionnaireId = "";
+    let autoRequired = false;
+
+    if (serviceId) {
+      const svc = servicesLookup.find((s) => s.id === serviceId);
+      if (svc?.category_id) {
+        const cat = categoriesLookup.find((c) => c.id === svc.category_id);
+        if (cat?.questionnaire_id) {
+          autoQuestionnaireId = String(cat.questionnaire_id);
+          autoRequired = Boolean(cat.questionnaire_required);
+        }
+      }
+    }
+
     setFinishTarget(ticket);
+    setFinishSiblingIds(getSiblingIds(ticket));
     setFinishNotes("");
     setFinishProfessionalId("");
     setFinishEyeTypeId("");
     setFinishEffectId("");
     setFinishVolumeId("");
     setFinishLashDesignId("");
-    setFinishQuestionnaireId("");
+    setFinishQuestionnaireId(autoQuestionnaireId);
+    setCategoryRequiresQuestionnaire(autoRequired);
     setQuestionnaire(null);
     setQuestionnaireResponses({});
     setIsQuestionnaireModalOpen(false);
+
+    if (autoQuestionnaireId) {
+      void handleQuestionnaireChange(autoQuestionnaireId);
+    }
+
     setIsFinishModalOpen(true);
   };
 
@@ -375,6 +446,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       return;
     }
 
+    if (categoryRequiresQuestionnaire && !hasQuestionnaire) {
+      toast.warning("Este servicio requiere cuestionario para finalizar.");
+      return;
+    }
+
     setIsSubmittingTracking(true);
 
     const targetId = finishTarget.id;
@@ -397,10 +473,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
       await AgendaService.updateAppointment(finishTarget.id, { status: "completed" });
       // Marcar como rastreado ANTES de recargar para que no reaparezca en el tablero
-      setTrackedTicketIds((prev) => new Set([...prev, targetId]));
+      addTrackedId(targetId);
+      // Completar también los tickets hermanos del mismo sale (ticket "juntos")
+      if (finishSiblingIds.length > 0) {
+        applyGroupMoveLocally(finishSiblingIds, { status: "completed" });
+        await Promise.all(finishSiblingIds.map((id) => AgendaService.updateAppointment(id, { status: "completed" })));
+        finishSiblingIds.forEach(addTrackedId);
+      }
       toast.success("Atencion finalizada y tracking registrado.");
       setIsFinishModalOpen(false);
       setFinishTarget(null);
+      setFinishSiblingIds([]);
     } catch (error) {
       console.error("Error finalizando atencion:", error);
       toast.error(getApiErrorMessage(error, "No se pudo finalizar la atencion."));
@@ -440,6 +523,40 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, ...patch } : t)));
   };
 
+  const applyGroupMoveLocally = (ids: number[], patch: Partial<TicketItem>) => {
+    setTickets((prev) => prev.map((t) => (ids.includes(t.id) ? { ...t, ...patch } : t)));
+  };
+
+  // Returns IDs of other tickets in the same sale (sibling tickets created "juntos")
+  const getSiblingIds = (ticket: TicketItem): number[] => {
+    if (!ticket.sale_id) return [];
+    return tickets.filter((t) => t.sale_id === ticket.sale_id && t.id !== ticket.id).map((t) => t.id);
+  };
+
+  // Groups tickets sharing a sale_id into one display entry (combined service names)
+  const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => {
+    const saleMap = new Map<number, TicketItem[]>();
+    const noSale: TicketItem[] = [];
+    for (const t of ticketList) {
+      if (t.sale_id) {
+        const group = saleMap.get(t.sale_id) ?? [];
+        group.push(t);
+        saleMap.set(t.sale_id, group);
+      } else {
+        noSale.push(t);
+      }
+    }
+    const result: TicketItem[] = [...noSale];
+    for (const group of saleMap.values()) {
+      const primary = group[0];
+      const allNames = [...new Set(
+        group.flatMap((t) => t.service_names ?? (t.service_name ? [t.service_name] : []))
+      )];
+      result.push({ ...primary, service_names: allNames });
+    }
+    return result;
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragTicket(null);
     setIsDraggingBoard(false);
@@ -458,13 +575,16 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket) return;
 
+    const siblingIds = getSiblingIds(ticket);
+
     if (targetColumn === "ia") {
       if (ticket.is_ia) return;
 
+      const allIds = [ticketId, ...siblingIds];
       const snapshot = tickets;
-      applyTicketMoveLocally(ticketId, { is_ia: true });
+      applyGroupMoveLocally(allIds, { is_ia: true });
       try {
-        await AgendaService.updateAppointment(ticketId, { is_ia: true });
+        await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { is_ia: true })));
         toast.success("Ticket movido a Tickets con IA.");
       } catch (error) {
         setTickets(snapshot);
@@ -488,15 +608,16 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       return;
     }
 
+    const allIds = [ticketId, ...siblingIds];
     const snapshot = tickets;
-    applyTicketMoveLocally(ticketId, { status: newStatus, is_ia: false });
+    applyGroupMoveLocally(allIds, { status: newStatus, is_ia: false });
 
     try {
-      await AgendaService.updateAppointment(ticketId, {
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, {
         status: newStatus,
         is_ia: false,
         skip_availability_check: true,
-      });
+      })));
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
     } catch (error) {
       setTickets(snapshot);
@@ -511,10 +632,13 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const handleMarkCompleted = async (ticket: TicketItem) => {
+    const siblingIds = getSiblingIds(ticket);
+    const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
-    applyTicketMoveLocally(ticket.id, { status: "completed" });
+    applyGroupMoveLocally(allIds, { status: "completed" });
     try {
-      await AgendaService.updateAppointment(ticket.id, { status: "completed" });
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "completed" })));
+      allIds.forEach(addTrackedId);
       toast.success("Ticket finalizado.");
       void loadTickets();
     } catch (error) {
@@ -612,29 +736,46 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     return minutes <= 0 ? "Finalizando" : `≈ ${minutes} min`;
   };
 
-  // Mapa ticketId → minutos acumulados de espera en la cola (sumando tickets previos)
+  // Mapa ticketId → minutos de espera calculados por operaria
   const waitingAccumulatedMinutes = useMemo(() => {
     const map = new Map<number, number>();
-    // Tiempo libre de la operaria activa: cuándo termina el ticket en servicio
-    const busyUntilMs = inServiceTickets.reduce<number>((max, t) => {
-      const end = new Date(t.end_time).getTime();
-      return Number.isFinite(end) ? Math.max(max, end) : max;
-    }, now);
 
-    let cursor = Math.max(now, busyUntilMs);
-    for (const ticket of waitingTickets) {
+    // Cursor inicial por operaria: cuándo termina su ticket en servicio actual
+    // Key: professional_id (o 0 = sin asignar)
+    const cursors = new Map<number, number>();
+    for (const t of inServiceTickets) {
+      const proId = t.professional_id ?? 0;
+      const end = new Date(t.end_time).getTime();
+      if (Number.isFinite(end)) {
+        cursors.set(proId, Math.max(cursors.get(proId) ?? now, end));
+      }
+    }
+
+    // Cursor fallback global (para tickets sin operaria o sin cursor previo)
+    const globalFree = cursors.size > 0
+      ? Math.max(...Array.from(cursors.values()))
+      : now;
+
+    // Ordenar por start_time para que el cálculo respete el orden real de la agenda
+    const sorted = [...waitingTickets].sort(
+      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+
+    for (const ticket of sorted) {
+      const proId = ticket.professional_id ?? 0;
+      const cursor = Math.max(now, cursors.get(proId) ?? globalFree);
+
       const durationMs = (() => {
         const start = new Date(ticket.start_time).getTime();
         const end = new Date(ticket.end_time).getTime();
-        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-          return end - start;
-        }
-        return 60 * 60_000; // 60 min por defecto
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) return end - start;
+        return 60 * 60_000;
       })();
-      const waitMins = Math.max(0, Math.ceil((cursor - now) / 60_000));
-      map.set(ticket.id, waitMins);
-      cursor += durationMs;
+
+      map.set(ticket.id, Math.max(0, Math.ceil((cursor - now) / 60_000)));
+      cursors.set(proId, cursor + durationMs);
     }
+
     return map;
   }, [waitingTickets, inServiceTickets, now]);
 
@@ -1103,14 +1244,20 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
               <div>
                 <label className={BC_LABEL}>
-                  Cuestionario{finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18 ? " (Obligatorio ⚠)" : ""}
+                  Cuestionario
+                  {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18
+                    ? " (Obligatorio — menor de edad ⚠)"
+                    : categoryRequiresQuestionnaire
+                    ? " (Obligatorio — categoría ⚠)"
+                    : ""}
                 </label>
                 <select
                   value={finishQuestionnaireId}
                   onChange={(event) => void handleQuestionnaireChange(event.target.value)}
                   className={BC_FIELD}
+                  disabled={categoryRequiresQuestionnaire && Boolean(finishQuestionnaireId)}
                 >
-                  <option value="">Sin cuestionario</option>
+                  {!categoryRequiresQuestionnaire && <option value="">Sin cuestionario</option>}
                   {questionnaires.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.title}

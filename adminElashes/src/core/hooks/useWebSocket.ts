@@ -17,6 +17,7 @@ function getWsUrl(branchId: number): string {
 export function useWebSocket(branchId: number | null, onEvent: WsEventHandler) {
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
+  const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   onEventRef.current = onEvent;
 
   const connect = useCallback(() => {
@@ -25,7 +26,15 @@ export function useWebSocket(branchId: number | null, onEvent: WsEventHandler) {
     const ws = new WebSocket(getWsUrl(branchId));
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      // Ping cada 25s para mantener la conexión viva
+      pingRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) ws.send("ping");
+      }, 25_000);
+    };
+
     ws.onmessage = (e) => {
+      if (e.data === "pong") return;
       try {
         const data = JSON.parse(e.data) as WsEvent;
         onEventRef.current(data);
@@ -35,10 +44,8 @@ export function useWebSocket(branchId: number | null, onEvent: WsEventHandler) {
     };
 
     ws.onclose = (e) => {
-      // reconectar solo si no fue cierre intencional
-      if (e.code !== 1000) {
-        setTimeout(connect, 3000);
-      }
+      if (pingRef.current) clearInterval(pingRef.current);
+      if (e.code !== 1000) setTimeout(connect, 1_000);
     };
 
     ws.onerror = () => ws.close();
@@ -47,6 +54,7 @@ export function useWebSocket(branchId: number | null, onEvent: WsEventHandler) {
   useEffect(() => {
     connect();
     return () => {
+      if (pingRef.current) clearInterval(pingRef.current);
       wsRef.current?.close(1000, "unmount");
     };
   }, [connect]);

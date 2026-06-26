@@ -13,6 +13,7 @@ export type ServiceFormModalProps = {
   onFormChange: <K extends keyof ServiceFormState>(field: K, value: ServiceFormState[K]) => void;
   isUploadingImage: boolean;
   onImageSelected: (file?: File | null) => Promise<void> | void;
+  questionnaires?: { id: number; title: string }[];
 };
 
 export default function ServiceFormModal({
@@ -25,7 +26,10 @@ export default function ServiceFormModal({
   onFormChange,
   isUploadingImage,
   onImageSelected,
+  questionnaires = [],
 }: ServiceFormModalProps) {
+  const hasQuestionnaire = form.questionnaireId !== "";
+
   return (
     <GenericModal isOpen={isOpen} onClose={onClose} title={title} size="md">
       <div className="space-y-4">
@@ -70,6 +74,69 @@ export default function ServiceFormModal({
           </button>
         </div>
 
+        {/* Cuestionario por categoría */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Cuestionario de anamnesis</p>
+              <p className="text-xs text-slate-500">Asigna un cuestionario que se muestre al finalizar el servicio.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hasQuestionnaire}
+              onClick={() => {
+                if (hasQuestionnaire) {
+                  onFormChange("questionnaireId", "");
+                  onFormChange("questionnaireRequired", false);
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                hasQuestionnaire ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  hasQuestionnaire ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {questionnaires.length > 0 && (
+            <div className="space-y-2">
+              <select
+                value={form.questionnaireId}
+                onChange={(event) => onFormChange("questionnaireId", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              >
+                <option value="">Sin cuestionario</option>
+                {questionnaires.map((q) => (
+                  <option key={q.id} value={String(q.id)}>
+                    {q.title}
+                  </option>
+                ))}
+              </select>
+
+              {hasQuestionnaire && (
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.questionnaireRequired}
+                    onChange={(event) => onFormChange("questionnaireRequired", event.target.checked)}
+                    className="h-4 w-4 rounded"
+                  />
+                  Obligatorio para todos (no solo menores)
+                </label>
+              )}
+            </div>
+          )}
+
+          {questionnaires.length === 0 && (
+            <p className="text-xs text-slate-400">No hay cuestionarios disponibles. Crea uno en la sección Cuestionario.</p>
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-slate-700">Imagen de la categoria</label>
           <input
@@ -86,8 +153,7 @@ export default function ServiceFormModal({
                 alt="Preview"
                 className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
               />
-              <Button type="button" variant="secondary" onClick={() => onFormChange("imageUrl", "")}
-              >
+              <Button type="button" variant="secondary" onClick={() => onFormChange("imageUrl", "")}>
                 Quitar imagen
               </Button>
             </div>

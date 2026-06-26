@@ -24,9 +24,8 @@ const getTimeInputValue = (iso: string) => {
   return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
 };
 
-// primary=#094732 secondary=#9F8351 cancelled red kept
 const ACCENT: Record<string, string> = {
-  pending: "#9F8351", waiting: "#9F8351", confirmed: "#9F8351",
+  pending: "#D83B01", waiting: "#D83B01", confirmed: "#D83B01",
   in_service: "#094732", completed: "#126b4a", cancelled: "#A4262C",
 };
 
@@ -126,7 +125,7 @@ export default function DraggableTicketCard({
       {...attributes}
       {...listeners}
       className={`group relative cursor-grab touch-none rounded-md border border-[#e0dedd] bg-white transition-all active:cursor-grabbing ${
-        isDragging ? "shadow-none ring-2 ring-dashed ring-[#9F8351]" : "shadow-sm hover:shadow-md hover:border-[#c4b08a]"
+        isDragging ? "shadow-none ring-2 ring-dashed ring-[#D83B01]" : "shadow-sm hover:shadow-md hover:border-[#D83B01]/30"
       }`}
     >
       {/* ── Popup de edición ────────────────────────────────────────────────── */}
@@ -233,8 +232,8 @@ export default function DraggableTicketCard({
 
         {/* Fila 3: operaria */}
         <div className="mt-1.5 flex items-center gap-1.5">
-          <User size={12} className={proName ? "shrink-0 text-[#9F8351]" : "shrink-0 text-[#c8c6c4]"} />
-          <span className={`truncate text-xs font-medium ${proName ? "text-[#9F8351]" : "italic text-[#a19f9d]"}`}>
+          <User size={12} className={proName ? "shrink-0 text-[#605e5c]" : "shrink-0 text-[#c8c6c4]"} />
+          <span className={`truncate text-xs font-medium ${proName ? "text-[#605e5c]" : "italic text-[#a19f9d]"}`}>
             {proName ?? "Sin asignar"}
           </span>
         </div>

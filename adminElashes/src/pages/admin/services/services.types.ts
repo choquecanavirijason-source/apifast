@@ -3,6 +3,8 @@ export interface ServiceFormState {
   description: string;
   imageUrl: string;
   isMobile: boolean;
+  questionnaireId: string;
+  questionnaireRequired: boolean;
 }
 
 export const emptyServiceForm: ServiceFormState = {
@@ -10,6 +12,8 @@ export const emptyServiceForm: ServiceFormState = {
   description: "",
   imageUrl: "",
   isMobile: false,
+  questionnaireId: "",
+  questionnaireRequired: false,
 };
 
 export interface ServiceItemFormState {

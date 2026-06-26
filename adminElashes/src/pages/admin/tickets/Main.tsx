@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ticket,
   Wallet,
-  Search,
   Filter,
   Eye,
   User,
@@ -524,13 +523,7 @@ export default function TicketsPage() {
   const renderToolbar = () => (
     <FilterActionBar
       left={
-        <div className="flex flex-wrap items-center gap-2">
-          {canCreateTicket ? (
-            <Button variant="primary" size="sm" onClick={handleOpenCreateTicket}>
-              <Plus className="h-4 w-4" />
-              Crear ticket
-            </Button>
-          ) : null}
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
             <Filter className="h-4 w-4 text-slate-400" />
             <select
@@ -546,16 +539,6 @@ export default function TicketsPage() {
               ))}
             </select>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Código o nombre de cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-56 rounded-xl border border-slate-200 bg-white py-1.5 pl-9 pr-3 text-sm outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
-            />
-          </div>
           <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
             <span className="text-xs font-medium text-slate-500">Fecha</span>
             <input
@@ -570,10 +553,14 @@ export default function TicketsPage() {
                 onClick={() => setTicketDateFilter("")}
                 className="rounded px-1 text-xs text-slate-500 hover:bg-slate-100"
               >
-                Limpiar
+                ✕
               </button>
             ) : null}
           </div>
+        </div>
+      }
+      right={
+        <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => void loadTickets()}>
             Actualizar
           </Button>
@@ -581,6 +568,12 @@ export default function TicketsPage() {
             <FileDown className="h-4 w-4" />
             PDF
           </Button>
+          {canCreateTicket ? (
+            <Button variant="primary" size="sm" onClick={handleOpenCreateTicket}>
+              <Plus className="h-4 w-4" />
+              Crear ticket
+            </Button>
+          ) : null}
         </div>
       }
     />

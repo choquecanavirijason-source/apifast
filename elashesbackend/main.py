@@ -198,7 +198,9 @@ def create_app() -> FastAPI:
         await ws_manager.connect(websocket, branch_id)
         try:
             while True:
-                await websocket.receive_text()
+                text = await websocket.receive_text()
+                if text == "ping":
+                    await websocket.send_text("pong")
         except WebSocketDisconnect:
             ws_manager.disconnect(websocket, branch_id)
 

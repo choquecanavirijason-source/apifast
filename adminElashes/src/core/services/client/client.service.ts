@@ -39,7 +39,7 @@ export interface ClientCreatePayload {
   eye_type_id?: number;
 }
 
-export type ClientUpdatePayload = Partial<ClientCreatePayload>;
+export type ClientUpdatePayload = Partial<ClientCreatePayload> & { status?: string };
 
 const mapBackendClientToIClient = (client: BackendClient): IClient => ({
   id: client.id,

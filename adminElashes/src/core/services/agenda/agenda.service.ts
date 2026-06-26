@@ -51,6 +51,8 @@ export interface ServiceCategoryOption {
   description?: string | null;
   image_url?: string | null;
   is_mobile: boolean;
+  questionnaire_id?: number | null;
+  questionnaire_required?: boolean | null;
 }
 
 export interface ServiceCategoryCreatePayload {
@@ -58,6 +60,8 @@ export interface ServiceCategoryCreatePayload {
   description?: string | null;
   image_url?: string | null;
   is_mobile: boolean;
+  questionnaire_id?: number | null;
+  questionnaire_required?: boolean | null;
 }
 
 export interface ServiceCategoryUpdatePayload {
@@ -65,6 +69,8 @@ export interface ServiceCategoryUpdatePayload {
   description?: string | null;
   image_url?: string | null;
   is_mobile?: boolean;
+  questionnaire_id?: number | null;
+  questionnaire_required?: boolean | null;
 }
 
 /**
@@ -81,6 +87,8 @@ export function deriveServiceCategoriesFromServices(serviceList: ServiceOption[]
         description: c.description ?? null,
         image_url: c.image_url ?? null,
         is_mobile: Boolean(c.is_mobile),
+        questionnaire_id: c.questionnaire_id ?? null,
+        questionnaire_required: c.questionnaire_required ?? null,
       });
     } else if (s.category_id != null && Number.isFinite(Number(s.category_id))) {
       const id = Number(s.category_id);

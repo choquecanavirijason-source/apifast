@@ -826,28 +826,6 @@ export default function Main() {
         title="Productos e Inventario"
         subtitle="Administra precio, stock, costo, proveedor y estado de cada producto."
         variant="table"
-        topContent={(
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard
-              label="Stock total"
-              value={totalStockUnits}
-              icon={<Boxes className="h-4 w-4" />}
-              tone="slate"
-            />
-            <StatCard
-              label="Bajo stock"
-              value={lowStockCount}
-              icon={<AlertTriangle className="h-4 w-4" />}
-              tone="amber"
-            />
-            <StatCard
-              label="Valor inventario"
-              value={`$${totalInventoryValue.toFixed(2)}`}
-              icon={<DollarSign className="h-4 w-4" />}
-              tone="emerald"
-            />
-          </div>
-        )}
         toolbar={renderToolbar()}
       >
         {currentSection === "products" && lowStockCount > 0 ? (
@@ -869,6 +847,29 @@ export default function Main() {
                 : <MessageCircle className="h-3.5 w-3.5" />}
               {isSendingAlert ? "Enviando…" : "Notificar por WhatsApp"}
             </button>
+          </div>
+        ) : null}
+
+        {currentSection === "products" ? (
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatCard
+              label="Stock total"
+              value={totalStockUnits}
+              icon={<Boxes className="h-4 w-4" />}
+              tone="slate"
+            />
+            <StatCard
+              label="Bajo stock"
+              value={lowStockCount}
+              icon={<AlertTriangle className="h-4 w-4" />}
+              tone="amber"
+            />
+            <StatCard
+              label="Valor inventario"
+              value={`$${totalInventoryValue.toFixed(2)}`}
+              icon={<DollarSign className="h-4 w-4" />}
+              tone="emerald"
+            />
           </div>
         ) : null}
 

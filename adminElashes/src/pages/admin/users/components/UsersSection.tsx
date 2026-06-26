@@ -53,16 +53,9 @@ export default function UsersSection({ users, loading, onEditUser, onDeleteUser,
       sortable: true,
       getValue: (item) => getRoleName(item.role),
       render: (item) => (
-        <div className="flex items-center gap-1.5">
-          <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-            {getRoleName(item.role)}
-          </span>
-          {item.skill_level != null && (
-            <span className="text-xs text-amber-400" title={`Nivel ${item.skill_level}/5`}>
-              {"★".repeat(item.skill_level)}{"☆".repeat(5 - item.skill_level)}
-            </span>
-          )}
-        </div>
+        <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+          {getRoleName(item.role)}
+        </span>
       ),
     },
     {

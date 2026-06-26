@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Edit, Plus, Scissors, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../components/common/layout";
@@ -12,6 +12,7 @@ import {
   type ServiceCategoryOption,
   type ServiceOption,
 } from "../../../core/services/agenda/agenda.service";
+import { CatalogService, type QuestionnaireItem } from "../../../core/services/catalog/catalog.service";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
 
 import DeleteServiceModal from "./components/DeleteServiceModal";
@@ -33,7 +34,6 @@ export default function ServicesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteOneModalOpen, setIsDeleteOneModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
-  const [openServiceMenuId, setOpenServiceMenuId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryOption | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(null);
   const [form, setForm] = useState<ServiceFormState>(emptyServiceForm);
@@ -43,6 +43,7 @@ export default function ServicesPage() {
   const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
   const [isDeleteServiceModalOpen, setIsDeleteServiceModalOpen] = useState(false);
   const [isUploadingServiceImage, setIsUploadingServiceImage] = useState(false);
+  const [questionnaires, setQuestionnaires] = useState<QuestionnaireItem[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryPage, setCategoryPage] = useState(1);
   const categoriesPerPage = 9;
@@ -104,6 +105,9 @@ export default function ServicesPage() {
 
   useEffect(() => {
     void loadCatalog();
+    CatalogService.listQuestionnaires({ limit: 200 })
+      .then(setQuestionnaires)
+      .catch(() => {});
   }, []);
 
   const totalWithImage = useMemo(
@@ -221,6 +225,8 @@ export default function ServicesPage() {
       description: category.description ?? "",
       imageUrl: category.image_url ?? "",
       isMobile: Boolean(category.is_mobile),
+      questionnaireId: category.questionnaire_id ? String(category.questionnaire_id) : "",
+      questionnaireRequired: Boolean(category.questionnaire_required),
     });
     setOpenMenuId(null);
     setIsEditModalOpen(true);
@@ -273,6 +279,8 @@ export default function ServicesPage() {
         description: form.description.trim() || null,
         image_url: form.imageUrl.trim() || null,
         is_mobile: form.isMobile,
+        questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
+        questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
       });
       setCategories((prev) => [created, ...prev]);
       toast.success("Categoria creada correctamente.");
@@ -298,6 +306,8 @@ export default function ServicesPage() {
         description: form.description.trim() || null,
         image_url: form.imageUrl.trim(),
         is_mobile: form.isMobile,
+        questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
+        questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
       });
       setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)));
       toast.success("Categoria actualizada correctamente.");
@@ -366,13 +376,11 @@ export default function ServicesPage() {
       price: String(service.price ?? ""),
       commissionRate: service.commission_rate != null ? String(Math.round(service.commission_rate * 100)) : "",
     });
-    setOpenServiceMenuId(null);
     setIsEditServiceModalOpen(true);
   };
 
   const handleOpenDeleteServiceModal = (service: ServiceOption) => {
     setSelectedService(service);
-    setOpenServiceMenuId(null);
     setIsDeleteServiceModalOpen(true);
   };
 
@@ -472,14 +480,6 @@ export default function ServicesPage() {
           : "Gestiona servicios y asigna a cada uno su categoría de servicio."
       }
       variant="cards"
-      topContent={
-        <ServicesTopStats
-          totalCategories={totalCategories}
-          totalServices={totalServices}
-          totalWithImage={totalWithImage}
-          totalWithDescription={totalWithDescription}
-        />
-      }
     >
       {isCategoriesView ? (
         <ServicesToolbar onCreateCategory={handleOpenCreate} />
@@ -495,6 +495,15 @@ export default function ServicesPage() {
           </Button>
         </div>
       )}
+
+      <div className="mb-3 mt-3">
+        <ServicesTopStats
+          totalCategories={totalCategories}
+          totalServices={totalServices}
+          totalWithImage={totalWithImage}
+          totalWithDescription={totalWithDescription}
+        />
+      </div>
 
       {isLoading ? (
         <SectionCard className="mt-4" bodyClassName="!p-6">
@@ -637,67 +646,79 @@ export default function ServicesPage() {
                 "Sin categoria";
 
               return (
-                <SectionCard key={service.id} className="relative" bodyClassName="!p-4">
-                  {service.image_url ? (
-                    <img
-                      src={service.image_url}
-                      alt={service.name}
-                      className="mb-3 h-56 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain"
-                      loading="lazy"
-                    />
-                  ) : null}
-
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold text-slate-800">{service.name}</h3>
-                      <p className="mt-0.5 text-xs text-slate-500">{service.description || "Sin descripcion"}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOpenServiceMenuId(openServiceMenuId === service.id ? null : service.id)}
-                      className="cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-                      aria-label="Abrir menu"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span className="rounded-full bg-slate-100 px-2 py-1">Categoria: {categoryName}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1">{service.duration_minutes} min</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1">Bs {Number(service.price ?? 0).toFixed(2)}</span>
-                    {service.commission_rate != null ? (
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700 font-semibold">
-                        Comisión: {Math.round(service.commission_rate * 100)}%
-                      </span>
+                <div
+                  key={service.id}
+                  className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-md"
+                >
+                  {/* Área de imagen / placeholder */}
+                  <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-50">
+                    {service.image_url ? (
+                      <img
+                        src={service.image_url}
+                        alt={service.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
                     ) : (
-                      <span className="rounded-full bg-slate-50 border border-slate-200 px-2 py-1 text-slate-400">
-                        Comisión: operaria
-                      </span>
+                      <Scissors className="h-8 w-8 text-slate-300" />
                     )}
                   </div>
 
-                  {openServiceMenuId === service.id ? (
-                    <div className="absolute right-4 top-12 z-10 w-40 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditService(service)}
-                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDeleteServiceModal(service)}
-                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
-                      >
-                        Eliminar
-                      </button>
+                  {/* Contenido */}
+                  <div className="border-t border-slate-100 px-3 py-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-700">{service.name}</p>
+                        {service.description ? (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{service.description}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditService(service)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
+                          title="Editar"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDeleteServiceModal(service)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  ) : null}
-                </SectionCard>
+
+                    {/* Tags */}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                        Categoria: {categoryName}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                        {service.duration_minutes} min
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                        Bs {Number(service.price ?? 0).toFixed(2)}
+                      </span>
+                      {service.commission_rate != null ? (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 font-semibold text-blue-700">
+                          Comisión: {Math.round(service.commission_rate * 100)}%
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-400">
+                          Comisión: operaria
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
             })}
+
           </div>
 
           {filteredServices.length === 0 ? (
@@ -766,6 +787,7 @@ export default function ServicesPage() {
         onFormChange={handleFormChange}
         isUploadingImage={isUploadingImage}
         onImageSelected={handleImageSelected}
+        questionnaires={questionnaires}
       />
 
       <ServiceFormModal
@@ -778,6 +800,7 @@ export default function ServicesPage() {
         onFormChange={handleFormChange}
         isUploadingImage={isUploadingImage}
         onImageSelected={handleImageSelected}
+        questionnaires={questionnaires}
       />
 
       <DeleteServiceModal

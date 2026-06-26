@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
 import { ClientService, type EyeTypeOption } from "../../../core/services/client/client.service";
@@ -39,6 +39,8 @@ export default function ClientListPage() {
   // Estados de Modales
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<IClient | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getEyeTypeLabel = (eyeType: unknown): string => {
     if (!eyeType) return "-";
@@ -63,23 +65,46 @@ export default function ClientListPage() {
     return () => mainEl?.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const loadClients = async () => {
-    setIsLoadingClients(true);
+  const loadClients = useCallback(async (silent = false) => {
+    if (!silent) setIsLoadingClients(true);
     setClientError(null);
     try {
       const clients = await ClientService.list({ branch_id: activeBranchId ?? undefined, limit: 1000 });
       setItems(clients);
     } catch (error) {
       console.error("Error cargando clientes:", error);
-      setClientError("No se pudieron cargar los clientes desde la API.");
+      if (!silent) setClientError("No se pudieron cargar los clientes desde la API.");
     } finally {
-      setIsLoadingClients(false);
+      if (!silent) setIsLoadingClients(false);
+    }
+  }, [activeBranchId]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await loadClients(true);
+    setIsRefreshing(false);
+  };
+
+  const handleClearClientStatus = async (client: IClient) => {
+    try {
+      const updated = await ClientService.update(client.id, { status: "sin_estado" });
+      setItems((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    } catch {
+      toast.error("No se pudo limpiar el estado del cliente.");
     }
   };
 
   useEffect(() => {
     void loadClients();
-  }, [activeBranchId]);
+
+    pollingRef.current = setInterval(() => {
+      void loadClients(true);
+    }, 30_000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [loadClients]);
 
   useEffect(() => {
     const handleChange = () => setActiveBranchId(getSelectedBranchId());
@@ -349,11 +374,27 @@ export default function ClientListPage() {
           no_se_presento: { color: "bg-orange-100 text-orange-700", label: "No se presentó" },
           reagendado: { color: "bg-yellow-100 text-yellow-700", label: "Reagendado" },
         };
-        const { color, label } = statusConfig[item.status || ""] ?? {
+        const currentStatus = item.status || "sin_estado";
+        const { color, label } = statusConfig[currentStatus] ?? {
           color: "bg-slate-200 text-slate-600",
-          label: item.status || "Sin estado",
+          label: currentStatus,
         };
-        return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${color}`}>{label}</span>;
+        const isStale = currentStatus !== "sin_estado";
+        return (
+          <div className="flex items-center gap-1">
+            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${color}`}>{label}</span>
+            {isStale && (
+              <button
+                type="button"
+                onClick={() => void handleClearClientStatus(item)}
+                title="Limpiar estado"
+                className="rounded-full p-0.5 text-slate-300 hover:bg-slate-100 hover:text-rose-500 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        );
       },
       filterable: true,
       getValue: (item: IClient) => item.status || "sin_estado",
@@ -442,6 +483,16 @@ export default function ClientListPage() {
       }
       right={
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => void handleManualRefresh()}
+            leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />}
+            title="Actualizar estados"
+            disabled={isRefreshing}
+            className="whitespace-nowrap"
+          >
+            Actualizar
+          </Button>
           <Button
             variant="secondary"
             onClick={handleExportClientsPdf}

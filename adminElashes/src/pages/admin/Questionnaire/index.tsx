@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Edit, Trash2, HelpCircle } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import Layout from "@/components/common/layout";
+import FilterActionBar from "@/components/common/FilterActionBar";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
@@ -267,62 +269,49 @@ export default function QuestionnairePage() {
   );
 
   const renderToolbar = () => (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        {(["ADULTOS", "MENORES"] as TargetAudience[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`
-              rounded-lg px-6 py-2.5 text-sm font-bold transition-all
-              ${
+    <FilterActionBar
+      left={
+        <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          {(["ADULTOS", "MENORES"] as TargetAudience[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
                 activeTab === tab
                   ? "bg-[#094732] text-white shadow-md"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              }
-            `}
-          >
-            {tab === "ADULTOS" ? "Publico General" : "Menores de Edad"}
-          </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => void handleOpenCreate()}
-        disabled={isSaving}
-        className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#094732] px-6 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-[#063324] active:scale-95 disabled:opacity-70"
-      >
-        <Plus className="h-5 w-5" />
-        <span>Nueva Pregunta</span>
-      </button>
-    </div>
+              }`}
+            >
+              {tab === "ADULTOS" ? "Publico General" : "Menores de Edad"}
+            </button>
+          ))}
+        </div>
+      }
+      right={
+        <Button onClick={() => void handleOpenCreate()} disabled={isSaving}>
+          <Plus className="h-4 w-4" />
+          Nueva pregunta
+        </Button>
+      }
+    />
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6 font-sans md:p-10">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="rounded-lg bg-emerald-100 p-2">
-          <HelpCircle className="h-6 w-6 text-[#094732]" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Cuestionario de Anamnesis</h1>
-          <p className="text-sm text-slate-500">Gestiona las preguntas medicas para el expediente</p>
-        </div>
-      </div>
-
-      <div className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50/40 p-6 shadow-sm md:p-8">
+    <>
+      <Layout
+        title="Cuestionario de Anamnesis"
+        subtitle="Gestiona las preguntas medicas para el expediente del cliente"
+        variant="table"
+        toolbar={renderToolbar()}
+      >
         {!isLoading && !activeQuestionnaire ? (
-          <div>
-            {renderToolbar()}
-            <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white/50 py-16 text-center">
-              <h3 className="text-lg font-bold text-slate-700">No hay cuestionario activo</h3>
-              <p className="mt-1 text-sm text-slate-500">Crea el cuestionario para este segmento.</p>
-              <Button className="mt-4" onClick={() => void handleOpenCreate()}>
-                Crear cuestionario
-              </Button>
-            </div>
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white/50 py-16 text-center">
+            <h3 className="text-lg font-bold text-slate-700">No hay cuestionario activo</h3>
+            <p className="mt-1 text-sm text-slate-500">Crea el cuestionario para este segmento.</p>
+            <Button className="mt-4" onClick={() => void handleOpenCreate()}>
+              Crear cuestionario
+            </Button>
           </div>
         ) : (
           <DataTable
@@ -330,14 +319,13 @@ export default function QuestionnairePage() {
             columns={columns}
             actions={actions}
             loading={isLoading}
-            renderTopToolbar={renderToolbar}
             globalSearchPlaceholder="Buscar pregunta..."
             defaultLimit={10}
             availableLimits={[5, 10, 20, 50]}
             tableMinWidth="min-w-[640px]"
           />
         )}
-      </div>
+      </Layout>
 
       <GenericModal
         isOpen={isModalOpen}
@@ -409,6 +397,6 @@ export default function QuestionnairePage() {
         onCancel={() => setDeleteDialog({ isOpen: false, question: null })}
         isProcessing={isSaving}
       />
-    </div>
+    </>
   );
 }
