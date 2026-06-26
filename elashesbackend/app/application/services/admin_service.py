@@ -256,9 +256,18 @@ def create_user(db: Session, payload: UserCreate) -> User:
 
     _validate_role_and_branch(db, payload.role_id, payload.branch_id)
 
+    if payload.phone:
+        existing_phone = db.query(User).filter(User.phone == payload.phone).first()
+        if existing_phone:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya existe un usuario con ese teléfono",
+            )
+
     user = User(
         username=payload.username.strip(),
         email=payload.email,
+        phone=payload.phone,
         hashed_password=get_password_hash(payload.password),
         is_active=payload.is_active,
         role_id=payload.role_id,
@@ -332,7 +341,19 @@ def update_user(
         user.is_active = update_data["is_active"]
 
     if "phone" in update_data:
-        user.phone = update_data["phone"]
+        new_phone = update_data["phone"]
+        if new_phone:
+            existing_phone = (
+                db.query(User)
+                .filter(User.phone == new_phone, User.id != user_id)
+                .first()
+            )
+            if existing_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ya existe un usuario con ese teléfono",
+                )
+        user.phone = new_phone
 
     if "skill_level" in update_data:
         user.skill_level = update_data["skill_level"]
