@@ -1,10 +1,10 @@
 import sys
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager 
+from contextlib import asynccontextmanager
 import uvicorn
 import traceback
 
@@ -63,6 +63,7 @@ from app.presentation.controllers import (
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
+from app.core.ws_manager import ws_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -191,7 +192,16 @@ def create_app() -> FastAPI:
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
     app.include_router(auth_routes.router)
-    
+
+    @app.websocket("/ws/branch/{branch_id}")
+    async def ws_branch(websocket: WebSocket, branch_id: int):
+        await ws_manager.connect(websocket, branch_id)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            ws_manager.disconnect(websocket, branch_id)
+
     return app
 
 app = create_app()

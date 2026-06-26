@@ -4,6 +4,7 @@ import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/co
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { Button, SectionCard } from "@/components/common/ui";
+import { useWebSocket } from "@/core/hooks/useWebSocket";
 
 const fieldClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
@@ -103,6 +104,8 @@ export default function CompletedTicketsHistory() {
       window.removeEventListener("branchchange", handleChange);
     };
   }, []);
+
+  useWebSocket(activeBranchId, () => { void loadHistory(); });
 
   const filteredTickets = useMemo(() => {
     const term = search.trim().toLowerCase();

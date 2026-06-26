@@ -369,23 +369,7 @@ export default function TicketsHistoryPage() {
     <Layout
       title="Seguimiento de servicios"
       subtitle="Control de calidad: notas de diseño, cuestionarios y estado de cada ticket. Vista operativa sin comisiones."
-      variant="table"
-      topContent={
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Total" value={filteredTickets.length} tone="slate" />
-          <StatCard
-            label="Completados"
-            value={filteredTickets.filter((t) => t.status === "completed").length}
-            tone="emerald"
-          />
-          <StatCard
-            label="Pendientes / En curso"
-            value={filteredTickets.filter((t) => t.status === "pending" || t.status === "in_service" || t.status === "waiting").length}
-            tone="amber" as any
-          />
-          <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
-        </div>
-      }
+      variant="cards"
       toolbar={
         <FilterActionBar
           left={
@@ -519,6 +503,22 @@ export default function TicketsHistoryPage() {
 
       {/* ── Filtros (solo en pestaña tickets) ────────────────────────────── */}
       {activeTab === "tickets" && <>
+      {/* ── Stats ────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Total" value={filteredTickets.length} tone="slate" />
+        <StatCard
+          label="Completados"
+          value={filteredTickets.filter((t) => t.status === "completed").length}
+          tone="emerald"
+        />
+        <StatCard
+          label="Pendientes / En curso"
+          value={filteredTickets.filter((t) => t.status === "pending" || t.status === "in_service" || t.status === "waiting").length}
+          tone="amber"
+        />
+        <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
+      </div>
+
       {/* ── Filtros ──────────────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-4">
         <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-2 lg:grid-cols-5">

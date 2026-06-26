@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_any_permission, require_permission
+from app.core.ws_manager import ws_manager
 from app.domain.entities.user import User
 from app.domain.entities.service_agenda import Appointment
 from app.presentation.schemas.base_response import MessageResponse
@@ -366,12 +367,12 @@ def get_appointment(
     response_model=AppointmentResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_new_appointment(
+async def create_new_appointment(
     payload: AppointmentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return create_appointment(
+    result = create_appointment(
         db=db,
         client_id=payload.client_id,
         created_by_id=current_user.id,
@@ -386,32 +387,48 @@ def create_new_appointment(
         status_value=payload.status,
         advance_payment_amount=payload.advance_payment_amount,
     )
+    if result.branch_id:
+        await ws_manager.broadcast(result.branch_id, {
+            "event": "ticket_created",
+            "ticket_id": result.id,
+            "status": result.status,
+            "professional_id": result.professional_id,
+        })
+    return result
 
 
 @router.post(
     "/appointments/call-next",
     response_model=AppointmentResponse,
 )
-def call_next_ticket(
+async def call_next_ticket(
     payload: CallNextAppointment,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return call_next_appointment(
+    result = call_next_appointment(
         db=db,
         branch_id=payload.branch_id,
         professional_id=payload.professional_id,
     )
+    if result.branch_id:
+        await ws_manager.broadcast(result.branch_id, {
+            "event": "ticket_called",
+            "ticket_id": result.id,
+            "status": result.status,
+            "professional_id": result.professional_id,
+        })
+    return result
 
 
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)
-def update_existing_appointment(
+async def update_existing_appointment(
     appointment_id: int,
     payload: AppointmentUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return update_appointment(
+    result = update_appointment(
         db=db,
         appointment_id=appointment_id,
         client_id=payload.client_id,
@@ -425,13 +442,28 @@ def update_existing_appointment(
         status_value=payload.status,
         skip_availability_check=payload.skip_availability_check,
     )
+    if result.branch_id:
+        await ws_manager.broadcast(result.branch_id, {
+            "event": "ticket_updated",
+            "ticket_id": result.id,
+            "status": result.status,
+            "professional_id": result.professional_id,
+        })
+    return result
 
 
 @router.delete("/appointments/{appointment_id}", response_model=MessageResponse)
-def delete_existing_appointment(
+async def delete_existing_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
+    branch_id = appointment.branch_id
     delete_appointment(db=db, appointment_id=appointment_id)
+    if branch_id:
+        await ws_manager.broadcast(branch_id, {
+            "event": "ticket_deleted",
+            "ticket_id": appointment_id,
+        })
     return MessageResponse(message="Cita eliminada correctamente")

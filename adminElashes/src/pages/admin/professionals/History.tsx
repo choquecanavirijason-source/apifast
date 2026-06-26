@@ -454,20 +454,7 @@ export default function ProfessionalServiceHistory() {
     <Layout
       title="Comisiones por operaria"
       subtitle="Rendimiento y comisiones por operaria. Incluye registro de pagos y liquidación de comisiones."
-      variant="table"
-      topContent={
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard label="Total tickets" value={filteredTickets.length} tone="slate" />
-          <StatCard label="Completados" value={completedTickets.length} tone="emerald" />
-          <StatCard
-            label="En curso"
-            value={filteredTickets.filter((t) => t.status === "in_service" || t.status === "pending").length}
-            tone="amber"
-          />
-          <StatCard label="Ingresos (completados)" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
-          <StatCard label="Comisiones" value={moneyFormatter.format(totalCommission)} tone="blue" />
-        </div>
-      }
+      variant="cards"
       toolbar={renderToolbar()}
     >
       {/* ── Tabs: Historial de tickets | Comisiones ───────────────────────── */}
@@ -544,6 +531,19 @@ export default function ProfessionalServiceHistory() {
           )}
         </div>
       )}
+
+      {/* ── Stats ────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Total tickets" value={filteredTickets.length} tone="slate" />
+        <StatCard label="Completados" value={completedTickets.length} tone="emerald" />
+        <StatCard
+          label="En curso"
+          value={filteredTickets.filter((t) => t.status === "in_service" || t.status === "pending").length}
+          tone="amber"
+        />
+        <StatCard label="Ingresos (completados)" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
+        <StatCard label="Comisiones" value={moneyFormatter.format(totalCommission)} tone="blue" />
+      </div>
 
       {/* ── Filtros ──────────────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-4">

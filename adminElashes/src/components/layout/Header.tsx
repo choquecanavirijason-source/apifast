@@ -1,14 +1,38 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Menu, Bell, Search, ChevronDown, X, LogOut, Users, Settings } from "lucide-react";
+import {
+  Menu,
+  Bell,
+  Search,
+  ChevronDown,
+  X,
+  LogOut,
+  Users,
+  Settings,
+  Shield,
+} from "lucide-react";
 import { useNavigate, NavLink } from "react-router-dom";
+import { useWebSocket } from "@/core/hooks/useWebSocket";
 
-import { logout as logoutAction, updateSession } from "@/core/reducer/auth.reducer";
+import {
+  logout as logoutAction,
+  updateSession,
+} from "@/core/reducer/auth.reducer";
 import type { AppDispatch, RootState } from "@/store";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { AgendaService } from "@/core/services/agenda/agenda.service";
 import { AuthService } from "@/core/services/auth/auth.service";
-import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
+import {
+  BRANCH_STORAGE_KEY,
+  getSelectedBranchId,
+  setSelectedBranchId,
+} from "@/core/utils/branch";
 import variables from "@/core/config/variables";
 
 interface HeaderProps {
@@ -59,57 +83,84 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "section-dashboard", label: "Dashboard", href: "/" },
   { id: "section-clientes", label: "Clientes", href: "/clients" },
   { id: "section-tickets", label: "Tickets", href: "/admin/tickets" },
-  { id: "section-tickets-finalizados", label: "Tickets finalizados", href: "/admin/tickets/finalizados" },
-  { id: "section-operarias", label: "Operarias", href: "/admin/professionals/history" },
+  {
+    id: "section-tickets-finalizados",
+    label: "Tickets finalizados",
+    href: "/admin/tickets/finalizados",
+  },
+  {
+    id: "section-operarias",
+    label: "Operarias",
+    href: "/admin/professionals/history",
+  },
   { id: "section-servicios", label: "Servicios", href: "/admin/services" },
-  { id: "section-control-servicios", label: "Control de servicios", href: "/admin/services/queue" },
+  {
+    id: "section-control-servicios",
+    label: "Control de servicios",
+    href: "/admin/services/queue",
+  },
   { id: "section-calendario", label: "Calendario", href: "/admin/calendar" },
-  { id: "section-agenda-dia", label: "Agenda del día", href: "/admin/calendar/agenda" },
+  {
+    id: "section-agenda-dia",
+    label: "Agenda del día",
+    href: "/admin/calendar/agenda",
+  },
   { id: "section-inventario", label: "Inventario", href: "/admin/products" },
-  { id: "section-caja", label: "Caja & Seguimiento", href: "/admin/pos-tracking" },
+  {
+    id: "section-caja",
+    label: "Caja & Seguimiento",
+    href: "/admin/pos-tracking",
+  },
 ];
 
-
 const STATUS_ES: Record<string, string> = {
-  pending:    "En espera",
-  waiting:    "En espera",
-  confirmed:  "Confirmado",
+  pending: "En espera",
+  waiting: "En espera",
+  confirmed: "Confirmado",
   in_service: "En servicio",
-  completed:  "Completado",
-  cancelled:  "Cancelado",
+  completed: "Completado",
+  cancelled: "Cancelado",
 };
 
 const STATUS_BADGE_CLASS: Record<string, string> = {
-  pending:    "border-amber-500/40 bg-amber-500/15 text-amber-100",
-  waiting:    "border-amber-500/40 bg-amber-500/15 text-amber-100",
-  confirmed:  "border-sky-500/40 bg-sky-500/15 text-sky-100",
+  pending: "border-amber-500/40 bg-amber-500/15 text-amber-100",
+  waiting: "border-amber-500/40 bg-amber-500/15 text-amber-100",
+  confirmed: "border-sky-500/40 bg-sky-500/15 text-sky-100",
   in_service: "border-emerald-500/40 bg-emerald-500/15 text-emerald-100",
-  completed:  "border-slate-500/40 bg-slate-500/15 text-slate-100",
-  cancelled:  "border-rose-500/40 bg-rose-500/15 text-rose-100",
+  completed: "border-slate-500/40 bg-slate-500/15 text-slate-100",
+  cancelled: "border-rose-500/40 bg-rose-500/15 text-rose-100",
 };
 
-export default function Header({ 
-  setCollapsed, 
-  collapsed,
-}: HeaderProps) {
+export default function Header({ setCollapsed, collapsed }: HeaderProps) {
   const idleDeadlineRef = useRef<number>(Date.now());
   const idleLogoutTriggeredRef = useRef(false);
   const idleTimeoutSeconds = 3 * 60 * 60;
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { user, sessionExpiresAt } = useSelector((state: RootState) => state.auth);
+  const { user, sessionExpiresAt } = useSelector(
+    (state: RootState) => state.auth,
+  );
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [idleRemainingSeconds, setIdleRemainingSeconds] = useState(idleTimeoutSeconds);
-  const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
-  const [selectedBranchId, setSelectedBranchIdState] = useState<number | null>(() => getSelectedBranchId());
+  const [idleRemainingSeconds, setIdleRemainingSeconds] =
+    useState(idleTimeoutSeconds);
+  const [branches, setBranches] = useState<Array<{ id: number; name: string }>>(
+    [],
+  );
+  const [selectedBranchId, setSelectedBranchIdState] = useState<number | null>(
+    () => getSelectedBranchId(),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
-  const [servicesCache, setServicesCache] = useState<Array<{ id: number; name: string }>>([]);
-  const [servicesCacheBranchId, setServicesCacheBranchId] = useState<number | null>(null);
+  const [servicesCache, setServicesCache] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+  const [servicesCacheBranchId, setServicesCacheBranchId] = useState<
+    number | null
+  >(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -121,12 +172,22 @@ export default function Header({
   const profilePanelRef = useRef<HTMLDivElement | null>(null);
   const operariasPanelRef = useRef<HTMLDivElement | null>(null);
   const [operariasOpen, setOperariasOpen] = useState(false);
-  const [operarias, setOperarias] = useState<Array<{ id: number; username: string; email: string }>>([]);
+  const [operarias, setOperarias] = useState<
+    Array<{ id: number; username: string; email: string; branch_name?: string | null }>
+  >([]);
   const [operariasLoading, setOperariasLoading] = useState(false);
 
   const displayName =
-    (user as { username?: string; full_name?: string; name?: string; email?: string } | null)?.username ||
-    (user as { full_name?: string; name?: string; email?: string } | null)?.full_name ||
+    (
+      user as {
+        username?: string;
+        full_name?: string;
+        name?: string;
+        email?: string;
+      } | null
+    )?.username ||
+    (user as { full_name?: string; name?: string; email?: string } | null)
+      ?.full_name ||
     (user as { name?: string; email?: string } | null)?.name ||
     user?.email ||
     "Usuario";
@@ -134,7 +195,11 @@ export default function Header({
   const isSuperAdmin = (() => {
     const roleValue = (user as { role?: unknown } | null)?.role;
     if (typeof roleValue === "string") return roleValue === "SuperAdmin";
-    if (roleValue && typeof roleValue === "object" && "name" in (roleValue as Record<string, unknown>)) {
+    if (
+      roleValue &&
+      typeof roleValue === "object" &&
+      "name" in (roleValue as Record<string, unknown>)
+    ) {
       return (roleValue as { name?: unknown }).name === "SuperAdmin";
     }
     return false;
@@ -143,7 +208,11 @@ export default function Header({
   const isSecretary = (() => {
     const roleValue = (user as { role?: unknown } | null)?.role;
     if (typeof roleValue === "string") return roleValue === "Secretaria";
-    if (roleValue && typeof roleValue === "object" && "name" in (roleValue as Record<string, unknown>)) {
+    if (
+      roleValue &&
+      typeof roleValue === "object" &&
+      "name" in (roleValue as Record<string, unknown>)
+    ) {
       return (roleValue as { name?: unknown }).name === "Secretaria";
     }
     return false;
@@ -151,22 +220,30 @@ export default function Header({
 
   const canSelectBranch = isSuperAdmin || isSecretary;
 
-  const displayRole =
-    (() => {
-      const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)?.role;
-      if (typeof roleValue === "string") return roleValue;
-      if (roleValue && typeof roleValue === "object" && "name" in (roleValue as Record<string, unknown>)) {
-        const roleName = (roleValue as { name?: unknown }).name;
-        if (typeof roleName === "string") return roleName;
-      }
-      const firstRole = (user as { roles?: unknown[] } | null)?.roles?.[0];
-      if (typeof firstRole === "string") return firstRole;
-      if (firstRole && typeof firstRole === "object" && "name" in (firstRole as Record<string, unknown>)) {
-        const roleName = (firstRole as { name?: unknown }).name;
-        if (typeof roleName === "string") return roleName;
-      }
-      return "Sesión activa";
-    })();
+  const displayRole = (() => {
+    const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)
+      ?.role;
+    if (typeof roleValue === "string") return roleValue;
+    if (
+      roleValue &&
+      typeof roleValue === "object" &&
+      "name" in (roleValue as Record<string, unknown>)
+    ) {
+      const roleName = (roleValue as { name?: unknown }).name;
+      if (typeof roleName === "string") return roleName;
+    }
+    const firstRole = (user as { roles?: unknown[] } | null)?.roles?.[0];
+    if (typeof firstRole === "string") return firstRole;
+    if (
+      firstRole &&
+      typeof firstRole === "object" &&
+      "name" in (firstRole as Record<string, unknown>)
+    ) {
+      const roleName = (firstRole as { name?: unknown }).name;
+      if (typeof roleName === "string") return roleName;
+    }
+    return "Sesión activa";
+  })();
 
   const avatarUrl = (user as { avatar?: string } | null)?.avatar;
 
@@ -179,7 +256,7 @@ export default function Header({
     const updateRemaining = () => {
       const diff = Math.max(
         0,
-        Math.floor((new Date(sessionExpiresAt).getTime() - Date.now()) / 1000)
+        Math.floor((new Date(sessionExpiresAt).getTime() - Date.now()) / 1000),
       );
       setRemainingSeconds(diff);
     };
@@ -212,15 +289,23 @@ export default function Header({
         localStorage.setItem(variables.session.tokenName, data.access_token);
       }
       if (data?.expires_at) {
-        localStorage.setItem(variables.session.sessionExpiresAt, data.expires_at);
+        localStorage.setItem(
+          variables.session.sessionExpiresAt,
+          data.expires_at,
+        );
       }
       if (data?.expires_in_minutes != null) {
-        localStorage.setItem(variables.session.sessionDurationMinutes, String(data.expires_in_minutes));
+        localStorage.setItem(
+          variables.session.sessionDurationMinutes,
+          String(data.expires_in_minutes),
+        );
       }
-      dispatch(updateSession({
-        sessionExpiresAt: data?.expires_at ?? null,
-        sessionDurationMinutes: data?.expires_in_minutes ?? null,
-      }));
+      dispatch(
+        updateSession({
+          sessionExpiresAt: data?.expires_at ?? null,
+          sessionDurationMinutes: data?.expires_in_minutes ?? null,
+        }),
+      );
     } catch (error) {
       console.error("No se pudo refrescar la sesión:", error);
     } finally {
@@ -239,7 +324,7 @@ export default function Header({
     const updateIdleTimer = () => {
       const remaining = Math.max(
         0,
-        Math.floor((idleDeadlineRef.current - Date.now()) / 1000)
+        Math.floor((idleDeadlineRef.current - Date.now()) / 1000),
       );
       setIdleRemainingSeconds(remaining);
 
@@ -277,16 +362,32 @@ export default function Header({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node | null;
-      if (searchPanelRef.current && target && !searchPanelRef.current.contains(target)) {
+      if (
+        searchPanelRef.current &&
+        target &&
+        !searchPanelRef.current.contains(target)
+      ) {
         setSearchDropdownOpen(false);
       }
-      if (notificationPanelRef.current && target && !notificationPanelRef.current.contains(target)) {
+      if (
+        notificationPanelRef.current &&
+        target &&
+        !notificationPanelRef.current.contains(target)
+      ) {
         setNotificationsOpen(false);
       }
-      if (profilePanelRef.current && target && !profilePanelRef.current.contains(target)) {
+      if (
+        profilePanelRef.current &&
+        target &&
+        !profilePanelRef.current.contains(target)
+      ) {
         setProfileDropdownOpen(false);
       }
-      if (operariasPanelRef.current && target && !operariasPanelRef.current.contains(target)) {
+      if (
+        operariasPanelRef.current &&
+        target &&
+        !operariasPanelRef.current.contains(target)
+      ) {
         setOperariasOpen(false);
       }
     };
@@ -304,7 +405,9 @@ export default function Header({
         if (!isMounted) return;
         setBranches(data);
         const storedRaw =
-          typeof window !== "undefined" ? window.localStorage.getItem(BRANCH_STORAGE_KEY) : null;
+          typeof window !== "undefined"
+            ? window.localStorage.getItem(BRANCH_STORAGE_KEY)
+            : null;
         // Solo auto-seleccionar la primera sucursal en la primera visita (sin preferencia guardada).
         // Si el usuario eligió "Todas" (valor "all"), no forzar sucursal.
         if (storedRaw === null && data.length > 0) {
@@ -340,31 +443,51 @@ export default function Header({
       const servicesPromise =
         servicesCache.length > 0 && servicesCacheBranchId === selectedBranchId
           ? Promise.resolve(servicesCache)
-          : AgendaService.listServices({ limit: 200, branch_id: activeBranchId }).then((data) => {
-              const normalized = data.map((service) => ({ id: service.id, name: service.name }));
+          : AgendaService.listServices({
+              limit: 200,
+              branch_id: activeBranchId,
+            }).then((data) => {
+              const normalized = data.map((service) => ({
+                id: service.id,
+                name: service.name,
+              }));
               setServicesCache(normalized);
               setServicesCacheBranchId(selectedBranchId ?? null);
               return normalized;
             });
 
       Promise.allSettled([
-        AgendaService.listClientsForSelect({ limit: 8, search: trimmed, branch_id: activeBranchId }),
-        AgendaService.listTickets({ limit: 8, search: trimmed, branch_id: activeBranchId }),
+        AgendaService.listClientsForSelect({
+          limit: 8,
+          search: trimmed,
+          branch_id: activeBranchId,
+        }),
+        AgendaService.listTickets({
+          limit: 8,
+          search: trimmed,
+          branch_id: activeBranchId,
+        }),
         servicesPromise,
       ])
         .then((settled) => {
           const [clientsRes, ticketsRes, servicesRes] = settled;
-          const clientsData = clientsRes.status === "fulfilled" ? clientsRes.value : [];
-          const ticketsData = ticketsRes.status === "fulfilled" ? ticketsRes.value : [];
-          const servicesData = servicesRes.status === "fulfilled" ? servicesRes.value : [];
+          const clientsData =
+            clientsRes.status === "fulfilled" ? clientsRes.value : [];
+          const ticketsData =
+            ticketsRes.status === "fulfilled" ? ticketsRes.value : [];
+          const servicesData =
+            servicesRes.status === "fulfilled" ? servicesRes.value : [];
 
           const normalizedSearch = trimmed.toLowerCase();
           const serviceMatches = servicesData
-            .filter((service) => service.name.toLowerCase().includes(normalizedSearch))
+            .filter((service) =>
+              service.name.toLowerCase().includes(normalizedSearch),
+            )
             .slice(0, 8);
 
-          const sectionMatches = APP_SECTIONS
-            .filter((section) => section.label.toLowerCase().includes(normalizedSearch))
+          const sectionMatches = APP_SECTIONS.filter((section) =>
+            section.label.toLowerCase().includes(normalizedSearch),
+          )
             .slice(0, 8)
             .map((section) => ({
               id: section.id,
@@ -425,7 +548,7 @@ export default function Header({
         end_date: today,
       });
       const filtered = tickets.filter((ticket) =>
-        ["pending", "confirmed", "in_service"].includes(ticket.status)
+        ["pending", "confirmed", "in_service"].includes(ticket.status),
       );
       setNotifications(
         filtered.slice(0, 8).map((ticket) => ({
@@ -434,7 +557,7 @@ export default function Header({
           subtitle: ticket.client_name,
           status: ticket.status,
           href: "/admin/tickets",
-        }))
+        })),
       );
     } catch {
       setNotifications([]);
@@ -451,6 +574,10 @@ export default function Header({
     if (!notificationsOpen) return;
     void loadNotifications(true);
   }, [notificationsOpen, selectedBranchId]);
+
+  useWebSocket(selectedBranchId, () => {
+    void loadNotifications(false);
+  });
 
   useEffect(() => {
     if (!operariasOpen) return;
@@ -483,9 +610,10 @@ export default function Header({
   return (
     // CAMBIO PRINCIPAL: bg-[#094732] (Verde Esmeralda) y texto blanco
     <header className="h-20 bg-linear-to-r from-[#094732] via-[#0d5c40] to-[#094732] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
-      
       {/* --- 1. SECCIÓN IZQUIERDA: Toggle & Título --- */}
-      <div className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
+      <div
+        className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? "opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto" : "opacity-100"}`}
+      >
         <button
           onClick={() => setCollapsed(!collapsed)}
           // Botones con hover translúcido claro
@@ -494,14 +622,14 @@ export default function Header({
         >
           <Menu className="w-6 h-6" />
         </button>
-        
-         
       </div>
 
       {/* --- 2. SECCIÓN CENTRAL: Buscador (Estilo Dark) --- */}
       <div className="flex-1 flex justify-center px-4 lg:px-10 min-w-0">
-        
-        <div className="relative w-full max-w-170 min-w-0 hidden md:block group" ref={searchPanelRef}>
+        <div
+          className="relative w-full max-w-170 min-w-0 hidden md:block group"
+          ref={searchPanelRef}
+        >
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-emerald-300 group-focus-within:text-white transition-colors" />
           </div>
@@ -518,9 +646,9 @@ export default function Header({
             onFocus={() => setSearchDropdownOpen(true)}
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-             <kbd className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-emerald-300 bg-emerald-800/50 border border-emerald-700 rounded-md">
-                ⌘ K
-             </kbd>
+            <kbd className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-emerald-300 bg-emerald-800/50 border border-emerald-700 rounded-md">
+              ⌘ K
+            </kbd>
           </div>
           {searchDropdownOpen && (
             <div className="absolute left-0 top-12 w-full rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
@@ -551,9 +679,13 @@ export default function Header({
                 ) : searchError ? (
                   <p className="text-sm text-rose-200">{searchError}</p>
                 ) : searchQuery.trim().length === 0 ? (
-                  <p className="text-sm text-emerald-200">Escribe para buscar.</p>
+                  <p className="text-sm text-emerald-200">
+                    Escribe para buscar.
+                  </p>
                 ) : searchResults.length === 0 ? (
-                  <p className="text-sm text-emerald-200">No se encontraron resultados.</p>
+                  <p className="text-sm text-emerald-200">
+                    No se encontraron resultados.
+                  </p>
                 ) : (
                   searchResults.map((result) => (
                     <button
@@ -564,8 +696,14 @@ export default function Header({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">{result.label}</p>
-                          {result.subtitle && <p className="truncate text-xs text-emerald-200">{result.subtitle}</p>}
+                          <p className="truncate text-sm font-semibold text-white">
+                            {result.label}
+                          </p>
+                          {result.subtitle && (
+                            <p className="truncate text-xs text-emerald-200">
+                              {result.subtitle}
+                            </p>
+                          )}
                         </div>
                         <span
                           className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${SEARCH_TYPE_CLASS[result.type]}`}
@@ -610,7 +748,9 @@ export default function Header({
                 ) : searchQuery.trim().length === 0 ? (
                   <p className="text-sm text-slate-500">Escribe para buscar.</p>
                 ) : searchResults.length === 0 ? (
-                  <p className="text-sm text-slate-500">No se encontraron resultados.</p>
+                  <p className="text-sm text-slate-500">
+                    No se encontraron resultados.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {searchResults.map((result) => (
@@ -620,8 +760,14 @@ export default function Header({
                         onClick={() => handleSearchSelect(result.href)}
                         className="w-full rounded-xl border border-slate-200 p-3 text-left transition hover:bg-slate-50"
                       >
-                        <p className="text-sm font-semibold text-slate-800">{result.label}</p>
-                        {result.subtitle && <p className="text-xs text-slate-500">{result.subtitle}</p>}
+                        <p className="text-sm font-semibold text-slate-800">
+                          {result.label}
+                        </p>
+                        {result.subtitle && (
+                          <p className="text-xs text-slate-500">
+                            {result.subtitle}
+                          </p>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -633,26 +779,36 @@ export default function Header({
       </div>
 
       {/* --- 3. SECCIÓN DERECHA: Acciones --- */}
-      <div className={`flex items-center gap-2 sm:gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
-
+      <div
+        className={`flex items-center gap-2 sm:gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? "opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto" : "opacity-100"}`}
+      >
         <div className="hidden md:flex items-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900/40 px-3 py-2 text-emerald-100">
-          <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sucursal</span>
+          <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">
+            Sucursal
+          </span>
           {canSelectBranch ? (
             <select
               value={selectedBranchId ?? ""}
               onChange={handleBranchChange}
               className="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer"
             >
-              <option value="" className="text-slate-900">Todas</option>
+              <option value="" className="text-slate-900">
+                Todas
+              </option>
               {branches.map((branch) => (
-                <option key={branch.id} value={branch.id} className="text-slate-900">
+                <option
+                  key={branch.id}
+                  value={branch.id}
+                  className="text-slate-900"
+                >
                   {branch.name}
                 </option>
               ))}
             </select>
           ) : (
             <span className="text-xs font-semibold text-white">
-              {branches.find((b) => b.id === selectedBranchId)?.name ?? "Sin sucursal"}
+              {branches.find((b) => b.id === selectedBranchId)?.name ??
+                "Sin sucursal"}
             </span>
           )}
         </div>
@@ -667,7 +823,11 @@ export default function Header({
                 ? "border-emerald-400 bg-emerald-700/60 text-white"
                 : "border-emerald-800 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-800/60"
             }`}
-            title={selectedBranchId ? "Ver operarias de esta sucursal" : "Ver todas las operarias"}
+            title={
+              selectedBranchId
+                ? "Ver operarias de esta sucursal"
+                : "Ver todas las operarias"
+            }
           >
             <Users className="h-4 w-4" />
             <span>Operarias</span>
@@ -680,7 +840,8 @@ export default function Header({
                   <Users className="h-4 w-4 text-emerald-300" />
                   <p className="text-sm font-semibold text-white">
                     {selectedBranchId
-                      ? (branches.find((b) => b.id === selectedBranchId)?.name ?? "Sucursal")
+                      ? (branches.find((b) => b.id === selectedBranchId)
+                          ?.name ?? "Sucursal")
                       : "Todas las sucursales"}
                   </p>
                 </div>
@@ -695,9 +856,13 @@ export default function Header({
 
               <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
                 {operariasLoading ? (
-                  <p className="text-sm text-emerald-200">Cargando operarias...</p>
+                  <p className="text-sm text-emerald-200">
+                    Cargando operarias...
+                  </p>
                 ) : operarias.length === 0 ? (
-                  <p className="text-sm text-emerald-200">No hay operarias registradas.</p>
+                  <p className="text-sm text-emerald-200">
+                    No hay operarias registradas.
+                  </p>
                 ) : (
                   operarias.map((op) => (
                     <div
@@ -708,10 +873,16 @@ export default function Header({
                         {op.username.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-white">{op.username}</p>
-                        <p className="truncate text-[10px] text-emerald-300">{op.email}</p>
+                        <p className="truncate text-xs font-semibold text-white">
+                          {op.username}
+                        </p>
+                        <p className="truncate text-[10px] text-emerald-300">
+                          {op.email}
+                        </p>
                         {!selectedBranchId && op.branch_name && (
-                          <p className="truncate text-[10px] text-emerald-400">{op.branch_name}</p>
+                          <p className="truncate text-[10px] text-emerald-400">
+                            {op.branch_name}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -720,7 +891,9 @@ export default function Header({
               </div>
 
               <p className="mt-3 text-[10px] text-emerald-400">
-                {operariasLoading ? "" : `${operarias.length} operaria${operarias.length !== 1 ? "s" : ""}`}
+                {operariasLoading
+                  ? ""
+                  : `${operarias.length} operaria${operarias.length !== 1 ? "s" : ""}`}
               </p>
             </div>
           )}
@@ -735,7 +908,7 @@ export default function Header({
 
         {/* Notificaciones */}
         <div className="relative" ref={notificationPanelRef}>
-          <button 
+          <button
             type="button"
             onClick={() => setNotificationsOpen((prev) => !prev)}
             className="relative p-2.5 rounded-xl text-emerald-100 hover:bg-white/10 hover:text-white transition-all focus:outline-none active:scale-95"
@@ -752,14 +925,18 @@ export default function Header({
           {notificationsOpen && (
             <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-white">Notificaciones</p>
+                <p className="text-sm font-semibold text-white">
+                  Notificaciones
+                </p>
                 <span className="text-xs text-emerald-300">Hoy</span>
               </div>
               <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
                 {notificationsLoading ? (
                   <p className="text-sm text-emerald-200">Cargando...</p>
                 ) : notifications.length === 0 ? (
-                  <p className="text-sm text-emerald-200">Sin notificaciones.</p>
+                  <p className="text-sm text-emerald-200">
+                    Sin notificaciones.
+                  </p>
                 ) : (
                   notifications.map((item) => (
                     <button
@@ -770,10 +947,18 @@ export default function Header({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                          {item.subtitle && <p className="truncate text-xs text-emerald-200">{item.subtitle}</p>}
+                          <p className="truncate text-sm font-semibold text-white">
+                            {item.title}
+                          </p>
+                          {item.subtitle && (
+                            <p className="truncate text-xs text-emerald-200">
+                              {item.subtitle}
+                            </p>
+                          )}
                         </div>
-                        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_CLASS[item.status] ?? "border-slate-500/40 bg-slate-500/15 text-slate-100"}`}>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_CLASS[item.status] ?? "border-slate-500/40 bg-slate-500/15 text-slate-100"}`}
+                        >
                           {STATUS_ES[item.status] ?? item.status}
                         </span>
                       </div>
@@ -792,56 +977,96 @@ export default function Header({
           <button
             type="button"
             onClick={() => setProfileDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-3 pl-1 pr-2 py-1 rounded-full hover:bg-white/10 transition-all border border-transparent hover:border-emerald-700 group focus:outline-none"
+            className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-full hover:bg-white/10 transition-all border border-transparent hover:border-emerald-700 group focus:outline-none"
           >
-            {/* Avatar Blanco con texto Verde para contrastar */}
             <div className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#094732] font-bold shadow-md shadow-black/20 ring-2 ring-emerald-800 group-hover:scale-105 transition-transform">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full rounded-full object-cover"
+                />
               ) : (
-                  <span className="text-sm">{displayName.charAt(0)}</span>
+                <span className="text-sm">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
               )}
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#094732] bg-emerald-400" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#094732] bg-emerald-400" />
             </div>
-            
             <div className="hidden md:flex flex-col items-start text-left">
-               <p className="text-sm font-bold text-white transition-colors leading-none">
-                  {displayName}
-               </p>
-               <p className="text-[10px] font-medium text-emerald-300 uppercase tracking-wide mt-1 group-hover:text-emerald-200">
-                  {displayRole}
-               </p>
+              <p className="text-sm font-bold text-white leading-none">
+                {displayName}
+              </p>
+              <p className="text-[10px] font-medium text-emerald-300 uppercase tracking-wide mt-0.5">
+                {displayRole}
+              </p>
             </div>
-
-            <ChevronDown className="w-4 h-4 text-emerald-400 group-hover:text-white transition-colors hidden md:block" />
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-emerald-400 transition-transform hidden md:block ${profileDropdownOpen ? "rotate-180" : ""}`}
+            />
           </button>
 
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
-              <p className="text-sm font-semibold text-white">{displayName}</p>
-              <p className="mt-1 text-xs text-emerald-200">{displayRole}</p>
-              <div className="mt-3 flex items-center gap-2">
+            <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 overflow-hidden z-50">
+              {/* Header del card */}
+              <div className="flex items-center gap-3 px-4 py-4 bg-gradient-to-r from-[#094732] to-[#0d5c40]">
+                <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-bold text-base ring-2 ring-white/30 shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>{displayName.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white truncate">
+                    {displayName}
+                  </p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Shield className="h-3 w-3 text-emerald-300 shrink-0" />
+                    <p className="text-[11px] text-emerald-200 font-medium truncate">
+                      {displayRole}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="p-2">
                 <NavLink
                   to="/profile"
                   onClick={() => setProfileDropdownOpen(false)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-600/20"
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors group/item"
                 >
-                  <Settings className="h-3.5 w-3.5" />
-                  Configuraciones
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 group-hover/item:bg-emerald-100 flex items-center justify-center transition-colors">
+                    <Settings className="h-4 w-4 text-emerald-500 group-hover/item:text-emerald-700 transition-colors" />
+                  </div>
+                  <span>Configuraciones</span>
                 </NavLink>
+
+                {/* Línea separadora con un toque verde muy sutil */}
+                <div className="mx-3 my-1.5 border-t border-emerald-50" />
+
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20"
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors group/item"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
-                  Cerrar sesión
+                  <div className="w-8 h-8 rounded-lg bg-rose-50 group-hover/item:bg-rose-100 flex items-center justify-center transition-colors">
+                    <LogOut className="h-4 w-4 text-rose-500 transition-colors" />
+                  </div>
+                  <span>Cerrar sesión</span>
                 </button>
               </div>
             </div>
           )}
         </div>
-
       </div>
     </header>
   );

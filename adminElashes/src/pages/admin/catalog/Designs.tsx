@@ -1,8 +1,19 @@
 import { useMemo, useState } from "react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Eye,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import Layout from "@/components/common/layout";
-import DataTable from "@/components/common/table/DataTable";
-import type { DataTableAction, DataTableColumn } from "@/components/common/table/DataTable";
-import { Eye, Layers, Pencil, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import FilterActionBar from "@/components/common/FilterActionBar";
+import { Button } from "@/components/common/ui";
 
 type DesignCombo = {
   id: number;
@@ -18,47 +29,15 @@ const eyeTypes = ["Almendrado", "Redondo", "Caido", "Encapotado"];
 const lashDesigns = ["Mapping Clasico", "Wispy", "Kim K", "Open Eye"];
 
 const initialCombinations: DesignCombo[] = [
-  {
-    id: 1,
-    name: "Cat Eye Sofisticado",
-    effect: "Cat Eye",
-    eyeType: "Almendrado",
-    design: "Wispy",
-    note: "Alarga la mirada con textura ligera.",
-  },
-  {
-    id: 2,
-    name: "Doll Luminoso",
-    effect: "Doll",
-    eyeType: "Redondo",
-    design: "Open Eye",
-    note: "Acentua apertura y volumen central.",
-  },
-  {
-    id: 3,
-    name: "Fox Intenso",
-    effect: "Fox",
-    eyeType: "Caido",
-    design: "Kim K",
-    note: "Eleva la linea externa con picos suaves.",
-  },
-  {
-    id: 4,
-    name: "Natural Balance",
-    effect: "Natural",
-    eyeType: "Encapotado",
-    design: "Mapping Clasico",
-    note: "Define sin cargar la mirada.",
-  },
+  { id: 1, name: "Cat Eye Sofisticado", effect: "Cat Eye", eyeType: "Almendrado", design: "Wispy", note: "Alarga la mirada con textura ligera." },
+  { id: 2, name: "Doll Luminoso", effect: "Doll", eyeType: "Redondo", design: "Open Eye", note: "Acentua apertura y volumen central." },
+  { id: 3, name: "Fox Intenso", effect: "Fox", eyeType: "Caido", design: "Kim K", note: "Eleva la linea externa con picos suaves." },
+  { id: 4, name: "Natural Balance", effect: "Natural", eyeType: "Encapotado", design: "Mapping Clasico", note: "Define sin cargar la mirada." },
 ];
 
-const emptyForm = {
-  name: "",
-  effect: effects[0],
-  eyeType: eyeTypes[0],
-  design: lashDesigns[0],
-  note: "",
-};
+const emptyForm = { name: "", effect: effects[0], eyeType: eyeTypes[0], design: lashDesigns[0], note: "" };
+
+const PAGE_SIZE = 8;
 
 type ModalMode = "create" | "edit" | "view" | null;
 
@@ -84,89 +63,48 @@ export default function DesignsPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [activeRow, setActiveRow] = useState<DesignCombo | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [confirmDelete, setConfirmDelete] = useState<DesignCombo | null>(null);
-  const [quickSearch, setQuickSearch] = useState("");
-
-  const counts = useMemo(
-    () => ({ effects: effects.length, eyeTypes: eyeTypes.length, designs: lashDesigns.length }),
-    []
-  );
-
-  const columns: DataTableColumn<DesignCombo>[] = [
-    {
-      key: "name",
-      header: "Nombre",
-      sortable: true,
-      render: (item) => <span className="font-semibold text-slate-700">{item.name}</span>,
-    },
-    {
-      key: "effect",
-      header: "Efecto",
-      sortable: true,
-      render: (item) => item.effect,
-    },
-    {
-      key: "eyeType",
-      header: "Tipo de ojo",
-      sortable: true,
-      render: (item) => item.eyeType,
-    },
-    {
-      key: "design",
-      header: "Diseño",
-      sortable: true,
-      render: (item) => item.design,
-    },
-    {
-      key: "note",
-      header: "Nota",
-      render: (item) => <span className="text-slate-500">{item.note}</span>,
-    },
-  ];
-
-  const actions: DataTableAction<DesignCombo>[] = [
-    {
-      label: "Ver",
-      icon: <Eye className="h-4 w-4" />,
-      onClick: (item) => {
-        setActiveRow(item);
-        setForm({ name: item.name, effect: item.effect, eyeType: item.eyeType, design: item.design, note: item.note });
-        setModalMode("view");
-      },
-    },
-    {
-      label: "Editar",
-      icon: <Pencil className="h-4 w-4" />,
-      onClick: (item) => {
-        setActiveRow(item);
-        setForm({ name: item.name, effect: item.effect, eyeType: item.eyeType, design: item.design, note: item.note });
-        setModalMode("edit");
-      },
-    },
-    {
-      label: "Eliminar",
-      icon: <Trash2 className="h-4 w-4" />,
-      variant: "danger",
-      onClick: (item) => setConfirmDelete(item),
-    },
-  ];
-
-  const resetForm = () => setForm(emptyForm);
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<DesignCombo | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const filteredRows = useMemo(() => {
-    const query = quickSearch.trim().toLowerCase();
+    const query = search.trim().toLowerCase();
     if (!query) return rows;
     return rows.filter((item) =>
       [item.name, item.effect, item.eyeType, item.design, item.note]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query))
     );
-  }, [quickSearch, rows]);
+  }, [search, rows]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, page]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const resetForm = () => setForm(emptyForm);
 
   const openCreate = () => {
     resetForm();
     setActiveRow(null);
     setModalMode("create");
+  };
+
+  const openEdit = (item: DesignCombo) => {
+    setActiveRow(item);
+    setForm({ name: item.name, effect: item.effect, eyeType: item.eyeType, design: item.design, note: item.note });
+    setModalMode("edit");
+  };
+
+  const openView = (item: DesignCombo) => {
+    setActiveRow(item);
+    setModalMode("view");
   };
 
   const closeModal = () => {
@@ -202,95 +140,114 @@ export default function DesignsPage() {
   };
 
   const handleDelete = () => {
-    if (!confirmDelete) return;
-    setRows((prev) => prev.filter((item) => item.id !== confirmDelete.id));
-    setConfirmDelete(null);
+    if (!confirmDeleteItem) return;
+    setRows((prev) => prev.filter((item) => item.id !== confirmDeleteItem.id));
+    setConfirmDeleteItem(null);
   };
 
   return (
     <Layout
-      title={
-        <span className="inline-flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <span>Diseños de pestañas</span>
-        </span>
-      }
-      subtitle="Combinaciones sugeridas de efectos, tipos de ojo y diseños de pestañas"
-      variant="table"
-      topContent={
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                <Sparkles className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-400">Efectos</p>
-                <p className="text-lg font-semibold text-slate-800">{counts.effects}</p>
-              </div>
+      title="Diseños"
+      subtitle="Combinaciones sugeridas de efectos, tipos de ojo y diseños"
+      variant="cards"
+      toolbar={
+        <FilterActionBar
+          left={
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar diseño..."
+                className="w-64 rounded-lg border border-slate-200 py-2 pl-9 pr-4 text-sm outline-none transition-all focus:border-slate-300"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
             </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                <Eye className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-400">Tipos de ojo</p>
-                <p className="text-lg font-semibold text-slate-800">{counts.eyeTypes}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                <Layers className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-400">Diseños</p>
-                <p className="text-lg font-semibold text-slate-800">{counts.designs}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+          right={
+            <Button onClick={openCreate} leftIcon={<Plus className="h-4 w-4" />}>
+              Nuevo diseño
+            </Button>
+          }
+        />
       }
     >
-      <DataTable
-        data={filteredRows}
-        columns={columns}
-        actions={actions}
-        enableColumnFilters={true}
-        enableGlobalSearch={false}
-        renderTopToolbar={() => (
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">Gestiona combinaciones sugeridas</p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={quickSearch}
-                  onChange={(event) => setQuickSearch(event.target.value)}
-                  placeholder="Buscar combinacion..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-700 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                />
+      {paginated.length === 0 ? (
+        <p className="py-10 text-center text-sm text-slate-400">No se encontraron diseños.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {paginated.map((item) => (
+            <div
+              key={item.id}
+              className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-md"
+            >
+              <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-50">
+                <Sparkles className="h-8 w-8 text-slate-300" />
               </div>
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-[#063324]"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo diseño
-              </button>
+              <div className="border-t border-slate-100 px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-700">{item.name}</p>
+                    {item.note ? (
+                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{item.note}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => openView(item)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-emerald-600"
+                      title="Ver"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(item)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
+                      title="Editar"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteItem(item)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {totalPages > 1 ? (
+        <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+          <span className="text-xs text-slate-500">
+            Mostrando <b>{(page - 1) * PAGE_SIZE + 1}</b>–<b>{Math.min(page * PAGE_SIZE, filteredRows.length)}</b> de{" "}
+            <b>{filteredRows.length}</b>
+          </span>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setPage(1)} disabled={page === 1} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30">
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 text-xs font-medium text-slate-600">Pág. {page} / {totalPages}</span>
+            <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setPage(totalPages)} disabled={page === totalPages} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-30">
+              <ChevronsRight className="h-4 w-4" />
+            </button>
           </div>
-        )}
-      />
+        </div>
+      ) : null}
 
       <Modal
         isOpen={modalMode === "create" || modalMode === "edit"}
@@ -316,9 +273,7 @@ export default function DesignsPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, effect: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {effects.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
+                {effects.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
             <div>
@@ -328,9 +283,7 @@ export default function DesignsPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, eyeType: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {eyeTypes.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
+                {eyeTypes.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
             <div>
@@ -340,9 +293,7 @@ export default function DesignsPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, design: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {lashDesigns.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
+                {lashDesigns.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
           </div>
@@ -395,13 +346,13 @@ export default function DesignsPage() {
         )}
       </Modal>
 
-      <Modal isOpen={Boolean(confirmDelete)} title="Eliminar diseño" onClose={() => setConfirmDelete(null)}>
+      <Modal isOpen={Boolean(confirmDeleteItem)} title="Eliminar diseño" onClose={() => setConfirmDeleteItem(null)}>
         <div className="space-y-4 text-sm text-slate-600">
           <p>
-            Vas a eliminar el diseño <span className="font-semibold text-slate-800">{confirmDelete?.name}</span>. Esta accion no se puede deshacer.
+            Vas a eliminar el diseño <span className="font-semibold text-slate-800">{confirmDeleteItem?.name}</span>. Esta acción no se puede deshacer.
           </p>
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button type="button" onClick={() => setConfirmDeleteItem(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
             <button type="button" onClick={handleDelete} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600">

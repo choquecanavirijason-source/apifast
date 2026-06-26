@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button } from "../../../components/common/ui";
 import { AgendaService } from "../../../core/services/agenda/agenda.service";
@@ -9,6 +9,8 @@ import { todayDate } from "../control.constants";
 import { useQueueTickets } from "./useQueueTickets";
 import QueueFilters from "./QueueFilters";
 import QueueBoard from "./QueueBoard";
+import { useWebSocket } from "@/core/hooks/useWebSocket";
+import { getSelectedBranchId, BRANCH_STORAGE_KEY } from "@/core/utils/branch";
 
 export default function QueuePage() {
   const [filterService, setFilterService] = useState("");
@@ -17,7 +19,20 @@ export default function QueuePage() {
   const [filterDate, setFilterDate] = useState(todayDate());
   const [filterTime, setFilterTime] = useState("");
   const [filterProfessionalId, setFilterProfessionalId] = useState("");
-  const [activeBranchId] = useState<number | null>(null); // Puedes obtenerlo de contexto/global
+  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
+
+  useEffect(() => {
+    const handleChange = () => setActiveBranchId(getSelectedBranchId());
+    const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("branchchange", handleChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("branchchange", handleChange);
+    };
+  }, []);
+
+  useWebSocket(activeBranchId, () => { loadTickets(); });
   // Simulación: deberías cargar los profesionales reales
   const professionals = [
     { id: 1, username: "Operaria 1" },
