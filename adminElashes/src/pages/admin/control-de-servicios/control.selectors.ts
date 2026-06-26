@@ -2,24 +2,29 @@ import type { TicketItem, ProfessionalForSelect } from "../../../core/services/a
 import type { OperariaCurrentStatus, OperariaStatus } from "./control.types";
 
 /**
- * Prioridad de estados: cuanto mayor, más urgente.
- * Determina cuál status "gana" cuando una operaria tiene varios tickets activos.
+ * Prioridad de estados activos: cuanto mayor, más urgente.
+ * Solo se consideran tickets que aún requieren atención.
+ * Completed y cancelled se excluyen — la operaria queda "free".
  */
 const STATUS_PRIORITY: Record<string, number> = {
   in_service: 4,
   pending:    3,
   confirmed:  3,
-  completed:  2,
-  cancelled:  1,
+  waiting:    3,
 };
 
 function resolveCurrentStatus(tickets: TicketItem[]): OperariaCurrentStatus {
-  if (tickets.length === 0) return "free";
+  // Solo tickets activos (no finalizados ni cancelados)
+  const active = tickets.filter(
+    (t) => t.status !== "completed" && t.status !== "cancelled"
+  );
+
+  if (active.length === 0) return "free";
 
   let topPriority = 0;
   let topStatus: OperariaCurrentStatus = "free";
 
-  for (const ticket of tickets) {
+  for (const ticket of active) {
     const priority = STATUS_PRIORITY[ticket.status] ?? 0;
     if (priority > topPriority) {
       topPriority = priority;

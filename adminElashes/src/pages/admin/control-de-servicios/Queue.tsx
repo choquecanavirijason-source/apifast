@@ -46,6 +46,7 @@ import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
+  const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
@@ -259,8 +260,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   );
 
   const completedTickets = useMemo(
-    () => filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed"),
-    [filteredTickets]
+    () => filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed" && !trackedTicketIds.has(ticket.id)),
+    [filteredTickets, trackedTicketIds]
   );
 
   const operariaStatuses = useOperariaStatuses(tickets, professionals);
@@ -367,19 +368,16 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
 
     const isMinor = typeof finishTarget.client_age === "number" && finishTarget.client_age < 18;
-    const hasNotes = Boolean(finishNotes.trim());
     const hasQuestionnaire = Boolean(finishQuestionnaireId);
 
     if (isMinor && !hasQuestionnaire) {
       toast.warning("La clienta es menor de edad. El cuestionario es obligatorio para finalizar.");
       return;
     }
-    if (!hasNotes && !hasQuestionnaire) {
-      toast.warning("Agrega observaciones del servicio o completa un cuestionario antes de finalizar.");
-      return;
-    }
 
     setIsSubmittingTracking(true);
+
+    const targetId = finishTarget.id;
 
     try {
       await TrackingService.create({
@@ -398,33 +396,30 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       });
 
       await AgendaService.updateAppointment(finishTarget.id, { status: "completed" });
+      // Marcar como rastreado ANTES de recargar para que no reaparezca en el tablero
+      setTrackedTicketIds((prev) => new Set([...prev, targetId]));
       toast.success("Atencion finalizada y tracking registrado.");
       setIsFinishModalOpen(false);
       setFinishTarget(null);
-
-      if (activeBranchId) {
-        try {
-          await AgendaService.callNextAppointment({ branch_id: activeBranchId });
-        } catch {
-          // Si no hay tickets disponibles, solo refrescar el tablero.
-        }
-      }
-
-      // Recargar profesionales inmediatamente para reflejar que quedó libre
-      AgendaService.listProfessionalsForSelect({
-        limit: 200,
-        ...(activeBranchId ? { branch_id: activeBranchId } : {}),
-      })
-        .then(setProfessionals)
-        .catch(() => {});
-
-      void loadTickets();
     } catch (error) {
       console.error("Error finalizando atencion:", error);
       toast.error(getApiErrorMessage(error, "No se pudo finalizar la atencion."));
     } finally {
       setIsSubmittingTracking(false);
     }
+
+    // Estas llamadas van fuera del try principal para que el 409 de call-next
+    // no cancele el flujo ni muestre error al usuario.
+    if (activeBranchId) {
+      AgendaService.callNextAppointment({ branch_id: activeBranchId }).catch(() => {});
+    }
+    AgendaService.listProfessionalsForSelect({
+      limit: 200,
+      ...(activeBranchId ? { branch_id: activeBranchId } : {}),
+    })
+      .then(setProfessionals)
+      .catch(() => {});
+    void loadTickets();
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -916,7 +911,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
+                      onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
                       className="flex-1 rounded-md border border-[#094732] bg-[#094732] py-1.5 text-xs font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Finalizar
@@ -1142,7 +1137,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 <span className="text-[11px] text-[#605e5c]">
                   {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18
                     ? "Cuestionario obligatorio · notas opcionales"
-                    : "Obligatorio: cuestionario o notas"}
+                    : "Opcional"}
                 </span>
               </div>
               <textarea

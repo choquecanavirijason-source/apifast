@@ -644,14 +644,13 @@ export default function PosSaleStepTwo({
                                 const lineBusy = busyProfessionalIdsByLine[line.localId];
                                 const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
                                 const freeAt = professionalBusyUntilMap.get(String(professional.id));
-                                const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
                                 const branchTag = professional.branch_name ? ` — ${professional.branch_name}` : "";
                                 const statusTag = freeAt
                                   ? ` ⊘ En servicio hasta ${freeAt}`
                                   : " ✓ Libre";
                                 return (
                                   <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
-                                    {professional.username}{skillTag}{branchTag}{statusTag}
+                                    {professional.username}{branchTag}{statusTag}
                                   </option>
                                 );
                               })}
@@ -1016,13 +1015,12 @@ export default function PosSaleStepTwo({
                                           const lineBusy = busyProfessionalIdsByLine[line.localId];
                                           const isBusy = lineBusy?.has(String(professional.id)) && String(professional.id) !== line.professional_id;
                                           const freeAt = professionalBusyUntilMap.get(String(professional.id));
-                                          const skillTag = professional.skill_level ? " " + "★".repeat(professional.skill_level) : "";
                                           const statusTag = freeAt
                                             ? ` ⊘ hasta ${freeAt}`
                                             : " ✓ Libre";
                                           return (
                                             <option key={professional.id} value={String(professional.id)} disabled={isBusy}>
-                                              {professional.username}{skillTag}{statusTag}
+                                              {professional.username}{statusTag}
                                             </option>
                                           );
                                         })}
