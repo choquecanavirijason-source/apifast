@@ -704,7 +704,7 @@ export function usePosPage({
   // ── Cart operations ───────────────────────────────────────────────────────
 
   const addServiceToCart = (service: ServiceOption) =>
-    setCartLines((prev) => [...prev, { ...createDefaultLine(service), date: saleBaseDate, professional_id: sellerId.trim() || "" }]);
+    setCartLines((prev) => [...prev, { ...createDefaultLine(service), date: saleBaseDate, professional_id: "" }]);
 
   const removeLastCartLineForService = (serviceId: string) => {
     setCartLines((prev) => {

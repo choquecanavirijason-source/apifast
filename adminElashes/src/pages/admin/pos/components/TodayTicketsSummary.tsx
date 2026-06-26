@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { FileDown, PlusCircle } from "lucide-react";
+import { CalendarClock, Clock, FileDown, PlusCircle, Receipt } from "lucide-react";
+import StatCard from "../../../../components/common/ui/StatCard";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
@@ -208,16 +209,9 @@ export default function TodayTicketsSummary({
     <div className="flex h-full flex-col gap-3 overflow-hidden px-4 py-4">
       {/* KPIs */}
       <div className="grid shrink-0 grid-cols-3 gap-2">
-        {[
-          { label: "Ventas hoy",  value: todaySales.length },
-          { label: "Tickets hoy", value: rows.length },
-          { label: "En cola",     value: inQueueCount },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-sm border border-[#edebe9] bg-white p-2.5 text-center">
-            <p className="text-base font-bold text-[#323130]">{stat.value}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">{stat.label}</p>
-          </div>
-        ))}
+        <StatCard label="Ventas hoy" value={todaySales.length} icon={<Receipt className="h-4 w-4" />} tone="emerald" compact />
+        <StatCard label="Tickets hoy" value={rows.length} icon={<CalendarClock className="h-4 w-4" />} tone="blue" compact />
+        <StatCard label="En cola" value={inQueueCount} icon={<Clock className="h-4 w-4" />} tone="amber" compact />
       </div>
 
       {todayTotal > 0 && (

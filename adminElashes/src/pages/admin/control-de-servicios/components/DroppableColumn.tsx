@@ -6,7 +6,7 @@ import type { TicketItem } from "../../../../core/services/agenda/agenda.service
 
 const ACCENT_HEX: Record<string, string> = {
   orange: "#D83B01",
-  blue:   "#0078D4",
+  blue:   "#094732",
   green:  "#107C10",
 };
 
@@ -52,7 +52,7 @@ export default function DroppableColumn({
       <div
         ref={setNodeRef}
         className={`min-h-0 flex-1 space-y-1.5 overflow-y-auto p-1.5 transition-colors duration-150 ${
-          isOver ? "bg-[#deecf9] ring-2 ring-inset ring-[#0078d4]/50" : "bg-[#faf9f8]"
+          isOver ? "bg-[#d1e8df] ring-2 ring-inset ring-[#094732]/50" : "bg-[#faf9f8]"
         }`}
       >
         {!hasTickets ? (
@@ -66,14 +66,14 @@ export default function DroppableColumn({
               key={ticket.id}
               className={
                 highlightTicket?.(ticket)
-                  ? "relative border border-[#9dc4e6] bg-[#f0f6fb] p-[2px]"
+                  ? "relative border border-[#94c4a9] bg-[#f0f7f4] p-[2px]"
                   : ""
               }
             >
               {highlightTicket?.(ticket) ? (
                 <span
                   className="absolute right-2 top-2 z-10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: "#0078D4" }}
+                  style={{ backgroundColor: "#094732" }}
                 >
                   Nuevo
                 </span>

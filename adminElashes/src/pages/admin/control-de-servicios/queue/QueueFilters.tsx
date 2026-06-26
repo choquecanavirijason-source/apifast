@@ -57,7 +57,7 @@ export default function QueueFilters({
                 }}
                 onFocus={() => setIsServiceFilterMenuOpen(true)}
                 placeholder="Buscar producto o servicio..."
-                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-10 pr-10 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-10 pr-10 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
               />
               <button
                 type="button"
@@ -102,7 +102,7 @@ export default function QueueFilters({
               value={filterClient}
               onChange={(event) => setFilterClient(event.target.value)}
               placeholder="Buscar por nombre de clienta..."
-              className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-9 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+              className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-9 text-sm text-[#323130] placeholder:text-[#8a8886] outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
             />
           </div>
         </div>
@@ -112,7 +112,7 @@ export default function QueueFilters({
             type="date"
             value={filterDate}
             onChange={(event) => setFilterDate(event.target.value)}
-            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
           />
         </div>
         <div>
@@ -121,7 +121,7 @@ export default function QueueFilters({
             type="time"
             value={filterTime}
             onChange={(event) => setFilterTime(event.target.value)}
-            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
           />
         </div>
         <div>
@@ -129,7 +129,7 @@ export default function QueueFilters({
           <select
             value={filterProfessionalId}
             onChange={(event) => setFilterProfessionalId(event.target.value)}
-            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+            className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] mt-1 outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
           >
             <option value="">Todas</option>
             {professionals.map((professional) => (

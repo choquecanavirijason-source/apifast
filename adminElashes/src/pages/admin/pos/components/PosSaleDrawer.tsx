@@ -492,97 +492,6 @@ export default function PosSaleDrawer({
         </div>
       </div>
 
-      {/* ── Horario por ticket ───────────────────────────────────────────────── */}
-      {cartCount > 0 && onUpdateTicketTime && (
-        <div className="border-b border-[#edebe9]">
-          <button
-            type="button"
-            onClick={() => setTicketsOpen((v) => !v)}
-            className="flex w-full items-center gap-2 bg-[#faf9f8] px-4 py-2.5 text-left transition hover:bg-[#f3f2f1]"
-          >
-            <CalendarClock className="h-4 w-4 shrink-0 text-[#0078d4]" />
-            <span className="flex-1 text-xs font-semibold text-[#323130]">
-              Horario de tickets
-            </span>
-            <span className="text-[10px] text-[#605e5c]">
-              {cartLines.some((l) => l.time_manual) ? "Con hora fija" : "Hora automática (ahora)"}
-            </span>
-            {ticketsOpen
-              ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-[#605e5c]" />
-              : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#605e5c]" />}
-          </button>
-
-          {ticketsOpen && (
-            <div className="divide-y divide-[#f3f2f1]">
-              {cartLines.map((line, idx) => {
-                const svcName = services.find((s) => String(s.id) === line.service_id)?.name ?? `Servicio ${idx + 1}`;
-                const today = new Date().toISOString().slice(0, 10);
-                return (
-                  <div key={line.localId} className="px-4 py-3">
-                    <p className="mb-2 text-[11px] font-semibold text-[#323130]">
-                      <span className="mr-1.5 text-[#0078d4]">#{idx + 1}</span>{svcName}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
-                        <input
-                          type="date"
-                          value={line.date || today}
-                          onChange={(e) => onUpdateTicketTime(line.localId, e.target.value, line.time || "09:00")}
-                          className="w-full rounded-sm border border-[#edebe9] bg-white px-2 py-1.5 text-[11px] text-[#323130] outline-none focus:border-[#0078d4]"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Hora</label>
-                        <input
-                          type="time"
-                          value={line.without_time ? "" : (line.time || "")}
-                          disabled={line.without_time}
-                          onChange={(e) => onUpdateTicketTime(line.localId, line.date || today, e.target.value)}
-                          className="w-full rounded-sm border border-[#edebe9] bg-white px-2 py-1.5 text-[11px] text-[#323130] outline-none focus:border-[#0078d4] disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-4">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-[#605e5c]">
-                        <input
-                          type="checkbox"
-                          checked={line.without_time}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            onUpdateCartLine?.(line.localId, {
-                              without_time: checked,
-                              time_manual: false,
-                            });
-                          }}
-                          className="h-3.5 w-3.5 rounded accent-[#0078d4]"
-                        />
-                        Sin hora fija
-                      </label>
-                      {line.time_manual && !line.without_time && (
-                        <span className="rounded-full bg-[#eef6ff] px-2 py-0.5 text-[10px] font-semibold text-[#0078d4]">
-                          Hora fija
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => onUpdateTicketTime(line.localId, today, new Date().toTimeString().slice(0, 5))}
-                        className="ml-auto text-[10px] font-semibold text-[#605e5c] hover:text-[#0078d4]"
-                      >
-                        Ahora
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="bg-[#fff4ce] px-4 py-2 text-[10px] font-medium text-[#8a6a1f]">
-                Tickets sin hora fija se crean con la hora actual al cobrar.
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── Datos de la venta ────────────────────────────────────────────────── */}
       <div className="pb-4">
         <div className="border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
@@ -1158,7 +1067,79 @@ export default function PosSaleDrawer({
   );
 
   const panelFooter = (
-    <div className="shrink-0 border-t border-[#edebe9] bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+    <div className="shrink-0 border-t border-[#edebe9] bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+
+      {/* ── Horario de tickets (oculto, colapsable desde el footer) ── */}
+      {cartCount > 0 && onUpdateTicketTime && (
+        <div className="border-b border-[#edebe9]">
+          <button
+            type="button"
+            onClick={() => setTicketsOpen((v) => !v)}
+            className="flex w-full items-center gap-1.5 px-4 py-1.5 text-left hover:bg-[#f3f2f1] transition-colors"
+          >
+            <CalendarClock className="h-3 w-3 shrink-0 text-[#a19f9d]" />
+            <span className="flex-1 text-[10px] text-[#a19f9d]">
+              {cartLines.some((l) => l.time_manual) ? "Horario · con hora fija" : "Horario · automático"}
+            </span>
+            {ticketsOpen
+              ? <ChevronUp className="h-2.5 w-2.5 text-[#a19f9d]" />
+              : <ChevronDown className="h-2.5 w-2.5 text-[#a19f9d]" />}
+          </button>
+
+          {ticketsOpen && (
+            <div className="divide-y divide-[#f3f2f1] border-t border-[#edebe9] bg-[#fafafa]">
+              {cartLines.map((line, idx) => {
+                const svcName = services.find((s) => String(s.id) === line.service_id)?.name ?? `Servicio ${idx + 1}`;
+                const today = new Date().toISOString().slice(0, 10);
+                return (
+                  <div key={line.localId} className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-[10px] font-semibold text-[#0078d4]">#{idx + 1}</span>
+                      <span className="flex-1 truncate text-[10px] text-[#605e5c]">{svcName}</span>
+                      <label className="flex cursor-pointer items-center gap-1 text-[10px] text-[#a19f9d]">
+                        <input
+                          type="checkbox"
+                          checked={line.without_time}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            onUpdateCartLine?.(line.localId, { without_time: checked, time_manual: false });
+                          }}
+                          className="h-3 w-3 accent-[#0078d4]"
+                        />
+                        Sin hora
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateTicketTime(line.localId, today, new Date().toTimeString().slice(0, 5))}
+                        className="text-[10px] text-[#a19f9d] hover:text-[#0078d4]"
+                      >
+                        Ahora
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex gap-2">
+                      <input
+                        type="date"
+                        value={line.date || today}
+                        onChange={(e) => onUpdateTicketTime(line.localId, e.target.value, line.time || "09:00")}
+                        className="flex-1 rounded-sm border border-[#edebe9] bg-white px-2 py-1 text-[10px] text-[#323130] outline-none focus:border-[#0078d4]"
+                      />
+                      <input
+                        type="time"
+                        value={line.without_time ? "" : (line.time || "")}
+                        disabled={line.without_time}
+                        onChange={(e) => onUpdateTicketTime(line.localId, line.date || today, e.target.value)}
+                        className="w-24 rounded-sm border border-[#edebe9] bg-white px-2 py-1 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="px-4 py-3">
       {/* Total */}
       <div className="mb-2 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
         <span className="text-xs font-semibold text-[#605e5c]">Total a cobrar</span>
@@ -1323,6 +1304,7 @@ export default function PosSaleDrawer({
           <p className="mt-2 text-center text-[11px] text-[#605e5c]">{footerHint}</p>
         </>
       )}
+      </div>
     </div>
   );
 

@@ -41,6 +41,8 @@ import DraggableTicketCard from "./components/DraggableTicketCard";
 import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
 import QueueTvDisplay from "./components/QueueTvDisplay";
+import OperariaStatusPanel from "./components/OperariaStatusPanel";
+import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -261,22 +263,30 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     [filteredTickets]
   );
 
+  const operariaStatuses = useOperariaStatuses(tickets, professionals);
+
   const handleNoShow = async (ticket: TicketItem) => {
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, { status: "cancelled" });
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
       toast.success(`Turno ${ticket.ticket_code ?? `#${ticket.id}`} cancelado — no se presentó.`);
       void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       toast.error(getApiErrorMessage(error, "No se pudo cancelar el turno."));
     }
   };
 
   const handleCancelTicket = async (ticket: TicketItem) => {
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, { status: "cancelled" });
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "cancelled" });
       toast.success(`Ticket ${ticket.ticket_code ?? `#${ticket.id}`} cancelado.`);
       void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       toast.error(getApiErrorMessage(error, "No se pudo cancelar el ticket."));
     }
   };
@@ -298,11 +308,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       return;
     }
 
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, { status: "in_service" });
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "in_service" });
       toast.success("Atención iniciada.");
       void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       console.error("Error iniciando atención:", error);
       toast.error(getApiErrorMessage(error, "No se pudo iniciar la atención."));
     }
@@ -503,11 +516,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const handleMarkCompleted = async (ticket: TicketItem) => {
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, { status: "completed" });
     try {
       await AgendaService.updateAppointment(ticket.id, { status: "completed" });
       toast.success("Ticket finalizado.");
       void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       console.error("Error finalizando ticket:", error);
       toast.error(getApiErrorMessage(error, "No se pudo finalizar el ticket."));
     }
@@ -538,6 +554,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       : 60 * 60 * 1000;
     const nextEnd = new Date(nextStart.getTime() + durationMs);
 
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, {
+      professional_id: payload.professionalId ? Number(payload.professionalId) : null,
+      is_ia: payload.isIa,
+    });
     setEditingTicketId(ticket.id);
     try {
       await AgendaService.updateAppointment(ticket.id, {
@@ -550,6 +571,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       toast.success("Ticket actualizado.");
       void loadTickets();
     } catch (error) {
+      setTickets(snapshot);
       console.error("Error actualizando ticket:", error);
       toast.error("No se pudo actualizar fecha, hora u operaria del ticket.");
     } finally {
@@ -711,7 +733,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
       {/* En atención */}
       <div className="flex min-w-[140px] flex-1 items-center gap-2 px-2 py-1">
-        <span className="h-5 w-0.5 shrink-0 bg-[#0078d4]" />
+        <span className="h-5 w-0.5 shrink-0 bg-[#094732]" />
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">En atención</p>
           {activeTicket ? (
@@ -754,7 +776,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       <div className="flex items-center gap-3 px-2 py-1">
         {[
           { label: "Espera", count: waitingTickets.length, color: "#D83B01" },
-          { label: "Servicio", count: inServiceTickets.length, color: "#0078D4" },
+          { label: "Servicio", count: inServiceTickets.length, color: "#094732" },
           { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
         ].map((s) => (
           <div key={s.label} className="flex flex-col items-center">
@@ -773,7 +795,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-xs font-semibold transition-all ${
             waitingTickets.length === 0 || isLoading
               ? "cursor-not-allowed bg-[#edebe9] text-[#a19f9d]"
-              : "bg-[#0078d4] text-white hover:bg-[#005a9e]"
+              : "bg-[#094732] text-white hover:bg-[#063324]"
           }`}
         >
           Llamar siguiente
@@ -792,7 +814,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             onClick={() => void loadTickets()}
             disabled={isLoading}
             title="Actualizar ahora"
-            className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
@@ -805,7 +827,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           type="button"
           onClick={() => setTvMode(true)}
           title="Pantalla TV"
-          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
         >
           <Tv2 className="h-3.5 w-3.5" />
         </button>
@@ -845,7 +867,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
-                      className="w-full rounded-md border border-[#0078d4] bg-[#0078d4] py-1.5 text-xs font-semibold text-white hover:bg-[#005a9e] transition-colors"
+                      className="w-full rounded-md border border-[#094732] bg-[#094732] py-1.5 text-xs font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Iniciar atención
                     </button>
@@ -895,7 +917,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleMarkCompleted(ticket); }}
-                      className="flex-1 rounded-md border border-[#0078d4] bg-[#0078d4] py-1.5 text-xs font-semibold text-white hover:bg-[#005a9e] transition-colors"
+                      className="flex-1 rounded-md border border-[#094732] bg-[#094732] py-1.5 text-xs font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Finalizar
                     </button>
@@ -1178,12 +1200,18 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     </>
   );
 
+  const topBar = (
+    <>
+      {boardRibbon}
+      <OperariaStatusPanel operarias={operariaStatuses} />
+    </>
+  );
+
   if (embedded) {
     return (
       <>
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f2f1]">
-          {/* Ribbon compacto sin título */}
-          <div className="shrink-0">{boardRibbon}</div>
+          <div className="shrink-0">{topBar}</div>
           {/* Tablero — ocupa todo el espacio restante */}
           <div className={`min-h-0 flex-1 overflow-hidden p-1.5 ${isDraggingBoard ? "select-none" : ""}`}>
             {boardGrid}
@@ -1209,7 +1237,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         variant="cards"
         pageClassName={BC_PAGE}
         containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
-        topContent={boardRibbon}
+        topContent={topBar}
       >
         {boardGrid}
         {dialogs}

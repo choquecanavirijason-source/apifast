@@ -12,7 +12,7 @@ const STATUS_STRIP: Record<string, string> = {
 
   confirmed: "#D83B01",
 
-  in_service: "#0078D4",
+  in_service: "#094732",
 
   completed: "#107C10",
 
@@ -56,7 +56,7 @@ export default function TicketDragOverlay({ ticket }: { ticket: TicketItem }) {
 
         </span>
 
-        <span className="border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#005a9e]">
+        <span className="border border-[#94c4a9] bg-[#f0f7f4] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#094732]">
 
           {STATUS_LABELS[ticket.status] ?? ticket.status}
 

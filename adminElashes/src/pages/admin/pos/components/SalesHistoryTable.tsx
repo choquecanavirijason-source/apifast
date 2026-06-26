@@ -301,7 +301,7 @@ export default function SalesHistoryTable({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col">
      
       <DataTable
         data={pagedSales}

@@ -1,4 +1,4 @@
-/** Tokens y clases Tailwind — Dynamics 365 Business Central (Fluent). */
+/** Tokens y clases Tailwind — paleta de marca (primary #094732, secondary #9F8351). */
 
 export const BC = {
   pageBg: "#f3f2f1",
@@ -12,9 +12,9 @@ export const BC = {
   textSecondary: "#605e5c",
   textMuted: "#8a8886",
   textDisabled: "#a19f9d",
-  primary: "#0078d4",
-  primaryHover: "#106ebe",
-  primaryLight: "#deecf9",
+  primary: "#094732",
+  primaryHover: "#063324",
+  primaryLight: "#d1e8df",
   warning: "#ca5010",
   success: "#107c10",
   danger: "#a4262c",
@@ -23,10 +23,10 @@ export const BC = {
 export const BC_LABEL = "mb-1 block text-xs font-semibold text-[#605e5c]";
 
 export const BC_FIELD =
-  "w-full h-9 rounded-sm border border-[#8a8886] bg-white px-2.5 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
+  "w-full h-9 rounded-sm border border-[#8a8886] bg-white px-2.5 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
 
 export const BC_TEXTAREA =
-  "w-full min-h-[88px] resize-y rounded-sm border border-[#8a8886] bg-white px-2.5 py-2 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35";
+  "w-full min-h-[88px] resize-y rounded-sm border border-[#8a8886] bg-white px-2.5 py-2 text-sm text-[#323130] outline-none transition placeholder:text-[#605e5c] focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35";
 
 export const BC_PAGE = "min-h-screen bg-[#f3f2f1] font-sans";
 
@@ -38,13 +38,13 @@ export const BC_TITLE = "text-lg font-semibold text-[#201f1e]";
 export const BC_SUBTITLE = "text-sm text-[#605e5c]";
 
 export const BC_BTN_PRIMARY =
-  "!rounded-sm !border !border-[#0078d4] !bg-[#0078d4] !px-3 !py-1.5 !text-xs !font-semibold !text-white hover:!bg-[#106ebe] hover:!border-[#106ebe]";
+  "!rounded-sm !border !border-[#094732] !bg-[#094732] !px-3 !py-1.5 !text-xs !font-semibold !text-white hover:!bg-[#063324] hover:!border-[#063324]";
 
 export const BC_BTN_SECONDARY =
   "!rounded-sm !border !border-[#8a8886] !bg-white !px-3 !py-1.5 !text-xs !font-semibold !text-[#323130] hover:!bg-[#f3f2f1]";
 
 export const BC_INFO_BOX =
-  "border border-[#9dc4e6] bg-[#eff6fc] px-3 py-2 text-sm text-[#323130]";
+  "border border-[#9F8351]/40 bg-[#fdf8f0] px-3 py-2 text-sm text-[#323130]";
 
 export const BC_WARN_BOX =
   "border border-[#f4b8a0] bg-[#fff4f0] px-3 py-2 text-xs text-[#bc4b09]";

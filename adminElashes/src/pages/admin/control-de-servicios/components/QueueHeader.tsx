@@ -41,7 +41,7 @@ export default function QueueHeader({
         <select
           value={callProfessionalId}
           onChange={(event) => onCallProfessionalIdChange(event.target.value)}
-          className="h-10 rounded-sm border border-[#8a8886] bg-white px-3 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+          className="h-10 rounded-sm border border-[#8a8886] bg-white px-3 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
         >
           <option value="">Auto asignar</option>
           {professionals.map((professional) => (

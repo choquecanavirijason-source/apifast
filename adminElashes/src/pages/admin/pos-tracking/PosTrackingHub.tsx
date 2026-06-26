@@ -94,7 +94,6 @@ export default function PosTrackingHub() {
         <div className="mx-auto flex w-full flex-row items-center justify-between gap-2 px-3 sm:px-4">
           <div className="min-w-0">
             <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">Operación: Caja &amp; Seguimiento</h1>
-            <p className="text-[11px] text-slate-500">Ventas en punto de seguimiento y registro técnico en un solo lugar</p>
           </div>
           <div className="flex w-auto items-center gap-1.5">
             <button
