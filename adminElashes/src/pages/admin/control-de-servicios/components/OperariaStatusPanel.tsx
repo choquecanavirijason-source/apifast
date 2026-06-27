@@ -41,38 +41,45 @@ const STATUS_STYLES: Record<OperariaCurrentStatus, StatusStyle> = {
 
 interface Props {
   operarias: OperariaStatus[];
+  collapsed: boolean;
 }
 
-export default function OperariaStatusPanel({ operarias }: Props) {
+export default function OperariaStatusPanel({ operarias, collapsed }: Props) {
   if (operarias.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1.5">
-      <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-[#a19f9d]">
-        Operarias
-      </span>
-      {operarias.map((op) => {
-        const styles = STATUS_STYLES[op.currentStatus] ?? STATUS_STYLES.free;
-        return (
-          <div
-            key={op.professionalId}
-            title={
-              op.activeTicket
-                ? `Atendiendo: ${op.activeTicket.client_name} — ${op.activeTicket.ticket_code ?? `#${op.activeTicket.id}`}`
-                : op.professionalName
-            }
-            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles.badge}`}
-          >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`} />
-            <span className="font-semibold">{op.professionalName}</span>
-            <span className="opacity-60">·</span>
-            <span>{styles.label}</span>
-            {op.ticketsToday.length > 0 && (
-              <span className="ml-0.5 opacity-50">({op.ticketsToday.length})</span>
-            )}
-          </div>
-        );
-      })}
+    <div
+      style={{
+        maxHeight: collapsed ? 0 : "120px",
+        opacity: collapsed ? 0 : 1,
+        overflow: "hidden",
+        transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease",
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1.5">
+        {operarias.map((op) => {
+          const styles = STATUS_STYLES[op.currentStatus] ?? STATUS_STYLES.free;
+          return (
+            <div
+              key={op.professionalId}
+              title={
+                op.activeTicket
+                  ? `Atendiendo: ${op.activeTicket.client_name} — ${op.activeTicket.ticket_code ?? `#${op.activeTicket.id}`}`
+                  : op.professionalName
+              }
+              className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles.badge}`}
+            >
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`} />
+              <span className="font-semibold">{op.professionalName}</span>
+              <span className="opacity-60">·</span>
+              <span>{styles.label}</span>
+              {op.ticketsToday.length > 0 && (
+                <span className="ml-0.5 opacity-50">({op.ticketsToday.length})</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

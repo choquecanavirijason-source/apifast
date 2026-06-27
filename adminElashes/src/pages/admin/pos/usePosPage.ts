@@ -756,7 +756,7 @@ export function usePosPage({
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
-  const handleImmediateCheckout = async (payLater: boolean) => {
+  const handleImmediateCheckout = async (payLater: boolean, startService?: boolean) => {
     if (!activeBranchId)  return toast.warning("Selecciona una sucursal.");
     if (!clientId)        return toast.warning("Selecciona una clienta.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
@@ -786,6 +786,13 @@ export function usePosPage({
         ...(payLater ? { reservation_only: true } : {}),
         ...(!payLater && mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
       });
+      if (startService) {
+        await Promise.all(
+          sale.appointments.map((a) =>
+            AgendaService.updateAppointment(a.id, { status: "in_service" })
+          )
+        );
+      }
       toast.success(`Venta completada. Tickets: ${sale.appointments.map((a) => a.ticket_code).filter(Boolean).join(", ")}`);
       setReceiptSale(sale); resetSaleForm(); setActiveTab("lastticket");
       await loadContext();

@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-
 import { useDroppable } from "@dnd-kit/core";
-
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
 
 const ACCENT_HEX: Record<string, string> = {
@@ -48,17 +46,17 @@ export default function DroppableColumn({
         </span>
       </div>
 
-      {/* Drop zone — llena el espacio disponible */}
+      {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className={`min-h-0 flex-1 space-y-1.5 overflow-y-auto p-1.5 transition-colors duration-150 ${
+        className={`min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5 transition-colors duration-150 ${
           isOver ? "bg-[#d1e8df] ring-2 ring-inset ring-[#094732]/50" : "bg-[#faf9f8]"
         }`}
       >
         {!hasTickets ? (
-          <div className="flex min-h-[160px] flex-col items-center justify-center border border-dashed border-[#c8c6c4] bg-white px-4 text-center">
+          <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 border border-dashed border-[#c8c6c4] bg-white px-4 text-center">
             <p className="text-xs font-medium text-[#605e5c]">{isEmptyLabel}</p>
-            <p className="mt-0.5 text-[11px] text-[#8a8886]">Suelta aquí el ticket (arrastra desde la tarjeta).</p>
+            <p className="text-[10px] text-[#a19f9d]">Arrastra un ticket aquí o usa las acciones de la tarjeta.</p>
           </div>
         ) : (
           tickets.map((ticket) => (

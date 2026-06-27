@@ -84,7 +84,7 @@ Si cambias la IP de la VM, actualiza `ALLOWED_ORIGINS` y vuelve a `sudo systemct
 ### Frontend (`adminElashes/.env.production`)
 
 Antes del `npm run build`:
-
+git st
 ```bash
 cd /opt/elashes/apifast/adminElashes
 cp .env.gcp.example .env.production

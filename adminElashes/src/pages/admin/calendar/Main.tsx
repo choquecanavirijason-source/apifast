@@ -6,6 +6,7 @@ import Layout from "../../../components/common/layout";
 import { Button, SectionCard } from "../../../components/common/ui";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { useWebSocket } from "../../../core/hooks/useWebSocket";
 import PosPage from "../pos/Main";
 import { getLocalDateInputValue } from "./calendar.utils";
 import PendingTicketsPanel from "./components/PendingTicketsPanel";
@@ -87,6 +88,8 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   useEffect(() => {
     void loadTickets();
   }, [loadTickets]);
+
+  useWebSocket(activeBranchId, () => { void loadTickets(); });
 
   useEffect(() => {
     const loadProfessionals = async () => {

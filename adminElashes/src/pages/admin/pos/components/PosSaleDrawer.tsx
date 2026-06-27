@@ -62,7 +62,7 @@ type PosSaleDrawerProps = {
   /** Aplica el sellerId actual a todos los tickets sin operaria asignada. */
   onApplySellerToAllLines?: () => void;
   /** Turno inmediato: crea tickets con hora actual sin abrir el planificador. */
-  onImmediateCheckout?: (payLater: boolean) => void;
+  onImmediateCheckout?: (payLater: boolean, startService?: boolean) => void;
   /** URL de la imagen QR estático de pago de la sucursal. */
   branchQrImageUrl?: string | null;
 };
@@ -1069,7 +1069,7 @@ export default function PosSaleDrawer({
   const panelFooter = (
     <div className="shrink-0 border-t border-[#edebe9] bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
 
-      {/* ── Horario de tickets (oculto, colapsable desde el footer) ── */}
+      {/* ── Horario de tickets (colapsable) ── */}
       {cartCount > 0 && onUpdateTicketTime && (
         <div className="border-b border-[#edebe9]">
           <button
@@ -1087,7 +1087,7 @@ export default function PosSaleDrawer({
           </button>
 
           {ticketsOpen && (
-            <div className="divide-y divide-[#f3f2f1] border-t border-[#edebe9] bg-[#fafafa]">
+            <div className="divide-y divide-[#f3f1ec] border-t border-[#edebe9] bg-[#fafafa]">
               {cartLines.map((line, idx) => {
                 const svcName = services.find((s) => String(s.id) === line.service_id)?.name ?? `Servicio ${idx + 1}`;
                 const today = new Date().toISOString().slice(0, 10);
@@ -1178,24 +1178,38 @@ export default function PosSaleDrawer({
                       : "Selecciona método de pago"}
             </p>
           )}
-          <button
-            type="button"
-            disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
-            onClick={() => {
-              if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
-                openQrOverlay(() => onImmediateCheckout(false));
-              } else {
-                onImmediateCheckout(false);
-              }
-            }}
-            className={`flex h-11 w-full items-center justify-center rounded-sm text-sm font-semibold transition-all ${
-              cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
-                ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
-                : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
-            }`}
-          >
-            {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
+              onClick={() => {
+                if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
+                  openQrOverlay(() => onImmediateCheckout(false));
+                } else {
+                  onImmediateCheckout(false);
+                }
+              }}
+              className={`flex h-11 flex-1 items-center justify-center rounded-sm text-sm font-semibold transition-all ${
+                cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
+                  ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
+                  : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
+              }`}
+            >
+              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
+            </button>
+            <button
+              type="button"
+              disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
+              onClick={() => onImmediateCheckout(false, true)}
+              className={`flex h-11 flex-1 items-center justify-center rounded-sm text-sm font-semibold transition-all ${
+                cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
+                  ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
+                  : "bg-[#0078d4] text-white hover:bg-[#005a9e]"
+              }`}
+            >
+              {isSubmitting ? "Procesando…" : "Pasar a servicio"}
+            </button>
+          </div>
         </>
       ) : (
         /* ── Modo RESERVA / COBRO EXISTENTE: botón único original ─────── */

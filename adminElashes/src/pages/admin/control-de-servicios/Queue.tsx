@@ -12,7 +12,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { RefreshCw, Tv2 } from "lucide-react";
+import { ChevronDown, RefreshCw, Tv2, Users } from "lucide-react";
+import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
 
 import Layout from "../../../components/common/layout";
@@ -87,6 +88,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [countdown, setCountdown] = useState(15);
   const [tvMode, setTvMode] = useState(false);
+  const [operariasOpen, setOperariasOpen] = useState(true);
   const [filterService] = useState("");
   const [filterClient] = useState("");
   const [filterDate] = useState(todayDate());
@@ -146,7 +148,27 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     void loadTickets();
   }, [loadTickets]);
 
-  // Auto-refresh cada 15 segundos
+  // WebSocket: actualización en tiempo real
+  const applyWsEvent = useCallback((event: WsEvent) => {
+    if (event.event === "ticket_created") {
+      void loadTickets();
+      return;
+    }
+    setTickets((prev) => {
+      if (event.event === "ticket_deleted") {
+        return prev.filter((t) => t.id !== event.ticket_id);
+      }
+      return prev.map((t) =>
+        t.id === event.ticket_id
+          ? { ...t, status: event.status, professional_id: event.professional_id ?? t.professional_id }
+          : t
+      );
+    });
+  }, [loadTickets]);
+
+  useWebSocket(activeBranchId, applyWsEvent);
+
+  // Auto-refresh cada 15 segundos (respaldo si WS cae)
   useEffect(() => {
     const interval = window.setInterval(() => {
       void loadTickets();
@@ -253,6 +275,29 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     const mi = String(date.getMinutes()).padStart(2, "0");
     const s = String(date.getSeconds()).padStart(2, "0");
     return `${y}-${m}-${d}T${h}:${mi}:${s}`;
+  };
+
+  const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => {
+    const saleMap = new Map<number, TicketItem[]>();
+    const noSale: TicketItem[] = [];
+    for (const t of ticketList) {
+      if (t.sale_id) {
+        const group = saleMap.get(t.sale_id) ?? [];
+        group.push(t);
+        saleMap.set(t.sale_id, group);
+      } else {
+        noSale.push(t);
+      }
+    }
+    const result: TicketItem[] = [...noSale];
+    for (const group of saleMap.values()) {
+      const primary = group[0];
+      const allNames = [...new Set(
+        group.flatMap((t) => t.service_names ?? (t.service_name ? [t.service_name] : []))
+      )];
+      result.push({ ...primary, service_names: allNames });
+    }
+    return result;
   };
 
   const filteredTickets = useMemo(() => {
@@ -531,30 +576,6 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const getSiblingIds = (ticket: TicketItem): number[] => {
     if (!ticket.sale_id) return [];
     return tickets.filter((t) => t.sale_id === ticket.sale_id && t.id !== ticket.id).map((t) => t.id);
-  };
-
-  // Groups tickets sharing a sale_id into one display entry (combined service names)
-  const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => {
-    const saleMap = new Map<number, TicketItem[]>();
-    const noSale: TicketItem[] = [];
-    for (const t of ticketList) {
-      if (t.sale_id) {
-        const group = saleMap.get(t.sale_id) ?? [];
-        group.push(t);
-        saleMap.set(t.sale_id, group);
-      } else {
-        noSale.push(t);
-      }
-    }
-    const result: TicketItem[] = [...noSale];
-    for (const group of saleMap.values()) {
-      const primary = group[0];
-      const allNames = [...new Set(
-        group.flatMap((t) => t.service_names ?? (t.service_name ? [t.service_name] : []))
-      )];
-      result.push({ ...primary, service_names: allNames });
-    }
-    return result;
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -848,11 +869,6 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     );
   };
 
-  // Ticket actualmente en servicio (primero por orden de inicio)
-  const activeTicket = inServiceTickets[0] ?? null;
-  // Próximo en cola
-  const nextTicket = waitingTickets[0] ?? null;
-
   const handleCallNext = async () => {
     if (!activeBranchId) { toast.warning("Selecciona una sucursal."); return; }
     try {
@@ -865,48 +881,18 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const boardRibbon = (
-    <div className="flex flex-wrap items-stretch gap-0 divide-x divide-[#edebe9] border-b border-[#edebe9] bg-[#f3f2f1]">
+    <div className="flex items-stretch border-b border-[#edebe9] bg-[#f3f2f1]">
 
-      {/* En atención */}
-      <div className="flex min-w-[140px] flex-1 items-center gap-2 px-2 py-1">
-        <span className="h-5 w-0.5 shrink-0 bg-[#094732]" />
-        <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">En atención</p>
-          {activeTicket ? (
-            <>
-              <p className="truncate text-xs font-semibold text-[#201f1e]">
-                {activeTicket.ticket_code ?? `#${activeTicket.id}`}
-                <span className="ml-1.5 font-normal text-[#605e5c]">{activeTicket.client_name}</span>
-              </p>
-              <p className="truncate text-[10px] text-[#605e5c]">
-                {activeTicket.service_names?.[0] ?? activeTicket.service_name ?? "—"}
-                {activeTicket.professional_name ? ` · ${activeTicket.professional_name}` : ""}
-              </p>
-            </>
-          ) : (
-            <p className="text-[10px] text-[#a19f9d]">Sin servicio activo</p>
-          )}
-        </div>
-      </div>
-
-      {/* Próximo */}
-      <div className="flex min-w-[140px] flex-1 items-center gap-2 px-2 py-1">
-        <span className="h-5 w-0.5 shrink-0 bg-[#D83B01]" />
-        <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#605e5c]">Próximo</p>
-          {nextTicket ? (
-            <>
-              <p className="truncate text-xs font-semibold text-[#201f1e]">
-                {nextTicket.ticket_code ?? `#${nextTicket.id}`}
-                <span className="ml-1.5 font-normal text-[#605e5c]">{nextTicket.client_name}</span>
-              </p>
-              <p className="text-[10px] text-[#605e5c]">{waitingTickets.length} en espera</p>
-            </>
-          ) : (
-            <p className="text-[10px] text-[#a19f9d]">Cola vacía</p>
-          )}
-        </div>
-      </div>
+      {/* Toggle operarias */}
+      <button
+        type="button"
+        onClick={() => setOperariasOpen((v) => !v)}
+        title={operariasOpen ? "Ocultar operarias" : "Mostrar operarias"}
+        className="flex items-center gap-1 border-r border-[#edebe9] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#a19f9d] hover:bg-[#edebe9] hover:text-[#605e5c] transition-colors"
+      >
+        <Users className="h-3 w-3" />
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-300 ${operariasOpen ? "rotate-0" : "-rotate-90"}`} />
+      </button>
 
       {/* Contadores */}
       <div className="flex items-center gap-3 px-2 py-1">
@@ -922,8 +908,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         ))}
       </div>
 
-      {/* Llamar siguiente + refresh */}
-      <div className="flex items-center gap-1.5 px-2 py-1">
+      {/* Llamar siguiente + refresh — empujado a la derecha */}
+      <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
           onClick={() => void handleCallNext()}
@@ -981,7 +967,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       onDragEnd={handleDragEnd}
     >
       <div
-        className={`grid h-full gap-1.5 lg:grid-cols-3 lg:grid-rows-1 ${isDraggingBoard ? "select-none" : ""}`}
+        className={`grid h-full gap-3 lg:grid-cols-3 lg:grid-rows-1 ${isDraggingBoard ? "select-none" : ""}`}
       >
           <DroppableColumn
             id="waiting"
@@ -999,30 +985,21 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <div className="flex flex-col gap-1">
+                  <div className="flex gap-1.5">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
-                      className="w-full rounded-md border border-[#094732] bg-[#094732] py-1.5 text-xs font-semibold text-white hover:bg-[#063324] transition-colors"
+                      className="flex-1 rounded-lg bg-[#094732] px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Iniciar atención
                     </button>
-                    <div className="grid grid-cols-2 gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void handleNoShow(ticket); }}
-                        className="rounded-md border border-[#edebe9] bg-white py-1 text-[11px] font-semibold text-[#a19f9d] hover:border-[#d13438] hover:text-[#d13438] transition-colors"
-                      >
-                        No vino
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                        className="rounded-md border border-[#f1adba] bg-[#fde7e9] py-1 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
+                      className="rounded-lg border border-[#f1adba] bg-[#fde7e9] px-2.5 py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 }
                 showRemaining
@@ -1049,18 +1026,18 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <div className="flex gap-1">
+                  <div className="flex gap-1.5">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
-                      className="flex-1 rounded-md border border-[#094732] bg-[#094732] py-1.5 text-xs font-semibold text-white hover:bg-[#063324] transition-colors"
+                      className="flex-1 rounded-lg bg-[#094732] px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Finalizar
                     </button>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                      className="flex-1 rounded-md border border-[#f1adba] bg-[#fde7e9] py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
+                      className="rounded-lg border border-[#f1adba] bg-[#fde7e9] px-2.5 py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1093,9 +1070,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
-                    className="w-full rounded-md border border-[#107c10] bg-[#f1fbf1] py-1.5 text-xs font-semibold text-[#107c10] hover:bg-[#dff6dd] transition-colors"
+                    className="w-full rounded-lg border border-[#107c10]/30 bg-[#f1fbf1] py-1.5 text-[11px] font-semibold text-[#107c10] hover:bg-[#dff6dd] transition-colors"
                   >
-                    Completar
+                    Completar pago
                   </button>
                 }
                 showRemaining={false}
@@ -1345,7 +1322,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const topBar = (
     <>
       {boardRibbon}
-      <OperariaStatusPanel operarias={operariaStatuses} />
+      <OperariaStatusPanel operarias={operariaStatuses} collapsed={!operariasOpen} />
     </>
   );
 

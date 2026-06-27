@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -40,6 +40,7 @@ import { DashboardService, type DashboardOverview } from "@/core/services/dashbo
 import { BranchService } from "@/core/services/branch/branch.service";
 import { AgendaService, type ServiceOption } from "@/core/services/agenda/agenda.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
+import { useWebSocket } from "@/core/hooks/useWebSocket";
 
 interface BranchOption {
   id: number;
@@ -137,7 +138,7 @@ export default function Dashboard() {
     [branchFilter, fromDate, serviceFilter, toDate]
   );
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -166,7 +167,10 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dashboardFilters]);
+
+  const wsBranchId = branchFilter ? Number(branchFilter) : null;
+  useWebSocket(wsBranchId, () => { void loadDashboard(); });
 
   const loadContext = async () => {
     try {
