@@ -260,6 +260,62 @@ export async function deleteOrder(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/orders/admin/${id}`);
 }
 
+// ── Collections ───────────────────────────────────────────────────────────────
+
+export interface MarketplaceCollection {
+  id: number;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  product_count: number;
+  created_at: string;
+}
+
+export async function fetchAdminCollections(): Promise<MarketplaceCollection[]> {
+  const { data } = await marketplaceApi.get<MarketplaceCollection[]>("/api/collections/admin");
+  return data;
+}
+
+export async function createCollection(payload: {
+  name: string;
+  description?: string;
+  image?: File | null;
+}): Promise<MarketplaceCollection> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.post<MarketplaceCollection>("/api/collections/admin", fd);
+  return data;
+}
+
+export async function updateCollection(
+  id: number,
+  payload: { name?: string; description?: string; is_active?: boolean; image?: File | null }
+): Promise<MarketplaceCollection> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.put<MarketplaceCollection>(`/api/collections/admin/${id}`, fd);
+  return data;
+}
+
+export async function deleteCollection(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/collections/admin/${id}`);
+}
+
+export async function fetchCollectionProducts(colId: number): Promise<MarketplaceProduct[]> {
+  const { data } = await marketplaceApi.get<Record<string, unknown>[]>(`/api/collections/admin/${colId}/products`);
+  return data.map(normalizeProduct);
+}
+
+export async function addProductToCollection(colId: number, productId: number): Promise<MarketplaceCollection> {
+  const { data } = await marketplaceApi.post<MarketplaceCollection>(
+    `/api/collections/admin/${colId}/products/${productId}`
+  );
+  return data;
+}
+
+export async function removeProductFromCollection(colId: number, productId: number): Promise<void> {
+  await marketplaceApi.delete(`/api/collections/admin/${colId}/products/${productId}`);
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 export function computeStats(products: MarketplaceProduct[]): MarketplaceStats {
