@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Routes, Route } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux"; // Añadido useSelector
+import { Routes, Route, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 
 import variables from "@/core/config/variables";
 import { getMe, logout as logoutAction } from "@/core/reducer/auth.reducer";
-import type { AppDispatch, RootState } from "@/store"; // Ajusta RootState según tu store
+import { commitMode } from "@/core/reducer/modeSlice";
+import type { AppDispatch, RootState } from "@/store";
 
 import LoaderScreen from "@/components/common/LoaderScreen";
 import { ToastContainer, toast } from "react-toastify";
@@ -41,10 +42,25 @@ import PrivateRoute from "./PrivateRoute";
 import GuestRoute from "./GuestRoute";
 import Question from "@/pages/admin/Questionnaire";
 import ProfilePage from "@/pages/admin/profile/ProfilePage";
+import MarketplaceLayout from "@/modes/marketplace/layout/MarketplaceLayout";
+import MarketplaceDashboard from "@/modes/marketplace/pages/dashboard/Dashboard";
+import MarketplaceProductsPage from "@/modes/marketplace/pages/products/ProductsPage";
+import MarketplaceCategoriesPage from "@/modes/marketplace/pages/categories/CategoriesPage";
+import MarketplaceCatalogPage from "@/modes/marketplace/pages/catalog/CatalogPage";
+import ImportInventoryPage from "@/modes/marketplace/pages/import-inventory/ImportInventoryPage";
+import MarketplaceOrdersPage from "@/modes/marketplace/pages/orders/OrdersPage";
+import MarketplaceSettingsPage from "@/modes/marketplace/pages/settings/SettingsPage";
 
 export default function AppRouter() {
   const dispatch = useDispatch<AppDispatch>();
+  const location = useLocation();
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Sincroniza el modo con la URL para que ModeSwitch siempre refleje la ruta activa
+  useEffect(() => {
+    const next = location.pathname.startsWith("/marketplace") ? "marketplace" : "salon";
+    dispatch(commitMode(next));
+  }, [location.pathname, dispatch]);
   const IDLE_TIMEOUT_MS = 3 * 60 * 60 * 1000;
   const IDLE_WARNING_MS = 2 * 60 * 60 * 1000;
   const LAST_ACTIVITY_KEY = "last_activity_at";
@@ -170,6 +186,20 @@ export default function AppRouter() {
             <Route path="admin/pos/history" element={<PosPage section="history" />} />
             <Route path="admin/cierre-de-caja" element={<CierreDeCajaPage />} />
             <Route path="profile" element={<ProfilePage />} />
+          </Route>
+        </Route>
+
+        {/* ── Modo Marketplace ─────────────────────────────────── */}
+        <Route element={<PrivateRoute />}>
+          <Route element={<MarketplaceLayout />}>
+            <Route path="marketplace" element={<MarketplaceDashboard />} />
+            <Route path="marketplace/products" element={<MarketplaceProductsPage />} />
+            <Route path="marketplace/products/new" element={<MarketplaceProductsPage />} />
+            <Route path="marketplace/categories" element={<MarketplaceCategoriesPage />} />
+            <Route path="marketplace/catalog" element={<MarketplaceCatalogPage />} />
+            <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />
+            <Route path="marketplace/import-inventory" element={<ImportInventoryPage />} />
+            <Route path="marketplace/settings" element={<MarketplaceSettingsPage />} />
           </Route>
         </Route>
 

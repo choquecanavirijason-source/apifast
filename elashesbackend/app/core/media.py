@@ -18,7 +18,7 @@ MEDIA_ROOT = os.path.join(get_external_path(), "media")
 MEDIA_URL_PREFIX = "/media"
 
 # Carpetas permitidas para subir (evita escritura arbitraria de rutas).
-ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "misc"}
+ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "misc", "marketplace"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 

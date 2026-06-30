@@ -550,7 +550,7 @@ export default function Dashboard() {
                 No hay datos de ingresos para el rango seleccionado.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} debounce={50}>
                 <BarChart data={revenueChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edebe9" />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#605e5c", fontSize: 11 }} />
@@ -598,7 +598,7 @@ export default function Dashboard() {
                 No hay tickets para el filtro actual.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} debounce={50}>
                 <BarChart data={serviceChartData} layout="vertical" margin={{ left: 4, right: 12, top: 4, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edebe9" />
                   <XAxis type="number" tickLine={false} axisLine={false} tick={{ fill: "#605e5c", fontSize: 11 }} />
@@ -710,7 +710,7 @@ export default function Dashboard() {
                 No hay datos de inventario para mostrar.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} debounce={50}>
                 <PieChart>
                   <Pie
                     data={inventoryChartData}

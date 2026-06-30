@@ -53,6 +53,7 @@ import app.infrastructure.database.migrations.add_cash_close_tables as m24
 import app.infrastructure.database.migrations.add_commission_rate_to_services as m25
 import app.infrastructure.database.migrations.add_qr_image_url_to_branches as m26
 import app.infrastructure.database.migrations.add_commission_payments_table as m27
+import app.infrastructure.database.migrations.add_marketplace_products_table as m28
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -63,6 +64,8 @@ from app.presentation.controllers import (
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
+from app.presentation.controllers.marketplace_controller import router as marketplace_router
+from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.core.ws_manager import ws_manager
 
 @asynccontextmanager
@@ -100,6 +103,7 @@ async def lifespan(app: FastAPI):
         ("commission_rate_to_services", m25.upgrade),
         ("qr_image_url_to_branches", m26.upgrade),
         ("commission_payments_table", m27.upgrade),
+        ("marketplace_products_table", m28.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -191,6 +195,8 @@ def create_app() -> FastAPI:
     app.include_router(admin_ai_controller.router)
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
+    app.include_router(marketplace_router)
+    app.include_router(marketplace_proxy_router)
     app.include_router(auth_routes.router)
 
     @app.websocket("/ws/branch/{branch_id}")

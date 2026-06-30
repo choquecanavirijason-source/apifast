@@ -18,6 +18,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useNavigate, NavLink } from "react-router-dom";
+import ModeSwitch from "./ModeSwitch";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 
 import {
@@ -905,6 +906,9 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
         >
           <Search className="w-5 h-5" />
         </button>
+
+        {/* Mode switch */}
+        <ModeSwitch />
 
         {/* Notificaciones */}
         <div className="relative" ref={notificationPanelRef}>

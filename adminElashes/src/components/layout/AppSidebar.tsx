@@ -567,7 +567,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           )
         ) : (
           <>
-            {!collapsed && <span className="text-2xl font-black text-white tracking-tight">Admin</span>}
+            {!collapsed && <span className="text-2xl font-black text-white tracking-tight">E-lashes</span>}
             {collapsed && <span className="mx-auto text-base font-black text-emerald-400">A</span>}
           </>
         )}
