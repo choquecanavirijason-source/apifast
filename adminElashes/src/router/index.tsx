@@ -50,6 +50,7 @@ import MarketplaceCatalogPage from "@/modes/marketplace/pages/catalog/CatalogPag
 import ImportInventoryPage from "@/modes/marketplace/pages/import-inventory/ImportInventoryPage";
 import MarketplaceOrdersPage from "@/modes/marketplace/pages/orders/OrdersPage";
 import MarketplaceSettingsPage from "@/modes/marketplace/pages/settings/SettingsPage";
+import InventoryOverviewPage from "@/modes/marketplace/pages/inventory/InventoryOverviewPage";
 
 export default function AppRouter() {
   const dispatch = useDispatch<AppDispatch>();
@@ -194,11 +195,11 @@ export default function AppRouter() {
           <Route element={<MarketplaceLayout />}>
             <Route path="marketplace" element={<MarketplaceDashboard />} />
             <Route path="marketplace/products" element={<MarketplaceProductsPage />} />
-            <Route path="marketplace/products/new" element={<MarketplaceProductsPage />} />
             <Route path="marketplace/categories" element={<MarketplaceCategoriesPage />} />
             <Route path="marketplace/catalog" element={<MarketplaceCatalogPage />} />
             <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />
             <Route path="marketplace/import-inventory" element={<ImportInventoryPage />} />
+            <Route path="marketplace/inventory" element={<InventoryOverviewPage />} />
             <Route path="marketplace/settings" element={<MarketplaceSettingsPage />} />
           </Route>
         </Route>

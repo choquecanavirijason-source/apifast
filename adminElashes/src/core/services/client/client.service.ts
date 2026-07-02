@@ -27,6 +27,8 @@ interface BackendClient {
   visit_count?: number;
   status?: string;
   created_at?: string;
+  ci?: string | null;
+  marketplace_enabled?: boolean;
 }
 
 export interface ClientCreatePayload {
@@ -37,9 +39,13 @@ export interface ClientCreatePayload {
   email?: string;
   branch_id?: number;
   eye_type_id?: number;
+  ci?: string;
 }
 
-export type ClientUpdatePayload = Partial<ClientCreatePayload> & { status?: string };
+export type ClientUpdatePayload = Partial<ClientCreatePayload> & {
+  status?: string;
+  marketplace_enabled?: boolean;
+};
 
 const mapBackendClientToIClient = (client: BackendClient): IClient => ({
   id: client.id,
@@ -56,6 +62,8 @@ const mapBackendClientToIClient = (client: BackendClient): IClient => ({
   created_at: client.created_at,
   visitas: client.visit_count ?? 0,
   status: (client.status ?? "sin_estado") as IClient["status"],
+  ci: client.ci ?? undefined,
+  marketplaceEnabled: client.marketplace_enabled ?? false,
 });
 
 export const ClientService = {

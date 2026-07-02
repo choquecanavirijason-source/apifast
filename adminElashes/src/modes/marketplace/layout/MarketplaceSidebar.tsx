@@ -8,6 +8,7 @@ import {
   PackageSearch,
   Download,
   ClipboardList,
+  Warehouse,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLogo } from "@/core/hooks/useLogo";
@@ -29,10 +30,7 @@ const MENU: MenuItem[] = [
   {
     name: "Productos",
     icon: <ShoppingBag size={20} />,
-    subItems: [
-      { name: "Todos los productos", path: "/marketplace/products" },
-      { name: "Agregar producto", path: "/marketplace/products/new" },
-    ],
+    path: "/marketplace/products",
   },
   {
     name: "Categorías",
@@ -50,6 +48,11 @@ const MENU: MenuItem[] = [
     path: "/marketplace/import-inventory",
   },
   {
+    name: "Inventario General",
+    icon: <Warehouse size={20} />,
+    path: "/marketplace/inventory",
+  },
+  {
     name: "Catálogo",
     icon: <PackageSearch size={20} />,
     path: "/marketplace/catalog",
@@ -64,7 +67,7 @@ const MENU: MenuItem[] = [
 const navFocusRing =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2e]";
 
-export default function MarketplaceSidebar({ collapsed }: { collapsed: boolean }) {
+export default function MarketplaceSidebar({ collapsed, pendingOrders = 0 }: { collapsed: boolean; pendingOrders?: number }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const location = useLocation();
   const { logoBase64 } = useLogo();
@@ -199,8 +202,24 @@ export default function MarketplaceSidebar({ collapsed }: { collapsed: boolean }
                   }`
                 }
               >
-                <span className="shrink-0">{item.icon}</span>
-                {!collapsed && <span className="text-sm font-medium">{item.name}</span>}
+                <span className="shrink-0 relative">
+                  {item.icon}
+                  {item.name === "Pedidos" && pendingOrders > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white leading-none">
+                      {pendingOrders > 9 ? "9+" : pendingOrders}
+                    </span>
+                  )}
+                </span>
+                {!collapsed && (
+                  <span className="flex flex-1 items-center justify-between text-sm font-medium">
+                    {item.name}
+                    {item.name === "Pedidos" && pendingOrders > 0 && (
+                      <span className="ml-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                        {pendingOrders}
+                      </span>
+                    )}
+                  </span>
+                )}
               </NavLink>
             )}
           </div>

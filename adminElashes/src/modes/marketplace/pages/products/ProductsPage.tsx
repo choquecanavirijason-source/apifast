@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, Layers, LayoutList, LayoutGrid, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -16,6 +16,7 @@ import {
   createMarketplaceProduct,
   updateMarketplaceProduct,
   deleteMarketplaceProduct,
+  adjustProductStock,
   MARKETPLACE_MEDIA_BASE,
   type MarketplaceProduct,
   type MarketplaceCategory,
@@ -24,13 +25,14 @@ import {
 type Form = {
   name: string; brand: string; description: string;
   price: string; original_price: string;
-  category_id: string; stock: string; is_active: boolean;
+  category_id: string; stock: string; low_stock_threshold: string;
+  video_url: string; is_active: boolean;
 };
 
 const emptyForm: Form = {
   name: "", brand: "", description: "",
   price: "", original_price: "", category_id: "",
-  stock: "0", is_active: true,
+  stock: "0", low_stock_threshold: "5", video_url: "", is_active: true,
 };
 
 function buildImgUrl(url: string | null) {
@@ -46,7 +48,10 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive" | "low_stock" | "out_of_stock">("all");
+  const [stockTarget, setStockTarget] = useState<MarketplaceProduct | null>(null);
+  const [newStockValue, setNewStockValue] = useState("");
+  const [adjustingStock, setAdjustingStock] = useState(false);
 
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [gridSearch, setGridSearch] = useState("");
@@ -75,7 +80,10 @@ export default function ProductsPage() {
 
   const filtered = products.filter((p) =>
     filterStatus === "all" ? true :
-    filterStatus === "active" ? p.is_active : !p.is_active
+    filterStatus === "active" ? p.is_active :
+    filterStatus === "inactive" ? !p.is_active :
+    filterStatus === "low_stock" ? (p.is_active && p.is_low_stock && p.stock > 0) :
+    (p.is_active && p.stock === 0)
   );
 
   const gridFiltered = gridSearch.trim()
@@ -100,7 +108,8 @@ export default function ProductsPage() {
       name: p.name, brand: p.brand ?? "", description: p.description ?? "",
       price: String(p.price), original_price: p.original_price ? String(p.original_price) : "",
       category_id: p.category_id ? String(p.category_id) : "",
-      stock: String(p.stock), is_active: p.is_active,
+      stock: String(p.stock), low_stock_threshold: String(p.low_stock_threshold ?? 5),
+      video_url: p.video_url ?? "", is_active: p.is_active,
     });
     setImageFile(null);
     setImagePreview(buildImgUrl(p.image_url));
@@ -129,6 +138,8 @@ export default function ProductsPage() {
         original_price: form.original_price ? Number(form.original_price) : undefined,
         category_id: form.category_id ? Number(form.category_id) : undefined,
         stock: Number(form.stock) || 0,
+        low_stock_threshold: Number(form.low_stock_threshold) || 5,
+        video_url: form.video_url.trim() || undefined,
         image: imageFile,
       };
       if (editingId !== null) {
@@ -148,6 +159,28 @@ export default function ProductsPage() {
     }
   };
 
+  const openStockModal = (p: MarketplaceProduct) => {
+    setStockTarget(p);
+    setNewStockValue(String(p.stock));
+  };
+
+  const handleAdjustStock = async () => {
+    if (!stockTarget) return;
+    const parsed = parseInt(newStockValue, 10);
+    if (isNaN(parsed) || parsed < 0) { toast.error("Cantidad inválida"); return; }
+    setAdjustingStock(true);
+    try {
+      const updated = await adjustProductStock(stockTarget.id, parsed);
+      setProducts((prev) => prev.map((p) => (p.id === stockTarget.id ? updated : p)));
+      toast.success(`Stock de "${stockTarget.name}" actualizado a ${parsed} uds`);
+      setStockTarget(null);
+    } catch {
+      toast.error("Error al ajustar el stock");
+    } finally {
+      setAdjustingStock(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -162,6 +195,8 @@ export default function ProductsPage() {
   };
 
   const activeCount = products.filter((p) => p.is_active).length;
+  const lowStockCount = products.filter((p) => p.is_active && p.is_low_stock && p.stock > 0).length;
+  const outOfStockCount = products.filter((p) => p.is_active && p.stock === 0).length;
   const totalValue = products.reduce((s, p) => s + p.price * (p.stock ?? 0), 0);
 
   const columns: DataTableColumn<MarketplaceProduct>[] = [
@@ -213,11 +248,21 @@ export default function ProductsPage() {
       header: "Stock",
       sortable: true,
       render: (p) => (
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-          (p.stock ?? 0) > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-        }`}>
-          {p.stock ?? 0}
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold w-fit ${
+            p.stock === 0 ? "bg-rose-100 text-rose-700" :
+            p.is_low_stock ? "bg-amber-100 text-amber-700" :
+            "bg-emerald-100 text-emerald-700"
+          }`}>
+            {p.stock ?? 0} uds
+          </span>
+          {p.is_low_stock && p.stock > 0 && (
+            <span className="text-[10px] text-amber-600 font-medium">Stock bajo</span>
+          )}
+          {p.stock === 0 && (
+            <span className="text-[10px] text-rose-600 font-medium">Agotado</span>
+          )}
+        </div>
       ),
       getValue: (p) => p.stock ?? 0,
     },
@@ -238,22 +283,37 @@ export default function ProductsPage() {
 
   const actions: DataTableAction<MarketplaceProduct>[] = [
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
+    { label: "Ajustar stock", icon: <Package className="h-4 w-4" />, onClick: openStockModal },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (p) => setDeleteTarget(p), variant: "danger" },
   ];
 
   const toolbar = (
     <FilterActionBar
       left={
-        <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
-          {(["all", "active", "inactive"] as const).map((v) => (
+        <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 w-fit">
+          {([
+            { key: "all" as const, label: `Todos (${products.length})`, warn: false, danger: false },
+            { key: "active" as const, label: `Activos (${activeCount})`, warn: false, danger: false },
+            { key: "inactive" as const, label: `Inactivos (${products.length - activeCount})`, warn: false, danger: false },
+            { key: "low_stock" as const, label: `Stock bajo (${lowStockCount})`, warn: lowStockCount > 0, danger: false },
+            { key: "out_of_stock" as const, label: `Agotados (${outOfStockCount})`, warn: false, danger: outOfStockCount > 0 },
+          ]).map(({ key, label, warn, danger }) => (
             <Button
-              key={v}
+              key={key}
               variant="ghost"
               size="md"
-              onClick={() => setFilterStatus(v)}
-              className={filterStatus === v ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"}
+              onClick={() => setFilterStatus(key)}
+              className={
+                filterStatus === key
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
+                  : warn
+                  ? "text-amber-600 hover:bg-amber-50"
+                  : danger
+                  ? "text-rose-600 hover:bg-rose-50"
+                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
+              }
             >
-              {v === "all" ? `Todos (${products.length})` : v === "active" ? `Activos (${activeCount})` : `Inactivos (${products.length - activeCount})`}
+              {label}
             </Button>
           ))}
         </div>
@@ -292,10 +352,11 @@ export default function ProductsPage() {
         variant="table"
         toolbar={toolbar}
       >
-        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Total productos" value={products.length} icon={<ShoppingBag className="h-4 w-4" />} tone="slate" />
           <StatCard label="Activos" value={activeCount} icon={<Eye className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Valor catálogo" value={`$${totalValue.toFixed(2)}`} icon={<DollarSign className="h-4 w-4" />} tone="secondary" />
+          <StatCard label="Stock bajo" value={lowStockCount} icon={<TrendingDown className="h-4 w-4" />} tone="amber" />
+          <StatCard label="Agotados" value={outOfStockCount} icon={<AlertTriangle className="h-4 w-4" />} tone="rose" />
         </div>
 
         {viewMode === "list" ? (
@@ -397,8 +458,19 @@ export default function ProductsPage() {
               onChange={(e) => setForm((f) => ({ ...f, original_price: e.target.value }))} placeholder="0.00" />
           </div>
 
-          <InputField label="Stock" type="number" value={form.stock}
-            onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} placeholder="0" />
+          <div className="grid grid-cols-2 gap-3">
+            <InputField label="Stock" type="number" value={form.stock}
+              onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} placeholder="0" />
+            <InputField label="Alerta stock bajo" type="number" value={form.low_stock_threshold}
+              onChange={(e) => setForm((f) => ({ ...f, low_stock_threshold: e.target.value }))} placeholder="5" />
+          </div>
+
+          <InputField
+            label="Video (URL YouTube/Drive)"
+            value={form.video_url}
+            onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
+            placeholder="https://youtube.com/watch?v=..."
+          />
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-brand-tertiary">Descripción</label>
@@ -434,6 +506,70 @@ export default function ProductsPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Modal ajuste de stock */}
+      <GenericModal
+        isOpen={!!stockTarget}
+        onClose={() => setStockTarget(null)}
+        title="Ajustar stock"
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setStockTarget(null)}>Cancelar</Button>
+            <Button type="button" onClick={handleAdjustStock} disabled={adjustingStock}>
+              {adjustingStock ? "Guardando…" : "Guardar"}
+            </Button>
+          </>
+        }
+      >
+        {stockTarget && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3">
+              {buildImgUrl(stockTarget.image_url) ? (
+                <img src={buildImgUrl(stockTarget.image_url)!} alt={stockTarget.name}
+                  className="h-12 w-12 rounded-lg object-cover shrink-0 border border-slate-100" />
+              ) : (
+                <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                  <ImageIcon className="h-5 w-5 text-slate-300" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-800 truncate">{stockTarget.name}</p>
+                <p className="text-sm text-slate-500">Stock actual: <strong className={
+                  stockTarget.stock === 0 ? "text-rose-600" : stockTarget.is_low_stock ? "text-amber-600" : "text-emerald-600"
+                }>{stockTarget.stock} uds</strong></p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Nuevo stock total</label>
+              <input
+                type="number"
+                min={0}
+                value={newStockValue}
+                onChange={(e) => setNewStockValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void handleAdjustStock()}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-lg font-bold text-slate-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition text-center"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-2">
+              {[1, 5, 10, 25, 50].map((delta) => (
+                <button
+                  key={delta}
+                  type="button"
+                  onClick={() => setNewStockValue((v) => String(Math.max(0, (parseInt(v, 10) || 0) + delta)))}
+                  className="flex-1 rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+                >
+                  +{delta}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400 text-center">Los botones suman al valor actual del campo</p>
+          </div>
+        )}
+      </GenericModal>
     </>
   );
 }

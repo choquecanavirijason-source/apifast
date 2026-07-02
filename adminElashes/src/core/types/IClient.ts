@@ -24,8 +24,12 @@ export interface IClient {
     | 'no_se_presento'
     | 'reagendado';
    // Frecuencia
-    visitas: number; 
-  
+    visitas: number;
+
+    // Carnet de identidad y acceso marketplace
+    ci?: string;
+    marketplaceEnabled?: boolean;
+
     // Expediente Digital (Opcionales porque al crear cliente no existen aún)
     valoracion?: IClientAssessment;
     expediente?: IClientConsent;

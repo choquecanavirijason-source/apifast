@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, Phone, Mail, ShoppingBag, DollarSign, Calendar, TrendingUp } from "lucide-react";
+import { Users, Phone, Mail, ShoppingBag, DollarSign, Calendar, TrendingUp, Store, Smartphone } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -53,6 +53,8 @@ export default function CustomersPage() {
   const totalOrders = customers.reduce((sum, c) => sum + c.order_count, 0);
   const repeatCount = customers.filter((c) => c.order_count > 1).length;
   const avgSpend = customers.length ? totalRevenue / customers.length : 0;
+  const appCount = customers.filter((c) => c.source === "app").length;
+  const salonCount = customers.filter((c) => c.source === "salon").length;
 
   const columns: DataTableColumn<MarketplaceCustomer>[] = [
     {
@@ -134,6 +136,22 @@ export default function CustomersPage() {
       ),
       getValue: (c) => c.last_order_at,
     },
+    {
+      key: "source",
+      header: "Origen",
+      sortable: true,
+      render: (c) =>
+        c.source === "app" ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+            <Smartphone className="h-3 w-3" /> App
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+            <Store className="h-3 w-3" /> Salón
+          </span>
+        ),
+      getValue: (c) => c.source,
+    },
   ];
 
   const toolbar = (
@@ -143,7 +161,11 @@ export default function CustomersPage() {
           <Users className="h-4 w-4" />
           <span>
             <strong className="text-slate-800">{customers.length}</strong> clientes —{" "}
-            <strong className="text-slate-800">{repeatCount}</strong> frecuentes
+            <strong className="text-slate-800">{repeatCount}</strong> frecuentes —{" "}
+            <Smartphone className="inline h-3.5 w-3.5 text-blue-500" />{" "}
+            <strong className="text-blue-700">{appCount}</strong> app ·{" "}
+            <Store className="inline h-3.5 w-3.5 text-emerald-600" />{" "}
+            <strong className="text-emerald-700">{salonCount}</strong> salón
           </span>
         </div>
       }
@@ -157,7 +179,7 @@ export default function CustomersPage() {
       variant="table"
       toolbar={toolbar}
     >
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           label="Total clientes"
           value={customers.length}
@@ -180,6 +202,18 @@ export default function CustomersPage() {
           label="Ticket promedio"
           value={`S/ ${avgSpend.toFixed(0)}`}
           icon={<TrendingUp className="h-4 w-4" />}
+          tone="slate"
+        />
+        <StatCard
+          label="Desde la App"
+          value={appCount}
+          icon={<Smartphone className="h-4 w-4" />}
+          tone="secondary"
+        />
+        <StatCard
+          label="Desde el Salón"
+          value={salonCount}
+          icon={<Store className="h-4 w-4" />}
           tone="slate"
         />
       </div>
