@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import (
@@ -9,6 +10,7 @@ from app.core.dependencies import (
     require_permission,
     resolve_branch_id,
 )
+from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.client import ClientCreate, ClientUpdate, ClientResponse
@@ -25,6 +27,82 @@ router = APIRouter(
     prefix="/clients",
     tags=["Clientes"],
 )
+
+
+class _SalonLoginPayload(BaseModel):
+    email: str
+    ci: str
+
+
+@router.post("/verify-salon-login")
+def verify_salon_login(payload: _SalonLoginPayload, db: Session = Depends(get_db)):
+    """
+    Endpoint INTERNO: verifica que un cliente del salón pueda acceder al marketplace
+    usando su email (o nombre) + CI como contraseña. Solo si marketplace_enabled = True.
+    Llamado exclusivamente por backend_marketplace en el flujo de login.
+    """
+    from sqlalchemy import func, or_
+
+    identifier = payload.email.strip().lower()
+    full_name = func.lower(
+        func.trim(Client.name + " " + func.coalesce(Client.last_name, ""))
+    )
+    client = (
+        db.query(Client)
+        .filter(
+            or_(
+                func.lower(Client.email) == identifier,
+                func.lower(Client.name) == identifier,
+                full_name == identifier,
+            )
+        )
+        .first()
+    )
+    if not client or not client.ci:
+        return {"valid": False}
+    if client.ci.strip() != payload.ci.strip():
+        return {"valid": False}
+    if not client.marketplace_enabled:
+        return {"valid": False, "reason": "marketplace_not_enabled"}
+    return {
+        "valid": True,
+        "name": f"{client.name} {client.last_name}".strip(),
+        "email": client.email,
+        "phone": client.phone,
+    }
+
+
+@router.get("/lookup")
+def lookup_client_by_phone(
+    phone: str = Query(..., min_length=6),
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint PÚBLICO: busca un cliente del salón por teléfono.
+    Solo devuelve nombre y email para pre-rellenar el checkout del marketplace.
+    No expone datos sensibles ni requiere autenticación.
+    """
+    phone = phone.strip()
+    # Intentar con el número tal cual y con prefijo +51 (Perú)
+    candidates = [phone]
+    if not phone.startswith("+"):
+        candidates.append(f"+51{phone}")
+    elif phone.startswith("+51"):
+        candidates.append(phone[3:])
+
+    client = (
+        db.query(Client)
+        .filter(Client.phone.in_(candidates))
+        .first()
+    )
+    if not client:
+        return {"found": False}
+
+    return {
+        "found": True,
+        "name": f"{client.name} {client.last_name}".strip(),
+        "email": client.email,
+    }
 
 
 @router.get(

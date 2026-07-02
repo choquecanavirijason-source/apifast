@@ -1,21 +1,15 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, Phone, Mail, ShoppingBag, DollarSign, Calendar } from "lucide-react";
+import { Users, Phone, Mail, ShoppingBag, DollarSign, Calendar, TrendingUp } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import { StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
-import { marketplaceApi } from "@/core/services/marketplace/marketplace.service";
-
-interface Customer {
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string | null;
-  order_count: number;
-  total_spent: number;
-  last_order_at: string;
-}
+import {
+  fetchCustomers,
+  type MarketplaceCustomer,
+} from "@/core/services/marketplace/marketplace.service";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
@@ -25,15 +19,32 @@ function formatCurrency(n: number) {
   return `S/ ${n.toFixed(2)}`;
 }
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
+// Paleta de colores para los avatares según índice
+const AVATAR_COLORS = [
+  "bg-brand/10 text-brand",
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-emerald-100 text-emerald-700",
+];
+
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<MarketplaceCustomer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    marketplaceApi
-      .get<Customer[]>("/api/customers")
-      .then(({ data }) => setCustomers(data))
+    fetchCustomers()
+      .then(setCustomers)
       .catch(() => toast.error("No se pudieron cargar los clientes"))
       .finally(() => setLoading(false));
   }, []);
@@ -41,28 +52,26 @@ export default function CustomersPage() {
   const totalRevenue = customers.reduce((sum, c) => sum + c.total_spent, 0);
   const totalOrders = customers.reduce((sum, c) => sum + c.order_count, 0);
   const repeatCount = customers.filter((c) => c.order_count > 1).length;
+  const avgSpend = customers.length ? totalRevenue / customers.length : 0;
 
-  const columns: DataTableColumn<Customer>[] = [
+  const columns: DataTableColumn<MarketplaceCustomer>[] = [
     {
       key: "customer_name",
       header: "Cliente",
       sortable: true,
       render: (c) => {
-        const initials = c.customer_name
-          .split(" ")
-          .slice(0, 2)
-          .map((w) => w[0]?.toUpperCase() ?? "")
-          .join("");
+        const idx = customers.indexOf(c);
+        const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
         return (
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 shrink-0 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-sm">
-              {initials || "?"}
+            <div className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center font-bold text-sm ${color}`}>
+              {getInitials(c.customer_name)}
             </div>
-            <div>
-              <p className="font-semibold text-slate-800">{c.customer_name}</p>
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-800 truncate">{c.customer_name}</p>
               {c.customer_email && (
-                <p className="flex items-center gap-1 text-xs text-slate-500">
-                  <Mail className="h-3 w-3" /> {c.customer_email}
+                <p className="flex items-center gap-1 text-xs text-slate-500 truncate">
+                  <Mail className="h-3 w-3 shrink-0" /> {c.customer_email}
                 </p>
               )}
             </div>
@@ -76,9 +85,14 @@ export default function CustomersPage() {
       header: "Teléfono",
       sortable: true,
       render: (c) => (
-        <span className="flex items-center gap-1 text-sm text-slate-600">
-          <Phone className="h-3.5 w-3.5 text-slate-400" /> {c.customer_phone}
-        </span>
+        <a
+          href={`https://wa.me/${c.customer_phone.replace(/\D/g, "")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-800 transition font-medium"
+        >
+          <Phone className="h-3.5 w-3.5" /> {c.customer_phone}
+        </a>
       ),
       getValue: (c) => c.customer_phone,
     },
@@ -87,9 +101,16 @@ export default function CustomersPage() {
       header: "Pedidos",
       sortable: true,
       render: (c) => (
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-          <ShoppingBag className="h-3 w-3" /> {c.order_count}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand">
+            <ShoppingBag className="h-3 w-3" /> {c.order_count}
+          </span>
+          {c.order_count > 1 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5">
+              <TrendingUp className="h-2.5 w-2.5" /> Frecuente
+            </span>
+          )}
+        </div>
       ),
       getValue: (c) => c.order_count,
     },
@@ -98,7 +119,7 @@ export default function CustomersPage() {
       header: "Total gastado",
       sortable: true,
       render: (c) => (
-        <span className="font-semibold text-emerald-700">{formatCurrency(c.total_spent)}</span>
+        <span className="font-bold text-slate-800">{formatCurrency(c.total_spent)}</span>
       ),
       getValue: (c) => c.total_spent,
     },
@@ -120,19 +141,47 @@ export default function CustomersPage() {
       left={
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Users className="h-4 w-4" />
-          <span><strong className="text-slate-800">{customers.length}</strong> clientes registrados</span>
+          <span>
+            <strong className="text-slate-800">{customers.length}</strong> clientes —{" "}
+            <strong className="text-slate-800">{repeatCount}</strong> frecuentes
+          </span>
         </div>
       }
     />
   );
 
   return (
-    <Layout title="Clientes" subtitle="Clientes únicos extraídos de los pedidos del marketplace." variant="table" toolbar={toolbar}>
+    <Layout
+      title="Clientes"
+      subtitle="Clientes únicos del marketplace, ordenados por mayor gasto."
+      variant="table"
+      toolbar={toolbar}
+    >
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Total clientes" value={customers.length} icon={<Users className="h-4 w-4" />} tone="slate" />
-        <StatCard label="Total pedidos" value={totalOrders} icon={<ShoppingBag className="h-4 w-4" />} tone="slate" />
-        <StatCard label="Ingresos totales" value={`S/ ${totalRevenue.toFixed(0)}`} icon={<DollarSign className="h-4 w-4" />} tone="primary" />
-        <StatCard label="Clientes frecuentes" value={repeatCount} icon={<Users className="h-4 w-4" />} tone="slate" />
+        <StatCard
+          label="Total clientes"
+          value={customers.length}
+          icon={<Users className="h-4 w-4" />}
+          tone="slate"
+        />
+        <StatCard
+          label="Total pedidos"
+          value={totalOrders}
+          icon={<ShoppingBag className="h-4 w-4" />}
+          tone="slate"
+        />
+        <StatCard
+          label="Ingresos totales"
+          value={`S/ ${totalRevenue.toFixed(0)}`}
+          icon={<DollarSign className="h-4 w-4" />}
+          tone="primary"
+        />
+        <StatCard
+          label="Ticket promedio"
+          value={`S/ ${avgSpend.toFixed(0)}`}
+          icon={<TrendingUp className="h-4 w-4" />}
+          tone="slate"
+        />
       </div>
 
       <DataTable
@@ -140,8 +189,8 @@ export default function CustomersPage() {
         columns={columns}
         loading={loading}
         defaultLimit={15}
-        availableLimits={[10, 15, 30]}
-        globalSearchPlaceholder="Buscar cliente, teléfono…"
+        availableLimits={[10, 15, 30, 50]}
+        globalSearchPlaceholder="Buscar por nombre, teléfono o email…"
       />
     </Layout>
   );

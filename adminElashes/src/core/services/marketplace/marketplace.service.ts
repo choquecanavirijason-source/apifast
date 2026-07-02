@@ -262,6 +262,14 @@ export async function deleteOrder(id: number): Promise<void> {
 
 // ── Collections ───────────────────────────────────────────────────────────────
 
+export interface CollectionPreviewProduct {
+  id: number;
+  name: string;
+  image_url: string | null;
+  price: number;
+  category_name: string | null;
+}
+
 export interface MarketplaceCollection {
   id: number;
   name: string;
@@ -269,6 +277,7 @@ export interface MarketplaceCollection {
   image_url: string | null;
   is_active: boolean;
   product_count: number;
+  preview_products: CollectionPreviewProduct[];
   created_at: string;
 }
 
@@ -314,6 +323,22 @@ export async function addProductToCollection(colId: number, productId: number): 
 
 export async function removeProductFromCollection(colId: number, productId: number): Promise<void> {
   await marketplaceApi.delete(`/api/collections/admin/${colId}/products/${productId}`);
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+
+export interface MarketplaceCustomer {
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  order_count: number;
+  total_spent: number;
+  last_order_at: string;
+}
+
+export async function fetchCustomers(): Promise<MarketplaceCustomer[]> {
+  const { data } = await marketplaceApi.get<MarketplaceCustomer[]>("/api/customers");
+  return data;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
