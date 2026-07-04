@@ -12,7 +12,7 @@ El backend principal (`elashesbackend`) le hace proxy y valida los tokens contra
 │       └── deploy/gcp/
 │           ├── marketplace.service   ← systemd para este servicio
 │           └── ...
-└── microservicioMarketplace/         ← este repo (puerto 8001)
+└── marketplaceapi/         ← este repo (puerto 8001)
     ├── main.py
     ├── .env
     └── .venv/
@@ -23,8 +23,8 @@ El backend principal (`elashesbackend`) le hace proxy y valida los tokens contra
 ```bash
 cd /opt/elashes
 
-git clone <URL_REPO_MARKETPLACE> microservicioMarketplace
-cd microservicioMarketplace
+git clone <URL_REPO_MARKETPLACE> marketplaceapi
+cd marketplaceapi
 ```
 
 ## 2) Crear entorno virtual e instalar dependencias
@@ -57,9 +57,9 @@ MEDIA_BASE_PATH=./media
 ## 4) Crear carpetas necesarias
 
 ```bash
-mkdir -p /opt/elashes/microservicioMarketplace/data
-mkdir -p /opt/elashes/microservicioMarketplace/media
-sudo chown -R www-data:www-data /opt/elashes/microservicioMarketplace
+mkdir -p /opt/elashes/marketplaceapi/data
+mkdir -p /opt/elashes/marketplaceapi/media
+sudo chown -R www-data:www-data /opt/elashes/marketplaceapi
 ```
 
 ## 5) Instalar el servicio systemd
@@ -97,7 +97,7 @@ El proxy del elashesbackend ya enruta `/marketplace-proxy/...` → `localhost:80
 ## 7) Actualizar marketplace
 
 ```bash
-cd /opt/elashes/microservicioMarketplace
+cd /opt/elashes/marketplaceapi
 git pull
 source .venv/bin/activate
 pip install -r requirements.txt
