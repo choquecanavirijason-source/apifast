@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X } from "lucide-react";
+import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X, ShoppingBag } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
 import { ClientService, type EyeTypeOption } from "../../../core/services/client/client.service";
@@ -83,6 +83,20 @@ export default function ClientListPage() {
     setIsRefreshing(true);
     await loadClients(true);
     setIsRefreshing(false);
+  };
+
+  const handleToggleMarketplace = async (client: IClient) => {
+    try {
+      const updated = await ClientService.update(client.id, { marketplace_enabled: !client.marketplaceEnabled });
+      setItems((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      toast.success(
+        updated.marketplaceEnabled
+          ? `Marketplace habilitado para ${client.nombre}`
+          : `Marketplace deshabilitado para ${client.nombre}`
+      );
+    } catch {
+      toast.error("No se pudo actualizar el acceso al marketplace.");
+    }
   };
 
   const handleClearClientStatus = async (client: IClient) => {
@@ -234,6 +248,7 @@ export default function ClientListPage() {
     const sexo = String(formData.get("sexo") ?? "").trim();
     const eyeTypeRaw = String(formData.get("eye_type_id") ?? "").trim();
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
+    const ciRaw = String(formData.get("ci") ?? "").trim();
 
     if (!nombre || !apellido) {
       toast.warning("Nombre y apellido son obligatorios.");
@@ -273,6 +288,7 @@ export default function ClientListPage() {
           email: emailRaw || undefined,
           eye_type_id,
           branch_id,
+          ci: ciRaw || undefined,
         });
 
         const updatedWithUiFields: IClient = {
@@ -296,6 +312,7 @@ export default function ClientListPage() {
         email: emailRaw || undefined,
         eye_type_id,
         branch_id,
+        ci: ciRaw || undefined,
       });
 
       const createdWithUiFields: IClient = {
@@ -351,11 +368,39 @@ export default function ClientListPage() {
       header: "Edad", 
       render: (item: IClient) => <span className="text-slate-600 text-sm font-medium">{item.edad} años</span>
     },
-    { 
-      key: "tipoOjos", 
-      header: "Tipo de Ojos", 
+    {
+      key: "tipoOjos",
+      header: "Tipo de Ojos",
       getValue: (item: IClient) => getEyeTypeLabel(item.tipoOjos),
-      render: (item: IClient) => <span className="text-sm text-slate-500 italic">{getEyeTypeLabel(item.tipoOjos)}</span> 
+      render: (item: IClient) => <span className="text-sm text-slate-500 italic">{getEyeTypeLabel(item.tipoOjos)}</span>
+    },
+    {
+      key: "ci",
+      header: "CI",
+      render: (item: IClient) => (
+        <span className="text-xs font-mono text-slate-600">{item.ci || <span className="text-slate-300">—</span>}</span>
+      ),
+      getValue: (item: IClient) => item.ci ?? "",
+    },
+    {
+      key: "marketplaceEnabled",
+      header: "Marketplace",
+      render: (item: IClient) => (
+        <button
+          type="button"
+          onClick={() => void handleToggleMarketplace(item)}
+          title={item.marketplaceEnabled ? "Deshabilitar acceso marketplace" : "Habilitar acceso marketplace"}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+            item.marketplaceEnabled
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          <ShoppingBag className="h-3 w-3" />
+          {item.marketplaceEnabled ? "Activo" : "Inactivo"}
+        </button>
+      ),
+      getValue: (item: IClient) => (item.marketplaceEnabled ? "Activo" : "Inactivo"),
     },
     {
       key: "status",

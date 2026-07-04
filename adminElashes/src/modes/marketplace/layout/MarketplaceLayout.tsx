@@ -1,18 +1,64 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, Bell, X } from "lucide-react";
+import { toast } from "react-toastify";
 import MarketplaceSidebar from "./MarketplaceSidebar";
 import ModeSwitch from "@/components/layout/ModeSwitch";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
+import { fetchAdminOrders } from "@/core/services/marketplace/marketplace.service";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export default function MarketplaceLayout() {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const lastPendingRef = useRef<number | null>(null);
+  const [notifBanner, setNotifBanner] = useState(
+    () => "Notification" in window && Notification.permission === "default"
+  );
   const user = useSelector((s: RootState) => s.auth.user as { name?: string; email?: string } | null);
+
+  const requestNotifPermission = () => {
+    void Notification.requestPermission().then((p) => {
+      setNotifBanner(false);
+      if (p === "granted") toast.success("¡Notificaciones activadas! Recibirás alertas de nuevos pedidos.");
+      else toast.info("Notificaciones denegadas. Puedes activarlas desde la configuración del navegador.");
+    });
+  };
+
+  useEffect(() => {
+    const checkOrders = async () => {
+      try {
+        const res = await fetchAdminOrders({ status: "pending", limit: 1 });
+        const count = res.total;
+        setPendingOrders(count);
+        if (lastPendingRef.current !== null && count > lastPendingRef.current) {
+          const newCount = count - lastPendingRef.current;
+          toast.info(`🛍️ ${newCount} nuevo${newCount !== 1 ? "s" : ""} pedido${newCount !== 1 ? "s" : ""} pendiente${newCount !== 1 ? "s" : ""}`, {
+            toastId: "new-orders",
+            position: "top-right",
+            autoClose: 6000,
+          });
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Nuevo pedido en Marketplace", {
+              body: `${newCount} nuevo${newCount !== 1 ? "s" : ""} pedido${newCount !== 1 ? "s" : ""} esperando confirmación`,
+              icon: "/favicon.ico",
+            });
+          }
+        }
+        lastPendingRef.current = count;
+      } catch { /* silencioso */ }
+    };
+
+    void checkOrders();
+    const id = window.setInterval(() => void checkOrders(), POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <MarketplaceSidebar collapsed={collapsed} />
+      <MarketplaceSidebar collapsed={collapsed} pendingOrders={pendingOrders} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header marketplace */}
@@ -47,6 +93,25 @@ export default function MarketplaceLayout() {
             )}
           </div>
         </header>
+
+        {/* Banner permiso notificaciones */}
+        {notifBanner && (
+          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 shrink-0">
+            <Bell className="h-4 w-4 shrink-0 text-amber-500" />
+            <span className="flex-1">
+              Activa las notificaciones del navegador para recibir alertas de nuevos pedidos en tiempo real.
+            </span>
+            <button
+              onClick={requestNotifPermission}
+              className="rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-600 transition shrink-0"
+            >
+              Activar
+            </button>
+            <button onClick={() => setNotifBanner(false)} className="text-amber-400 hover:text-amber-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">

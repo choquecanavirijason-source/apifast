@@ -152,6 +152,7 @@ export default function RegisterClientModal({
     email: "",
     eye_type_id: "",
     branch_id: "",
+    ci: "",
   });
   const [fieldErrors, setFieldErrors] = useState({
     nombre: "",
@@ -180,6 +181,7 @@ export default function RegisterClientModal({
         email: "",
         eye_type_id: "",
         branch_id: "",
+        ci: "",
       });
       return;
     }
@@ -197,6 +199,7 @@ export default function RegisterClientModal({
       email: initialClient?.email ?? "",
       eye_type_id: initialClient?.eye_type_id ? String(initialClient.eye_type_id) : "",
       branch_id: initialClient?.branch_id ? String(initialClient.branch_id) : defaultBranchId ? String(defaultBranchId) : "",
+      ci: initialClient?.ci ?? "",
     });
   }, [initialClient, isOpen, defaultBranchIdProp]);
 
@@ -406,6 +409,16 @@ export default function RegisterClientModal({
             value={formValues.email}
             onChange={handleInputChange}
             error={fieldErrors.email || undefined}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2"
+          />
+
+          <InputField
+            name="ci"
+            label="CI / Carnet de Identidad"
+            placeholder="Número de carnet (opcional)"
+            value={formValues.ci}
+            onChange={handleInputChange}
             className={bcInputClass}
             containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2"
           />

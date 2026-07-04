@@ -16,6 +16,7 @@ class ClientBase(BaseModel):
     branch_id: Optional[int] = None
     eye_type_id: Optional[int] = None
     status: Optional[str] = Field(default="en_espera", max_length=32)
+    ci: Optional[str] = Field(default=None, max_length=20)
 
 
 class ClientCreate(ClientBase):
@@ -31,6 +32,8 @@ class ClientUpdate(BaseModel):
     branch_id: Optional[int] = None
     eye_type_id: Optional[int] = None
     status: Optional[str] = Field(default=None, max_length=32)
+    ci: Optional[str] = Field(default=None, max_length=20)
+    marketplace_enabled: Optional[bool] = None
 
 
 class ClientSummary(BaseModel):
@@ -46,6 +49,8 @@ class ClientSummary(BaseModel):
     eye_type_id: Optional[int] = None
     status: str
     last_activity_at: Optional[datetime] = None
+    ci: Optional[str] = None
+    marketplace_enabled: bool = False
 
     @model_validator(mode="after")
     def apply_sin_estado_after_inactivity(self):

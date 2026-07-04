@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
 
@@ -24,6 +24,8 @@ class Client(Base):
     eye_type_id = Column(Integer, ForeignKey("eye_types.id"), nullable=True)
     status = Column(String(32), nullable=False, default=CLIENT_STATUS_SIN_ESTADO)
     last_activity_at = Column(DateTime(timezone=True), nullable=True)
+    ci = Column(String(20), nullable=True)
+    marketplace_enabled = Column(Boolean, nullable=False, default=False)
 
     eye_type = relationship("EyeType", back_populates="clients")
     branch = relationship("Branch", back_populates="clients")

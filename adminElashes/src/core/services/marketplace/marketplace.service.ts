@@ -41,11 +41,14 @@ export interface MarketplaceProduct {
   price: number;
   original_price: number | null;
   image_url: string | null;
+  video_url: string | null;
   category_id: number | null;
   category_name: string | null;
   /** Alias of category_name — kept for backwards compat with existing pages. */
   category: string | null;
   stock: number;
+  low_stock_threshold: number;
+  is_low_stock: boolean;
   rating: number;
   review_count: number;
   is_active: boolean;
@@ -69,11 +72,20 @@ export interface CreateProductPayload {
   original_price?: number;
   category_id?: number;
   stock?: number;
+  low_stock_threshold?: number;
+  video_url?: string;
   image?: File | null;
 }
 
-export interface UpdateProductPayload extends Partial<CreateProductPayload> {
+export interface UpdateProductPayload extends Partial<Omit<CreateProductPayload, "category_id">> {
   is_active?: boolean;
+  category_id?: number | null;
+}
+
+export interface DashboardStats {
+  products: { total: number; active: number; inactive: number; low_stock: number; out_of_stock: number };
+  orders: { total: number; pending: number; confirmed: number; delivered: number };
+  revenue: number;
 }
 
 /** Producto del inventario de elashesbackend (tipo local en ImportInventoryPage) */
@@ -109,6 +121,9 @@ export interface MarketplaceOrder {
   status: string;
   status_label: string;
   notes: string | null;
+  delivery_address: string | null;
+  delivery_district: string | null;
+  delivery_references: string | null;
   items: OrderItem[];
   created_at: string;
   updated_at: string | null;
@@ -134,8 +149,10 @@ function buildFormData(payload: Record<string, FormValue>): FormData {
   for (const [key, value] of Object.entries(payload)) {
     if (key === "image") {
       if (value instanceof File) fd.append("image", value);
-    } else if (value !== undefined && value !== null) {
-      fd.append(key, String(value));
+    } else if (value !== undefined) {
+      // null category_id → "0" so backend can clear it (0 = no category)
+      if (value === null && key === "category_id") fd.append(key, "0");
+      else if (value !== null) fd.append(key, String(value));
     }
   }
   return fd;
@@ -166,6 +183,14 @@ export async function updateMarketplaceProduct(
   const { data } = await marketplaceApi.put<Record<string, unknown>>(
     `/api/products/admin/${id}`,
     fd
+  );
+  return normalizeProduct(data);
+}
+
+export async function adjustProductStock(id: number, stock: number): Promise<MarketplaceProduct> {
+  const { data } = await marketplaceApi.patch<Record<string, unknown>>(
+    `/api/products/admin/${id}/stock`,
+    { stock }
   );
   return normalizeProduct(data);
 }
@@ -260,6 +285,88 @@ export async function deleteOrder(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/orders/admin/${id}`);
 }
 
+// ── Collections ───────────────────────────────────────────────────────────────
+
+export interface CollectionPreviewProduct {
+  id: number;
+  name: string;
+  image_url: string | null;
+  price: number;
+  category_name: string | null;
+}
+
+export interface MarketplaceCollection {
+  id: number;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  product_count: number;
+  preview_products: CollectionPreviewProduct[];
+  created_at: string;
+}
+
+export async function fetchAdminCollections(): Promise<MarketplaceCollection[]> {
+  const { data } = await marketplaceApi.get<MarketplaceCollection[]>("/api/collections/admin");
+  return data;
+}
+
+export async function createCollection(payload: {
+  name: string;
+  description?: string;
+  image?: File | null;
+}): Promise<MarketplaceCollection> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.post<MarketplaceCollection>("/api/collections/admin", fd);
+  return data;
+}
+
+export async function updateCollection(
+  id: number,
+  payload: { name?: string; description?: string; is_active?: boolean; image?: File | null }
+): Promise<MarketplaceCollection> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.put<MarketplaceCollection>(`/api/collections/admin/${id}`, fd);
+  return data;
+}
+
+export async function deleteCollection(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/collections/admin/${id}`);
+}
+
+export async function fetchCollectionProducts(colId: number): Promise<MarketplaceProduct[]> {
+  const { data } = await marketplaceApi.get<Record<string, unknown>[]>(`/api/collections/admin/${colId}/products`);
+  return data.map(normalizeProduct);
+}
+
+export async function addProductToCollection(colId: number, productId: number): Promise<MarketplaceCollection> {
+  const { data } = await marketplaceApi.post<MarketplaceCollection>(
+    `/api/collections/admin/${colId}/products/${productId}`
+  );
+  return data;
+}
+
+export async function removeProductFromCollection(colId: number, productId: number): Promise<void> {
+  await marketplaceApi.delete(`/api/collections/admin/${colId}/products/${productId}`);
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+
+export interface MarketplaceCustomer {
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  order_count: number;
+  total_spent: number;
+  last_order_at: string;
+  source: "app" | "salon";
+}
+
+export async function fetchCustomers(): Promise<MarketplaceCustomer[]> {
+  const { data } = await marketplaceApi.get<MarketplaceCustomer[]>("/api/customers");
+  return data;
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 export function computeStats(products: MarketplaceProduct[]): MarketplaceStats {
@@ -269,4 +376,14 @@ export function computeStats(products: MarketplaceProduct[]): MarketplaceStats {
     ? products.reduce((sum, p) => sum + p.price, 0) / products.length
     : 0;
   return { total: products.length, active, inactive: products.length - active, categories, avg_price };
+}
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  const { data } = await marketplaceApi.get<DashboardStats>("/api/products/admin/stats");
+  return data;
+}
+
+export async function fetchLowStockProducts(): Promise<MarketplaceProduct[]> {
+  const { data } = await marketplaceApi.get<Record<string, unknown>[]>("/api/products/admin/low-stock");
+  return data.map(normalizeProduct);
 }

@@ -54,6 +54,7 @@ import app.infrastructure.database.migrations.add_commission_rate_to_services as
 import app.infrastructure.database.migrations.add_qr_image_url_to_branches as m26
 import app.infrastructure.database.migrations.add_commission_payments_table as m27
 import app.infrastructure.database.migrations.add_marketplace_products_table as m28
+import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m29
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -66,6 +67,7 @@ from app.presentation.controllers.service_categories_controller import router as
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
+from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import ws_manager
 
 @asynccontextmanager
@@ -104,6 +106,7 @@ async def lifespan(app: FastAPI):
         ("qr_image_url_to_branches", m26.upgrade),
         ("commission_payments_table", m27.upgrade),
         ("marketplace_products_table", m28.upgrade),
+        ("ci_marketplace_to_clients", m29.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -197,6 +200,7 @@ def create_app() -> FastAPI:
     app.include_router(commission_payments_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
+    app.include_router(marketplace_booking_router)
     app.include_router(auth_routes.router)
 
     @app.websocket("/ws/branch/{branch_id}")

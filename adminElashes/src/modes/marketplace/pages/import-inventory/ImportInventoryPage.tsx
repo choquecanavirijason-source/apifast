@@ -71,7 +71,7 @@ export default function ImportInventoryPage() {
       await importInventoryProduct({
         name: product.name,
         price: product.price,
-        stock: 0,
+        stock: 10,
         image_url: product.image_url ? buildInvImg(product.image_url) : null,
       });
       setImported((prev) => new Set([...prev, product.name.toLowerCase()]));

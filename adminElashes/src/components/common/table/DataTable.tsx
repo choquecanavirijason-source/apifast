@@ -442,41 +442,46 @@ function DataTable<T extends { id: number | string }>({
                         {renderCellContent(item, col)}
                       </td>
                     ))}
-                    {actions && actions.length > 0 ? (
-                      <td className={`${cellBorder} px-1.5 py-1 text-right align-middle`}>
-                        <div className="relative inline-flex">
-                          <button
-                            type="button"
-                            aria-label="Acciones"
-                            title="Acciones"
-                            aria-expanded={openActionRowId === item.id}
-                            onClick={(event) => {
-                              if (openActionRowId === item.id) {
-                                setOpenActionRowId(null);
-                                setActionAnchorRect(null);
-                                return;
-                              }
-                              setOpenActionRowId(item.id);
-                              setActionAnchorRect(event.currentTarget.getBoundingClientRect());
-                            }}
-                            className="rounded border border-transparent p-1.5 text-slate-500 opacity-70 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:opacity-100 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                          {openActionRowId === item.id ? (
-                            <ActionDropdownMenu
-                              actions={actions}
-                              item={item}
-                              anchorRect={actionAnchorRect}
-                              onClose={() => {
-                                setOpenActionRowId(null);
-                                setActionAnchorRect(null);
-                              }}
-                            />
+                    {actions && actions.length > 0 ? (() => {
+                      const visibleActions = actions.filter(a => !a.show || a.show(item));
+                      return (
+                        <td className={`${cellBorder} px-1.5 py-1 text-right align-middle`}>
+                          {visibleActions.length > 0 ? (
+                            <div className="relative inline-flex">
+                              <button
+                                type="button"
+                                aria-label="Acciones"
+                                title="Acciones"
+                                aria-expanded={openActionRowId === item.id}
+                                onClick={(event) => {
+                                  if (openActionRowId === item.id) {
+                                    setOpenActionRowId(null);
+                                    setActionAnchorRect(null);
+                                    return;
+                                  }
+                                  setOpenActionRowId(item.id);
+                                  setActionAnchorRect(event.currentTarget.getBoundingClientRect());
+                                }}
+                                className="rounded border border-transparent p-1.5 text-slate-500 opacity-70 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:opacity-100 group-hover:opacity-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {openActionRowId === item.id ? (
+                                <ActionDropdownMenu
+                                  actions={actions}
+                                  item={item}
+                                  anchorRect={actionAnchorRect}
+                                  onClose={() => {
+                                    setOpenActionRowId(null);
+                                    setActionAnchorRect(null);
+                                  }}
+                                />
+                              ) : null}
+                            </div>
                           ) : null}
-                        </div>
-                      </td>
-                    ) : null}
+                        </td>
+                      );
+                    })() : null}
                   </tr>
                 );
               })
