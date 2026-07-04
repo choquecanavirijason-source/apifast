@@ -67,6 +67,7 @@ from app.presentation.controllers.service_categories_controller import router as
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
+from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import ws_manager
 
 @asynccontextmanager
@@ -199,6 +200,7 @@ def create_app() -> FastAPI:
     app.include_router(commission_payments_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
+    app.include_router(marketplace_booking_router)
     app.include_router(auth_routes.router)
 
     @app.websocket("/ws/branch/{branch_id}")
