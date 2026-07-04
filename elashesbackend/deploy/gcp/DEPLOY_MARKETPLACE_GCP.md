@@ -48,11 +48,13 @@ Contenido mínimo para GCP (en la VM `localhost` funciona, no hay Docker):
 ```env
 DATABASE_URL=sqlite:///./data/marketplace.db
 SALON_BACKEND_URL=http://localhost:8000
-ALLOWED_ORIGINS=http://34.55.150.142,https://34.55.150.142
-MEDIA_BASE_PATH=./media
+ALLOWED_ORIGINS=http://34.55.150.142,https://34.55.150.142,http://localhost,http://127.0.0.1
+MEDIA_BASE_PATH=/opt/elashes/marketplaceapi/media
 ```
 
 > Si tienes dominio agrega también: `https://tu-dominio.com`
+>
+> `MEDIA_BASE_PATH` debe ser ruta absoluta en producción para que nginx sirva las imágenes correctamente.
 
 ## 4) Crear carpetas necesarias
 
