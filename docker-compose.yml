@@ -30,6 +30,11 @@ services:
       # Sin DB_HOST → Settings usaría sqlite en carpeta del proyecto; en Docker fijamos ruta explícita:
       - DATABASE_URL=sqlite:////app/elashes.db
       - SECRET_KEY=tu_clave_secreta_aqui
+      # microservicioMarketplace corre en el host (puerto 8001), fuera de este compose.
+      # Desde dentro del contenedor "localhost" se refiere al propio contenedor, no al host.
+      - MARKETPLACE_BACKEND_URL=http://host.docker.internal:8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - app-network
 
