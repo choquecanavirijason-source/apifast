@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -60,8 +60,10 @@ export default function ProductsPage() {
   const [form, setForm] = useState<Form>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MarketplaceProduct | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -99,6 +101,7 @@ export default function ProductsPage() {
     setForm(emptyForm);
     setImageFile(null);
     setImagePreview(null);
+    setVideoFile(null);
     setIsModalOpen(true);
   };
 
@@ -113,6 +116,7 @@ export default function ProductsPage() {
     });
     setImageFile(null);
     setImagePreview(buildImgUrl(p.image_url));
+    setVideoFile(null);
     setIsModalOpen(true);
   };
 
@@ -122,6 +126,7 @@ export default function ProductsPage() {
     setForm(emptyForm);
     setImageFile(null);
     setImagePreview(null);
+    setVideoFile(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,6 +146,7 @@ export default function ProductsPage() {
         low_stock_threshold: Number(form.low_stock_threshold) || 5,
         video_url: form.video_url.trim() || undefined,
         image: imageFile,
+        video: videoFile,
       };
       if (editingId !== null) {
         const updated = await updateMarketplaceProduct(editingId, { ...payload, is_active: form.is_active });
@@ -470,7 +476,42 @@ export default function ProductsPage() {
             value={form.video_url}
             onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
             placeholder="https://youtube.com/watch?v=..."
+            hint={videoFile ? "Se ignorará: hay un archivo de video seleccionado abajo" : undefined}
           />
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-brand-tertiary">
+              O sube un archivo de video (mp4, mov, webm — máx. 80 MB)
+            </label>
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v"
+              className="hidden"
+              onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
+            />
+            {videoFile ? (
+              <div className="flex items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2">
+                <Video className="h-4 w-4 text-brand shrink-0" />
+                <span className="flex-1 min-w-0 truncate text-sm text-slate-700">{videoFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setVideoFile(null); if (videoInputRef.current) videoInputRef.current.value = ""; }}
+                  className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-3 text-sm text-slate-500 hover:border-brand hover:text-brand transition"
+              >
+                <Upload className="h-4 w-4" /> Subir archivo de video
+              </button>
+            )}
+          </div>
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-brand-tertiary">Descripción</label>

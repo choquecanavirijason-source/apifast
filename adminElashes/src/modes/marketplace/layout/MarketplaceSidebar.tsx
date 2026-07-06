@@ -9,6 +9,7 @@ import {
   Download,
   ClipboardList,
   Warehouse,
+  Megaphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLogo } from "@/core/hooks/useLogo";
@@ -36,6 +37,11 @@ const MENU: MenuItem[] = [
     name: "Categorías",
     icon: <Tag size={20} />,
     path: "/marketplace/categories",
+  },
+  {
+    name: "Publicidad",
+    icon: <Megaphone size={20} />,
+    path: "/marketplace/ads",
   },
   {
     name: "Pedidos",
