@@ -75,6 +75,8 @@ export interface CreateProductPayload {
   low_stock_threshold?: number;
   video_url?: string;
   image?: File | null;
+  /** Archivo de video (mp4/mov/webm). Si se envía, tiene prioridad sobre video_url. */
+  video?: File | null;
 }
 
 export interface UpdateProductPayload extends Partial<Omit<CreateProductPayload, "category_id">> {
@@ -147,8 +149,8 @@ function normalizeProduct(p: Record<string, unknown>): MarketplaceProduct {
 function buildFormData(payload: Record<string, FormValue>): FormData {
   const fd = new FormData();
   for (const [key, value] of Object.entries(payload)) {
-    if (key === "image") {
-      if (value instanceof File) fd.append("image", value);
+    if (key === "image" || key === "video") {
+      if (value instanceof File) fd.append(key, value);
     } else if (value !== undefined) {
       // null category_id → "0" so backend can clear it (0 = no category)
       if (value === null && key === "category_id") fd.append(key, "0");
@@ -348,6 +350,59 @@ export async function addProductToCollection(colId: number, productId: number): 
 
 export async function removeProductFromCollection(colId: number, productId: number): Promise<void> {
   await marketplaceApi.delete(`/api/collections/admin/${colId}/products/${productId}`);
+}
+
+// ── Ads (publicidad / banners del carrusel) ────────────────────────────────────
+
+export type AdLinkType =
+  | "none" | "product" | "collection" | "category" | "url" | "booking" | "pickup" | "catalog";
+
+export interface MarketplaceAd {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  cta_label: string;
+  image_url: string;
+  link_type: AdLinkType;
+  link_value: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CreateAdPayload {
+  title: string;
+  subtitle?: string;
+  cta_label?: string;
+  link_type?: AdLinkType;
+  link_value?: string;
+  sort_order?: number;
+  image?: File | null;
+}
+
+export interface UpdateAdPayload extends Partial<CreateAdPayload> {
+  is_active?: boolean;
+}
+
+export async function fetchAdminAds(): Promise<MarketplaceAd[]> {
+  const { data } = await marketplaceApi.get<MarketplaceAd[]>("/api/ads/admin");
+  return data;
+}
+
+export async function createAd(payload: CreateAdPayload): Promise<MarketplaceAd> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.post<MarketplaceAd>("/api/ads/admin", fd);
+  return data;
+}
+
+export async function updateAd(id: number, payload: UpdateAdPayload): Promise<MarketplaceAd> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.put<MarketplaceAd>(`/api/ads/admin/${id}`, fd);
+  return data;
+}
+
+export async function deleteAd(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/ads/admin/${id}`);
 }
 
 // ── Customers ─────────────────────────────────────────────────────────────────
