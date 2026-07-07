@@ -89,9 +89,6 @@ curl http://127.0.0.1:8001/docs
 curl http://127.0.0.1:8001/api/categories
 ```
 
-Desde navegador externo:
-- Docs marketplace: `http://34.55.150.142/marketplace/docs`
-- Categorías: `http://34.55.150.142/marketplace/api/categories`
 
 El proxy del elashesbackend ya enruta `/marketplace-proxy/...` → `localhost:8001`
 (configurado en `.env.gcp.example`: `MARKETPLACE_BACKEND_URL=http://localhost:8001`).
