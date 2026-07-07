@@ -69,6 +69,7 @@ from app.presentation.controllers.marketplace_controller import router as market
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import ws_manager
+from app.infrastructure.security.jwt import decode_token, JWTError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -204,7 +205,13 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router)
 
     @app.websocket("/ws/branch/{branch_id}")
-    async def ws_branch(websocket: WebSocket, branch_id: int):
+    async def ws_branch(websocket: WebSocket, branch_id: int, token: str | None = None):
+        if token is not None:
+            try:
+                decode_token(token)
+            except JWTError:
+                await websocket.close(code=1008)
+                return
         await ws_manager.connect(websocket, branch_id)
         try:
             while True:

@@ -460,10 +460,12 @@ async def delete_existing_appointment(
 ):
     appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
     branch_id = appointment.branch_id
+    professional_id = appointment.professional_id
     delete_appointment(db=db, appointment_id=appointment_id)
     if branch_id:
         await ws_manager.broadcast(branch_id, {
             "event": "ticket_deleted",
             "ticket_id": appointment_id,
+            "professional_id": professional_id,
         })
     return MessageResponse(message="Cita eliminada correctamente")
