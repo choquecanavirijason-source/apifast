@@ -8,6 +8,7 @@ export type Salon = {
   active: boolean;
   createdAt: string;
   qr_image_url?: string | null;
+  maps_url?: string | null;
 };
 
 export type SalonTimeRangeForm = {
@@ -27,6 +28,7 @@ export type SalonForm = {
   department: string;
   opening_hours: SalonDayScheduleForm[];
   qr_image_url: string;
+  maps_url: string;
 };
 
 export interface BackendBranch {
@@ -36,6 +38,8 @@ export interface BackendBranch {
   city?: string | null;
   department?: string | null;
   opening_hours?: SalonDayScheduleForm[] | string | null;
+  qr_image_url?: string | null;
+  maps_url?: string | null;
 }
 
 export const WEEK_DAYS = [
@@ -106,6 +110,7 @@ export const emptyForm: SalonForm = {
   department: "",
   opening_hours: createDefaultOpeningHours(),
   qr_image_url: "",
+  maps_url: "",
 };
 
 export const mapBranchToSalon = (branch: BackendBranch): Salon => ({
@@ -117,7 +122,8 @@ export const mapBranchToSalon = (branch: BackendBranch): Salon => ({
   opening_hours: normalizeOpeningHours(branch.opening_hours),
   active: true,
   createdAt: "",
-  qr_image_url: (branch as { qr_image_url?: string | null }).qr_image_url ?? null,
+  qr_image_url: branch.qr_image_url ?? null,
+  maps_url: branch.maps_url ?? null,
 });
 
 export const COUNTRY_CITY_OPTIONS: Record<string, string[]> = {

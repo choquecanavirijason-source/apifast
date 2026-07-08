@@ -23,6 +23,14 @@ from app.presentation.schemas.catalog import (
     QuestionnaireCreate,
     QuestionnaireUpdate,
     QuestionnaireResponse,
+    TecnologiaCreate,
+    TecnologiaUpdate,
+    TecnologiaResponse,
+    DisenoFinalCreate,
+    DisenoFinalUpdate,
+    DisenoFinalResponse,
+    DisenoGuardadoCreate,
+    DisenoGuardadoResponse,
 )
 from app.application.services.catalog_service import (
     list_eye_types,
@@ -50,6 +58,19 @@ from app.application.services.catalog_service import (
     create_questionnaire,
     update_questionnaire,
     delete_questionnaire,
+    list_tecnologias,
+    get_tecnologia_by_id,
+    create_tecnologia,
+    update_tecnologia,
+    delete_tecnologia,
+    list_disenos_finales,
+    get_diseno_final_by_id,
+    create_diseno_final,
+    update_diseno_final,
+    delete_diseno_final,
+    list_disenos_guardados,
+    create_diseno_guardado,
+    delete_diseno_guardado,
 )
 
 
@@ -352,3 +373,142 @@ def delete_existing_questionnaire(
 ):
     delete_questionnaire(db=db, questionnaire_id=questionnaire_id)
     return MessageResponse(message="Cuestionario eliminado correctamente")
+
+
+# Tecnologías
+@router.get("/tecnologias", response_model=List[TecnologiaResponse])
+def get_tecnologias(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return list_tecnologias(db=db, skip=skip, limit=limit)
+
+
+@router.get("/tecnologias/{tecnologia_id}", response_model=TecnologiaResponse)
+def get_tecnologia(
+    tecnologia_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return get_tecnologia_by_id(db=db, tecnologia_id=tecnologia_id)
+
+
+@router.post(
+    "/tecnologias",
+    response_model=TecnologiaResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_new_tecnologia(
+    payload: TecnologiaCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return create_tecnologia(db=db, payload=payload)
+
+
+@router.put("/tecnologias/{tecnologia_id}", response_model=TecnologiaResponse)
+def update_existing_tecnologia(
+    tecnologia_id: int,
+    payload: TecnologiaUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return update_tecnologia(db=db, tecnologia_id=tecnologia_id, payload=payload)
+
+
+@router.delete("/tecnologias/{tecnologia_id}", response_model=MessageResponse)
+def delete_existing_tecnologia(
+    tecnologia_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    delete_tecnologia(db=db, tecnologia_id=tecnologia_id)
+    return MessageResponse(message="Tecnología eliminada correctamente")
+
+
+# Diseños Finales (Tecnología + Efecto + Tipo de ojo + Volumen)
+@router.get("/disenos-finales", response_model=List[DisenoFinalResponse])
+def get_disenos_finales(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return list_disenos_finales(db=db, skip=skip, limit=limit)
+
+
+@router.get("/disenos-finales/{diseno_final_id}", response_model=DisenoFinalResponse)
+def get_diseno_final(
+    diseno_final_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return get_diseno_final_by_id(db=db, diseno_final_id=diseno_final_id)
+
+
+@router.post(
+    "/disenos-finales",
+    response_model=DisenoFinalResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_new_diseno_final(
+    payload: DisenoFinalCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return create_diseno_final(db=db, payload=payload)
+
+
+@router.put("/disenos-finales/{diseno_final_id}", response_model=DisenoFinalResponse)
+def update_existing_diseno_final(
+    diseno_final_id: int,
+    payload: DisenoFinalUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return update_diseno_final(db=db, diseno_final_id=diseno_final_id, payload=payload)
+
+
+@router.delete("/disenos-finales/{diseno_final_id}", response_model=MessageResponse)
+def delete_existing_diseno_final(
+    diseno_final_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    delete_diseno_final(db=db, diseno_final_id=diseno_final_id)
+    return MessageResponse(message="Diseño final eliminado correctamente")
+
+
+# Diseños Guardados (Diseño Final guardado para una clienta)
+@router.get("/disenos-guardados", response_model=List[DisenoGuardadoResponse])
+def get_disenos_guardados(
+    client_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return list_disenos_guardados(db=db, client_id=client_id)
+
+
+@router.post(
+    "/disenos-guardados",
+    response_model=DisenoGuardadoResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_new_diseno_guardado(
+    payload: DisenoGuardadoCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return create_diseno_guardado(db=db, payload=payload)
+
+
+@router.delete("/disenos-guardados/{diseno_guardado_id}", response_model=MessageResponse)
+def delete_existing_diseno_guardado(
+    diseno_guardado_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    delete_diseno_guardado(db=db, diseno_guardado_id=diseno_guardado_id)
+    return MessageResponse(message="Diseño guardado eliminado correctamente")

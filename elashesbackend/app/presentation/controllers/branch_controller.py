@@ -79,6 +79,7 @@ def create_new_branch(
         department=payload.department,
         opening_hours=[item.model_dump() for item in payload.opening_hours],
         user_ids=payload.user_ids,
+        maps_url=payload.maps_url,
     )
 
 
@@ -99,6 +100,7 @@ def update_existing_branch(
         opening_hours=[item.model_dump() for item in payload.opening_hours] if payload.opening_hours is not None else None,
         user_ids=payload.user_ids,
         qr_image_url=payload.qr_image_url,
+        maps_url=payload.maps_url,
     )
 
 

@@ -13,6 +13,7 @@ class Branch(Base):
     department = Column(String(100), nullable=True)
     opening_hours = Column(JSON, nullable=True)
     qr_image_url = Column(String(1024), nullable=True)
+    maps_url = Column(String(1024), nullable=True)
     integration_profile_id = Column(Integer, ForeignKey("branch_integration_profiles.id"), nullable=True)
 
     integration_profile = relationship("BranchIntegrationProfile", back_populates="branches")

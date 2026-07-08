@@ -55,6 +55,7 @@ import app.infrastructure.database.migrations.add_qr_image_url_to_branches as m2
 import app.infrastructure.database.migrations.add_commission_payments_table as m27
 import app.infrastructure.database.migrations.add_marketplace_products_table as m28
 import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m29
+import app.infrastructure.database.migrations.add_maps_url_to_branches as m30
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -107,6 +108,7 @@ async def lifespan(app: FastAPI):
         ("commission_payments_table", m27.upgrade),
         ("marketplace_products_table", m28.upgrade),
         ("ci_marketplace_to_clients", m29.upgrade),
+        ("maps_url_to_branches", m30.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

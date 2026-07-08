@@ -11,6 +11,7 @@ from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -372,7 +373,8 @@ async def create_new_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    result = create_appointment(
+    result = await run_in_threadpool(
+        create_appointment,
         db=db,
         client_id=payload.client_id,
         created_by_id=current_user.id,
@@ -406,7 +408,8 @@ async def call_next_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    result = call_next_appointment(
+    result = await run_in_threadpool(
+        call_next_appointment,
         db=db,
         branch_id=payload.branch_id,
         professional_id=payload.professional_id,
@@ -428,7 +431,8 @@ async def update_existing_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    result = update_appointment(
+    result = await run_in_threadpool(
+        update_appointment,
         db=db,
         appointment_id=appointment_id,
         client_id=payload.client_id,
@@ -458,9 +462,9 @@ async def delete_existing_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
+    appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
     branch_id = appointment.branch_id
-    delete_appointment(db=db, appointment_id=appointment_id)
+    await run_in_threadpool(delete_appointment, db=db, appointment_id=appointment_id)
     if branch_id:
         await ws_manager.broadcast(branch_id, {
             "event": "ticket_deleted",

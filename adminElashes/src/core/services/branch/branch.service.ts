@@ -10,6 +10,7 @@ interface BackendBranch {
     day: string;
     ranges: Array<{ open_time: string; close_time: string }>;
   }> | null;
+  maps_url?: string | null;
 }
 
 interface MessageResponse {
@@ -26,6 +27,7 @@ export interface BranchPayload {
     ranges: Array<{ open_time: string; close_time: string }>;
   }>;
   qr_image_url?: string | null;
+  maps_url?: string | null;
 }
 
 export interface BranchIntegrations {

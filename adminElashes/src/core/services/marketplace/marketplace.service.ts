@@ -17,10 +17,22 @@ const marketplaceApi = {
     api.delete<T>(`/marketplace-proxy${url}`, config),
 };
 
-/** Base URL del backend principal (elashesbackend) para resolver rutas de media del marketplace. */
+/**
+ * Base para resolver rutas de media (imágenes) del marketplace.
+ *
+ * Los archivos (image_url = "/media/marketplace/...") viven físicamente en
+ * backend_marketplace (puerto 8001), no en elashesbackend. nginx no expone
+ * ese puerto directamente para media estática, así que hay que pasar por el
+ * mismo proxy transparente que ya usan las llamadas a la API
+ * (/marketplace-proxy/<path> -> backend_marketplace/<path>), igual como ya
+ * lo documenta SettingsPage. Antes esto apuntaba directo a elashesbackend
+ * (o al dominio pelado en prod) y las imágenes nunca cargaban.
+ */
 export const MARKETPLACE_MEDIA_BASE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL?.replace(/\/api\/?$/, "")) ||
-  "http://34.55.150.142";
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL}/marketplace-proxy`
+    : undefined) ||
+  "http://34.55.150.142/api/marketplace-proxy";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -149,11 +161,11 @@ function normalizeProduct(p: Record<string, unknown>): MarketplaceProduct {
 function buildFormData(payload: Record<string, FormValue>): FormData {
   const fd = new FormData();
   for (const [key, value] of Object.entries(payload)) {
-    if (key === "image" || key === "video") {
+    if (key === "image" || key === "video" || key === "thumbnail") {
       if (value instanceof File) fd.append(key, value);
     } else if (value !== undefined) {
-      // null category_id → "0" so backend can clear it (0 = no category)
-      if (value === null && key === "category_id") fd.append(key, "0");
+      // null category_id/product_id → "0" so backend can clear it
+      if (value === null && (key === "category_id" || key === "product_id")) fd.append(key, "0");
       else if (value !== null) fd.append(key, String(value));
     }
   }
@@ -403,6 +415,62 @@ export async function updateAd(id: number, payload: UpdateAdPayload): Promise<Ma
 
 export async function deleteAd(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/ads/admin/${id}`);
+}
+
+// ── Reels (videos cortos de aplicación de productos) ───────────────────────────
+
+export interface ReelProductSummary {
+  id: number;
+  name: string;
+  price: number;
+  image_url: string | null;
+}
+
+export interface MarketplaceReel {
+  id: number;
+  video_url: string;
+  thumbnail_url: string | null;
+  caption: string | null;
+  product_id: number | null;
+  product: ReelProductSummary | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CreateReelPayload {
+  caption?: string;
+  video_url?: string;
+  product_id?: number;
+  sort_order?: number;
+  /** Archivo de video. Si se envía, tiene prioridad sobre video_url. */
+  video?: File | null;
+  thumbnail?: File | null;
+}
+
+export interface UpdateReelPayload extends Partial<CreateReelPayload> {
+  is_active?: boolean;
+}
+
+export async function fetchAdminReels(): Promise<MarketplaceReel[]> {
+  const { data } = await marketplaceApi.get<MarketplaceReel[]>("/api/reels/admin");
+  return data;
+}
+
+export async function createReel(payload: CreateReelPayload): Promise<MarketplaceReel> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.post<MarketplaceReel>("/api/reels/admin", fd);
+  return data;
+}
+
+export async function updateReel(id: number, payload: UpdateReelPayload): Promise<MarketplaceReel> {
+  const fd = buildFormData(payload as Record<string, FormValue>);
+  const { data } = await marketplaceApi.put<MarketplaceReel>(`/api/reels/admin/${id}`, fd);
+  return data;
+}
+
+export async function deleteReel(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/reels/admin/${id}`);
 }
 
 // ── Customers ─────────────────────────────────────────────────────────────────
