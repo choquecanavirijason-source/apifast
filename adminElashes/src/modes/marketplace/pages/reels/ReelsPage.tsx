@@ -43,10 +43,6 @@ function img(url: string | null | undefined): string | null {
   return url.startsWith("http") ? url : `${MARKETPLACE_MEDIA_BASE}${url}`;
 }
 
-function isYoutube(url: string): boolean {
-  return /youtube\.com|youtu\.be/i.test(url);
-}
-
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default function ReelsPage() {
@@ -101,7 +97,7 @@ export default function ReelsPage() {
     setEditingId(r.id);
     setForm({
       caption: r.caption ?? "",
-      video_url: isYoutube(r.video_url) || (r.video_url.startsWith("http") && !r.video_url.includes("/media/"))
+      video_url: r.video_url.startsWith("http") && !r.video_url.includes("/media/")
         ? r.video_url
         : "",
       product_id: r.product_id ? String(r.product_id) : "",
@@ -125,7 +121,7 @@ export default function ReelsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId === null && !videoFile && !form.video_url.trim()) {
-      toast.error("Sube un video o pega un link (YouTube/Drive)");
+      toast.error("Sube un video o pega un link directo (mp4, etc.)");
       return;
     }
     setSaving(true);
@@ -394,12 +390,12 @@ export default function ReelsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-brand-tertiary">Link de YouTube/Drive</label>
+            <label className="block text-sm font-medium text-brand-tertiary">Link directo de video</label>
             <input
               type="url"
               value={form.video_url}
               onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder="https://ejemplo.com/video.mp4"
               disabled={!!videoFile}
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100 disabled:text-slate-400"
             />

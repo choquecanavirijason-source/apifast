@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_permission
-from app.core.media import save_catalog_image
+from app.core.media import save_catalog_image, save_design_model
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.catalog import (
@@ -20,6 +20,9 @@ from app.presentation.schemas.catalog import (
     LashDesignCreate,
     LashDesignUpdate,
     LashDesignResponse,
+    DesignCreate,
+    DesignUpdate,
+    DesignResponse,
     QuestionnaireCreate,
     QuestionnaireUpdate,
     QuestionnaireResponse,
@@ -53,6 +56,11 @@ from app.application.services.catalog_service import (
     create_lash_design,
     update_lash_design,
     delete_lash_design,
+    list_designs,
+    get_design_by_id,
+    create_design,
+    update_design,
+    delete_design,
     list_questionnaires,
     get_questionnaire_by_id,
     create_questionnaire,
@@ -307,6 +315,71 @@ def delete_existing_lash_design(
 ):
     delete_lash_design(db=db, lash_design_id=lash_design_id)
     return MessageResponse(message="Diseño de pestañas eliminado correctamente")
+
+
+# Designs (combinaciones sugeridas con imagen y modelo 3D)
+
+# Subida del modelo 3D (glb/gltf/obj/fbx/stl). Devuelve la ruta pública
+# `/media/design-models/...` que el cliente envía luego en `model_3d_url`.
+@router.post("/designs/upload-model", status_code=status.HTTP_201_CREATED)
+def upload_design_model(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    model_url = save_design_model(file=file)
+    return {"model_3d_url": model_url, "model_3d_filename": file.filename}
+
+
+@router.get("/designs", response_model=List[DesignResponse])
+def get_designs(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return list_designs(db=db, skip=skip, limit=limit)
+
+
+@router.get("/designs/{design_id}", response_model=DesignResponse)
+def get_design(
+    design_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:view")),
+):
+    return get_design_by_id(db=db, design_id=design_id)
+
+
+@router.post(
+    "/designs",
+    response_model=DesignResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_new_design(
+    payload: DesignCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return create_design(db=db, payload=payload)
+
+
+@router.put("/designs/{design_id}", response_model=DesignResponse)
+def update_existing_design(
+    design_id: int,
+    payload: DesignUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    return update_design(db=db, design_id=design_id, payload=payload)
+
+
+@router.delete("/designs/{design_id}", response_model=MessageResponse)
+def delete_existing_design(
+    design_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("catalog:manage")),
+):
+    delete_design(db=db, design_id=design_id)
+    return MessageResponse(message="Diseño eliminado correctamente")
 
 
 # Questionnaires

@@ -8,6 +8,7 @@ from app.domain.entities.tracking import (
     Effect,
     Volume,
     LashDesign,
+    Design,
     Questionnaire,
     Question,
 )
@@ -22,6 +23,8 @@ from app.presentation.schemas.catalog import (
     VolumeUpdate,
     LashDesignCreate,
     LashDesignUpdate,
+    DesignCreate,
+    DesignUpdate,
     QuestionnaireCreate,
     QuestionnaireUpdate,
     TecnologiaCreate,
@@ -299,6 +302,61 @@ def update_lash_design(
 def delete_lash_design(db: Session, lash_design_id: int) -> None:
     item = get_lash_design_by_id(db, lash_design_id)
     _safe_delete(db, item, "Diseño de pestañas")
+
+# Designs (combinaciones sugeridas con imagen y modelo 3D)
+
+def list_designs(db: Session, skip: int = 0, limit: int = 100):
+    return (
+        db.query(Design)
+        .order_by(Design.name.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def get_design_by_id(db: Session, design_id: int) -> Design:
+    return _get_or_404(db, Design, design_id, "Diseño")
+
+
+def create_design(db: Session, payload: DesignCreate) -> Design:
+    _validate_unique_name(db, Design, payload.name, "Diseño")
+
+    item = Design(
+        name=payload.name.strip(),
+        effect=payload.effect,
+        eye_type=payload.eye_type,
+        lash_design=payload.lash_design,
+        note=payload.note,
+        image=payload.image,
+        model_3d_url=payload.model_3d_url,
+        model_3d_filename=payload.model_3d_filename,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_design(db: Session, design_id: int, payload: DesignUpdate) -> Design:
+    item = get_design_by_id(db, design_id)
+    update_data = payload.model_dump(exclude_unset=True)
+
+    if "name" in update_data and update_data["name"] is not None:
+        _validate_unique_name(db, Design, update_data["name"], "Diseño", exclude_id=design_id)
+        update_data["name"] = update_data["name"].strip()
+
+    for field, value in update_data.items():
+        setattr(item, field, value)
+
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_design(db: Session, design_id: int) -> None:
+    item = get_design_by_id(db, design_id)
+    _safe_delete(db, item, "Diseño")
 
 # Questionnaires
 

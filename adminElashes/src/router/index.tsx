@@ -53,6 +53,7 @@ import MarketplaceSettingsPage from "@/modes/marketplace/pages/settings/Settings
 import InventoryOverviewPage from "@/modes/marketplace/pages/inventory/InventoryOverviewPage";
 import AdsPage from "@/modes/marketplace/pages/ads/AdsPage";
 import ReelsPage from "@/modes/marketplace/pages/reels/ReelsPage";
+import CustomersPage from "@/modes/marketplace/pages/customers/CustomersPage";
 
 export default function AppRouter() {
   const dispatch = useDispatch<AppDispatch>();
@@ -200,6 +201,7 @@ export default function AppRouter() {
             <Route path="marketplace/categories" element={<MarketplaceCategoriesPage />} />
             <Route path="marketplace/ads" element={<AdsPage />} />
             <Route path="marketplace/reels" element={<ReelsPage />} />
+            <Route path="marketplace/customers" element={<CustomersPage />} />
             <Route path="marketplace/catalog" element={<MarketplaceCatalogPage />} />
             <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />
             <Route path="marketplace/import-inventory" element={<ImportInventoryPage />} />

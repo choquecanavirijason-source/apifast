@@ -18,9 +18,14 @@ MEDIA_ROOT = os.path.join(get_external_path(), "media")
 MEDIA_URL_PREFIX = "/media"
 
 # Carpetas permitidas para subir (evita escritura arbitraria de rutas).
-ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "misc", "marketplace"}
+ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "designs", "misc", "marketplace"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+# Modelos 3D de diseños (vista previa AR/3D en el admin).
+MODEL_3D_FOLDER = "design-models"
+ALLOWED_MODEL_3D_EXTENSIONS = {".glb", ".gltf", ".obj", ".fbx", ".stl"}
+MAX_MODEL_3D_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def ensure_media_dirs() -> str:
@@ -28,6 +33,7 @@ def ensure_media_dirs() -> str:
     os.makedirs(MEDIA_ROOT, exist_ok=True)
     for folder in ALLOWED_FOLDERS:
         os.makedirs(os.path.join(MEDIA_ROOT, folder), exist_ok=True)
+    os.makedirs(os.path.join(MEDIA_ROOT, MODEL_3D_FOLDER), exist_ok=True)
     return MEDIA_ROOT
 
 
@@ -69,3 +75,37 @@ def save_catalog_image(file: UploadFile, folder: str) -> str:
         out.write(data)
 
     return f"{MEDIA_URL_PREFIX}/{folder}/{filename}"
+
+
+def save_design_model(file: UploadFile) -> str:
+    """Guarda un modelo 3D (glb/gltf/obj/fbx/stl) de un diseño y devuelve la
+    ruta pública `/media/design-models/...`. Lanza HTTPException 400 si la
+    extensión o el tamaño no son válidos.
+    """
+    _, ext = os.path.splitext(file.filename or "")
+    ext = ext.lower()
+    if ext not in ALLOWED_MODEL_3D_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Extensión no permitida. Usa: {sorted(ALLOWED_MODEL_3D_EXTENSIONS)}",
+        )
+
+    data = file.file.read()
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo está vacío.",
+        )
+    if len(data) > MAX_MODEL_3D_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El modelo 3D supera el tamaño máximo (50 MB).",
+        )
+
+    ensure_media_dirs()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    abs_path = os.path.join(MEDIA_ROOT, MODEL_3D_FOLDER, filename)
+    with open(abs_path, "wb") as out:
+        out.write(data)
+
+    return f"{MEDIA_URL_PREFIX}/{MODEL_3D_FOLDER}/{filename}"

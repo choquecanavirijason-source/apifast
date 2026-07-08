@@ -117,6 +117,51 @@ class LashDesignResponse(LashDesignSummary):
     pass
 
 
+# Design (combinaciones sugeridas con imagen y modelo 3D)
+class DesignBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    name: str = Field(..., min_length=2, max_length=255)
+    effect: Optional[str] = None
+    eye_type: Optional[str] = None
+    lash_design: Optional[str] = None
+    note: Optional[str] = None
+    image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
+
+
+class DesignCreate(DesignBase):
+    pass
+
+
+class DesignUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    name: Optional[str] = Field(default=None, min_length=2, max_length=255)
+    effect: Optional[str] = None
+    eye_type: Optional[str] = None
+    lash_design: Optional[str] = None
+    note: Optional[str] = None
+    image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
+
+
+class DesignResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
+    id: int
+    name: str
+    effect: Optional[str] = None
+    eye_type: Optional[str] = None
+    lash_design: Optional[str] = None
+    note: Optional[str] = None
+    image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
+
+
 # Questionnaire / Question
 QuestionType = Literal["text", "number", "bool", "select", "multi_select"]
 

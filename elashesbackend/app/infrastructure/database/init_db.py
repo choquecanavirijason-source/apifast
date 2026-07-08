@@ -12,6 +12,7 @@ from app.domain.entities.tracking import (
     Effect,
     Volume,
     LashDesign,
+    Design,
     Questionnaire,
     Question,
 )

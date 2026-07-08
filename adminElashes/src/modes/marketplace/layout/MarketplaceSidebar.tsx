@@ -11,6 +11,7 @@ import {
   Warehouse,
   Megaphone,
   Clapperboard,
+  Users,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLogo } from "@/core/hooks/useLogo";
@@ -53,6 +54,11 @@ const MENU: MenuItem[] = [
     name: "Pedidos",
     icon: <ClipboardList size={20} />,
     path: "/marketplace/orders",
+  },
+  {
+    name: "Clientes",
+    icon: <Users size={20} />,
+    path: "/marketplace/customers",
   },
   {
     name: "Importar Inventario",

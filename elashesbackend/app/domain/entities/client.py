@@ -25,7 +25,7 @@ class Client(Base):
     status = Column(String(32), nullable=False, default=CLIENT_STATUS_SIN_ESTADO)
     last_activity_at = Column(DateTime(timezone=True), nullable=True)
     ci = Column(String(20), nullable=True)
-    marketplace_enabled = Column(Boolean, nullable=False, default=False)
+    marketplace_enabled = Column(Boolean, nullable=False, default=True)
 
     eye_type = relationship("EyeType", back_populates="clients")
     branch = relationship("Branch", back_populates="clients")
