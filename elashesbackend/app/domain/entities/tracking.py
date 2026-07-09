@@ -47,6 +47,22 @@ class LashDesign(Base):
     trackings = relationship("Tracking", back_populates="lash_design")
 
 
+class Design(Base):
+    """Combinaciones sugeridas (efecto + tipo de ojo + diseño) con imagen de
+    referencia y modelo 3D opcional, mostradas en la página "Diseños" del admin."""
+    __tablename__ = "designs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), unique=True, nullable=False)
+    effect = Column(String(255), nullable=True)
+    eye_type = Column(String(255), nullable=True)
+    lash_design = Column(String(255), nullable=True)
+    note = Column(Text, nullable=True)
+    image = Column(Text, nullable=True)
+    model_3d_url = Column(String(500), nullable=True)
+    model_3d_filename = Column(String(255), nullable=True)
+
+
 class Questionnaire(Base):
     __tablename__ = "questionnaires"
 

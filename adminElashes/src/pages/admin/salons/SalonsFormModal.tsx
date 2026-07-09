@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { Plus, QrCode, Trash2 } from "lucide-react";
+import { MapPin, Plus, QrCode, Trash2 } from "lucide-react";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, InputField } from "../../../components/common/ui";
 import type { SalonForm } from "./utils";
@@ -116,6 +116,35 @@ export default function SalonsFormModal({
             ))}
           </select>
           {errors.city ? <p className="text-xs font-semibold text-[#a4262c]">{errors.city}</p> : null}
+        </div>
+
+        {/* Ubicación en Google Maps */}
+        <div className="md:col-span-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-[#0078d4]" />
+            <p className="text-sm font-semibold text-[#323130]">Ubicación en Google Maps</p>
+          </div>
+          <p className="mb-2 text-xs text-[#605e5c]">
+            Pega el link de Google Maps de la sucursal (compartir → copiar enlace). La app de clientes lo usa
+            para el botón "Cómo llegar" en citas y puntos de recojo.
+          </p>
+          <input
+            type="url"
+            value={form.maps_url}
+            onChange={(event) => onTextChange("maps_url", event.target.value)}
+            placeholder="https://maps.app.goo.gl/... o https://goo.gl/maps/..."
+            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+          />
+          {form.maps_url && (
+            <a
+              href={form.maps_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0078d4] hover:underline"
+            >
+              Probar enlace →
+            </a>
+          )}
         </div>
 
         {/* QR de pago estático */}

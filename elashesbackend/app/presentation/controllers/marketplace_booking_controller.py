@@ -119,7 +119,13 @@ def list_bookable_services(db: Session = Depends(get_db)):
 def list_branches(db: Session = Depends(get_db)):
     branches = db.query(Branch).order_by(Branch.id).all()
     return [
-        {"id": b.id, "name": b.name, "address": b.address, "city": b.city}
+        {
+            "id": b.id,
+            "name": b.name,
+            "address": b.address,
+            "city": b.city,
+            "maps_url": b.maps_url,
+        }
         for b in branches
     ]
 

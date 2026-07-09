@@ -164,6 +164,7 @@ def create_client(db: Session, payload: ClientCreate) -> Client:
         eye_type_id=payload.eye_type_id,
         status=CLIENT_STATUS_SIN_ESTADO,
         last_activity_at=now,
+        ci=payload.ci,
     )
 
     db.add(client)

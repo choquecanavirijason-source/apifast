@@ -55,6 +55,7 @@ import app.infrastructure.database.migrations.add_qr_image_url_to_branches as m2
 import app.infrastructure.database.migrations.add_commission_payments_table as m27
 import app.infrastructure.database.migrations.add_marketplace_products_table as m28
 import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m29
+import app.infrastructure.database.migrations.add_maps_url_to_branches as m30
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -69,6 +70,7 @@ from app.presentation.controllers.marketplace_controller import router as market
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import ws_manager
+from app.infrastructure.security.jwt import decode_token, JWTError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -107,6 +109,7 @@ async def lifespan(app: FastAPI):
         ("commission_payments_table", m27.upgrade),
         ("marketplace_products_table", m28.upgrade),
         ("ci_marketplace_to_clients", m29.upgrade),
+        ("maps_url_to_branches", m30.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -204,7 +207,13 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router)
 
     @app.websocket("/ws/branch/{branch_id}")
-    async def ws_branch(websocket: WebSocket, branch_id: int):
+    async def ws_branch(websocket: WebSocket, branch_id: int, token: str | None = None):
+        if token is not None:
+            try:
+                decode_token(token)
+            except JWTError:
+                await websocket.close(code=1008)
+                return
         await ws_manager.connect(websocket, branch_id)
         try:
             while True:

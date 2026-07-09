@@ -120,7 +120,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     return closestCenter(args);
   };
 
-  const REFRESH_INTERVAL = 15;
+  const REFRESH_INTERVAL = 45;
 
   const loadTickets = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);

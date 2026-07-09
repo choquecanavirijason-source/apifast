@@ -89,9 +89,23 @@ curl http://127.0.0.1:8001/docs
 curl http://127.0.0.1:8001/api/categories
 ```
 
+<<<<<<< HEAD
+=======
+Desde navegador externo:
+- Docs marketplace (acceso directo, usado por la app Flutter): `http://34.55.150.142/mp-api/docs`
+- Categorías: `http://34.55.150.142/mp-api/api/categories`
+>>>>>>> f0313b86abc3441f60b9e9adf554d6b9c7fff013
 
-El proxy del elashesbackend ya enruta `/marketplace-proxy/...` → `localhost:8001`
+> **Importante:** nginx expone este servicio bajo el prefijo `/mp-api/`, **no** `/marketplace/`.
+> El admin web (React Router) ya usa rutas `/marketplace/*` para sus propias páginas
+> (productos, categorías, ads, reels, clientes...). Si el proxy de nginx también usara
+> `/marketplace/`, interceptaría esas rutas del SPA antes del fallback y rompería el
+> recargo de página (F5) con un 404 del backend. Ver `nginx-elashes-fullstack.conf`.
+
+El proxy del elashesbackend enruta internamente `/marketplace-proxy/...` (que pasa por
+`/api/` de nginx → `:8000`) → `localhost:8001` a nivel de aplicación
 (configurado en `.env.gcp.example`: `MARKETPLACE_BACKEND_URL=http://localhost:8001`).
+Esta ruta la usa el **admin web**; la app Flutter usa `/mp-api/` directo.
 
 ## 7) Actualizar marketplace
 
@@ -106,10 +120,10 @@ sudo systemctl restart marketplace
 ## Relación con elashesbackend
 
 ```
-Navegador → nginx /marketplace/ → :8001 (marketplace)
-Navegador → nginx /api/         → :8000 (elashesbackend)
+App Flutter  → nginx /mp-api/           → :8001 (marketplace)
+Navegador    → nginx /api/              → :8000 (elashesbackend)
+Admin web    → nginx /api/marketplace-proxy/*  → :8000 → (proxy interno) → :8001
                                       ↑
-elashesbackend proxy /marketplace-proxy/* → :8001
 marketplace /auth/me validation          → :8000
 ```
 

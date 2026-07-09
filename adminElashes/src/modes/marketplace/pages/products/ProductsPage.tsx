@@ -472,10 +472,10 @@ export default function ProductsPage() {
           </div>
 
           <InputField
-            label="Video (URL YouTube/Drive)"
+            label="Video (link directo)"
             value={form.video_url}
             onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
-            placeholder="https://youtube.com/watch?v=..."
+            placeholder="https://ejemplo.com/video.mp4"
             hint={videoFile ? "Se ignorará: hay un archivo de video seleccionado abajo" : undefined}
           />
 
