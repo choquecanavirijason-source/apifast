@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
-  ArrowUp, ArrowDown, ShoppingBag, X,
+  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -10,6 +10,7 @@ import FilterActionBar from "@/components/common/FilterActionBar";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 
 import {
   fetchAdminReels,
@@ -63,6 +64,7 @@ export default function ReelsPage() {
   const [deleteTarget, setDeleteTarget] = useState<MarketplaceReel | null>(null);
   const [toggling, setToggling] = useState<number | null>(null);
   const [reordering, setReordering] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   // ── data ────────────────────────────────────────────────────────────────────
 
@@ -203,6 +205,79 @@ export default function ReelsPage() {
   const sortedReels = [...reels].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
   const activeCount = reels.filter((r) => r.is_active).length;
 
+  const columns: DataTableColumn<MarketplaceReel>[] = [
+    {
+      key: "caption",
+      header: "Reel",
+      sortable: true,
+      render: (r) => {
+        const cover = img(r.thumbnail_url);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-10 shrink-0 rounded-lg border border-slate-100 bg-slate-900 overflow-hidden flex items-center justify-center">
+              {cover
+                ? <img src={cover} alt={r.caption ?? "reel"} className="h-full w-full object-cover" />
+                : <Video className="h-4 w-4 text-white/40" />}
+            </div>
+            <p className="min-w-0 truncate text-sm text-slate-700">
+              {r.caption || <span className="italic text-slate-400">Sin descripción</span>}
+            </p>
+          </div>
+        );
+      },
+      getValue: (r) => r.caption ?? "",
+    },
+    {
+      key: "product",
+      header: "Producto",
+      render: (r) =>
+        r.product ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+            <ShoppingBag className="h-3 w-3" /> {r.product.name}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        ),
+      getValue: (r) => r.product?.name ?? "",
+    },
+    {
+      key: "is_active",
+      header: "Estado",
+      sortable: true,
+      render: (r) => (
+        <button
+          onClick={() => void handleToggle(r)}
+          disabled={toggling === r.id}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
+            r.is_active
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+              : "bg-rose-100 text-rose-700 hover:bg-rose-200"
+          }`}
+        >
+          {r.is_active ? <><Eye className="h-3 w-3" /> Activo</> : <><EyeOff className="h-3 w-3" /> Inactivo</>}
+        </button>
+      ),
+      getValue: (r) => (r.is_active ? "activo" : "inactivo"),
+    },
+  ];
+
+  const actions: DataTableAction<MarketplaceReel>[] = [
+    {
+      label: "Subir",
+      icon: <ArrowUp className="h-4 w-4" />,
+      onClick: (r) => void handleMove(r, -1),
+      show: (r) => sortedReels.findIndex((x) => x.id === r.id) > 0,
+    },
+    {
+      label: "Bajar",
+      icon: <ArrowDown className="h-4 w-4" />,
+      onClick: (r) => void handleMove(r, 1),
+      show: (r) => sortedReels.findIndex((x) => x.id === r.id) < sortedReels.length - 1,
+    },
+    { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
+    { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
+  ];
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -215,9 +290,21 @@ export default function ReelsPage() {
         </div>
       }
       right={
-        <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
-          Nuevo reel
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5">
+            <button onClick={() => setViewMode("list")} title="Vista lista"
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <LayoutList className="h-4 w-4" />
+            </button>
+            <button onClick={() => setViewMode("grid")} title="Vista cuadrícula"
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+          <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
+            Nuevo reel
+          </Button>
+        </div>
       }
     />
   );
@@ -237,7 +324,17 @@ export default function ReelsPage() {
           <StatCard label="Activos" value={activeCount} icon={<Eye className="h-4 w-4" />} tone="primary" />
         </div>
 
-        {loading ? (
+        {viewMode === "list" ? (
+          <DataTable
+            data={sortedReels}
+            columns={columns}
+            actions={actions}
+            loading={loading}
+            defaultLimit={10}
+            availableLimits={[5, 10, 20]}
+            globalSearchPlaceholder="Buscar reel…"
+          />
+        ) : loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden animate-pulse">

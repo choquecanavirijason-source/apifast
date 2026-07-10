@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Megaphone, Plus, Pencil, Trash2, Upload, Eye, EyeOff, ImageIcon,
-  ArrowUp, ArrowDown, ExternalLink,
+  ArrowUp, ArrowDown, ExternalLink, LayoutList, LayoutGrid,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -10,6 +10,7 @@ import FilterActionBar from "@/components/common/FilterActionBar";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, InputField, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 
 import {
   fetchAdminAds,
@@ -84,6 +85,7 @@ export default function AdsPage() {
   const [deleteTarget, setDeleteTarget] = useState<MarketplaceAd | null>(null);
   const [toggling, setToggling] = useState<number | null>(null);
   const [reordering, setReordering] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   // ── data ────────────────────────────────────────────────────────────────────
 
@@ -226,6 +228,77 @@ export default function AdsPage() {
   const needsPicker = form.link_type === "product" || form.link_type === "collection" || form.link_type === "category";
   const needsUrl = form.link_type === "url";
 
+  const columns: DataTableColumn<MarketplaceAd>[] = [
+    {
+      key: "title",
+      header: "Banner",
+      sortable: true,
+      render: (a) => {
+        const cover = img(a.image_url);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-14 shrink-0 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden flex items-center justify-center">
+              {cover
+                ? <img src={cover} alt={a.title} className="h-full w-full object-cover" />
+                : <ImageIcon className="h-4 w-4 text-slate-300" />}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-800 truncate">{a.title}</p>
+              {a.subtitle && <p className="text-xs text-slate-500 truncate">{a.subtitle}</p>}
+            </div>
+          </div>
+        );
+      },
+      getValue: (a) => a.title,
+    },
+    {
+      key: "link_type",
+      header: "Destino",
+      render: (a) => (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+          <ExternalLink className="h-3 w-3" /> {LINK_TYPE_LABELS[a.link_type]}
+        </span>
+      ),
+      getValue: (a) => LINK_TYPE_LABELS[a.link_type],
+    },
+    {
+      key: "is_active",
+      header: "Estado",
+      sortable: true,
+      render: (a) => (
+        <button
+          onClick={() => void handleToggle(a)}
+          disabled={toggling === a.id}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
+            a.is_active
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+              : "bg-rose-100 text-rose-700 hover:bg-rose-200"
+          }`}
+        >
+          {a.is_active ? <><Eye className="h-3 w-3" /> Activo</> : <><EyeOff className="h-3 w-3" /> Inactivo</>}
+        </button>
+      ),
+      getValue: (a) => (a.is_active ? "activo" : "inactivo"),
+    },
+  ];
+
+  const actions: DataTableAction<MarketplaceAd>[] = [
+    {
+      label: "Subir",
+      icon: <ArrowUp className="h-4 w-4" />,
+      onClick: (a) => void handleMove(a, -1),
+      show: (a) => sortedAds.findIndex((x) => x.id === a.id) > 0,
+    },
+    {
+      label: "Bajar",
+      icon: <ArrowDown className="h-4 w-4" />,
+      onClick: (a) => void handleMove(a, 1),
+      show: (a) => sortedAds.findIndex((x) => x.id === a.id) < sortedAds.length - 1,
+    },
+    { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
+    { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (a) => setDeleteTarget(a), variant: "danger" },
+  ];
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -238,9 +311,21 @@ export default function AdsPage() {
         </div>
       }
       right={
-        <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
-          Nuevo banner
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5">
+            <button onClick={() => setViewMode("list")} title="Vista lista"
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <LayoutList className="h-4 w-4" />
+            </button>
+            <button onClick={() => setViewMode("grid")} title="Vista cuadrícula"
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+          <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
+            Nuevo banner
+          </Button>
+        </div>
       }
     />
   );
@@ -260,7 +345,17 @@ export default function AdsPage() {
           <StatCard label="Activos" value={activeCount} icon={<Eye className="h-4 w-4" />} tone="primary" />
         </div>
 
-        {loading ? (
+        {viewMode === "list" ? (
+          <DataTable
+            data={sortedAds}
+            columns={columns}
+            actions={actions}
+            loading={loading}
+            defaultLimit={10}
+            availableLimits={[5, 10, 20]}
+            globalSearchPlaceholder="Buscar banner…"
+          />
+        ) : loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden animate-pulse">
