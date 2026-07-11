@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { PackagePlus, Check, AlertCircle, Loader2, Download, ImageIcon, RefreshCw, LayoutList, LayoutGrid, Search } from "lucide-react";
+import { PackagePlus, Check, AlertCircle, Loader2, Download, ImageIcon, RefreshCw, LayoutList, LayoutGrid, Search, RefreshCcwDot } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   fetchInventoryProducts,
+  fetchInventoryStockByProduct,
   fetchAdminProducts,
   importInventoryProduct,
+  adjustProductStock,
   type MarketplaceProduct,
 } from "@/core/services/marketplace/marketplace.service";
 
@@ -37,12 +39,15 @@ function buildInvImg(url: string | null) {
 
 export default function ImportInventoryPage() {
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
+  const [mpProducts, setMpProducts] = useState<MarketplaceProduct[]>([]);
+  const [stockByProduct, setStockByProduct] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState<number | null>(null);
   const [imported, setImported] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [gridSearch, setGridSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => { void load(); }, []);
 
@@ -50,12 +55,15 @@ export default function ImportInventoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const [inv, mp] = await Promise.all([
+      const [inv, mp, stock] = await Promise.all([
         fetchInventoryProducts(),
         fetchAdminProducts(true),
+        fetchInventoryStockByProduct(),
       ]);
       setInventory(inv as InventoryProduct[]);
-      const names = new Set((mp as MarketplaceProduct[]).map((p) => p.name.toLowerCase()));
+      setMpProducts(mp);
+      setStockByProduct(stock);
+      const names = new Set(mp.map((p) => p.name.toLowerCase()));
       setImported(names);
     } catch {
       setError("No se pudo cargar el inventario. Verifica que elashesbackend esté corriendo.");
@@ -71,11 +79,13 @@ export default function ImportInventoryPage() {
       await importInventoryProduct({
         name: product.name,
         price: product.price,
-        stock: 10,
+        stock: stockByProduct[product.id] ?? 0,
         image_url: product.image_url ? buildInvImg(product.image_url) : null,
+        source_product_id: product.id,
       });
       setImported((prev) => new Set([...prev, product.name.toLowerCase()]));
       toast.success(`"${product.name}" importado al marketplace`);
+      await load();
     } catch {
       toast.error("Error al importar el producto");
     } finally {
@@ -83,8 +93,41 @@ export default function ImportInventoryPage() {
     }
   }
 
+  /** Refresca el stock de todos los productos ya importados que están
+   * vinculados a un producto del inventario, para que no se desactualicen
+   * (ej. si se vendió en el mostrador del salón). */
+  async function handleSyncStock() {
+    const linked = mpProducts.filter((p) => p.source_product_id != null);
+    if (linked.length === 0) {
+      toast.info("No hay productos vinculados al inventario para sincronizar");
+      return;
+    }
+    setSyncing(true);
+    let updated = 0;
+    try {
+      for (const p of linked) {
+        const freshStock = stockByProduct[p.source_product_id!] ?? 0;
+        if (freshStock !== p.stock) {
+          await adjustProductStock(p.id, freshStock);
+          updated++;
+        }
+      }
+      toast.success(
+        updated > 0
+          ? `Stock actualizado en ${updated} producto${updated !== 1 ? "s" : ""}`
+          : "El stock ya estaba al día"
+      );
+      await load();
+    } catch {
+      toast.error("Error al sincronizar el stock");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const importedCount = inventory.filter((p) => imported.has(p.name.toLowerCase())).length;
   const pendingCount  = inventory.length - importedCount;
+  const linkedCount = mpProducts.filter((p) => p.source_product_id != null).length;
 
   const gridFiltered = gridSearch.trim()
     ? inventory.filter((p) =>
@@ -133,6 +176,20 @@ export default function ImportInventoryPage() {
       sortable: true,
       render: (p) => <span className="font-semibold text-slate-800">${p.price.toFixed(2)}</span>,
       getValue: (p) => p.price,
+    },
+    {
+      key: "stock",
+      header: "Stock (salón)",
+      sortable: true,
+      render: (p) => {
+        const stock = stockByProduct[p.id] ?? 0;
+        return (
+          <span className={`text-sm font-semibold ${stock === 0 ? "text-rose-600" : "text-slate-700"}`}>
+            {stock}
+          </span>
+        );
+      },
+      getValue: (p) => stockByProduct[p.id] ?? 0,
     },
     {
       key: "imported",
@@ -198,6 +255,15 @@ export default function ImportInventoryPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <Button
+            variant="secondary"
+            onClick={() => void handleSyncStock()}
+            disabled={loading || syncing || linkedCount === 0}
+            leftIcon={<RefreshCcwDot className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />}
+            title={linkedCount === 0 ? "No hay productos vinculados al inventario" : "Actualiza el stock de los productos ya importados con el stock actual del salón"}
+          >
+            Sincronizar stock
+          </Button>
           <Button
             variant="secondary"
             onClick={load}

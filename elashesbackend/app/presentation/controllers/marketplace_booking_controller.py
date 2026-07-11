@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.dependencies import get_db
@@ -57,12 +57,18 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
     client = db.query(Client).filter(func.lower(Client.email) == ident).first()
     if client:
         return client
-    # Buscar por nombre completo (clientes del salón que entraron por nombre+CI)
+    # Buscar por nombre completo (clientes del salón que entraron por nombre+CI,
+    # sin cuenta de email propia todavía).
     full_name = func.lower(func.trim(Client.name + " " + func.coalesce(Client.last_name, "")))
-    client = db.query(Client).filter(
-        or_(func.lower(Client.name) == ident, full_name == func.lower(name.strip()))
-    ).first()
+    client = db.query(Client).filter(full_name == func.lower(name.strip())).first()
     if client:
+        # Si la ficha del salón no tenía este email (o tenía uno distinto),
+        # lo actualizamos: si no, sus citas nunca aparecerían en "Mis Citas"
+        # de la app, que busca por email exacto.
+        if "@" in email and (client.email or "").strip().lower() != ident:
+            client.email = email
+            db.commit()
+            db.refresh(client)
         return client
     # Cliente del app: crear ficha en el salón
     parts = name.strip().split(" ", 1)
@@ -125,6 +131,7 @@ def list_branches(db: Session = Depends(get_db)):
             "address": b.address,
             "city": b.city,
             "maps_url": b.maps_url,
+            "qr_image_url": b.qr_image_url,
         }
         for b in branches
     ]

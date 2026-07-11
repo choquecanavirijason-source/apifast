@@ -64,6 +64,8 @@ export interface MarketplaceProduct {
   rating: number;
   review_count: number;
   is_active: boolean;
+  /** Id del producto en el inventario del salón, si se importó desde ahí. */
+  source_product_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -221,6 +223,23 @@ export async function fetchInventoryProducts(): Promise<InventoryProduct[]> {
   return data;
 }
 
+/**
+ * Stock actual por producto del inventario del salón, sumado entre todas las
+ * sucursales (el endpoint devuelve una fila por sucursal). Se usa para que el
+ * stock que se importa/sincroniza al marketplace refleje el stock real, en
+ * vez de un número fijo.
+ */
+export async function fetchInventoryStockByProduct(): Promise<Record<number, number>> {
+  const { data } = await api.get<{ product_id: number; total_stock: number }[]>(
+    "/inventory/stock-summary"
+  );
+  const totals: Record<number, number> = {};
+  for (const row of data) {
+    totals[row.product_id] = (totals[row.product_id] ?? 0) + row.total_stock;
+  }
+  return totals;
+}
+
 /** Importa un producto del inventario al marketplace (sin subir imagen, usa la URL). */
 export async function importInventoryProduct(payload: {
   name: string;
@@ -229,6 +248,7 @@ export async function importInventoryProduct(payload: {
   description?: string;
   stock?: number;
   image_url?: string | null;
+  source_product_id?: number;
 }): Promise<MarketplaceProduct> {
   const { data } = await marketplaceApi.post<Record<string, unknown>>(
     "/api/products/admin/import",
