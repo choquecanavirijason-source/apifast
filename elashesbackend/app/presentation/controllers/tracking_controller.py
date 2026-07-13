@@ -1,12 +1,19 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_permission, require_any_permission, get_current_active_user
+from app.core.media import ALLOWED_EXTENSIONS, MAX_IMAGE_BYTES
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
-from app.presentation.schemas.tracking import TrackingCreate, TrackingUpdate, TrackingResponse
+from app.presentation.schemas.tracking import (
+    LashAiReviewResponse,
+    TrackingCreate,
+    TrackingUpdate,
+    TrackingResponse,
+)
+from app.application.services.admin_ai_service import ask_lash_ai_vision
 from app.application.services.tracking_service import (
     list_trackings,
     get_tracking_by_id,
@@ -15,6 +22,7 @@ from app.application.services.tracking_service import (
     update_tracking,
     delete_tracking,
 )
+import os
 
 
 router = APIRouter(
@@ -111,3 +119,35 @@ def delete_existing_tracking(
 ):
     delete_tracking(db=db, tracking_id=tracking_id)
     return MessageResponse(message="Seguimiento eliminado correctamente")
+
+
+@router.post(
+    "/ai-review",
+    response_model=LashAiReviewResponse,
+)
+async def ai_review_lash_application(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("tracking:manage", "tracking:view")),
+):
+    """Guiado de IA en vivo (Beauty Tech): recibe una foto tomada durante la
+    aplicación de pestañas y devuelve un consejo breve. No persiste la imagen.
+    """
+    _, ext = os.path.splitext(file.filename or "")
+    ext = ext.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Extensión no permitida. Usa: {sorted(ALLOWED_EXTENSIONS)}",
+        )
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo está vacío.")
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La imagen supera el tamaño máximo (5 MB).",
+        )
+
+    return await ask_lash_ai_vision(db=db, image_bytes=data)

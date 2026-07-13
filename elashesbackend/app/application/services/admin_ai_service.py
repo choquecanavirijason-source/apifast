@@ -1,3 +1,4 @@
+import base64
 import json
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -204,3 +205,84 @@ async def ask_admin_ai(db: Session, *, message: str, branch_id: Optional[int] = 
             "scope": context["scope"],
         },
     }
+
+
+_LASH_VISION_SYSTEM_PROMPT = (
+    "Sos una experta en aplicación de extensiones de pestañas (lash artist). "
+    "Vas a recibir una foto tomada en vivo durante la aplicación. "
+    "Da un consejo breve (máximo 2 frases, en español) sobre simetría, "
+    "elevación o dirección del diseño. Si no se distingue bien el ojo en la "
+    "foto, decilo y pedí que centre el rostro en cámara. No uses markdown."
+)
+
+
+async def ask_lash_ai_vision(db: Session, *, image_bytes: bytes) -> dict:
+    """Envía una foto de la aplicación de pestañas en curso a la IA con visión
+    configurada en [AdminAiSettings] (mismo endpoint OpenAI-compatible que
+    [ask_admin_ai]) y devuelve un consejo breve en texto natural.
+    """
+    settings_row = _get_or_create_settings(db)
+    if not settings_row.ai_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Activa la IA en configuración antes de pedir una revisión.",
+        )
+    if not settings_row.ai_api_url or not settings_row.ai_api_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configura la URL y el token de la API de IA.",
+        )
+
+    model = settings_row.ai_model or "gpt-4o-mini"
+    url = _resolve_chat_url(settings_row.ai_api_url)
+    b64_image = base64.b64encode(image_bytes).decode("ascii")
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": _LASH_VISION_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analiza esta aplicación de pestañas en curso."},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"},
+                    },
+                ],
+            },
+        ],
+        "temperature": 0.4,
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            url,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {settings_row.ai_api_token}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Error de la API de IA: {response.text[:400]}",
+        )
+
+    data = response.json()
+    choices = data.get("choices") or []
+    if not choices:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="La API de IA no devolvió una respuesta.",
+        )
+
+    reply = (choices[0].get("message") or {}).get("content") or ""
+    if not reply.strip():
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Respuesta vacía de la API de IA.",
+        )
+
+    return {"feedback": reply.strip(), "model": model}

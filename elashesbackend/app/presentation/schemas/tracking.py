@@ -46,6 +46,11 @@ class TrackingUpdate(BaseModel):
     questionnaire_responses: Optional[Dict[str, Any]] = None
 
 
+class LashAiReviewResponse(BaseModel):
+    feedback: str
+    model: str
+
+
 class TrackingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
