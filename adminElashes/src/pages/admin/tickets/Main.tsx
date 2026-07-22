@@ -5,7 +5,6 @@ import {
   Filter,
   Eye,
   User,
-  Plus,
   FileDown,
 } from "lucide-react";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
@@ -13,16 +12,14 @@ import { toast } from "react-toastify";
 import type { TicketItem } from "../../../core/services/agenda/agenda.service";
 import {
   AgendaService,
-  type ProfessionalForSelect,
   type ServiceOption,
 } from "../../../core/services/agenda/agenda.service";
 import { PaymentService, type PaymentItem } from "../../../core/services/payment/payment.service";
 import DataTable, { type DataTableColumn } from "../../../components/common/table/DataTable";
 import Layout from "../../../components/common/layout";
 import FilterActionBar from "../../../components/common/FilterActionBar";
-import { Button, InputField, SectionCard } from "../../../components/common/ui";
+import { Button, InputField } from "../../../components/common/ui";
 import GenericModal from "../../../components/common/modal/GenericModal";
-import useAuth from "../../../core/hooks/useAuth";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,66 +37,9 @@ const PAYMENT_METHODS = [
   { value: "qr", label: "QR" },
 ];
 
-interface ClientOption {
-  id: number;
-  nombre: string;
-  apellido: string;
-}
-
-const getLocalDateInputValue = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const buildLocalDateTime = (dateValue: string, timeValue: string) => {
-  if (!dateValue) return null;
-  return `${dateValue}T${timeValue || "09:00"}:00`;
-};
-
-const formatLocalDateTime = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-};
-
-const getErrorMessage = (err: unknown, fallback: string) => {
-  if (typeof err === "object" && err !== null && "response" in err) {
-    const response = (err as { response?: { status?: number; data?: { detail?: unknown } } }).response;
-    if (response?.status === 401) return "Tu sesión expiró. Inicia sesión nuevamente.";
-    if (response?.status === 403) return "No tienes permisos para crear tickets.";
-
-    const detail = response?.data?.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail;
-    }
-
-    if (Array.isArray(detail)) {
-      const validationMessage = detail
-        .map((item) => (item && typeof item === "object" && "msg" in item ? String(item.msg ?? "") : ""))
-        .filter(Boolean)
-        .join("; ");
-
-      if (validationMessage) {
-        return validationMessage;
-      }
-    }
-  }
-
-  return fallback;
-};
-
 export default function TicketsPage() {
-  const { hasPermissionByName, isAdmin } = useAuth();
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
-  const [clients, setClients] = useState<ClientOption[]>([]);
-  const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,17 +54,6 @@ export default function TicketsPage() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [ticketPayments, setTicketPayments] = useState<PaymentItem[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
-  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
-  const [createClientId, setCreateClientId] = useState<string>("");
-  const [createServiceIds, setCreateServiceIds] = useState<string[]>([]);
-  const [createProfessionalId, setCreateProfessionalId] = useState<string>("");
-  const [createDate, setCreateDate] = useState("");
-  const [createStartTime, setCreateStartTime] = useState("09:00");
-  const [createDurationMinutes, setCreateDurationMinutes] = useState(60);
-  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
-  const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(false);
-  const canCreateTicket = isAdmin() || hasPermissionByName("appointments:manage");
 
   const selectedTicketTotal = Number(selectedTicket?.service_price ?? 0);
   const selectedTicketPaid = useMemo(
@@ -136,20 +65,6 @@ export default function TicketsPage() {
     [selectedTicketPaid, selectedTicketTotal]
   );
 
-  const loadClients = useCallback(async () => {
-    setIsLoadingClients(true);
-    try {
-      const data = await AgendaService.listClientsForSelect({ limit: 100, branch_id: activeBranchId ?? undefined });
-      setClients(data);
-    } catch (err) {
-      console.error("Error cargando clientes:", err);
-      toast.error("No se pudieron cargar los clientes. Verifica tu conexión y permisos.");
-      setClients([]);
-    } finally {
-      setIsLoadingClients(false);
-    }
-  }, [activeBranchId]);
-
   const loadServices = useCallback(async () => {
     try {
       const data = await AgendaService.listServices({ limit: 100, branch_id: activeBranchId ?? undefined });
@@ -158,19 +73,6 @@ export default function TicketsPage() {
       console.error("Error cargando servicios:", err);
     }
   }, [activeBranchId]);
-
-  const loadProfessionals = useCallback(async () => {
-    setIsLoadingProfessionals(true);
-    try {
-      const data = await AgendaService.listProfessionalsForSelect({ limit: 100 });
-      setProfessionals(data);
-    } catch (err) {
-      console.error("Error cargando usuarios asignables:", err);
-      setProfessionals([]);
-    } finally {
-      setIsLoadingProfessionals(false);
-    }
-  }, []);
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -194,9 +96,7 @@ export default function TicketsPage() {
 
   useEffect(() => {
     void loadServices();
-    void loadClients();
-    void loadProfessionals();
-  }, [loadServices, loadClients, loadProfessionals]);
+  }, [loadServices]);
 
   useEffect(() => {
     const handleChange = () => setActiveBranchId(getSelectedBranchId());
@@ -238,99 +138,6 @@ export default function TicketsPage() {
       return new Date(iso).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
     } catch {
       return iso;
-    }
-  };
-
-  const handleOpenCreateTicket = () => {
-    if (!canCreateTicket) {
-      toast.warning("No tienes permisos para crear tickets.");
-      return;
-    }
-    setCreateClientId("");
-    setCreateServiceIds([]);
-    setCreateProfessionalId("");
-    setCreateDate(getLocalDateInputValue());
-    setCreateStartTime("09:00");
-    setCreateDurationMinutes(60);
-    setIsCreateTicketOpen(true);
-    void loadClients(); // Recargar clientes al abrir el modal
-    void loadProfessionals();
-  };
-
-  const handleCreateServiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const values = Array.from(e.target.selectedOptions)
-      .map((option) => option.value)
-      .filter((value) => value);
-    setCreateServiceIds(values);
-    if (values.length > 0) {
-      const duration = values
-        .map((value) => services.find((s) => s.id === Number(value))?.duration_minutes ?? 0)
-        .reduce((acc, value) => acc + value, 0);
-      setCreateDurationMinutes(duration > 0 ? duration : 60);
-    }
-  };
-
-  const handleCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canCreateTicket) {
-      toast.warning("No tienes permisos para crear tickets.");
-      return;
-    }
-    const clientId = Number(createClientId);
-    const serviceIds = createServiceIds
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value) && value > 0);
-    if (!Number.isFinite(clientId) || clientId <= 0) {
-      toast.warning("Selecciona un cliente.");
-      return;
-    }
-    if (serviceIds.length === 0) {
-      toast.warning("Selecciona al menos un servicio.");
-      return;
-    }
-    if (!activeBranchId) {
-      toast.warning("Selecciona una sucursal para crear el ticket.");
-      return;
-    }
-    const parsedDuration = Number(createDurationMinutes);
-    const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60;
-    const professionalId =
-      createProfessionalId && Number.isFinite(Number(createProfessionalId)) && Number(createProfessionalId) > 0
-        ? Number(createProfessionalId)
-        : null;
-    const startDateTimeValue = buildLocalDateTime(createDate, createStartTime);
-    if (!startDateTimeValue) {
-      toast.warning("Selecciona una fecha válida.");
-      return;
-    }
-    const startDateTime = new Date(startDateTimeValue);
-    const endDateTime = new Date(startDateTime.getTime() + duration * 60 * 1000);
-    if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
-      toast.warning("La fecha u hora ingresada no es válida.");
-      return;
-    }
-    if (endDateTime <= startDateTime) {
-      toast.warning("La duración debe ser mayor a 0.");
-      return;
-    }
-    setIsCreatingTicket(true);
-    try {
-      await AgendaService.createAppointment({
-        client_id: clientId,
-        service_ids: serviceIds,
-        branch_id: activeBranchId,
-        professional_id: professionalId,
-        start_time: formatLocalDateTime(startDateTime),
-        end_time: formatLocalDateTime(endDateTime),
-        status: "pending",
-      });
-      toast.success("Ticket creado correctamente. El código se generó según el servicio.");
-      setIsCreateTicketOpen(false);
-      void loadTickets();
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "No se pudo crear el ticket."));
-    } finally {
-      setIsCreatingTicket(false);
     }
   };
 
@@ -564,16 +371,15 @@ export default function TicketsPage() {
           <Button variant="secondary" size="sm" onClick={() => void loadTickets()}>
             Actualizar
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleExportPdf} title="Descargar reporte PDF">
-            <FileDown className="h-4 w-4" />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportPdf}
+            title="Descargar reporte PDF"
+            leftIcon={<FileDown className="h-4 w-4" />}
+          >
             PDF
           </Button>
-          {canCreateTicket ? (
-            <Button variant="primary" size="sm" onClick={handleOpenCreateTicket}>
-              <Plus className="h-4 w-4" />
-              Crear ticket
-            </Button>
-          ) : null}
         </div>
       }
     />
@@ -619,110 +425,6 @@ export default function TicketsPage() {
           ]}
         />
       </Layout>
-
-      <GenericModal
-        isOpen={isCreateTicketOpen}
-        onClose={() => setIsCreateTicketOpen(false)}
-        title="Crear ticket"
-        size="md"
-      >
-        <form onSubmit={handleCreateTicket} className="space-y-4">
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-            <p className="text-xs text-slate-600">
-              Selecciona cliente y servicio. El código del ticket se generará según el servicio (ej: S1-20250310-0001).
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">Cliente *</label>
-            <select
-              name="client_id"
-              required
-              value={createClientId}
-              onChange={(e) => setCreateClientId(e.target.value)}
-              disabled={isLoadingClients}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20 disabled:opacity-70"
-            >
-              <option value="">
-                {isLoadingClients ? "Cargando clientes..." : clients.length === 0 ? "No hay clientes" : "Seleccionar cliente"}
-              </option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre} {c.apellido}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">Servicio *</label>
-            <select
-              name="service_id"
-              required
-              value={createServiceIds}
-              onChange={handleCreateServiceChange}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
-              multiple
-            >
-              <option value="">Seleccionar servicios</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.duration_minutes} min · Bs {s.price})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">Usuario asignado (opcional)</label>
-            <select
-              name="professional_id"
-              value={createProfessionalId}
-              onChange={(e) => setCreateProfessionalId(e.target.value)}
-              disabled={isLoadingProfessionals}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20 disabled:opacity-70"
-            >
-              <option value="">
-                {isLoadingProfessionals
-                  ? "Cargando usuarios..."
-                  : professionals.length === 0
-                    ? "Sin usuarios disponibles"
-                    : "Sin asignar"}
-              </option>
-              {professionals.map((professional) => (
-                <option key={professional.id} value={professional.id}>
-                  {professional.username} ({professional.email})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <InputField
-              name="date"
-              type="date"
-              label="Fecha"
-              value={createDate}
-              onChange={(e) => setCreateDate(e.target.value)}
-              required
-            />
-            <InputField
-              name="start_time"
-              type="time"
-              label="Hora inicio"
-              value={createStartTime}
-              onChange={(e) => setCreateStartTime(e.target.value)}
-              required
-            />
-          </div>
-          <InputField
-            name="duration"
-            type="number"
-            label="Duración (minutos)"
-            min={5}
-            max={480}
-            value={String(createDurationMinutes)}
-            onChange={(e) => setCreateDurationMinutes(Number(e.target.value) || 60)}
-          />
-         
-        </form>
-      </GenericModal>
 
       <GenericModal
         isOpen={isPaymentModalOpen}

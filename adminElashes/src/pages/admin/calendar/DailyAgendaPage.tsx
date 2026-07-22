@@ -785,8 +785,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     size="sm"
                     className="h-8 gap-1"
                     onClick={() => setPrintDropdownOpen((o) => !o)}
+                    leftIcon={<Printer className="h-3.5 w-3.5" />}
                   >
-                    <Printer className="h-3.5 w-3.5" />
                     Imprimir
                   </Button>
                   {printDropdownOpen && (

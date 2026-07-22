@@ -252,8 +252,7 @@ export default function MarketplacePage() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Gestiona los productos que se muestran en la app de clientes</p>
         </div>
-        <Button onClick={openCreate} className="flex items-center gap-2">
-          <Plus size={16} />
+        <Button onClick={openCreate} leftIcon={<Plus size={16} />}>
           Nuevo producto
         </Button>
       </div>
@@ -294,8 +293,8 @@ export default function MarketplacePage() {
             <ShoppingBag size={48} className="opacity-30" />
             <p className="text-lg font-medium">No hay productos aún</p>
             <p className="text-sm">Crea el primer producto para que aparezca en la app</p>
-            <Button onClick={openCreate} className="mt-2 flex items-center gap-2">
-              <Plus size={15} /> Crear producto
+            <Button onClick={openCreate} className="mt-2" leftIcon={<Plus size={15} />}>
+              Crear producto
             </Button>
           </div>
         </SectionCard>

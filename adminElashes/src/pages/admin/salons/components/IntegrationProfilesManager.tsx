@@ -157,8 +157,13 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
             </p>
           </div>
         </div>
-        <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5" />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={openCreate}
+          leftIcon={<Plus className="h-3.5 w-3.5" />}
+        >
           Nuevo perfil
         </Button>
       </div>
@@ -279,8 +284,13 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
           </div>
 
           <div className="flex gap-2">
-            <Button type="button" size="sm" className="gap-1.5" disabled={saving} onClick={() => void handleSave()}>
-              <Save className="h-3.5 w-3.5" />
+            <Button
+              type="button"
+              size="sm"
+              disabled={saving}
+              onClick={() => void handleSave()}
+              leftIcon={<Save className="h-3.5 w-3.5" />}
+            >
               {saving ? "Guardando…" : "Guardar perfil"}
             </Button>
             <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}>

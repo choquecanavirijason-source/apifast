@@ -289,8 +289,7 @@ export default function QuestionnairePage() {
         </div>
       }
       right={
-        <Button onClick={() => void handleOpenCreate()} disabled={isSaving}>
-          <Plus className="h-4 w-4" />
+        <Button onClick={() => void handleOpenCreate()} disabled={isSaving} leftIcon={<Plus className="h-4 w-4" />}>
           Nueva pregunta
         </Button>
       }
