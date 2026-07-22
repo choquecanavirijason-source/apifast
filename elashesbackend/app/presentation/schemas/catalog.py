@@ -165,6 +165,7 @@ class DesignBase(BaseModel):
     effect: Optional[str] = None
     eye_type: Optional[str] = None
     lash_design: Optional[str] = None
+    volume: Optional[str] = None
     note: Optional[str] = None
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
@@ -182,6 +183,7 @@ class DesignUpdate(BaseModel):
     effect: Optional[str] = None
     eye_type: Optional[str] = None
     lash_design: Optional[str] = None
+    volume: Optional[str] = None
     note: Optional[str] = None
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
@@ -196,6 +198,7 @@ class DesignResponse(BaseModel):
     effect: Optional[str] = None
     eye_type: Optional[str] = None
     lash_design: Optional[str] = None
+    volume: Optional[str] = None
     note: Optional[str] = None
     image: Optional[str] = None
     model_3d_url: Optional[str] = None

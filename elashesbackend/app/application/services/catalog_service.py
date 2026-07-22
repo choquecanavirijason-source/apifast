@@ -335,6 +335,7 @@ def create_design(db: Session, payload: DesignCreate) -> Design:
         effect=payload.effect,
         eye_type=payload.eye_type,
         lash_design=payload.lash_design,
+        volume=payload.volume,
         note=payload.note,
         image=payload.image,
         model_3d_url=payload.model_3d_url,

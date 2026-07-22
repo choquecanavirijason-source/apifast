@@ -58,6 +58,7 @@ import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m
 import app.infrastructure.database.migrations.add_maps_url_to_branches as m30
 import app.infrastructure.database.migrations.add_model_3d_to_lash_designs as m31
 import app.infrastructure.database.migrations.add_model_3d_to_effects_eyetypes_volumes as m32
+import app.infrastructure.database.migrations.add_volume_to_designs as m33
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -114,6 +115,7 @@ async def lifespan(app: FastAPI):
         ("maps_url_to_branches", m30.upgrade),
         ("model_3d_to_lash_designs", m31.upgrade),
         ("model_3d_to_effects_eyetypes_volumes", m32.upgrade),
+        ("volume_to_designs", m33.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
