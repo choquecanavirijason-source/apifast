@@ -4,9 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Eye Type
 class EyeTypeBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: str = Field(..., min_length=2, max_length=255)
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EyeTypeCreate(EyeTypeBase):
@@ -14,18 +18,24 @@ class EyeTypeCreate(EyeTypeBase):
 
 
 class EyeTypeUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: Optional[str] = Field(default=None, min_length=2, max_length=255)
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EyeTypeSummary(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: int
     name: str
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EyeTypeResponse(EyeTypeSummary):
@@ -35,8 +45,12 @@ class EyeTypeResponse(EyeTypeSummary):
 # Effect
 
 class EffectBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: str = Field(..., min_length=2, max_length=255)
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EffectCreate(EffectBase):
@@ -44,16 +58,22 @@ class EffectCreate(EffectBase):
 
 
 class EffectUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: Optional[str] = Field(default=None, min_length=2, max_length=255)
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EffectSummary(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: int
     name: str
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class EffectResponse(EffectSummary):
@@ -63,9 +83,13 @@ class EffectResponse(EffectSummary):
 # Volume
 
 class VolumeBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: str = Field(..., min_length=2, max_length=255)
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class VolumeCreate(VolumeBase):
@@ -73,18 +97,24 @@ class VolumeCreate(VolumeBase):
 
 
 class VolumeUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: Optional[str] = Field(default=None, min_length=2, max_length=255)
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class VolumeSummary(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: int
     name: str
     description: Optional[str] = None
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class VolumeResponse(VolumeSummary):
@@ -92,8 +122,12 @@ class VolumeResponse(VolumeSummary):
 
 # Lash Design
 class LashDesignBase(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: str = Field(..., min_length=2, max_length=255)
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class LashDesignCreate(LashDesignBase):
@@ -101,16 +135,22 @@ class LashDesignCreate(LashDesignBase):
 
 
 class LashDesignUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     name: Optional[str] = Field(default=None, min_length=2, max_length=255)
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class LashDesignSummary(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: int
     name: str
     image: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    model_3d_filename: Optional[str] = None
 
 
 class LashDesignResponse(LashDesignSummary):

@@ -4,7 +4,19 @@ import type { LashVolume, VolumenFormState } from "../types";
 import api from "@/core/services/api";
 import { toast } from "react-toastify";
 
-const emptyForm: VolumenFormState = { name: "", description: "", image: "" };
+const emptyForm: VolumenFormState = { name: "", description: "", image: "", modelFileName: "", modelFileUrl: "" };
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail === "string"
+  ) {
+    return (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? fallback;
+  }
+  return fallback;
+};
 
 export const useVolumen = () => {
   const [volumes, setVolumes] = useState<LashVolume[]>([]);
@@ -13,6 +25,7 @@ export const useVolumen = () => {
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [form, setForm] = useState<VolumenFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [uploadingModel, setUploadingModel] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +72,13 @@ export const useVolumen = () => {
 
   const openEdit = (volume: LashVolume) => {
     setCurrentId(volume.id);
-    setForm({ name: volume.name, description: volume.description, image: volume.image });
+    setForm({
+      name: volume.name,
+      description: volume.description,
+      image: volume.image,
+      modelFileName: volume.model_3d_filename ?? "",
+      modelFileUrl: volume.model_3d_url ?? "",
+    });
     setIsModalOpen(true);
   };
 
@@ -73,6 +92,30 @@ export const useVolumen = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleModelChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingModel(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/catalogs/designs/upload-model", formData);
+      setForm((prev) => ({
+        ...prev,
+        modelFileName: response.data.model_3d_filename ?? file.name,
+        modelFileUrl: response.data.model_3d_url,
+      }));
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo subir el modelo 3D"));
+    } finally {
+      setUploadingModel(false);
+      event.target.value = "";
+    }
+  };
+
+  const removeModel = () => setForm((prev) => ({ ...prev, modelFileName: "", modelFileUrl: "" }));
+
   // --- CRUD (Simulado) ---
   const saveVolume = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,18 +123,17 @@ export const useVolumen = () => {
 
     setSaving(true);
     try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        image: form.image || null,
+        model_3d_url: form.modelFileUrl || null,
+        model_3d_filename: form.modelFileName || null,
+      };
       if (currentId) {
-        await api.put(`/catalogs/volumes/${currentId}`, {
-          name: form.name,
-          description: form.description,
-          image: form.image || null,
-        });
+        await api.put(`/catalogs/volumes/${currentId}`, payload);
       } else {
-        await api.post("/catalogs/volumes", {
-          name: form.name,
-          description: form.description,
-          image: form.image || null,
-        });
+        await api.post("/catalogs/volumes", payload);
       }
       await loadVolumes();
       closeModal();
@@ -138,6 +180,7 @@ export const useVolumen = () => {
     isModalOpen,
     form,
     saving,
+    uploadingModel,
     dialogConfig,
     isProcessing,
     isEditing: !!currentId,
@@ -146,6 +189,8 @@ export const useVolumen = () => {
     closeModal,
     saveVolume,
     handleInputChange,
+    handleModelChange,
+    removeModel,
     confirmDelete,
     closeDialog
   };

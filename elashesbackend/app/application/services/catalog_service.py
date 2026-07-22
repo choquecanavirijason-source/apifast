@@ -101,6 +101,8 @@ def create_eye_type(db: Session, payload: EyeTypeCreate) -> EyeType:
         name=payload.name.strip(),
         description=payload.description,
         image=payload.image,
+        model_3d_url=payload.model_3d_url,
+        model_3d_filename=payload.model_3d_filename,
     )
     db.add(item)
     db.commit()
@@ -156,6 +158,8 @@ def create_effect(db: Session, payload: EffectCreate) -> Effect:
     item = Effect(
         name=payload.name.strip(),
         image=payload.image,
+        model_3d_url=payload.model_3d_url,
+        model_3d_filename=payload.model_3d_filename,
     )
     db.add(item)
     db.commit()
@@ -212,6 +216,8 @@ def create_volume(db: Session, payload: VolumeCreate) -> Volume:
         name=payload.name.strip(),
         description=payload.description,
         image=payload.image,
+        model_3d_url=payload.model_3d_url,
+        model_3d_filename=payload.model_3d_filename,
     )
     db.add(item)
     db.commit()
@@ -266,6 +272,8 @@ def create_lash_design(db: Session, payload: LashDesignCreate) -> LashDesign:
     item = LashDesign(
         name=payload.name.strip(),
         image=payload.image,
+        model_3d_url=payload.model_3d_url,
+        model_3d_filename=payload.model_3d_filename,
     )
     db.add(item)
     db.commit()

@@ -29,6 +29,7 @@ export default function VolumenPage() {
     isModalOpen,
     form,
     saving,
+    uploadingModel,
     isEditing,
     dialogConfig,
     isProcessing,
@@ -37,6 +38,8 @@ export default function VolumenPage() {
     closeModal,
     saveVolume,
     handleInputChange,
+    handleModelChange,
+    removeModel,
     confirmDelete,
     closeDialog,
   } = useVolumen();
@@ -183,9 +186,12 @@ export default function VolumenPage() {
         isEditing={isEditing}
         form={form}
         saving={saving}
+        uploadingModel={uploadingModel}
         onClose={closeModal}
         onSave={saveVolume}
         onChange={handleInputChange}
+        onModelChange={handleModelChange}
+        onRemoveModel={removeModel}
       />
 
       {dialogConfig ? (
