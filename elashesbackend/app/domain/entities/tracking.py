@@ -11,6 +11,8 @@ class EyeType(Base):
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     image = Column(Text, nullable=True)
+    model_3d_url = Column(String(500), nullable=True)
+    model_3d_filename = Column(String(255), nullable=True)
 
     clients = relationship("Client", back_populates="eye_type")
     trackings = relationship("Tracking", back_populates="eye_type")
@@ -22,6 +24,8 @@ class Effect(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False)
     image = Column(Text, nullable=True)
+    model_3d_url = Column(String(500), nullable=True)
+    model_3d_filename = Column(String(255), nullable=True)
 
     trackings = relationship("Tracking", back_populates="effect")
 
@@ -33,6 +37,8 @@ class Volume(Base):
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     image = Column(Text, nullable=True)
+    model_3d_url = Column(String(500), nullable=True)
+    model_3d_filename = Column(String(255), nullable=True)
 
     trackings = relationship("Tracking", back_populates="volume")
 
@@ -43,6 +49,8 @@ class LashDesign(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False)
     image = Column(Text, nullable=True)
+    model_3d_url = Column(String(500), nullable=True)
+    model_3d_filename = Column(String(255), nullable=True)
 
     trackings = relationship("Tracking", back_populates="lash_design")
 
@@ -57,6 +65,7 @@ class Design(Base):
     effect = Column(String(255), nullable=True)
     eye_type = Column(String(255), nullable=True)
     lash_design = Column(String(255), nullable=True)
+    volume = Column(String(255), nullable=True)
     note = Column(Text, nullable=True)
     image = Column(Text, nullable=True)
     model_3d_url = Column(String(500), nullable=True)

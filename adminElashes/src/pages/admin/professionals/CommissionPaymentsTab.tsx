@@ -358,8 +358,8 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                     size="sm"
                     variant={isPaid ? "secondary" : "primary"}
                     onClick={() => { setRegisteringId(isRegistering ? null : pro.id); setExpandedId(pro.id); }}
+                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
                   >
-                    <Banknote className="h-3.5 w-3.5" />
                     {isPaid ? "Registrar otro pago" : "Registrar pago"}
                   </Button>
                 )}

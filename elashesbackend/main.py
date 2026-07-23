@@ -56,13 +56,16 @@ import app.infrastructure.database.migrations.add_commission_payments_table as m
 import app.infrastructure.database.migrations.add_marketplace_products_table as m28
 import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m29
 import app.infrastructure.database.migrations.add_maps_url_to_branches as m30
-import app.infrastructure.database.migrations.add_country_code_to_branches as m31
+import app.infrastructure.database.migrations.add_model_3d_to_lash_designs as m31
+import app.infrastructure.database.migrations.add_model_3d_to_effects_eyetypes_volumes as m32
+import app.infrastructure.database.migrations.add_volume_to_designs as m33
+import app.infrastructure.database.migrations.add_app_settings as m34
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
-    service_agenda_controller, reports_controller,
+    service_agenda_controller, reports_controller, app_settings_controller,
 )
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
@@ -111,7 +114,10 @@ async def lifespan(app: FastAPI):
         ("marketplace_products_table", m28.upgrade),
         ("ci_marketplace_to_clients", m29.upgrade),
         ("maps_url_to_branches", m30.upgrade),
-        ("country_code_to_branches", m31.upgrade),
+        ("model_3d_to_lash_designs", m31.upgrade),
+        ("model_3d_to_effects_eyetypes_volumes", m32.upgrade),
+        ("volume_to_designs", m33.upgrade),
+        ("app_settings", m34.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -201,6 +207,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_controller.router)
     app.include_router(admin.router)
     app.include_router(admin_ai_controller.router)
+    app.include_router(app_settings_controller.router)
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
     app.include_router(marketplace_router)

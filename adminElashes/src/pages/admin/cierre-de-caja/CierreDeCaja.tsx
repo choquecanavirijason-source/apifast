@@ -14,7 +14,7 @@ import {
   type DailyClosingItem,
   type DailyClosingResponse,
 } from "../../../core/services/reports/reports.service";
-import { getLogoBase64 } from "../../../core/hooks/useLogo";
+import { getLogoUrlForPdf } from "../../../core/hooks/useLogo";
 
 type DailyClosingItemWithId = DailyClosingItem & { id: number };
 
@@ -79,16 +79,20 @@ function PaymentBadge({ method }: { method: string | null }) {
 
 // ── Impresión ─────────────────────────────────────────────────────────────────
 
-function printReport(
+async function printReport(
   date: string,
   branchName: string,
   professionalName: string,
   report: DailyClosingResponse,
   paymentConfirmations: Record<string, { confirmedAt: string; amount: number }> = {},
 ) {
-  const logoBase64 = getLogoBase64();
-  const logoHtml = logoBase64
-    ? `<div style="text-align:center;margin-bottom:12px"><img src="${logoBase64}" alt="Logo" style="max-height:85px;max-width:260px;object-fit:contain" /></div>`
+  // Abrir la ventana ya mismo (síncrono) para que el navegador no la bloquee como pop-up.
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const logoUrl = await getLogoUrlForPdf();
+  const logoHtml = logoUrl
+    ? `<div style="text-align:center;margin-bottom:12px"><img src="${logoUrl}" alt="Logo" style="max-height:85px;max-width:260px;object-fit:contain" /></div>`
     : "";
   const rows = report.items
     .map((item, i) => `
@@ -194,8 +198,6 @@ function printReport(
 </body>
 </html>`;
 
-  const win = window.open("", "_blank");
-  if (!win) return;
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -514,7 +516,7 @@ export default function CierreDeCaja() {
         <Button
           variant="primary"
           leftIcon={<Printer size={15} />}
-          onClick={() => printReport(date, selectedBranchName, selectedProfessionalName, report, paymentConfirmations)}
+          onClick={() => void printReport(date, selectedBranchName, selectedProfessionalName, report, paymentConfirmations)}
           disabled={report.items.length === 0}
         >
           Imprimir PDF

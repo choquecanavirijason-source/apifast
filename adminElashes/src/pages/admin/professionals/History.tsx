@@ -433,8 +433,13 @@ export default function ProfessionalServiceHistory() {
       }
       right={
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={handleDownloadPdf} disabled={filteredTickets.length === 0}>
-            <Download className="h-3.5 w-3.5" />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={filteredTickets.length === 0}
+            leftIcon={<Download className="h-3.5 w-3.5" />}
+          >
             PDF
           </Button>
           <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>Actualizar</Button>

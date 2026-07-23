@@ -489,8 +489,7 @@ export default function ServicesPage() {
             <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
             <p className="text-xs text-slate-500">Cada servicio tiene una categoría de servicio asignada.</p>
           </div>
-          <Button onClick={handleOpenCreateService}>
-            <Plus className="h-4 w-4" />
+          <Button onClick={handleOpenCreateService} leftIcon={<Plus className="h-4 w-4" />}>
             Nuevo servicio
           </Button>
         </div>

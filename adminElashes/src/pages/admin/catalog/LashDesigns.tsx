@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  Plus, Search, Edit, Trash2, Image as ImageIcon, Brush,
+  Plus, Search, Edit, Trash2, Image as ImageIcon, Brush, Box, X,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -11,8 +11,28 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
 
-type LashDesign = { id: number; name: string; image: string };
-const emptyForm = { name: "", image: "" };
+const MODEL_3D_EXTENSIONS = [".glb", ".gltf", ".obj", ".fbx", ".stl"];
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail === "string"
+  ) {
+    return (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? fallback;
+  }
+  return fallback;
+};
+
+type LashDesign = {
+  id: number;
+  name: string;
+  image: string;
+  model_3d_url?: string | null;
+  model_3d_filename?: string | null;
+};
+const emptyForm = { name: "", image: "", modelFileName: "", modelFileUrl: "" };
 
 export default function LashDesignsPage() {
   const [designs, setDesigns] = useState<LashDesign[]>([]);
@@ -22,6 +42,7 @@ export default function LashDesignsPage() {
   const [currentDesign, setCurrentDesign] = useState<LashDesign | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [uploadingModel, setUploadingModel] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LashDesign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -58,14 +79,44 @@ export default function LashDesignsPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleModelChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingModel(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/catalogs/designs/upload-model", formData);
+      setForm((prev) => ({
+        ...prev,
+        modelFileName: response.data.model_3d_filename ?? file.name,
+        modelFileUrl: response.data.model_3d_url,
+      }));
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo subir el modelo 3D"));
+    } finally {
+      setUploadingModel(false);
+      event.target.value = "";
+    }
+  };
+
+  const removeModel = () => setForm((p) => ({ ...p, modelFileName: "", modelFileUrl: "" }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        name: form.name,
+        image: form.image,
+        model_3d_url: form.modelFileUrl || null,
+        model_3d_filename: form.modelFileName || null,
+      };
       if (currentDesign) {
-        await api.put(`/catalogs/lash-designs/${currentDesign.id}`, { ...form });
+        await api.put(`/catalogs/lash-designs/${currentDesign.id}`, payload);
       } else {
-        await api.post("/catalogs/lash-designs", { ...form });
+        await api.post("/catalogs/lash-designs", payload);
       }
       await loadDesigns();
       setIsModalOpen(false);
@@ -137,7 +188,16 @@ export default function LashDesignsPage() {
                 <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     type="button"
-                    onClick={() => { setCurrentDesign(item); setForm({ name: item.name, image: item.image }); setIsModalOpen(true); }}
+                    onClick={() => {
+                      setCurrentDesign(item);
+                      setForm({
+                        name: item.name,
+                        image: item.image,
+                        modelFileName: item.model_3d_filename ?? "",
+                        modelFileUrl: item.model_3d_url ?? "",
+                      });
+                      setIsModalOpen(true);
+                    }}
                     className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
                   >
                     <Edit className="h-4 w-4" />
@@ -196,23 +256,64 @@ export default function LashDesignsPage() {
               required
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Imagen del esquema</label>
-            <div className="relative cursor-pointer rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition-colors hover:bg-slate-100">
-              <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 cursor-pointer opacity-0" />
-              {form.image ? (
-                <img src={form.image} alt="Preview" className="mx-auto h-32 object-contain" />
-              ) : (
-                <div className="py-4 text-slate-400">
-                  <ImageIcon className="mx-auto mb-1 h-8 w-8" />
-                  <p className="text-xs">Haz clic para cargar</p>
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">Archivos de pestañas</p>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-xs font-medium text-slate-500">Imagen del esquema</label>
+                <div className="relative mt-2 cursor-pointer rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition-colors hover:bg-slate-100">
+                  <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 cursor-pointer opacity-0" />
+                  {form.image ? (
+                    <img src={form.image} alt="Preview" className="mx-auto h-24 object-contain" />
+                  ) : (
+                    <div className="py-3 text-slate-400">
+                      <ImageIcon className="mx-auto mb-1 h-7 w-7" />
+                      <p className="text-xs">Subir archivo .png</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500">Modelo 3D</label>
+                <div className="relative mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition-colors hover:bg-slate-100">
+                  <input
+                    type="file"
+                    accept={MODEL_3D_EXTENSIONS.join(",")}
+                    onChange={(e) => void handleModelChange(e)}
+                    disabled={uploadingModel}
+                    className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-wait"
+                  />
+                  {uploadingModel ? (
+                    <div className="py-3 text-slate-400">
+                      <Box className="mx-auto mb-1 h-7 w-7 animate-pulse" />
+                      <p className="text-xs">Subiendo modelo 3D...</p>
+                    </div>
+                  ) : form.modelFileName ? (
+                    <div className="relative flex flex-col items-center gap-1 py-3">
+                      <Box className="h-7 w-7 text-emerald-600" />
+                      <p className="max-w-full truncate px-4 text-xs font-medium text-slate-600">{form.modelFileName}</p>
+                      <button
+                        type="button"
+                        onClick={removeModel}
+                        className="absolute -right-1 -top-1 rounded-full bg-white p-1 text-slate-400 shadow hover:text-rose-600"
+                        title="Quitar modelo 3D"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-3 text-slate-400">
+                      <Box className="mx-auto mb-1 h-7 w-7" />
+                      <p className="text-xs">Subir .glb, .gltf, .obj, .fbx o .stl</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Guardando..." : currentDesign ? "Actualizar" : "Crear"}</Button>
+            <Button type="submit" disabled={saving || uploadingModel}>{saving ? "Guardando..." : currentDesign ? "Actualizar" : "Crear"}</Button>
           </div>
         </form>
       </GenericModal>

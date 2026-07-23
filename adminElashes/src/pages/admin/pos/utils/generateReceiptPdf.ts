@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
-import { getLogoBase64 } from "../../../../core/hooks/useLogo";
+import { getLogoUrlForPdf } from "../../../../core/hooks/useLogo";
 
 // En Tauri v2 el global interno es __TAURI_INTERNALS__
 const isTauri =
@@ -28,7 +28,7 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
   let y = 18;
 
   // ── Logo (si existe) ──────────────────────────────────────────────────────
-  const logoDataUrl = getLogoBase64();
+  const logoDataUrl = await getLogoUrlForPdf();
   if (logoDataUrl) {
     try {
       const logoMaxW = 70;
@@ -36,6 +36,7 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
 
       // Cargar imagen y convertir a PNG vía canvas (maneja SVG y todos los formatos)
       const img = new Image();
+      img.crossOrigin = "anonymous";
       await new Promise<void>((resolve) => {
         img.onload = () => resolve();
         img.onerror = () => resolve();

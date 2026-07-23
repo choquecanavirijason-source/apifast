@@ -18,9 +18,10 @@ MEDIA_ROOT = os.path.join(get_external_path(), "media")
 MEDIA_URL_PREFIX = "/media"
 
 # Carpetas permitidas para subir (evita escritura arbitraria de rutas).
-ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "designs", "misc", "marketplace"}
+ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "designs", "misc", "marketplace", "branding"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_LOGO_BYTES = 500 * 1024  # 500 KB
 
 # Modelos 3D de diseños (vista previa AR/3D en el admin).
 MODEL_3D_FOLDER = "design-models"
@@ -37,10 +38,11 @@ def ensure_media_dirs() -> str:
     return MEDIA_ROOT
 
 
-def save_catalog_image(file: UploadFile, folder: str) -> str:
+def save_catalog_image(file: UploadFile, folder: str, max_bytes: int = MAX_IMAGE_BYTES) -> str:
     """Guarda `file` en `MEDIA_ROOT/folder` y devuelve la ruta pública `/media/...`.
 
-    Valida carpeta, extensión y tamaño. Lanza HTTPException 400 si algo no cuadra.
+    Valida carpeta, extensión y tamaño (`max_bytes`, 5 MB por defecto).
+    Lanza HTTPException 400 si algo no cuadra.
     """
     if folder not in ALLOWED_FOLDERS:
         raise HTTPException(
@@ -62,10 +64,11 @@ def save_catalog_image(file: UploadFile, folder: str) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El archivo está vacío.",
         )
-    if len(data) > MAX_IMAGE_BYTES:
+    if len(data) > max_bytes:
+        max_mb = max_bytes / (1024 * 1024)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La imagen supera el tamaño máximo (5 MB).",
+            detail=f"La imagen supera el tamaño máximo ({max_mb:.1f} MB).",
         )
 
     ensure_media_dirs()
@@ -75,6 +78,21 @@ def save_catalog_image(file: UploadFile, folder: str) -> str:
         out.write(data)
 
     return f"{MEDIA_URL_PREFIX}/{folder}/{filename}"
+
+
+def delete_media_file(relative_url: str | None) -> None:
+    """Elimina un archivo previamente guardado bajo `MEDIA_ROOT`, dado su path
+    público `/media/<carpeta>/<archivo>`. No falla si el archivo ya no existe
+    o si `relative_url` no tiene el formato esperado.
+    """
+    if not relative_url or not relative_url.startswith(f"{MEDIA_URL_PREFIX}/"):
+        return
+    rel_path = relative_url[len(MEDIA_URL_PREFIX) + 1:]
+    abs_path = os.path.join(MEDIA_ROOT, rel_path)
+    try:
+        os.remove(abs_path)
+    except FileNotFoundError:
+        pass
 
 
 def save_design_model(file: UploadFile) -> str:

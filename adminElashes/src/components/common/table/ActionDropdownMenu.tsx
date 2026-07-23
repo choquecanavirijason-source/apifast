@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DataTableAction } from "./DataTable";
 
@@ -17,7 +17,7 @@ export function ActionDropdownMenu<T>({ actions, item, anchorRect, onClose }: Pr
     minWidth: 180,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !anchorRect) return;
 

@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
-import { getLogoBase64 } from "../hooks/useLogo";
+import { getLogoUrlForPdf } from "../hooks/useLogo";
 
 export interface PdfColumn {
   header: string;
@@ -33,10 +33,11 @@ export async function generateTablePdf({
   let y = 12;
 
   // ── Logo ──────────────────────────────────────────────────────────────────
-  const logoDataUrl = getLogoBase64();
+  const logoDataUrl = await getLogoUrlForPdf();
   if (logoDataUrl) {
     try {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       await new Promise<void>((resolve) => {
         img.onload = () => resolve();
         img.onerror = () => resolve();

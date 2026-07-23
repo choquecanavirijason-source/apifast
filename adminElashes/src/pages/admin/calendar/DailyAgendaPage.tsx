@@ -625,7 +625,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         containerClassName={layoutContainerClass}
       >
         <SectionCard className="mb-3 border border-[#d2d0ce] bg-[#faf9f8]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3">
             <div className="flex min-w-0 items-start gap-2">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#c7e0f4] bg-[#deecf9] text-[#005a9e]">
                 <CalendarClock className="h-4 w-4" />
@@ -641,17 +641,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
             </div>
 
             <div
-              className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+              className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1"
               role="group"
               aria-label="Tipo de vista"
             >
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Panel</span>
+              <div className="flex shrink-0 flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c] whitespace-nowrap">Panel</span>
                 <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
                   <button
                     type="button"
                     onClick={() => setMainViewMode("calendar")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                       mainView === "calendar"
                         ? "bg-[#0078d4] text-white shadow-sm"
                         : "text-[#605e5c] hover:bg-[#f3f2f1]"
@@ -663,7 +663,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   <button
                     type="button"
                     onClick={() => setMainViewMode("whatsapp")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                       mainView === "whatsapp"
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-[#605e5c] hover:bg-[#f3f2f1]"
@@ -676,14 +676,14 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               </div>
 
               {mainView === "calendar" ? (
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Vista calendario</span>
+              <div className="flex shrink-0 flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c] whitespace-nowrap">Vista calendario</span>
                 <div className="flex items-center gap-1">
                   <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setViewMode("planner")}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                         agendaView === "planner"
                           ? "bg-[#0078d4] text-white shadow-sm"
                           : "text-[#605e5c] hover:bg-[#f3f2f1]"
@@ -695,7 +695,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     <button
                       type="button"
                       onClick={() => setViewMode("stations")}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                         agendaView === "stations"
                           ? "bg-[#0078d4] text-white shadow-sm"
                           : "text-[#605e5c] hover:bg-[#f3f2f1]"
@@ -719,17 +719,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               </div>
               ) : null}
 
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#edebe9] pt-3 sm:border-t-0 sm:pt-0">
+                <div className="flex shrink-0 flex-nowrap items-center gap-2">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="h-8"
+                    className="h-8 shrink-0"
                     onClick={() => setSelectedDate(getLocalDateInputValue())}
                   >
                     Hoy
                   </Button>
-                  <div className="flex max-w-[min(100vw-2rem,520px)] gap-1 overflow-x-auto pb-1">
+                  <div className="flex shrink-0 gap-1">
                     {weekStrip.map((dayIso) => {
                       const isSel = dayIso === selectedDate;
                       const short = new Date(`${dayIso}T12:00:00`).toLocaleDateString("es-BO", {
@@ -755,12 +755,12 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#edebe9] pt-3 sm:border-t-0 sm:pt-0">
-                <span className="text-xs text-[#605e5c]">
+                <div className="flex shrink-0 flex-nowrap items-center gap-2">
+                <span className="text-xs text-[#605e5c] whitespace-nowrap">
                   MES: <strong className="text-[#323130]">{monthLabel}</strong> · DÍA:{" "}
                   <strong className="text-[#323130]">{dayNumber}</strong>
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(-1)}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -774,19 +774,24 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button type="button" size="sm" className="h-8 gap-1" onClick={() => openNewModal("09:00", null)}>
-                  <Plus className="h-3.5 w-3.5" />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1"
+                  onClick={() => openNewModal("09:00", null)}
+                  leftIcon={<Plus className="h-3.5 w-3.5" />}
+                >
                   Nueva reserva
                 </Button>
-                <div className="relative" ref={printDropdownRef}>
+                <div className="relative shrink-0" ref={printDropdownRef}>
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="h-8 gap-1"
+                    className="h-8 shrink-0 gap-1"
                     onClick={() => setPrintDropdownOpen((o) => !o)}
+                    leftIcon={<Printer className="h-3.5 w-3.5" />}
                   >
-                    <Printer className="h-3.5 w-3.5" />
                     Imprimir
                   </Button>
                   {printDropdownOpen && (

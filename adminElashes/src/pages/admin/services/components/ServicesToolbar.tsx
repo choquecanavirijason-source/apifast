@@ -17,8 +17,7 @@ export default function ServicesToolbar({ onCreateCategory }: ServicesToolbarPro
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Button onClick={onCreateCategory}>
-          <Plus className="h-4 w-4" />
+        <Button onClick={onCreateCategory} leftIcon={<Plus className="h-4 w-4" />}>
           Nueva categoría
         </Button>
       </div>

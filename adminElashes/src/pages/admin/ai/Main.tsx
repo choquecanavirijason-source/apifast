@@ -219,11 +219,11 @@ export default function AdminAiPage() {
             <Button
               type="button"
               size="sm"
-              className="mt-4 w-full gap-1.5"
+              className="mt-4 w-full"
               disabled={savingSettings}
               onClick={() => void handleSaveSettings()}
+              leftIcon={<Save className="h-3.5 w-3.5" />}
             >
-              <Save className="h-3.5 w-3.5" />
               {savingSettings ? "Guardando…" : "Guardar configuración"}
             </Button>
           </section>
@@ -329,8 +329,13 @@ export default function AdminAiPage() {
                   className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
                   disabled={sending}
                 />
-                <Button type="submit" size="sm" className="gap-1.5 shrink-0" disabled={sending || !input.trim()}>
-                  <Send className="h-3.5 w-3.5" />
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={sending || !input.trim()}
+                  leftIcon={<Send className="h-3.5 w-3.5" />}
+                >
                   Enviar
                 </Button>
               </form>
