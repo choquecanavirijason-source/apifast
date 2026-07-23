@@ -70,6 +70,7 @@ class BranchSummary(BaseModel):
     address: Optional[str] = None
     city: Optional[str] = None
     department: Optional[str] = None
+    country_code: Optional[str] = None
     opening_hours: list[BranchDaySchedule] = Field(default_factory=list)
     user_ids: list[int] = Field(default_factory=list)
     qr_image_url: Optional[str] = None

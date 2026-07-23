@@ -493,6 +493,69 @@ export async function deleteReel(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/reels/admin/${id}`);
 }
 
+// ── Delivery Points (puntos de recojo/entrega, por país) ────────────────────────
+
+export interface MarketplaceDeliveryPoint {
+  id: number;
+  country_code: string;
+  country_name: string;
+  city: string | null;
+  name: string;
+  address: string;
+  reference: string | null;
+  schedule: string | null;
+  phone: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CreateDeliveryPointPayload {
+  country_code: string;
+  country_name: string;
+  city?: string;
+  name: string;
+  address: string;
+  reference?: string;
+  schedule?: string;
+  phone?: string;
+  sort_order?: number;
+}
+
+export interface UpdateDeliveryPointPayload extends Partial<CreateDeliveryPointPayload> {
+  is_active?: boolean;
+}
+
+export async function fetchAdminDeliveryPoints(): Promise<MarketplaceDeliveryPoint[]> {
+  const { data } = await marketplaceApi.get<MarketplaceDeliveryPoint[]>("/api/delivery-points/admin");
+  return data;
+}
+
+export async function createDeliveryPoint(
+  payload: CreateDeliveryPointPayload
+): Promise<MarketplaceDeliveryPoint> {
+  const { data } = await marketplaceApi.post<MarketplaceDeliveryPoint>(
+    "/api/delivery-points/admin",
+    payload
+  );
+  return data;
+}
+
+export async function updateDeliveryPoint(
+  id: number,
+  payload: UpdateDeliveryPointPayload
+): Promise<MarketplaceDeliveryPoint> {
+  const { data } = await marketplaceApi.put<MarketplaceDeliveryPoint>(
+    `/api/delivery-points/admin/${id}`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteDeliveryPoint(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/delivery-points/admin/${id}`);
+}
+
 // ── Customers ─────────────────────────────────────────────────────────────────
 
 export interface MarketplaceCustomer {

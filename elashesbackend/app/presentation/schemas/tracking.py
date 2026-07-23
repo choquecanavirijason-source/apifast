@@ -51,6 +51,15 @@ class LashAiReviewResponse(BaseModel):
     model: str
 
 
+class LashAiRecommendationResponse(BaseModel):
+    reason: str
+    eye_shape: Optional[str] = None
+    recommended_design: Optional[str] = None
+    recommended_effect: Optional[str] = None
+    recommended_volume: Optional[str] = None
+    model: str
+
+
 class TrackingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

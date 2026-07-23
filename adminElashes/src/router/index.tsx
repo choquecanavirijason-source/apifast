@@ -53,6 +53,7 @@ import MarketplaceSettingsPage from "@/modes/marketplace/pages/settings/Settings
 import InventoryOverviewPage from "@/modes/marketplace/pages/inventory/InventoryOverviewPage";
 import AdsPage from "@/modes/marketplace/pages/ads/AdsPage";
 import ReelsPage from "@/modes/marketplace/pages/reels/ReelsPage";
+import DeliveryPointsPage from "@/modes/marketplace/pages/delivery-points/DeliveryPointsPage";
 import CustomersPage from "@/modes/marketplace/pages/customers/CustomersPage";
 
 export default function AppRouter() {
@@ -201,6 +202,7 @@ export default function AppRouter() {
             <Route path="marketplace/categories" element={<MarketplaceCategoriesPage />} />
             <Route path="marketplace/ads" element={<AdsPage />} />
             <Route path="marketplace/reels" element={<ReelsPage />} />
+            <Route path="marketplace/delivery-points" element={<DeliveryPointsPage />} />
             <Route path="marketplace/customers" element={<CustomersPage />} />
             <Route path="marketplace/catalog" element={<MarketplaceCatalogPage />} />
             <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />

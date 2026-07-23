@@ -8,12 +8,17 @@ from app.core.media import ALLOWED_EXTENSIONS, MAX_IMAGE_BYTES
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.tracking import (
+    LashAiRecommendationResponse,
     LashAiReviewResponse,
     TrackingCreate,
     TrackingUpdate,
     TrackingResponse,
 )
-from app.application.services.admin_ai_service import ask_lash_ai_vision
+from app.application.services.admin_ai_service import (
+    ask_lash_ai_compare,
+    ask_lash_ai_recommendation,
+    ask_lash_ai_vision,
+)
 from app.application.services.tracking_service import (
     list_trackings,
     get_tracking_by_id,
@@ -121,17 +126,9 @@ def delete_existing_tracking(
     return MessageResponse(message="Seguimiento eliminado correctamente")
 
 
-@router.post(
-    "/ai-review",
-    response_model=LashAiReviewResponse,
-)
-async def ai_review_lash_application(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("tracking:manage", "tracking:view")),
-):
-    """Guiado de IA en vivo (Beauty Tech): recibe una foto tomada durante la
-    aplicación de pestañas y devuelve un consejo breve. No persiste la imagen.
+async def _read_validated_image(file: UploadFile) -> bytes:
+    """Valida extensión/tamaño (mismas reglas que `app.core.media`) y
+    devuelve los bytes del archivo. Lanza 400 si no pasa la validación.
     """
     _, ext = os.path.splitext(file.filename or "")
     ext = ext.lower()
@@ -149,5 +146,56 @@ async def ai_review_lash_application(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La imagen supera el tamaño máximo (5 MB).",
         )
+    return data
 
+
+@router.post(
+    "/ai-review",
+    response_model=LashAiReviewResponse,
+)
+async def ai_review_lash_application(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("tracking:manage", "tracking:view")),
+):
+    """Guiado de IA en vivo (Beauty Tech): recibe una foto tomada durante la
+    aplicación de pestañas y devuelve un consejo breve. No persiste la imagen.
+    """
+    data = await _read_validated_image(file)
     return await ask_lash_ai_vision(db=db, image_bytes=data)
+
+
+@router.post(
+    "/ai-compare",
+    response_model=LashAiReviewResponse,
+)
+async def ai_compare_lash_application(
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("tracking:manage", "tracking:view")),
+):
+    """Guiado de IA en vivo (Beauty Tech): compara dos fotos de la misma
+    aplicación ('antes' y 'después' de una corrección) y devuelve si mejoró
+    y qué cambió. No persiste las imágenes.
+    """
+    before_bytes = await _read_validated_image(before)
+    after_bytes = await _read_validated_image(after)
+    return await ask_lash_ai_compare(db=db, before_bytes=before_bytes, after_bytes=after_bytes)
+
+
+@router.post(
+    "/ai-recommend",
+    response_model=LashAiRecommendationResponse,
+)
+async def ai_recommend_lash_design(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_permission("tracking:manage", "tracking:view")),
+):
+    """Probador con IA: analiza la foto del ojo de la clienta y recomienda,
+    del catálogo real del salón, el diseño/efecto/volumen que mejor le
+    queda. No persiste la imagen.
+    """
+    data = await _read_validated_image(file)
+    return await ask_lash_ai_recommendation(db=db, image_bytes=data)

@@ -8,6 +8,40 @@ from sqlalchemy.orm import Session
 from app.domain.entities.branch import Branch
 from app.domain.entities.user import User
 
+# Mismo listado de paises que adminElashes/src/pages/admin/salons/utils.ts
+# (COUNTRY_CITY_OPTIONS) — el admin elige el pais por nombre en ese dropdown
+# (guardado en `department`); acá se deriva automáticamente el código ISO
+# correspondiente, sin pedirle un campo adicional.
+_COUNTRY_NAME_TO_CODE = {
+    "bolivia": "BO",
+    "argentina": "AR",
+    "chile": "CL",
+    "peru": "PE",
+    "paraguay": "PY",
+    "uruguay": "UY",
+    "brasil": "BR",
+    "colombia": "CO",
+    "ecuador": "EC",
+    "venezuela": "VE",
+    "mexico": "MX",
+    "estados unidos": "US",
+    "canada": "CA",
+    "espana": "ES",
+    "francia": "FR",
+    "italia": "IT",
+    "alemania": "DE",
+    "reino unido": "GB",
+    "portugal": "PT",
+    "japon": "JP",
+}
+
+
+def _derive_country_code(department: Optional[str]) -> Optional[str]:
+    if not department:
+        return None
+    return _COUNTRY_NAME_TO_CODE.get(department.strip().lower())
+
+
 _opening_hours_column_checked = False
 
 
@@ -118,6 +152,7 @@ def create_branch(
         address=address,
         city=city,
         department=department,
+        country_code=_derive_country_code(department),
         opening_hours=opening_hours or [],
         maps_url=maps_url,
     )
@@ -177,6 +212,7 @@ def update_branch(
 
     if department is not None:
         branch.department = department
+        branch.country_code = _derive_country_code(department)
 
     if opening_hours is not None:
         branch.opening_hours = opening_hours
