@@ -150,8 +150,14 @@ export default function BranchIntegrationsPanel({
             WhatsApp por sucursal o perfil compartido. La IA global está en el menú Asistente IA.
           </p>
         </div>
-        <Button type="button" size="sm" className="gap-1.5" disabled={saving || loading} onClick={() => void handleSave()}>
-          <Save className="h-3.5 w-3.5" />
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5"
+          disabled={saving || loading}
+          onClick={() => void handleSave()}
+          leftIcon={<Save className="h-3.5 w-3.5" />}
+        >
           {saving ? "Guardando…" : "Guardar"}
         </Button>
       </div>
