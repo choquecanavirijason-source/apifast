@@ -88,7 +88,10 @@ export default function ReelsPage() {
 
   const openNew = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    // Un sort_order menor al mínimo actual asegura que el reel nuevo quede
+    // primero en la lista (orden ascendente) en vez de al final del empate en 0.
+    const minSortOrder = reels.length ? Math.min(...reels.map((r) => r.sort_order)) : 1;
+    setForm({ ...emptyForm, sort_order: minSortOrder - 1 });
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(null);
@@ -188,9 +191,13 @@ export default function ReelsPage() {
     const other = sorted[swapIdx];
     setReordering(r.id);
     try {
+      // Se usa la posición (índice) como nuevo sort_order, no el valor crudo
+      // del otro reel: si varios reels comparten el mismo sort_order (ej. todos
+      // en 0 por defecto), intercambiar ese valor entre sí era un no-op y las
+      // flechas no movían nada.
       const [u1, u2] = await Promise.all([
-        updateReel(r.id, { sort_order: other.sort_order }),
-        updateReel(other.id, { sort_order: r.sort_order }),
+        updateReel(r.id, { sort_order: swapIdx }),
+        updateReel(other.id, { sort_order: idx }),
       ]);
       setReels((prev) => prev.map((x) => (x.id === u1.id ? u1 : x.id === u2.id ? u2 : x)));
     } catch {

@@ -9,6 +9,7 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/bra
 import { useWebSocket } from "../../../core/hooks/useWebSocket";
 import PosPage from "../pos/Main";
 import { getLocalDateInputValue } from "./calendar.utils";
+import { STATUS_LABELS } from "./calendar.constants";
 import PendingTicketsPanel from "./components/PendingTicketsPanel";
 import CalendarControlsBar from "./components/CalendarControlsBar";
 
@@ -234,12 +235,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   const todayKey = toIsoDate(now);
   const currentMinuteOfDay = now.getHours() * 60 + now.getMinutes();
 
-  const pendingTickets = useMemo(() => {
-    return filteredTickets.filter((ticket) => {
-      const status = (ticket.status ?? "").toLowerCase();
-      return status === "pending" || status === "in_service";
-    });
-  }, [filteredTickets]);
+  const pendingTickets = filteredTickets;
 
   const calendarFilteredTickets = useMemo(() => {
     const query = normalizeSearchText(jumpSearch);
@@ -466,7 +462,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
         }
       >
         <div
-          className={`grid min-h-[72vh] gap-3 ${isPendingDrawerOpen ? "xl:grid-cols-[360px_minmax(0,1fr)]" : "xl:grid-cols-[0px_minmax(0,1fr)]"}`}
+          className={`grid h-[72vh] max-h-[72vh] gap-3 ${isPendingDrawerOpen ? "xl:grid-cols-[360px_minmax(0,1fr)]" : "xl:grid-cols-[0px_minmax(0,1fr)]"}`}
         >
           <PendingTicketsPanel
             isOpen={isPendingDrawerOpen}
@@ -612,7 +608,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                                     {ticket.ticket_code ?? `#${ticket.id}`} · {ticket.client_name}
                                   </p>
                                   <span className={`rounded-full px-1 py-0.5 text-[9px] font-semibold capitalize ${getTicketStatusTextClass(ticket.status)} bg-white/85`}>
-                                    {ticket.status}
+                                    {STATUS_LABELS[ticket.status] ?? ticket.status}
                                   </span>
                                 </div>
                                 <p className="truncate text-[10px] text-[#605e5c]">
@@ -652,7 +648,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                                   >
                                     {ticketStatusOptions.map((status) => (
                                       <option key={status} value={status}>
-                                        {status}
+                                        {STATUS_LABELS[status] ?? status}
                                       </option>
                                     ))}
                                   </select>
