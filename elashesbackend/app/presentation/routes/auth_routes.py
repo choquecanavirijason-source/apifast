@@ -1,11 +1,12 @@
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.presentation.schemas.auth import LoginRequest, LoginResponse, RegisterRequest, LogoutResponse, SessionInfoResponse
 from app.presentation.schemas.user import UserResponse
 from app.core.dependencies import get_db, get_current_active_user, require_role
+from app.core.rate_limit import rate_limit
 from app.infrastructure.security import decode_token, create_access_token
 from app.config.settings import settings
 from fastapi.security import OAuth2PasswordBearer
@@ -24,8 +25,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 @router.post("/login", response_model=LoginResponse)
 def login_json(
     payload: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    rate_limit(request, "login", max_attempts=5, window_seconds=60)
     return login_user(
         db=db,
         username=payload.username,

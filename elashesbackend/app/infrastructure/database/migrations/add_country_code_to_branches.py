@@ -13,32 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from sqlalchemy import text
 
 from app.config.settings import settings
+from app.core.countries import COUNTRY_NAME_TO_CODE
 from app.infrastructure.database import engine
-
-# Mismo listado de paises que adminElashes/src/pages/admin/salons/utils.ts
-# (COUNTRY_CITY_OPTIONS) — mantenerlos sincronizados si se agregan paises ahi.
-COUNTRY_NAME_TO_CODE = {
-    "bolivia": "BO",
-    "argentina": "AR",
-    "chile": "CL",
-    "peru": "PE",
-    "paraguay": "PY",
-    "uruguay": "UY",
-    "brasil": "BR",
-    "colombia": "CO",
-    "ecuador": "EC",
-    "venezuela": "VE",
-    "mexico": "MX",
-    "estados unidos": "US",
-    "canada": "CA",
-    "espana": "ES",
-    "francia": "FR",
-    "italia": "IT",
-    "alemania": "DE",
-    "reino unido": "GB",
-    "portugal": "PT",
-    "japon": "JP",
-}
 
 
 def _column_exists(conn, table_name: str, column_name: str, is_sqlite: bool) -> bool:

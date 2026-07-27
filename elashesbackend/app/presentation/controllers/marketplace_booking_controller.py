@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.countries import COUNTRY_CODE_TO_NAME
 from app.core.dependencies import get_db
 from app.domain.entities.client import Client
 from app.domain.entities.branch import Branch
@@ -122,14 +123,22 @@ def list_bookable_services(db: Session = Depends(get_db)):
 
 
 @router.get("/branches")
-def list_branches(db: Session = Depends(get_db)):
-    branches = db.query(Branch).order_by(Branch.id).all()
+def list_branches(country_code: str | None = Query(default=None), db: Session = Depends(get_db)):
+    query = db.query(Branch)
+    if country_code:
+        query = query.filter(Branch.country_code == country_code.strip().upper())
+    branches = query.order_by(Branch.id).all()
     return [
         {
             "id": b.id,
             "name": b.name,
             "address": b.address,
             "city": b.city,
+            "country_code": b.country_code,
+            # Se deriva del código (fuente confiable) y no de `department`
+            # directamente — `department` puede desincronizarse si se edita
+            # después sin pasar por el selector de país del admin.
+            "country_name": COUNTRY_CODE_TO_NAME.get(b.country_code),
             "maps_url": b.maps_url,
             "qr_image_url": b.qr_image_url,
         }
