@@ -218,7 +218,13 @@ def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(g
     services = db.query(Service).filter(Service.id.in_(ids)).all()
     if len(services) != len(set(ids)):
         raise HTTPException(status_code=404, detail="Algún servicio no existe")
-    branch = db.query(Branch).filter(Branch.id == payload.branch_id).first()
+    # Bloquea la fila de la sucursal hasta el commit: sin esto, dos reservas
+    # concurrentes para el mismo horario podían pasar ambas el chequeo de
+    # solapamiento de abajo (ninguna veía todavía la cita de la otra) y
+    # quedar ambas confirmadas para el mismo turno.
+    branch = (
+        db.query(Branch).filter(Branch.id == payload.branch_id).with_for_update().first()
+    )
     if not branch:
         raise HTTPException(status_code=404, detail="Sucursal no encontrada")
 
