@@ -456,6 +456,14 @@ export interface MarketplaceReel {
   is_active: boolean;
   sort_order: number;
   created_at: string;
+  like_count: number;
+}
+
+export interface ReelLikeEntry {
+  customer_id: number;
+  name: string;
+  email: string;
+  liked_at: string | null;
 }
 
 export interface CreateReelPayload {
@@ -491,6 +499,11 @@ export async function updateReel(id: number, payload: UpdateReelPayload): Promis
 
 export async function deleteReel(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/reels/admin/${id}`);
+}
+
+export async function fetchReelLikes(reelId: number): Promise<ReelLikeEntry[]> {
+  const { data } = await marketplaceApi.get<ReelLikeEntry[]>(`/api/reels/admin/${reelId}/likes`);
+  return data;
 }
 
 // ── Delivery Points (puntos de recojo/entrega, por país) ────────────────────────

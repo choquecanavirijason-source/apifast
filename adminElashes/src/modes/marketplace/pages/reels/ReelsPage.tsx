@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
-  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid,
+  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -18,9 +18,11 @@ import {
   updateReel,
   deleteReel,
   fetchAdminProducts,
+  fetchReelLikes,
   MARKETPLACE_MEDIA_BASE,
   type MarketplaceReel,
   type MarketplaceProduct,
+  type ReelLikeEntry,
 } from "@/core/services/marketplace/marketplace.service";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -65,6 +67,23 @@ export default function ReelsPage() {
   const [toggling, setToggling] = useState<number | null>(null);
   const [reordering, setReordering] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+
+  const [likesTarget, setLikesTarget] = useState<MarketplaceReel | null>(null);
+  const [likesEntries, setLikesEntries] = useState<ReelLikeEntry[]>([]);
+  const [likesLoading, setLikesLoading] = useState(false);
+
+  const openLikes = async (r: MarketplaceReel) => {
+    setLikesTarget(r);
+    setLikesLoading(true);
+    try {
+      setLikesEntries(await fetchReelLikes(r.id));
+    } catch {
+      toast.error("No se pudo cargar quién le dio like");
+      setLikesEntries([]);
+    } finally {
+      setLikesLoading(false);
+    }
+  };
 
   // ── data ────────────────────────────────────────────────────────────────────
 
@@ -248,6 +267,21 @@ export default function ReelsPage() {
       getValue: (r) => r.product?.name ?? "",
     },
     {
+      key: "like_count",
+      header: "Likes",
+      sortable: true,
+      render: (r) => (
+        <button
+          onClick={() => void openLikes(r)}
+          className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"
+          title="Ver quién le dio like"
+        >
+          <Heart className="h-3 w-3 fill-current" /> {r.like_count}
+        </button>
+      ),
+      getValue: (r) => r.like_count,
+    },
+    {
       key: "is_active",
       header: "Estado",
       sortable: true,
@@ -382,8 +416,17 @@ export default function ReelsPage() {
                     >
                       {r.is_active ? <><Eye className="h-3 w-3" /> Activo</> : <><EyeOff className="h-3 w-3" /> Inactivo</>}
                     </button>
-                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
-                      #{i + 1}
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      <button
+                        onClick={() => void openLikes(r)}
+                        className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/70 transition"
+                        title="Ver quién le dio like"
+                      >
+                        <Heart className="h-3 w-3 fill-rose-500 text-rose-500" /> {r.like_count}
+                      </button>
+                      <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
+                        #{i + 1}
+                      </div>
                     </div>
                     {r.product && (
                       <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
@@ -566,6 +609,39 @@ export default function ReelsPage() {
             />
           </div>
         </div>
+      </GenericModal>
+
+      {/* ── Modal: quién le dio like a este reel ─────────────────────────────── */}
+      <GenericModal
+        isOpen={!!likesTarget}
+        onClose={() => setLikesTarget(null)}
+        title={`Likes${likesTarget ? ` — ${likesTarget.caption || "reel #" + likesTarget.id}` : ""}`}
+        size="sm"
+      >
+        {likesLoading ? (
+          <p className="py-6 text-center text-sm text-slate-400">Cargando…</p>
+        ) : likesEntries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+            <Heart className="h-10 w-10 mb-2 text-slate-200" />
+            <p className="text-sm">Todavía nadie le dio like a este reel.</p>
+          </div>
+        ) : (
+          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+            {likesEntries.map((entry) => (
+              <li key={entry.customer_id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-700">{entry.name || "Sin nombre"}</p>
+                  <p className="truncate text-xs text-slate-400">{entry.email}</p>
+                </div>
+                {entry.liked_at && (
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {new Date(entry.liked_at).toLocaleDateString()}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </GenericModal>
 
       <ConfirmDialog
