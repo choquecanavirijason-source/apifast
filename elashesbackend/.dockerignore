@@ -1,0 +1,6 @@
+mysql/
+elashes.db
+media/
+__pycache__/
+*.pyc
+.git/
