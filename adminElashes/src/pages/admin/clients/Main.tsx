@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X, ShoppingBag } from "lucide-react";
+import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X, ShoppingBag, History } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
 import { ClientService, type EyeTypeOption } from "../../../core/services/client/client.service";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import FilterActionBar from "../../../components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "../../../components/common/ui";
 import RegisterClientModal from "./RegisterClientModal";
+import ClientSalesHistoryModal from "./ClientSalesHistoryModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
 
@@ -39,6 +40,8 @@ export default function ClientListPage() {
   // Estados de Modales
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<IClient | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [clientForHistory, setClientForHistory] = useState<IClient | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -201,6 +204,11 @@ export default function ClientListPage() {
   const handleEdit = (client: IClient) => {
     setClientToEdit(client);
     setIsRegisterOpen(true);
+  };
+
+  const handleViewHistory = (client: IClient) => {
+    setClientForHistory(client);
+    setIsHistoryOpen(true);
   };
 
   const handleDelete = (client: IClient) => {
@@ -449,6 +457,11 @@ export default function ClientListPage() {
   // --- Acciones de la Tabla ---
   const actions: DataTableAction<IClient>[] = [
     {
+      label: "Historial",
+      icon: <History className="w-4 h-4" />,
+      onClick: (item: IClient) => handleViewHistory(item),
+    },
+    {
       label: "Editar",
       icon: <Edit className="w-4 h-4" />,
       onClick: (item: IClient) => handleEdit(item),
@@ -637,6 +650,15 @@ export default function ClientListPage() {
         onRetryEyeTypes={() => void loadEyeTypes()}
         mode={clientToEdit ? "edit" : "create"}
         initialClient={clientToEdit}
+      />
+
+      <ClientSalesHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => {
+          setIsHistoryOpen(false);
+          setClientForHistory(null);
+        }}
+        client={clientForHistory}
       />
 
       <Button
