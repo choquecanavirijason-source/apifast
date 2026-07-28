@@ -245,7 +245,6 @@ export default function ServicesPage() {
     setIsCreateServiceModalOpen(false);
     setIsEditServiceModalOpen(false);
     setIsDeleteServiceModalOpen(false);
-    setOpenServiceMenuId(null);
     setSelectedService(null);
     setServiceForm(emptyServiceItemForm);
     setIsUploadingServiceImage(false);
