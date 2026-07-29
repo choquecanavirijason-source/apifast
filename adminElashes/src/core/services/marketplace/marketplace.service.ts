@@ -64,6 +64,9 @@ export interface MarketplaceProduct {
   rating: number;
   review_count: number;
   is_active: boolean;
+  /** Destacado manual — se muestra siempre en Destacados de la app, antes
+   * de completar el resto con más vendidos/mejor calificados. */
+  is_featured: boolean;
   /** Id del producto en el inventario del salón, si se importó desde ahí. */
   source_product_id: number | null;
   created_at: string;
@@ -207,6 +210,17 @@ export async function adjustProductStock(id: number, stock: number): Promise<Mar
   const { data } = await marketplaceApi.patch<Record<string, unknown>>(
     `/api/products/admin/${id}/stock`,
     { stock }
+  );
+  return normalizeProduct(data);
+}
+
+export async function setProductFeatured(
+  id: number,
+  isFeatured: boolean
+): Promise<MarketplaceProduct> {
+  const { data } = await marketplaceApi.patch<Record<string, unknown>>(
+    `/api/products/admin/${id}/featured`,
+    { is_featured: isFeatured }
   );
   return normalizeProduct(data);
 }
