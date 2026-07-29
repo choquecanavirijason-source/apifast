@@ -209,9 +209,12 @@ export default function AdsPage() {
     const other = sorted[swapIdx];
     setReordering(a.id);
     try {
+      // Se usa la posición (índice) como nuevo sort_order, no el valor crudo
+      // del otro ad: si varios comparten el mismo sort_order (ej. todos en 0
+      // por defecto), intercambiar ese valor entre sí era un no-op.
       const [u1, u2] = await Promise.all([
-        updateAd(a.id, { sort_order: other.sort_order }),
-        updateAd(other.id, { sort_order: a.sort_order }),
+        updateAd(a.id, { sort_order: swapIdx }),
+        updateAd(other.id, { sort_order: idx }),
       ]);
       setAds((prev) => prev.map((x) => (x.id === u1.id ? u1 : x.id === u2.id ? u2 : x)));
     } catch {

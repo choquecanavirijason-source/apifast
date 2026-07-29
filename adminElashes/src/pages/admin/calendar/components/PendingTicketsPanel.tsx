@@ -1,6 +1,12 @@
 import type { DragEvent } from "react";
 
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
+import { STATUS_LABELS } from "../calendar.constants";
+
+function statusLabel(status?: string | null): string {
+  if (!status) return "";
+  return STATUS_LABELS[status] ?? status;
+}
 
 type PendingTicketsPanelProps = {
   isOpen: boolean;
@@ -73,12 +79,12 @@ export default function PendingTicketsPanel({
           <option value="all">Todos los estados</option>
           {ticketStatusOptions.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {statusLabel(status)}
             </option>
           ))}
         </select>
       </div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Tickets pendientes y en servicio</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Tickets</p>
       <div className="space-y-2">
         {isLoading ? <p className="text-xs text-[#605e5c]">Cargando tickets...</p> : null}
         {pendingTickets.map((ticket) => {
@@ -100,7 +106,7 @@ export default function PendingTicketsPanel({
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold capitalize ${getTicketStatusTextClass(ticket.status)} bg-white/80`}
                 >
-                  {ticket.status}
+                  {statusLabel(ticket.status)}
                 </span>
               </div>
               <p className="mt-1 text-sm font-semibold text-[#323130]">{ticket.client_name}</p>
@@ -147,7 +153,7 @@ export default function PendingTicketsPanel({
                 >
                   {ticketStatusOptions.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {statusLabel(status)}
                     </option>
                   ))}
                 </select>
