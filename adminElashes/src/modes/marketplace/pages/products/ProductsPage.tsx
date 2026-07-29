@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X, Star, StarOff } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -17,6 +17,7 @@ import {
   updateMarketplaceProduct,
   deleteMarketplaceProduct,
   adjustProductStock,
+  setProductFeatured,
   MARKETPLACE_MEDIA_BASE,
   type MarketplaceProduct,
   type MarketplaceCategory,
@@ -187,6 +188,17 @@ export default function ProductsPage() {
     }
   };
 
+  const handleToggleFeatured = async (p: MarketplaceProduct) => {
+    const next = !p.is_featured;
+    try {
+      const updated = await setProductFeatured(p.id, next);
+      setProducts((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast.success(next ? `"${p.name}" ahora es destacado` : `"${p.name}" ya no es destacado`);
+    } catch {
+      toast.error("Error al actualizar destacado");
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -221,7 +233,12 @@ export default function ProductsPage() {
                 : <ImageIcon className="h-4 w-4 text-slate-300" />}
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-slate-800 truncate">{p.name}</p>
+              <p className="font-semibold text-slate-800 truncate flex items-center gap-1">
+                {p.is_featured && (
+                  <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                )}
+                <span className="truncate">{p.name}</span>
+              </p>
               {catName && <p className="text-xs text-slate-500 truncate">{catName}</p>}
             </div>
           </div>
@@ -290,6 +307,18 @@ export default function ProductsPage() {
   const actions: DataTableAction<MarketplaceProduct>[] = [
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
     { label: "Ajustar stock", icon: <Package className="h-4 w-4" />, onClick: openStockModal },
+    {
+      label: "Destacar",
+      icon: <Star className="h-4 w-4" />,
+      onClick: handleToggleFeatured,
+      show: (p) => !p.is_featured,
+    },
+    {
+      label: "Quitar destacado",
+      icon: <StarOff className="h-4 w-4" />,
+      onClick: handleToggleFeatured,
+      show: (p) => p.is_featured,
+    },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (p) => setDeleteTarget(p), variant: "danger" },
   ];
 
