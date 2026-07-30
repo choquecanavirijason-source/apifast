@@ -3,7 +3,13 @@
     "allow": [
       "PowerShell(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\" -Depth 2 -Recurse | Where-Object {$_.PSIsContainer} | Select-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Ivan_Aiza\\\\coder-blend\\\\new elashes\\\\apifast\\\\adminElashes\" -Depth 0 | Where-Object {-not $_.PSIsContainer} | Select-Object Name)",
-      "Bash(grep -E \"\\\\.\\(py|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(py|tsx\\)$\")",
+      "Bash(git fetch*)",
+      "Bash(ipconfig*)",
+      "Bash(tasklist*)",
+      "Bash(\"/c/Users/usser/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat*)",
+      "mcp__firebase__firestore_query_collection",
+      "mcp__supabase__list_tables"
     ]
   }
 }
