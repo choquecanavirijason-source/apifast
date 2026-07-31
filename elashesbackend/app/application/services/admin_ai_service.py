@@ -130,12 +130,20 @@ def build_business_context(db: Session, branch_id: Optional[int] = None) -> dict
 
 
 def _resolve_chat_url(base_url: str) -> str:
+    """Arma la URL final del endpoint `chat/completions` a partir de la URL
+    base que carga el admin. Por convención, los proveedores OpenAI-
+    compatibles ya incluyen su propio prefijo de versión en la URL base
+    (OpenAI: `.../v1`, Gemini: `.../v1beta/openai`, Groq: `.../openai/v1`,
+    etc.) — alcanza con agregar `/chat/completions` al final. Antes esto
+    insertaba un `/v1` extra cuando la base NO terminaba exactamente en
+    `/v1` (asumiendo que solo OpenAI existía), lo que rompía Gemini:
+    `.../v1beta/openai` quedaba `.../v1beta/openai/v1/chat/completions`
+    (404 "model not found for API version").
+    """
     trimmed = base_url.rstrip("/")
     if trimmed.endswith("/chat/completions"):
         return trimmed
-    if trimmed.endswith("/v1"):
-        return f"{trimmed}/chat/completions"
-    return f"{trimmed}/v1/chat/completions"
+    return f"{trimmed}/chat/completions"
 
 
 async def _call_chat_completions(
