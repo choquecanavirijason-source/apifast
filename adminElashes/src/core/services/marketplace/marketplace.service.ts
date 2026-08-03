@@ -534,6 +534,9 @@ export interface MarketplaceDeliveryPoint {
   phone: string | null;
   is_active: boolean;
   sort_order: number;
+  /** Id de la sucursal del salón (elashesbackend) que originó este punto,
+   * si se creó eligiendo una desde el selector — null si se cargó a mano. */
+  branch_id: number | null;
   created_at: string;
 }
 
@@ -547,6 +550,7 @@ export interface CreateDeliveryPointPayload {
   schedule?: string;
   phone?: string;
   sort_order?: number;
+  branch_id?: number | null;
 }
 
 export interface UpdateDeliveryPointPayload extends Partial<CreateDeliveryPointPayload> {

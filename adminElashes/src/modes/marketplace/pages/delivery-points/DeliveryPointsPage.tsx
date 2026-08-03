@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff, Globe2 } from "lucide-react";
+import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff, Globe2, Building2 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -8,6 +8,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
+import api from "@/core/services/api";
 
 import {
   fetchAdminDeliveryPoints,
@@ -16,6 +17,26 @@ import {
   deleteDeliveryPoint,
   type MarketplaceDeliveryPoint,
 } from "@/core/services/marketplace/marketplace.service";
+
+// Sucursales del salón, para poder elegir una y autocompletar el punto de
+// entrega en vez de tipear todo a mano. Mismo endpoint público que ya usa
+// la app móvil para "Punto de recojo" (booking-public/branches) — vive en
+// elashesbackend, no en el marketplace, por eso se llama directo con `api`
+// (sin el prefijo /marketplace-proxy) y devuelve country_code/country_name,
+// a diferencia de BranchService.list() que no los trae.
+interface SalonBranch {
+  id: number;
+  name: string;
+  address: string | null;
+  city: string | null;
+  country_code: string | null;
+  country_name: string | null;
+}
+
+async function fetchSalonBranches(): Promise<SalonBranch[]> {
+  const { data } = await api.get<SalonBranch[]>("/booking-public/branches");
+  return data;
+}
 
 // ── países disponibles para asignar a un punto de entrega ─────────────────────
 // Lista curada (no viene del backend): el admin elige de acá y el código
@@ -47,6 +68,7 @@ type Form = {
   schedule: string;
   phone: string;
   sort_order: number;
+  branch_id: number | null;
 };
 
 const emptyForm: Form = {
@@ -58,6 +80,7 @@ const emptyForm: Form = {
   schedule: "",
   phone: "",
   sort_order: 0,
+  branch_id: null,
 };
 
 // ── page ──────────────────────────────────────────────────────────────────────
@@ -75,6 +98,8 @@ export default function DeliveryPointsPage() {
   const [toggling, setToggling] = useState<number | null>(null);
   const [countryFilter, setCountryFilter] = useState<string>("all");
 
+  const [branches, setBranches] = useState<SalonBranch[]>([]);
+
   // ── data ────────────────────────────────────────────────────────────────────
 
   const load = async () => {
@@ -90,7 +115,30 @@ export default function DeliveryPointsPage() {
 
   useEffect(() => {
     void load();
+    // Si falla, simplemente no se ofrece el selector de sucursal — el
+    // formulario sigue funcionando a mano como siempre.
+    fetchSalonBranches().then(setBranches).catch(() => setBranches([]));
   }, []);
+
+  // Autocompleta país/ciudad/nombre/dirección con los datos de la sucursal
+  // elegida — el admin puede seguir editando cualquier campo después, y
+  // agregar referencia/horario/teléfono que la sucursal no tiene.
+  const handleBranchSelect = (branchId: string) => {
+    if (!branchId) {
+      setForm((f) => ({ ...f, branch_id: null }));
+      return;
+    }
+    const branch = branches.find((b) => b.id === Number(branchId));
+    if (!branch) return;
+    setForm((f) => ({
+      ...f,
+      branch_id: branch.id,
+      country_code: branch.country_code ?? f.country_code,
+      city: branch.city ?? f.city,
+      name: branch.name,
+      address: branch.address ?? f.address,
+    }));
+  };
 
   // ── form ─────────────────────────────────────────────────────────────────────
 
@@ -111,6 +159,7 @@ export default function DeliveryPointsPage() {
       schedule: p.schedule ?? "",
       phone: p.phone ?? "",
       sort_order: p.sort_order,
+      branch_id: p.branch_id,
     });
     setFormOpen(true);
   };
@@ -139,6 +188,7 @@ export default function DeliveryPointsPage() {
         schedule: form.schedule.trim() || undefined,
         phone: form.phone.trim() || undefined,
         sort_order: Number(form.sort_order) || 0,
+        branch_id: form.branch_id,
       };
       if (editingId !== null) {
         const updated = await updateDeliveryPoint(editingId, payload);
@@ -322,6 +372,26 @@ export default function DeliveryPointsPage() {
         }
       >
         <div className="space-y-4">
+          {branches.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-sm font-medium text-brand-tertiary">
+                <Building2 className="h-4 w-4" />
+                Sucursal del salón
+              </label>
+              <select
+                value={form.branch_id ?? ""}
+                onChange={(e) => handleBranchSelect(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="">Sin sucursal (cargar a mano)</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} — {b.city ?? b.country_name ?? ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-brand-tertiary">País</label>
