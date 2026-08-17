@@ -173,13 +173,18 @@ def create_app() -> FastAPI:
         "tauri://localhost",
         "http://tauri.localhost",
     ]
+    # Permite acceder desde otra IP de la red (ej. servidor Docker accedido
+    # como http://192.168.x.x:3000) sin tener que listar cada IP a mano.
+    allow_origin_regex = r"^https?://(\d{1,3}\.){3}\d{1,3}(:\d+)?$"
     # En Cloud permitimos cualquier origen (cubre admin web + app mobile)
     if settings.environment == "production":
         allow_origins = ["*"]
+        allow_origin_regex = None
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=allow_origin_regex,
         allow_credentials=settings.environment != "production",
         allow_methods=["*"],
         allow_headers=["*"],

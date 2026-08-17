@@ -437,7 +437,9 @@ export default function ServicesPage() {
       const updated = await AgendaService.updateService(selectedService.id, {
         name: serviceForm.name.trim(),
         description: serviceForm.description.trim() || null,
-        image_url: serviceForm.imageUrl.trim() || null,
+        // "" (no null) para que el backend distinga "quitar imagen" de "no tocar imagen":
+        // update_service solo escribe el campo cuando image_url no es None.
+        image_url: serviceForm.imageUrl.trim(),
         category_id: Number(serviceForm.categoryId),
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),

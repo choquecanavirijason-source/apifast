@@ -53,10 +53,29 @@ class _BookingPayload(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[str]) -> Client:
+def _find_or_create_client(
+    db: Session, email: str, name: str, phone: Optional[str], branch_id: int
+) -> Client:
     ident = email.strip().lower()
     client = db.query(Client).filter(func.lower(Client.email) == ident).first()
     if client:
+        # Cliente sin sucursal (ej. creado antes de este fix, o por otra vía sin
+        # branch_id): el selector de clientes en Caja filtra por sucursal activa
+        # (Client.branch_id == branch_id) y NULL nunca matchea — quedaba invisible
+        # ahí para siempre. Se la asignamos con la de su primera reserva real.
+        changed = False
+        if client.branch_id is None:
+            client.branch_id = branch_id
+            changed = True
+        # El teléfono viaja en cada reserva (viene de su perfil marketplace
+        # actual) — si lo cambió después de crear la ficha del salón, esa
+        # ficha quedaba con el dato viejo para siempre. Lo mantenemos al día.
+        if phone and (client.phone or "").strip() != phone.strip():
+            client.phone = phone
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(client)
         return client
     # Buscar por nombre completo (clientes del salón que entraron por nombre+CI,
     # sin cuenta de email propia todavía).
@@ -68,8 +87,12 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
         # de la app, que busca por email exacto.
         if "@" in email and (client.email or "").strip().lower() != ident:
             client.email = email
-            db.commit()
-            db.refresh(client)
+        if client.branch_id is None:
+            client.branch_id = branch_id
+        if phone and (client.phone or "").strip() != phone.strip():
+            client.phone = phone
+        db.commit()
+        db.refresh(client)
         return client
     # Cliente del app: crear ficha en el salón
     parts = name.strip().split(" ", 1)
@@ -78,6 +101,7 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
         last_name=parts[1] if len(parts) > 1 else "",
         email=email if "@" in email else None,
         phone=phone,
+        branch_id=branch_id,
     )
     db.add(client)
     db.commit()
@@ -249,7 +273,7 @@ def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(g
             detail="Ese horario acaba de ocuparse. Elige otro horario.",
         )
 
-    client = _find_or_create_client(db, payload.email, payload.name, payload.phone)
+    client = _find_or_create_client(db, payload.email, payload.name, payload.phone, branch.id)
 
     appointment = create_appointment(
         db=db,
