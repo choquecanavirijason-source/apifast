@@ -61,6 +61,7 @@ import app.infrastructure.database.migrations.add_model_3d_to_effects_eyetypes_v
 import app.infrastructure.database.migrations.add_volume_to_designs as m33
 import app.infrastructure.database.migrations.add_app_settings as m34
 import app.infrastructure.database.migrations.add_country_code_to_branches as m35
+import app.infrastructure.database.migrations.add_maintenance_removal_days as m36
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -120,6 +121,7 @@ async def lifespan(app: FastAPI):
         ("volume_to_designs", m33.upgrade),
         ("app_settings", m34.upgrade),
         ("country_code_to_branches", m35.upgrade),
+        ("maintenance_removal_days", m36.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

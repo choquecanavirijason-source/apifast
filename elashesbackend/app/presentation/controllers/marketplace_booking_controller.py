@@ -18,6 +18,7 @@ from app.core.dependencies import get_db
 from app.domain.entities.client import Client
 from app.domain.entities.branch import Branch
 from app.domain.entities.service_agenda import Appointment, Service
+from app.domain.entities.tracking import Tracking
 from app.application.services.service_agenda_service import create_appointment
 
 router = APIRouter(prefix="/booking-public", tags=["Reservas Marketplace"])
@@ -109,7 +110,7 @@ def _find_or_create_client(
     return client
 
 
-def _appointment_dict(a: Appointment) -> dict:
+def _appointment_dict(a: Appointment, tracking: Optional[Tracking] = None) -> dict:
     # Nombres de todos los servicios de la cita (multi-servicio)
     names = [s.name for s in a.services if s] or ([a.service.name] if a.service else [])
     return {
@@ -124,6 +125,15 @@ def _appointment_dict(a: Appointment) -> dict:
         "end_time": a.end_time.isoformat() if a.end_time else None,
         "status": a.status,
         "advance_payment_amount": a.advance_payment_amount,
+        # Recomendación de mantenimiento/retiro registrada al finalizar el
+        # servicio (Tracking.appointment_id) — None si aún no se finalizó o
+        # el diseño aplicado no tiene duración configurada en el catálogo.
+        "next_maintenance_date": tracking.next_maintenance_date.isoformat()
+        if tracking and tracking.next_maintenance_date
+        else None,
+        "next_removal_date": tracking.next_removal_date.isoformat()
+        if tracking and tracking.next_removal_date
+        else None,
     }
 
 
@@ -310,4 +320,11 @@ def my_appointments(
         .limit(50)
         .all()
     )
-    return [_appointment_dict(a) for a in appointments]
+
+    appointment_ids = [a.id for a in appointments]
+    trackings_by_appointment = {
+        t.appointment_id: t
+        for t in db.query(Tracking).filter(Tracking.appointment_id.in_(appointment_ids)).all()
+    } if appointment_ids else {}
+
+    return [_appointment_dict(a, trackings_by_appointment.get(a.id)) for a in appointments]

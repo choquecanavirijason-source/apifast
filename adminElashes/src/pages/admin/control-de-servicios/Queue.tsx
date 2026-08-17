@@ -46,6 +46,13 @@ import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 
+// TEMPORAL (2026-08-17): Control de servicios normalmente solo muestra las
+// citas del día seleccionado. Para agilizar pruebas end-to-end (reservar
+// desde marketplace y verla aparecer acá sin cambiar de fecha), se muestran
+// todas las citas de hoy en adelante (no las pasadas). Para volver a como
+// estaba (solo el día seleccionado), poner en false.
+const SHOW_ALL_DATES_FOR_TESTING = true;
+
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(() => {
@@ -129,8 +136,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       const data = await AgendaService.listTickets({
         limit: 500,
         branch_id: activeBranchId ?? undefined,
-        start_date: filterDate || today,
-        end_date: filterDate || today,
+        start_date: SHOW_ALL_DATES_FOR_TESTING ? today : (filterDate || today),
+        end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
       setTickets(data);
       setLastRefresh(new Date());
@@ -312,7 +319,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
       const matchesService = !serviceTerm || servicesText.includes(serviceTerm);
       const matchesClient = !clientTerm || clientText.includes(clientTerm);
-      const matchesDate = !filterDate || ticketDate === filterDate;
+      const matchesDate = SHOW_ALL_DATES_FOR_TESTING
+        ? ticketDate >= todayDate()
+        : !filterDate || ticketDate === filterDate;
       const matchesTime = !filterTime || ticketTime === filterTime;
       const matchesProfessional =
         !filterProfessionalId || String(ticket.professional_id ?? "") === filterProfessionalId;

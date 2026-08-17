@@ -19,6 +19,7 @@ import api from "@/core/services/api";
 import variables from "@/core/config/variables";
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
+import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 
 const MODEL_3D_EXTENSIONS = [".glb", ".gltf", ".obj", ".fbx", ".stl"];
@@ -99,23 +100,6 @@ const fromApi = (item: DesignApiItem): DesignCombo => ({
   modelFileName: item.model_3d_filename ?? "",
   modelFileUrl: item.model_3d_url ?? "",
 });
-
-function Modal({ isOpen, title, onClose, children }: { isOpen: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-            <span className="text-sm font-semibold">Cerrar</span>
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function DesignsPage() {
   const [rows, setRows] = useState<DesignCombo[]>([]);
@@ -420,12 +404,29 @@ export default function DesignsPage() {
         </div>
       ) : null}
 
-      <Modal
+      <GenericModal
         isOpen={modalMode === "create" || modalMode === "edit"}
         title={modalMode === "edit" ? "Editar diseño" : "Crear diseño"}
         onClose={closeModal}
+        size="md"
+        asForm
+        onSubmit={handleSave}
+        footer={
+          <>
+            <button type="button" onClick={closeModal} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving || uploadingModel}
+              className="rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white hover:bg-[#063324] disabled:opacity-60"
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </button>
+          </>
+        }
       >
-        <form onSubmit={handleSave} className="grid gap-4">
+        <div className="grid gap-4">
           <div>
             <label className="text-xs font-semibold uppercase text-slate-500">Nombre</label>
             <input
@@ -570,23 +571,10 @@ export default function DesignsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </GenericModal>
 
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={closeModal} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving || uploadingModel}
-              className="rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white hover:bg-[#063324] disabled:opacity-60"
-            >
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={modalMode === "view"} title="Detalle del diseño" onClose={closeModal}>
+      <GenericModal isOpen={modalMode === "view"} title="Detalle del diseño" onClose={closeModal} size="md">
         {activeRow && (
           <div className="grid gap-4 text-sm text-slate-600">
             <div>
@@ -642,9 +630,9 @@ export default function DesignsPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </GenericModal>
 
-      <Modal isOpen={Boolean(confirmDeleteItem)} title="Eliminar diseño" onClose={() => setConfirmDeleteItem(null)}>
+      <GenericModal isOpen={Boolean(confirmDeleteItem)} title="Eliminar diseño" onClose={() => setConfirmDeleteItem(null)} size="sm">
         <div className="space-y-4 text-sm text-slate-600">
           <p>
             Vas a eliminar el diseño <span className="font-semibold text-slate-800">{confirmDeleteItem?.name}</span>. Esta acción no se puede deshacer.
@@ -663,7 +651,7 @@ export default function DesignsPage() {
             </button>
           </div>
         </div>
-      </Modal>
+      </GenericModal>
     </Layout>
   );
 }

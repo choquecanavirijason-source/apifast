@@ -68,6 +68,37 @@ export function VolumenForm({
         </div>
 
         <div className="border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase text-slate-500">Duración recomendada</p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Días desde la aplicación hasta que la clienta necesita retoque o retiro. Déjalo vacío si aún no lo sabes.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500">Días para mantenimiento</label>
+              <input
+                type="number"
+                min={0}
+                value={form.maintenanceDays}
+                onChange={(e) => onChange("maintenanceDays", e.target.value)}
+                placeholder="Ej. 14"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500">Días para retiro</label>
+              <input
+                type="number"
+                min={0}
+                value={form.removalDays}
+                onChange={(e) => onChange("removalDays", e.target.value)}
+                placeholder="Ej. 25"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
           <p className="text-xs font-semibold uppercase text-slate-500">Archivos</p>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             <div>

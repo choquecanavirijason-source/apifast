@@ -160,6 +160,8 @@ def create_effect(db: Session, payload: EffectCreate) -> Effect:
         image=payload.image,
         model_3d_url=payload.model_3d_url,
         model_3d_filename=payload.model_3d_filename,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
     db.add(item)
     db.commit()
@@ -218,6 +220,8 @@ def create_volume(db: Session, payload: VolumeCreate) -> Volume:
         image=payload.image,
         model_3d_url=payload.model_3d_url,
         model_3d_filename=payload.model_3d_filename,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
     db.add(item)
     db.commit()
@@ -274,6 +278,8 @@ def create_lash_design(db: Session, payload: LashDesignCreate) -> LashDesign:
         image=payload.image,
         model_3d_url=payload.model_3d_url,
         model_3d_filename=payload.model_3d_filename,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
     db.add(item)
     db.commit()
