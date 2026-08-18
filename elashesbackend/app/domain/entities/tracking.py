@@ -26,10 +26,6 @@ class Effect(Base):
     image = Column(Text, nullable=True)
     model_3d_url = Column(String(500), nullable=True)
     model_3d_filename = Column(String(255), nullable=True)
-    # Días recomendados desde la aplicación hasta que la clienta necesita
-    # retoque/retiro. Null = sin definir todavía para este ítem del catálogo.
-    maintenance_days = Column(Integer, nullable=True)
-    removal_days = Column(Integer, nullable=True)
 
     trackings = relationship("Tracking", back_populates="effect")
 
@@ -43,8 +39,6 @@ class Volume(Base):
     image = Column(Text, nullable=True)
     model_3d_url = Column(String(500), nullable=True)
     model_3d_filename = Column(String(255), nullable=True)
-    maintenance_days = Column(Integer, nullable=True)
-    removal_days = Column(Integer, nullable=True)
 
     trackings = relationship("Tracking", back_populates="volume")
 
@@ -57,8 +51,6 @@ class LashDesign(Base):
     image = Column(Text, nullable=True)
     model_3d_url = Column(String(500), nullable=True)
     model_3d_filename = Column(String(255), nullable=True)
-    maintenance_days = Column(Integer, nullable=True)
-    removal_days = Column(Integer, nullable=True)
 
     trackings = relationship("Tracking", back_populates="lash_design")
 
@@ -121,9 +113,10 @@ class Tracking(Base):
     design_notes = Column(String(255), nullable=True)
     last_application_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     questionnaire_responses = Column(JSON, nullable=True)
-    # Calculadas al crear/editar el tracking, a partir de los días configurados
-    # en efecto/volumen/diseño (el más próximo de los tres, ver tracking_service).
-    # Null si ninguno de los tres tiene duración configurada todavía.
+    # Calculadas al crear/editar el tracking, a partir de si la categoría del
+    # servicio de la cita tiene mantenimiento/retiro activado y sus días
+    # configurados (ver tracking_service._resolve_next_dates). Null si la
+    # categoría no tiene esa opción activada.
     next_maintenance_date = Column(DateTime, nullable=True)
     next_removal_date = Column(DateTime, nullable=True)
 

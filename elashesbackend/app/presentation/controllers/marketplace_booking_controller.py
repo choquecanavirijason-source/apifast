@@ -20,6 +20,7 @@ from app.domain.entities.branch import Branch
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.tracking import Tracking
 from app.application.services.service_agenda_service import create_appointment
+from app.infrastructure.security.jwt import create_access_token
 
 router = APIRouter(prefix="/booking-public", tags=["Reservas Marketplace"])
 
@@ -133,6 +134,18 @@ def _appointment_dict(a: Appointment, tracking: Optional[Tracking] = None) -> di
         else None,
         "next_removal_date": tracking.next_removal_date.isoformat()
         if tracking and tracking.next_removal_date
+        else None,
+        # Detalle de lo que se le hizo — lo carga la operaria al finalizar
+        # (Queue.tsx). None si la cita todavía no se finalizó.
+        "treatment_detail": {
+            "eye_type": tracking.eye_type.name if tracking.eye_type else None,
+            "effect": tracking.effect.name if tracking.effect else None,
+            "volume": tracking.volume.name if tracking.volume else None,
+            "lash_design": tracking.lash_design.name if tracking.lash_design else None,
+            "notes": tracking.design_notes,
+            "professional_name": tracking.professional.username if tracking.professional else None,
+        }
+        if tracking
         else None,
     }
 
@@ -324,7 +337,34 @@ def my_appointments(
     appointment_ids = [a.id for a in appointments]
     trackings_by_appointment = {
         t.appointment_id: t
-        for t in db.query(Tracking).filter(Tracking.appointment_id.in_(appointment_ids)).all()
+        for t in db.query(Tracking)
+        .options(
+            joinedload(Tracking.eye_type),
+            joinedload(Tracking.effect),
+            joinedload(Tracking.volume),
+            joinedload(Tracking.lash_design),
+            joinedload(Tracking.professional),
+        )
+        .filter(Tracking.appointment_id.in_(appointment_ids))
+        .all()
     } if appointment_ids else {}
 
     return [_appointment_dict(a, trackings_by_appointment.get(a.id)) for a in appointments]
+
+
+@router.get("/ws-ticket")
+def get_ws_ticket(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Token corto para que la app marketplace abra /ws/client/{client_id} y
+    reciba en vivo el aviso de "servicio finalizado" mientras tiene la app
+    abierta. 404 si la clienta todavía no tiene ficha en el salón (nunca
+    reservó) — no hay nada que notificarle todavía."""
+    ident = email.strip().lower()
+    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    token = create_access_token(
+        subject=f"client:{client.id}",
+        expires_delta=timedelta(hours=12),
+    )
+    return {"client_id": client.id, "token": token}

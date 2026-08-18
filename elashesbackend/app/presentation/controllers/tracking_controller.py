@@ -1,10 +1,12 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_permission, require_any_permission, get_current_active_user
 from app.core.media import ALLOWED_EXTENSIONS, MAX_IMAGE_BYTES
+from app.core.ws_manager import client_ws_manager
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.tracking import (
@@ -84,16 +86,26 @@ def get_client_latest_tracking(
     response_model=TrackingResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_new_tracking(
+async def create_new_tracking(
     payload: TrackingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("tracking:manage", "appointments:manage")),
 ):
-    return create_tracking(
+    result = await run_in_threadpool(
+        create_tracking,
         db=db,
         payload=payload,
         current_user_id=current_user.id,
     )
+    # Aviso en vivo a la app marketplace (si la clienta la tiene abierta en
+    # ese momento) de que su servicio finalizó — ver /ws/client/{client_id}.
+    # No es la única vía: si no está conectada, la app igual se entera al
+    # abrir/refrescar "Mis Citas" (usa el mismo GET, sin depender del socket).
+    await client_ws_manager.broadcast(result.client_id, {
+        "event": "service_completed",
+        "appointment_id": result.appointment_id,
+    })
+    return result
 
 
 @router.put(

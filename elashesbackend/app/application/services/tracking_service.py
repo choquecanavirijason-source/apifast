@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.domain.entities.branch import Branch
-from app.domain.entities.service_agenda import Appointment
+from app.domain.entities.service_agenda import Appointment, AppointmentService, Service
 from app.domain.entities.tracking import (
     Tracking,
     EyeType,
@@ -121,42 +121,60 @@ def _validate_tracking_relations(
             )
 
 
-def _closest_days(*values: Optional[int]) -> Optional[int]:
-    """El más próximo (mínimo) de los días configurados entre efecto/volumen/
-    diseño — si cualquiera de los tres degrada más rápido, ese manda. None
-    si ninguno de los tres tiene el dato configurado todavía."""
-    candidates = [v for v in values if v is not None]
-    return min(candidates) if candidates else None
+def _resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
+    """El servicio principal de la cita (single service_id, o el primero de la
+    lista si la cita tiene varios servicios). None si la cita no existe o no
+    tiene ningún servicio."""
+    if not appointment_id:
+        return None
+
+    appointment = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.service).joinedload(Service.category),
+            joinedload(Appointment.appointment_services)
+            .joinedload(AppointmentService.service)
+            .joinedload(Service.category),
+        )
+        .filter(Appointment.id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        return None
+
+    service = appointment.service
+    if not service:
+        services = appointment.services
+        service = services[0] if services else None
+
+    return service
 
 
 def _resolve_next_dates(
     db: Session,
-    effect_id: Optional[int],
-    volume_id: Optional[int],
-    lash_design_id: Optional[int],
+    appointment_id: Optional[int],
     base_date: datetime,
 ) -> tuple[Optional[datetime], Optional[datetime]]:
-    effect = db.query(Effect).filter(Effect.id == effect_id).first() if effect_id else None
-    volume = db.query(Volume).filter(Volume.id == volume_id).first() if volume_id else None
-    lash_design = (
-        db.query(LashDesign).filter(LashDesign.id == lash_design_id).first()
-        if lash_design_id
+    """Fechas de mantenimiento/retiro. Los días concretos viven en el
+    Service (pueden variar entre servicios de la misma categoría, ej.
+    "Extensiones Clásicas" vs "Volumen 5D"), pero solo cuentan si la
+    categoría de ese servicio tiene has_maintenance/has_removal activado —
+    solo algunas categorías lo necesitan (ej. Extensiones sí, Lifting no)."""
+    service = _resolve_service(db, appointment_id)
+    category = service.category if service else None
+    if not service or not category:
+        return None, None
+
+    next_maintenance_date = (
+        base_date + timedelta(days=service.maintenance_days)
+        if category.has_maintenance and service.maintenance_days is not None
         else None
     )
-
-    maintenance_days = _closest_days(
-        effect.maintenance_days if effect else None,
-        volume.maintenance_days if volume else None,
-        lash_design.maintenance_days if lash_design else None,
+    next_removal_date = (
+        base_date + timedelta(days=service.removal_days)
+        if category.has_removal and service.removal_days is not None
+        else None
     )
-    removal_days = _closest_days(
-        effect.removal_days if effect else None,
-        volume.removal_days if volume else None,
-        lash_design.removal_days if lash_design else None,
-    )
-
-    next_maintenance_date = base_date + timedelta(days=maintenance_days) if maintenance_days is not None else None
-    next_removal_date = base_date + timedelta(days=removal_days) if removal_days is not None else None
     return next_maintenance_date, next_removal_date
 
 
@@ -238,9 +256,7 @@ def create_tracking(
     base_date = payload.last_application_date or datetime.utcnow()
     next_maintenance_date, next_removal_date = _resolve_next_dates(
         db=db,
-        effect_id=payload.effect_id,
-        volume_id=payload.volume_id,
-        lash_design_id=payload.lash_design_id,
+        appointment_id=payload.appointment_id,
         base_date=base_date,
     )
 
@@ -309,14 +325,13 @@ def update_tracking(
     for field, value in update_data.items():
         setattr(tracking, field, value)
 
-    # Recalcular fechas si cambió el diseño aplicado o la fecha de aplicación.
-    if {"effect_id", "volume_id", "lash_design_id", "last_application_date"} & update_data.keys():
+    # Recalcular fechas si cambió la cita asociada o la fecha de aplicación
+    # (la categoría del servicio de la cita es la que decide el tiempo).
+    if {"appointment_id", "last_application_date"} & update_data.keys():
         base_date = update_data.get("last_application_date", tracking.last_application_date)
         tracking.next_maintenance_date, tracking.next_removal_date = _resolve_next_dates(
             db=db,
-            effect_id=effect_id,
-            volume_id=volume_id,
-            lash_design_id=lash_design_id,
+            appointment_id=appointment_id,
             base_date=base_date,
         )
 

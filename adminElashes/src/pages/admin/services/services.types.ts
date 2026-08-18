@@ -5,6 +5,8 @@ export interface ServiceFormState {
   isMobile: boolean;
   questionnaireId: string;
   questionnaireRequired: boolean;
+  hasMaintenance: boolean;
+  hasRemoval: boolean;
 }
 
 export const emptyServiceForm: ServiceFormState = {
@@ -14,6 +16,8 @@ export const emptyServiceForm: ServiceFormState = {
   isMobile: false,
   questionnaireId: "",
   questionnaireRequired: false,
+  hasMaintenance: false,
+  hasRemoval: false,
 };
 
 export interface ServiceItemFormState {
@@ -24,6 +28,8 @@ export interface ServiceItemFormState {
   durationMinutes: string;
   price: string;
   commissionRate: string;
+  maintenanceDays: string;
+  removalDays: string;
 }
 
 export const emptyServiceItemForm: ServiceItemFormState = {
@@ -34,4 +40,6 @@ export const emptyServiceItemForm: ServiceItemFormState = {
   durationMinutes: "",
   price: "",
   commissionRate: "",
+  maintenanceDays: "",
+  removalDays: "",
 };

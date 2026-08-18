@@ -17,6 +17,11 @@ class ServiceCategoryBase(BaseModel):
     # data:image/...;base64,... puede ser grande; límite ~7M caracteres (~5MB binario)
     image_url: Optional[str] = Field(default=None, max_length=7_500_000)
     is_mobile: bool = False
+    # Solo algunas categorías necesitan retoque/retiro (ej. Extensiones sí,
+    # Lifting/Tratamientos no). Los días concretos se cargan por Service, no
+    # acá — este check solo habilita esos campos en el form de servicio.
+    has_maintenance: bool = False
+    has_removal: bool = False
 
 
 class ServiceCategoryCreate(ServiceCategoryBase):
@@ -28,6 +33,8 @@ class ServiceCategoryUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=255)
     image_url: Optional[str] = Field(default=None, max_length=7_500_000)
     is_mobile: Optional[bool] = None
+    has_maintenance: Optional[bool] = None
+    has_removal: Optional[bool] = None
 
 
 class ServiceCategoryResponse(BaseModel):
@@ -38,6 +45,8 @@ class ServiceCategoryResponse(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     is_mobile: bool = False
+    has_maintenance: bool = False
+    has_removal: bool = False
 
 
 # ==========================================
@@ -51,6 +60,11 @@ class ServiceBase(BaseModel):
     duration_minutes: int = Field(..., gt=0)
     price: float = Field(..., ge=0)
     commission_rate: Optional[float] = Field(default=None, ge=0, le=1)
+    # Días desde la aplicación hasta que la clienta necesita retoque/retiro.
+    # Solo tiene sentido si la categoría de este servicio tiene
+    # has_maintenance/has_removal activado.
+    maintenance_days: Optional[int] = Field(default=None, ge=0)
+    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class ServiceCreate(ServiceBase):
@@ -66,6 +80,8 @@ class ServiceUpdate(BaseModel):
     price: Optional[float] = Field(default=None, ge=0)
     commission_rate: Optional[float] = Field(default=None, ge=0, le=1)
     branch_ids: Optional[List[int]] = None
+    maintenance_days: Optional[int] = Field(default=None, ge=0)
+    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class ServiceResponse(BaseModel):
@@ -82,6 +98,8 @@ class ServiceResponse(BaseModel):
     branch_ids: Optional[List[int]] = None
     category: Optional[ServiceCategoryResponse] = None
     ticket_count: int = 0
+    maintenance_days: Optional[int] = None
+    removal_days: Optional[int] = None
 
 
 class ServiceImageUploadResponse(BaseModel):

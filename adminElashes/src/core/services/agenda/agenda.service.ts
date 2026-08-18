@@ -17,6 +17,11 @@ export interface ServiceOption {
   commission_rate?: number | null;
   ticket_count?: number;
   branch_ids?: number[] | null;
+  // Días desde la aplicación hasta que la clienta necesita retoque/retiro.
+  // Solo tiene sentido si la categoría de este servicio tiene
+  // has_maintenance/has_removal activado.
+  maintenance_days?: number | null;
+  removal_days?: number | null;
 }
 
 export interface ServiceCreatePayload {
@@ -28,6 +33,8 @@ export interface ServiceCreatePayload {
   price: number;
   commission_rate?: number | null;
   branch_ids?: number[] | null;
+  maintenance_days?: number | null;
+  removal_days?: number | null;
 }
 
 export interface ServiceUpdatePayload {
@@ -39,6 +46,8 @@ export interface ServiceUpdatePayload {
   commission_rate?: number | null;
   price?: number | null;
   branch_ids?: number[] | null;
+  maintenance_days?: number | null;
+  removal_days?: number | null;
 }
 
 export interface ServiceImageUploadResponse {
@@ -53,6 +62,10 @@ export interface ServiceCategoryOption {
   is_mobile: boolean;
   questionnaire_id?: number | null;
   questionnaire_required?: boolean | null;
+  // Solo algunas categorías necesitan retoque/retiro (ej. Extensiones sí,
+  // Lifting/Tratamientos no). Los días se cargan por Service, acá solo el check.
+  has_maintenance?: boolean;
+  has_removal?: boolean;
 }
 
 export interface ServiceCategoryCreatePayload {
@@ -62,6 +75,8 @@ export interface ServiceCategoryCreatePayload {
   is_mobile: boolean;
   questionnaire_id?: number | null;
   questionnaire_required?: boolean | null;
+  has_maintenance?: boolean;
+  has_removal?: boolean;
 }
 
 export interface ServiceCategoryUpdatePayload {
@@ -71,6 +86,8 @@ export interface ServiceCategoryUpdatePayload {
   is_mobile?: boolean;
   questionnaire_id?: number | null;
   questionnaire_required?: boolean | null;
+  has_maintenance?: boolean;
+  has_removal?: boolean;
 }
 
 /**

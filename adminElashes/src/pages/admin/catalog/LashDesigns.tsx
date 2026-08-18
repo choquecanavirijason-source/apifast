@@ -31,17 +31,8 @@ type LashDesign = {
   image: string;
   model_3d_url?: string | null;
   model_3d_filename?: string | null;
-  maintenance_days?: number | null;
-  removal_days?: number | null;
 };
-const emptyForm = {
-  name: "",
-  image: "",
-  modelFileName: "",
-  modelFileUrl: "",
-  maintenanceDays: "",
-  removalDays: "",
-};
+const emptyForm = { name: "", image: "", modelFileName: "", modelFileUrl: "" };
 
 export default function LashDesignsPage() {
   const [designs, setDesigns] = useState<LashDesign[]>([]);
@@ -121,8 +112,6 @@ export default function LashDesignsPage() {
         image: form.image,
         model_3d_url: form.modelFileUrl || null,
         model_3d_filename: form.modelFileName || null,
-        maintenance_days: form.maintenanceDays.trim() ? Number(form.maintenanceDays) : null,
-        removal_days: form.removalDays.trim() ? Number(form.removalDays) : null,
       };
       if (currentDesign) {
         await api.put(`/catalogs/lash-designs/${currentDesign.id}`, payload);
@@ -206,8 +195,6 @@ export default function LashDesignsPage() {
                         image: item.image,
                         modelFileName: item.model_3d_filename ?? "",
                         modelFileUrl: item.model_3d_url ?? "",
-                        maintenanceDays: item.maintenance_days != null ? String(item.maintenance_days) : "",
-                        removalDays: item.removal_days != null ? String(item.removal_days) : "",
                       });
                       setIsModalOpen(true);
                     }}
@@ -268,36 +255,6 @@ export default function LashDesignsPage() {
               placeholder="Nombre del diseño..."
               required
             />
-          </div>
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Duración recomendada</p>
-            <p className="mt-1 text-[11px] text-slate-400">
-              Días desde la aplicación hasta que la clienta necesita retoque o retiro. Déjalo vacío si aún no lo sabes.
-            </p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-500">Días para mantenimiento</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.maintenanceDays}
-                  onChange={(e) => setForm((p) => ({ ...p, maintenanceDays: e.target.value }))}
-                  placeholder="Ej. 21"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-500">Días para retiro</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.removalDays}
-                  onChange={(e) => setForm((p) => ({ ...p, removalDays: e.target.value }))}
-                  placeholder="Ej. 35"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-                />
-              </div>
-            </div>
           </div>
           <div className="border-t border-slate-100 pt-4">
             <p className="text-xs font-semibold uppercase text-slate-500">Archivos de pestañas</p>

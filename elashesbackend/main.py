@@ -61,7 +61,13 @@ import app.infrastructure.database.migrations.add_model_3d_to_effects_eyetypes_v
 import app.infrastructure.database.migrations.add_volume_to_designs as m33
 import app.infrastructure.database.migrations.add_app_settings as m34
 import app.infrastructure.database.migrations.add_country_code_to_branches as m35
-import app.infrastructure.database.migrations.add_maintenance_removal_days as m36
+# m36 (add_maintenance_removal_days, efectos/volumenes/disenos) se descartó:
+# ese enfoque no encajaba con el negocio, se reemplazó por m37 (categorías).
+# El archivo queda en el repo por historial pero ya no se ejecuta — evita el
+# ciclo inútil de "agregar esas columnas" -> "m37 las vuelve a borrar" en
+# cada arranque.
+import app.infrastructure.database.migrations.add_maintenance_removal_to_categories as m37
+import app.infrastructure.database.migrations.move_maintenance_removal_days_to_services as m38
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -75,7 +81,7 @@ from app.presentation.controllers.commission_payment_controller import router as
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
-from app.core.ws_manager import ws_manager
+from app.core.ws_manager import ws_manager, client_ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
 
 @asynccontextmanager
@@ -121,7 +127,8 @@ async def lifespan(app: FastAPI):
         ("volume_to_designs", m33.upgrade),
         ("app_settings", m34.upgrade),
         ("country_code_to_branches", m35.upgrade),
-        ("maintenance_removal_days", m36.upgrade),
+        ("maintenance_removal_to_categories", m37.upgrade),
+        ("move_maintenance_removal_days_to_services", m38.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -240,6 +247,30 @@ def create_app() -> FastAPI:
                     await websocket.send_text("pong")
         except WebSocketDisconnect:
             ws_manager.disconnect(websocket, branch_id)
+
+    @app.websocket("/ws/client/{client_id}")
+    async def ws_client(websocket: WebSocket, client_id: int, token: str):
+        # A diferencia de /ws/branch, acá el token es obligatorio y tiene que
+        # estar emitido específicamente para esta clienta (ver
+        # /booking-public/ws-ticket) — si no, cualquiera podría escuchar los
+        # avisos de servicio finalizado de otra persona.
+        try:
+            payload = decode_token(token)
+        except JWTError:
+            await websocket.close(code=1008)
+            return
+        if payload.get("sub") != f"client:{client_id}":
+            await websocket.close(code=1008)
+            return
+
+        await client_ws_manager.connect(websocket, client_id)
+        try:
+            while True:
+                text = await websocket.receive_text()
+                if text == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            client_ws_manager.disconnect(websocket, client_id)
 
     return app
 

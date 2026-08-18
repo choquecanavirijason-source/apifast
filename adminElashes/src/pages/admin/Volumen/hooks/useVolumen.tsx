@@ -4,15 +4,7 @@ import type { LashVolume, VolumenFormState } from "../types";
 import api from "@/core/services/api";
 import { toast } from "react-toastify";
 
-const emptyForm: VolumenFormState = {
-  name: "",
-  description: "",
-  image: "",
-  modelFileName: "",
-  modelFileUrl: "",
-  maintenanceDays: "",
-  removalDays: "",
-};
+const emptyForm: VolumenFormState = { name: "", description: "", image: "", modelFileName: "", modelFileUrl: "" };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (
@@ -86,8 +78,6 @@ export const useVolumen = () => {
       image: volume.image,
       modelFileName: volume.model_3d_filename ?? "",
       modelFileUrl: volume.model_3d_url ?? "",
-      maintenanceDays: volume.maintenance_days != null ? String(volume.maintenance_days) : "",
-      removalDays: volume.removal_days != null ? String(volume.removal_days) : "",
     });
     setIsModalOpen(true);
   };
@@ -139,8 +129,6 @@ export const useVolumen = () => {
         image: form.image || null,
         model_3d_url: form.modelFileUrl || null,
         model_3d_filename: form.modelFileName || null,
-        maintenance_days: form.maintenanceDays.trim() ? Number(form.maintenanceDays) : null,
-        removal_days: form.removalDays.trim() ? Number(form.removalDays) : null,
       };
       if (currentId) {
         await api.put(`/catalogs/volumes/${currentId}`, payload);

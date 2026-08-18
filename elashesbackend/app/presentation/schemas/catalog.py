@@ -51,9 +51,6 @@ class EffectBase(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    # Días desde la aplicación hasta que la clienta necesita retoque/retiro.
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class EffectCreate(EffectBase):
@@ -67,8 +64,6 @@ class EffectUpdate(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class EffectSummary(BaseModel):
@@ -79,8 +74,6 @@ class EffectSummary(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = None
-    removal_days: Optional[int] = None
 
 
 class EffectResponse(EffectSummary):
@@ -97,8 +90,6 @@ class VolumeBase(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class VolumeCreate(VolumeBase):
@@ -113,8 +104,6 @@ class VolumeUpdate(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class VolumeSummary(BaseModel):
@@ -126,8 +115,6 @@ class VolumeSummary(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = None
-    removal_days: Optional[int] = None
 
 
 class VolumeResponse(VolumeSummary):
@@ -141,8 +128,6 @@ class LashDesignBase(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class LashDesignCreate(LashDesignBase):
@@ -156,8 +141,6 @@ class LashDesignUpdate(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = Field(default=None, ge=0)
-    removal_days: Optional[int] = Field(default=None, ge=0)
 
 
 class LashDesignSummary(BaseModel):
@@ -168,8 +151,6 @@ class LashDesignSummary(BaseModel):
     image: Optional[str] = None
     model_3d_url: Optional[str] = None
     model_3d_filename: Optional[str] = None
-    maintenance_days: Optional[int] = None
-    removal_days: Optional[int] = None
 
 
 class LashDesignResponse(LashDesignSummary):

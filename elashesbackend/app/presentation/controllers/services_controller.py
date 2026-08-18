@@ -75,6 +75,8 @@ def create_new_service(
         duration_minutes=payload.duration_minutes,
         price=payload.price,
         branch_ids=payload.branch_ids,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
 
 
@@ -95,6 +97,8 @@ def update_existing_service(
         duration_minutes=payload.duration_minutes,
         price=payload.price,
         branch_ids=payload.branch_ids,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
 
 

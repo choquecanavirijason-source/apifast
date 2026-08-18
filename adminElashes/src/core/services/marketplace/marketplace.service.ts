@@ -528,6 +528,9 @@ export interface MarketplaceDeliveryPoint {
   city: string | null;
   name: string;
   address: string;
+  /** Link de Google Maps (compartido desde la app) — si está cargado, la
+   * app usa esto directo para "Cómo llegar" en vez de una búsqueda de texto. */
+  maps_url: string | null;
   reference: string | null;
   schedule: string | null;
   phone: string | null;
@@ -545,6 +548,7 @@ export interface CreateDeliveryPointPayload {
   city?: string;
   name: string;
   address: string;
+  maps_url?: string;
   reference?: string;
   schedule?: string;
   phone?: string;

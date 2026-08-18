@@ -227,6 +227,8 @@ export default function ServicesPage() {
       isMobile: Boolean(category.is_mobile),
       questionnaireId: category.questionnaire_id ? String(category.questionnaire_id) : "",
       questionnaireRequired: Boolean(category.questionnaire_required),
+      hasMaintenance: Boolean(category.has_maintenance),
+      hasRemoval: Boolean(category.has_removal),
     });
     setOpenMenuId(null);
     setIsEditModalOpen(true);
@@ -280,6 +282,8 @@ export default function ServicesPage() {
         is_mobile: form.isMobile,
         questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
         questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
+        has_maintenance: form.hasMaintenance,
+        has_removal: form.hasRemoval,
       });
       setCategories((prev) => [created, ...prev]);
       toast.success("Categoria creada correctamente.");
@@ -307,6 +311,8 @@ export default function ServicesPage() {
         is_mobile: form.isMobile,
         questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
         questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
+        has_maintenance: form.hasMaintenance,
+        has_removal: form.hasRemoval,
       });
       setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)));
       toast.success("Categoria actualizada correctamente.");
@@ -374,6 +380,8 @@ export default function ServicesPage() {
       durationMinutes: String(service.duration_minutes ?? ""),
       price: String(service.price ?? ""),
       commissionRate: service.commission_rate != null ? String(Math.round(service.commission_rate * 100)) : "",
+      maintenanceDays: service.maintenance_days != null ? String(service.maintenance_days) : "",
+      removalDays: service.removal_days != null ? String(service.removal_days) : "",
     });
     setIsEditServiceModalOpen(true);
   };
@@ -414,6 +422,8 @@ export default function ServicesPage() {
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
+        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
       });
       setServices((prev) => [created, ...prev]);
       toast.success("Servicio creado correctamente.");
@@ -444,6 +454,8 @@ export default function ServicesPage() {
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
+        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
       });
       setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
       toast.success("Servicio actualizado correctamente.");
@@ -471,6 +483,11 @@ export default function ServicesPage() {
   const totalCategories = categories.length;
   const totalServices = services.length;
   const isLoading = isLoadingCategories || isLoadingServices;
+  // Categoría elegida en el modal de servicio — sus checks deciden si se
+  // muestran los campos de días de mantenimiento/retiro más abajo.
+  const selectedCategoryForService = serviceForm.categoryId
+    ? categoryById.get(Number(serviceForm.categoryId))
+    : undefined;
 
   return (
     <Layout
@@ -854,6 +871,37 @@ export default function ServicesPage() {
               />
             </div>
           </div>
+
+          {(selectedCategoryForService?.has_maintenance || selectedCategoryForService?.has_removal) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              {selectedCategoryForService?.has_maintenance && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Días para mantenimiento</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Ej. 21"
+                    value={serviceForm.maintenanceDays}
+                    onChange={(event) => handleServiceFormChange("maintenanceDays", event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  />
+                </div>
+              )}
+              {selectedCategoryForService?.has_removal && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Días para retiro</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Ej. 35"
+                    value={serviceForm.removalDays}
+                    onChange={(event) => handleServiceFormChange("removalDays", event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
