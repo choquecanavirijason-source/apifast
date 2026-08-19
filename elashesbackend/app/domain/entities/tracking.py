@@ -119,6 +119,11 @@ class Tracking(Base):
     # categoría no tiene esa opción activada.
     next_maintenance_date = Column(DateTime, nullable=True)
     next_removal_date = Column(DateTime, nullable=True)
+    # True una vez que el chequeo diario ya generó el aviso "se acerca tu
+    # mantenimiento/retiro" para esta fecha — evita reenviarlo cada día
+    # mientras la fecha objetivo sigue dentro de la ventana de aviso.
+    maintenance_reminder_sent = Column(Boolean, default=False, nullable=False)
+    removal_reminder_sent = Column(Boolean, default=False, nullable=False)
 
     client = relationship("Client", back_populates="trackings")
     appointment = relationship("Appointment")

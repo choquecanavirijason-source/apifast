@@ -68,6 +68,7 @@ import app.infrastructure.database.migrations.add_country_code_to_branches as m3
 # cada arranque.
 import app.infrastructure.database.migrations.add_maintenance_removal_to_categories as m37
 import app.infrastructure.database.migrations.move_maintenance_removal_days_to_services as m38
+import app.infrastructure.database.migrations.add_reminder_flags_to_tracking as m39
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -83,6 +84,9 @@ from app.presentation.controllers.marketplace_proxy_controller import router as 
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import ws_manager, client_ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
+from app.application.services.reminder_service import run_daily_reminder_check
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -129,6 +133,7 @@ async def lifespan(app: FastAPI):
         ("country_code_to_branches", m35.upgrade),
         ("maintenance_removal_to_categories", m37.upgrade),
         ("move_maintenance_removal_days_to_services", m38.upgrade),
+        ("reminder_flags_to_tracking", m39.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -148,8 +153,25 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # Chequeo diario de recordatorios de mantenimiento/retiro (3 días antes,
+    # ver reminder_service.py). AsyncIOScheduler corre en el mismo loop de
+    # FastAPI para poder hacer broadcast por WebSocket directamente.
+    async def _reminder_job():
+        db = SessionLocal()
+        try:
+            await run_daily_reminder_check(db)
+        except Exception as e:
+            print(f"Error en chequeo de recordatorios: {e}")
+        finally:
+            db.close()
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_reminder_job, CronTrigger(hour=9, minute=0))
+    scheduler.start()
+
     yield
     print(">>> Apagando sistema <<<")
+    scheduler.shutdown(wait=False)
 
 def create_app() -> FastAPI:
     app = FastAPI(

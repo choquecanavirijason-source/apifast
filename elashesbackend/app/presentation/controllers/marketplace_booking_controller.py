@@ -14,12 +14,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.countries import COUNTRY_CODE_TO_NAME
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, require_permission
 from app.domain.entities.client import Client
+from app.domain.entities.user import User
 from app.domain.entities.branch import Branch
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.tracking import Tracking
 from app.application.services.service_agenda_service import create_appointment
+from app.application.services.reminder_service import run_daily_reminder_check
 from app.infrastructure.security.jwt import create_access_token
 
 router = APIRouter(prefix="/booking-public", tags=["Reservas Marketplace"])
@@ -368,3 +370,71 @@ def get_ws_ticket(email: str = Query(..., min_length=1), db: Session = Depends(g
         expires_delta=timedelta(hours=12),
     )
     return {"client_id": client.id, "token": token}
+
+
+@router.get("/pending-reminders")
+def get_pending_reminders(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Recordatorios de mantenimiento/retiro ya generados por el chequeo
+    diario (ver reminder_service.py) para esta clienta. La app los pide al
+    abrir/reanudar para no perderse los que llegaron mientras estaba
+    cerrada — el WebSocket solo cubre el caso de que ya esté conectada
+    cuando corre el chequeo. La app se encarga de no repetir la
+    notificación local para un mismo id."""
+    ident = email.strip().lower()
+    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    if not client:
+        return []
+
+    trackings = (
+        db.query(Tracking)
+        .options(joinedload(Tracking.appointment).joinedload(Appointment.service))
+        .filter(Tracking.client_id == client.id)
+        .filter(
+            (Tracking.maintenance_reminder_sent == True)
+            | (Tracking.removal_reminder_sent == True)
+        )
+        .all()
+    )
+
+    reminders = []
+    for t in trackings:
+        service_name = t.appointment.service.name if t.appointment and t.appointment.service else None
+        if t.maintenance_reminder_sent and t.next_maintenance_date:
+            reminders.append({
+                "id": f"{t.id}-maintenance",
+                "tracking_id": t.id,
+                "appointment_id": t.appointment_id,
+                "type": "maintenance",
+                "date": t.next_maintenance_date.isoformat(),
+                "service_name": service_name,
+            })
+        if t.removal_reminder_sent and t.next_removal_date:
+            reminders.append({
+                "id": f"{t.id}-removal",
+                "tracking_id": t.id,
+                "appointment_id": t.appointment_id,
+                "type": "removal",
+                "date": t.next_removal_date.isoformat(),
+                "service_name": service_name,
+            })
+    return reminders
+
+
+@router.post("/run-reminder-check")
+async def run_reminder_check_now(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("tracking:manage")),
+):
+    """Dispara manualmente el chequeo diario de recordatorios (ver
+    reminder_service.py) — solo para probar el aviso sin esperar al cron de
+    las 9 AM. Corre dentro del proceso real del servidor (a diferencia de un
+    script suelto de docker exec), así el broadcast por WebSocket sí llega a
+    las conexiones abiertas de verdad."""
+    from app.application.services.reminder_service import collect_due_reminders
+    from app.core.ws_manager import client_ws_manager
+
+    due = collect_due_reminders(db)
+    for reminder in due:
+        event = "maintenance_reminder" if reminder["type"] == "maintenance" else "removal_reminder"
+        await client_ws_manager.broadcast(reminder["client_id"], {"event": event, **reminder})
+    return {"due": due}
