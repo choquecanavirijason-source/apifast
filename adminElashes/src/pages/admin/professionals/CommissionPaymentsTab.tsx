@@ -9,6 +9,7 @@ import {
   getTicketCommission,
   getTicketPriceTotal,
 } from "./professionalCommission.utils";
+import type { CommissionExportRow, CommissionExportTotals } from "./History";
 
 const moneyFmt = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -198,9 +199,13 @@ type Props = {
   /** Misma operaria elegida en la pestaña "Historial de tickets" — para que
    * cambiar de pestaña no "pierda" el filtro que ya se había elegido. */
   selectedProfessionalId: number | null;
+  /** Reporta el detalle por cita (ya con todos los filtros aplicados) y los
+   * totales hacia arriba, para que el botón "PDF" de la pantalla pueda
+   * exportar esta misma vista cuando esta pestaña está activa. */
+  onStatsChange?: (rows: CommissionExportRow[], totals: CommissionExportTotals) => void;
 };
 
-export default function CommissionPaymentsTab({ professionals, tickets, fromDate, toDate, selectedProfessionalId }: Props) {
+export default function CommissionPaymentsTab({ professionals, tickets, fromDate, toDate, selectedProfessionalId, onStatsChange }: Props) {
   const [payments, setPayments] = useState<CommissionPaymentOut[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -263,6 +268,29 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
   const totalEarned = useMemo(() => proStats.reduce((s, p) => s + p.earned, 0), [proStats]);
   const totalPaid = useMemo(() => proStats.reduce((s, p) => s + p.paid, 0), [proStats]);
   const totalPending = useMemo(() => proStats.reduce((s, p) => s + p.pending, 0), [proStats]);
+  const totalCaja = useMemo(() => proStats.reduce((s, p) => s + p.totalCaja, 0), [proStats]);
+
+  useEffect(() => {
+    if (!onStatsChange) return;
+    const rows: CommissionExportRow[] = proStats.flatMap((s) =>
+      s.sortedTickets.map((t) => {
+        const isCancelled = t.status === "cancelled";
+        return {
+          professional_name: s.pro.username,
+          client_name: t.client_name || "—",
+          services: t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? ""),
+          fecha: t.start_time ? dateFmt(t.start_time) : "",
+          hora: t.start_time
+            ? new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })
+            : "",
+          status: isCancelled ? "Cancelado" : "Completado",
+          caja: isCancelled ? 0 : getTicketPriceTotal(t),
+          comision: isCancelled ? 0 : getTicketCommission(t),
+        };
+      })
+    );
+    onStatsChange(rows, { caja: totalCaja, comision: totalEarned, pagado: totalPaid, pendiente: totalPending });
+  }, [proStats, totalCaja, totalEarned, totalPaid, totalPending, onStatsChange]);
 
   const handleSavePayment = async (pro: ProfessionalForSelect, amount: number, date: string, notes: string) => {
     setSaving(true);
