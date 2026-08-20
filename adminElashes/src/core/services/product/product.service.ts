@@ -134,7 +134,11 @@ export const ProductService = {
   async listProducts(params?: { skip?: number; limit?: number; category_id?: number; active_only?: boolean; branch_id?: number }): Promise<Product[]> {
     const { branch_id, ...productParams } = params ?? {};
     const [productsResponse, stockResponse] = await Promise.all([
-      api.get<BackendProduct[]>("/inventory/products", { params: productParams }),
+      // branch_id filtra qué productos pertenecen a esa sucursal (solo los
+      // que tienen al menos un lote ahí) — antes se descartaba y siempre
+      // traía el catálogo completo, dando la impresión de que todas las
+      // sucursales comparten los mismos productos.
+      api.get<BackendProduct[]>("/inventory/products", { params: branch_id ? { ...productParams, branch_id } : productParams }),
       api.get<BackendStockSummary[]>("/inventory/stock-summary", { params: branch_id ? { branch_id } : undefined }),
     ]);
 

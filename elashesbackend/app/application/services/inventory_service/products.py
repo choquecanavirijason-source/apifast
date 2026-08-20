@@ -21,6 +21,7 @@ def list_products(
     limit: int = 100,
     category_id: Optional[int] = None,
     active_only: Optional[bool] = None,
+    branch_id: Optional[int] = None,
 ):
     query = _product_query(db)
 
@@ -29,6 +30,18 @@ def list_products(
 
     if active_only is not None:
         query = query.filter(Product.status == active_only)
+
+    # Solo productos que tienen (o tuvieron) al menos un lote registrado en
+    # esta sucursal — así cada sucursal ve su propio catálogo en vez del
+    # catálogo global completo. Se compara por existencia, no por stock > 0,
+    # para no ocultar productos que están agotados pero siguen siendo de esa
+    # sucursal (se quiere poder reabastecerlos).
+    if branch_id is not None:
+        query = query.filter(
+            Product.id.in_(
+                db.query(Batch.product_id).filter(Batch.branch_id == branch_id)
+            )
+        )
 
     return (
         query.order_by(Product.name.asc())

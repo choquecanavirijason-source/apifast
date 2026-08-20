@@ -367,6 +367,10 @@ export default function Main() {
       image_url: normalized.imageUrl?.trim() || undefined,
       initial_stock: normalized.stock,
       min_stock: normalized.minStock > 0 ? normalized.minStock : undefined,
+      // Sin esto, el stock inicial siempre caía en la sucursal de id más
+      // bajo (fallback del backend) sin importar el filtro activo en
+      // pantalla — ahora respeta la sucursal que tengas seleccionada.
+      branch_id: selectedInventoryBranchId ?? undefined,
     };
 
     setIsMutating(true);

@@ -395,6 +395,7 @@ export default function ProfessionalServiceHistory() {
         { header: "Servicio(s)", key: "services" },
         { header: "Operaria", key: "professional_name" },
         { header: "Fecha", key: "fecha" },
+        { header: "Hora", key: "hora" },
         { header: "Estado", key: "status" },
         { header: "Precio", key: "precio" },
         { header: "Comisión", key: "comision" },
@@ -406,6 +407,9 @@ export default function ProfessionalServiceHistory() {
         services: t.service_names?.join(" · ") ?? t.service_name ?? "",
         professional_name: t.professional_name ?? "Sin asignar",
         fecha: t.start_time ? new Date(t.start_time).toLocaleDateString("es-BO") : "",
+        hora: t.start_time
+          ? new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })
+          : "",
         status: STATUS_LABELS[t.status] ?? t.status,
         precio: getTicketPriceTotal(t) > 0 ? moneyFormatter.format(getTicketPriceTotal(t)) : "—",
         comision: t.status === "completed" && getTicketCommission(t) > 0
@@ -497,6 +501,7 @@ export default function ProfessionalServiceHistory() {
           tickets={tickets}
           fromDate={fromDate}
           toDate={toDate}
+          selectedProfessionalId={selectedProfessionalId}
         />
       )}
 
