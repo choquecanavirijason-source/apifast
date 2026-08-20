@@ -6,6 +6,7 @@ import Layout from "@/components/common/layout";
 import type { RootState } from "@/store";
 import api from "@/core/services/api";
 import { getApiErrorMessage } from "@/core/utils/apiError";
+import { translatePermission } from "@/core/utils/permissionLabels";
 
 function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
@@ -240,9 +241,10 @@ export default function ProfilePage() {
               {rolePerms.map((p) => (
                 <span
                   key={p}
+                  title={p}
                   className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200"
                 >
-                  {p}
+                  {translatePermission(p)}
                 </span>
               ))}
             </div>
@@ -256,9 +258,10 @@ export default function ProfilePage() {
               {directPerms.map((p) => (
                 <span
                   key={p}
+                  title={p}
                   className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200"
                 >
-                  {p}
+                  {translatePermission(p)}
                 </span>
               ))}
             </div>

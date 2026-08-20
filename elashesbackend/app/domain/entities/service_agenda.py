@@ -11,6 +11,13 @@ class ServiceCategory(Base):
     description = Column(String(255), nullable=True)
     image_url = Column(Text, nullable=True)
     is_mobile = Column(Boolean, nullable=False, default=False)
+    # Solo algunas categorías necesitan retoque/retiro (ej. Extensiones sí,
+    # Lifting/Tratamientos no). Los días concretos se cargan por Service (más
+    # abajo) — pueden variar entre "Extensiones Clásicas" y "Volumen 5D" aunque
+    # ambos sean de la misma categoría. Este check solo habilita esos campos
+    # en el formulario de servicio, no guarda una duración él mismo.
+    has_maintenance = Column(Boolean, nullable=False, default=False)
+    has_removal = Column(Boolean, nullable=False, default=False)
 
     services = relationship("Service", back_populates="category")
 
@@ -26,6 +33,11 @@ class Service(Base):
     duration_minutes = Column(Integer, nullable=False)
     price = Column(Float, nullable=False)
     commission_rate = Column(Float, nullable=True, default=None)  # None = usa la tasa de la operaria
+    # Días desde la aplicación hasta que la clienta necesita retoque/retiro.
+    # Solo tienen sentido si la categoría de este servicio tiene
+    # has_maintenance/has_removal activado (el form ya lo condiciona así).
+    maintenance_days = Column(Integer, nullable=True)
+    removal_days = Column(Integer, nullable=True)
 
     category = relationship("ServiceCategory", back_populates="services")
     appointments = relationship("Appointment", back_populates="service")

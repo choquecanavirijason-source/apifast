@@ -117,6 +117,7 @@ def get_products(
     limit: int = Query(default=100, ge=1, le=500),
     category_id: Optional[int] = Query(default=None, ge=1),
     active_only: Optional[bool] = Query(default=None),
+    branch_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:view")),
 ):
@@ -126,6 +127,7 @@ def get_products(
         limit=limit,
         category_id=category_id,
         active_only=active_only,
+        branch_id=branch_id,
     )
 
 

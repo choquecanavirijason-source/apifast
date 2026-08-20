@@ -46,6 +46,13 @@ import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 
+// TEMPORAL (2026-08-17): Control de servicios normalmente solo muestra las
+// citas del día seleccionado. Para agilizar pruebas end-to-end (reservar
+// desde marketplace y verla aparecer acá sin cambiar de fecha), se muestran
+// todas las citas de hoy en adelante (no las pasadas). Para volver a como
+// estaba (solo el día seleccionado), poner en false.
+const SHOW_ALL_DATES_FOR_TESTING = true;
+
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(() => {
@@ -129,8 +136,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       const data = await AgendaService.listTickets({
         limit: 500,
         branch_id: activeBranchId ?? undefined,
-        start_date: filterDate || today,
-        end_date: filterDate || today,
+        start_date: SHOW_ALL_DATES_FOR_TESTING ? today : (filterDate || today),
+        end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
       setTickets(data);
       setLastRefresh(new Date());
@@ -312,7 +319,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
       const matchesService = !serviceTerm || servicesText.includes(serviceTerm);
       const matchesClient = !clientTerm || clientText.includes(clientTerm);
-      const matchesDate = !filterDate || ticketDate === filterDate;
+      const matchesDate = SHOW_ALL_DATES_FOR_TESTING
+        ? ticketDate >= todayDate()
+        : !filterDate || ticketDate === filterDate;
       const matchesTime = !filterTime || ticketTime === filterTime;
       const matchesProfessional =
         !filterProfessionalId || String(ticket.professional_id ?? "") === filterProfessionalId;
@@ -320,6 +329,45 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       return matchesService && matchesClient && matchesDate && matchesTime && matchesProfessional;
     });
   }, [tickets, filterService, filterClient, filterDate, filterTime, filterProfessionalId]);
+
+  // Resumen + previsualización de mantenimiento/retiro para el modal
+  // "Finalizar atención" — mismo criterio que el backend (tracking_service:
+  // días del Service, sólo si la categoría tiene el check activado), calculado
+  // acá para mostrarlo antes de guardar, no después.
+  const finishPreview = useMemo(() => {
+    if (!finishTarget) return null;
+
+    const serviceId = finishTarget.service_id ?? finishTarget.service_ids?.[0] ?? null;
+    const service = serviceId ? servicesLookup.find((s) => s.id === serviceId) : undefined;
+    const category = service?.category_id
+      ? categoriesLookup.find((c) => c.id === service.category_id)
+      : undefined;
+
+    const addDays = (days: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" });
+    };
+
+    const maintenanceDate =
+      category?.has_maintenance && service?.maintenance_days != null
+        ? addDays(service.maintenance_days)
+        : null;
+    const removalDate =
+      category?.has_removal && service?.removal_days != null
+        ? addDays(service.removal_days)
+        : null;
+
+    return {
+      clientName: finishTarget.client_name,
+      serviceNames: finishTarget.service_names?.length ? finishTarget.service_names : [finishTarget.service_name].filter(Boolean),
+      totalPrice: (finishTarget.service_prices?.length ? finishTarget.service_prices : [finishTarget.service_price])
+        .filter((p): p is number => typeof p === "number")
+        .reduce((sum, p) => sum + p, 0),
+      maintenanceDate,
+      removalDate,
+    };
+  }, [finishTarget, servicesLookup, categoriesLookup]);
 
   const waitingTickets = useMemo(
     () => mergeTicketsBySaleId(
@@ -1131,6 +1179,37 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             <div className={BC_INFO_BOX}>
               Registra el tracking tecnico y el cuestionario antes de finalizar.
             </div>
+
+            {finishPreview && (
+              <div className="rounded-sm border border-[#d2d0ce] bg-[#faf9f8] px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <p className="text-sm font-semibold text-[#323130]">
+                    {finishPreview.clientName}
+                    <span className="ml-2 font-normal text-[#605e5c]">
+                      · {finishPreview.serviceNames.join(" + ") || "Servicio"}
+                    </span>
+                  </p>
+                  {finishPreview.totalPrice > 0 && (
+                    <p className="text-sm font-semibold text-[#323130]">Bs {finishPreview.totalPrice.toFixed(2)}</p>
+                  )}
+                </div>
+
+                {(finishPreview.maintenanceDate || finishPreview.removalDate) && (
+                  <div className="mt-2 flex flex-wrap gap-2 border-t border-[#edebe9] pt-2">
+                    {finishPreview.maintenanceDate && (
+                      <span className="rounded-full bg-[#deecf9] px-2.5 py-1 text-xs font-semibold text-[#004578]">
+                        Mantenimiento sugerido: {finishPreview.maintenanceDate}
+                      </span>
+                    )}
+                    {finishPreview.removalDate && (
+                      <span className="rounded-full bg-[#fde8f0] px-2.5 py-1 text-xs font-semibold text-[#861237]">
+                        Retiro sugerido: {finishPreview.removalDate}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18 ? (
               <div className={BC_WARN_BOX}>

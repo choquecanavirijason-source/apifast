@@ -9,6 +9,7 @@ import {
   adjustProductStock,
   type MarketplaceProduct,
 } from "@/core/services/marketplace/marketplace.service";
+import variables from "@/core/config/variables";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -27,9 +28,7 @@ interface InventoryProduct {
   category: { id: number; name: string } | null;
 }
 
-const ELASHES_BACKEND =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://34.55.150.142";
+const ELASHES_BACKEND = variables.apiUrl || "http://34.55.150.142";
 
 function buildInvImg(url: string | null) {
   if (!url) return null;

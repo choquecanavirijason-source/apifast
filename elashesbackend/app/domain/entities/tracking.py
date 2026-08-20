@@ -113,6 +113,17 @@ class Tracking(Base):
     design_notes = Column(String(255), nullable=True)
     last_application_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     questionnaire_responses = Column(JSON, nullable=True)
+    # Calculadas al crear/editar el tracking, a partir de si la categoría del
+    # servicio de la cita tiene mantenimiento/retiro activado y sus días
+    # configurados (ver tracking_service._resolve_next_dates). Null si la
+    # categoría no tiene esa opción activada.
+    next_maintenance_date = Column(DateTime, nullable=True)
+    next_removal_date = Column(DateTime, nullable=True)
+    # True una vez que el chequeo diario ya generó el aviso "se acerca tu
+    # mantenimiento/retiro" para esta fecha — evita reenviarlo cada día
+    # mientras la fecha objetivo sigue dentro de la ventana de aviso.
+    maintenance_reminder_sent = Column(Boolean, default=False, nullable=False)
+    removal_reminder_sent = Column(Boolean, default=False, nullable=False)
 
     client = relationship("Client", back_populates="trackings")
     appointment = relationship("Appointment")

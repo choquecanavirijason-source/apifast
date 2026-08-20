@@ -1,4 +1,5 @@
 import api from "../api";
+import variables from "../../config/variables";
 
 // Todas las llamadas al marketplace van a través de elashesbackend (/marketplace-proxy/...)
 // elashesbackend reenvía internamente a backend_marketplace usando MARKETPLACE_BACKEND_URL en su .env.
@@ -28,11 +29,9 @@ const marketplaceApi = {
  * lo documenta SettingsPage. Antes esto apuntaba directo a elashesbackend
  * (o al dominio pelado en prod) y las imágenes nunca cargaban.
  */
-export const MARKETPLACE_MEDIA_BASE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL}/marketplace-proxy`
-    : undefined) ||
-  "http://34.55.150.142/api/marketplace-proxy";
+export const MARKETPLACE_MEDIA_BASE = variables.apiUrl
+  ? `${variables.apiUrl}/marketplace-proxy`
+  : "http://34.55.150.142/api/marketplace-proxy";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -529,6 +528,9 @@ export interface MarketplaceDeliveryPoint {
   city: string | null;
   name: string;
   address: string;
+  /** Link de Google Maps (compartido desde la app) — si está cargado, la
+   * app usa esto directo para "Cómo llegar" en vez de una búsqueda de texto. */
+  maps_url: string | null;
   reference: string | null;
   schedule: string | null;
   phone: string | null;
@@ -546,6 +548,7 @@ export interface CreateDeliveryPointPayload {
   city?: string;
   name: string;
   address: string;
+  maps_url?: string;
   reference?: string;
   schedule?: string;
   phone?: string;

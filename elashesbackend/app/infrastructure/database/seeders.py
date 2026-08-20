@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
@@ -843,6 +844,19 @@ def seed_inventory(db: Session, branches: dict):
 # =========================================================
 # Seeder maestro — solo datos esenciales de producción
 # =========================================================
+# 2026-08-17: un dev se topó con citas/clientas/pagos "fantasma" (Ana Pérez,
+# María Gómez, etc.) en un ambiente que creía limpio — resultó ser este mismo
+# seeder de datos de PRUEBA (clientes/citas/seguimientos/pagos, pasos 7 y
+# 9-11 más abajo), que corre en cada arranque del backend, incluido Docker en
+# "producción", y no se repite pero tampoco se limpia solo una vez sembrado.
+# Se desactiva por defecto (requiere SEED_DEMO_DATA=true) hasta que el flujo
+# de pruebas quede claro para todo el equipo. Los seeders esenciales
+# (permisos, roles, sucursales, usuarios, catálogos, servicios reales,
+# inventario) NO se tocan — son necesarios para que el sistema funcione,
+# no son datos de prueba.
+SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").strip().lower() == "true"
+
+
 def run_seeders(db: Session):
     # 1. Permisos y roles
     seed_permissions(db)
@@ -866,55 +880,61 @@ def run_seeders(db: Session):
     # 6. Cuestionario de salud inicial
     questionnaire = seed_questionnaires(db)
 
-    # 7. Clientes de prueba
-    try:
-        clients = seed_clients(db, eye_types=eye_types, branches=branches)
-    except Exception as e:
-        print(f"   [seed_clients] omitido: {e}")
-        clients = {}
-
-    # 8. Servicios y categorías de servicio
+    # 7. Servicios y categorías de servicio (catálogo real, no es dato de prueba)
     try:
         services = seed_services(db, branches=branches)
     except Exception as e:
         print(f"   [seed_services] omitido: {e}")
         services = {}
 
-    # 9. Citas de prueba
-    try:
-        if clients and users and services:
-            appointments = seed_appointments(
-                db, clients=clients, users=users, branches=branches, services=services
-            )
-        else:
+    # 8-11. Datos de PRUEBA (clientes, citas, seguimientos, pagos ficticios).
+    # Desactivados hasta nuevo aviso — ver comentario arriba de SEED_DEMO_DATA.
+    # Para reactivarlos en un ambiente de pruebas: SEED_DEMO_DATA=true.
+    if not SEED_DEMO_DATA:
+        clients, appointments = {}, {}
+    else:
+        # 8. Clientes de prueba
+        try:
+            clients = seed_clients(db, eye_types=eye_types, branches=branches)
+        except Exception as e:
+            print(f"   [seed_clients] omitido: {e}")
+            clients = {}
+
+        # 9. Citas de prueba
+        try:
+            if clients and users:
+                appointments = seed_appointments(
+                    db, clients=clients, users=users, branches=branches, services=services
+                )
+            else:
+                appointments = {}
+        except Exception as e:
+            print(f"   [seed_appointments] omitido: {e}")
             appointments = {}
-    except Exception as e:
-        print(f"   [seed_appointments] omitido: {e}")
-        appointments = {}
 
-    # 10. Seguimientos de pestañas
-    try:
-        if clients and users and appointments:
-            seed_trackings(
-                db,
-                clients=clients,
-                users=users,
-                eye_types=eye_types,
-                effects=effects,
-                volumes=volumes,
-                lash_designs=lash_designs,
-                questionnaire=questionnaire,
-                appointments=appointments,
-            )
-    except Exception as e:
-        print(f"   [seed_trackings] omitido: {e}")
+        # 10. Seguimientos de pestañas
+        try:
+            if clients and users and appointments:
+                seed_trackings(
+                    db,
+                    clients=clients,
+                    users=users,
+                    eye_types=eye_types,
+                    effects=effects,
+                    volumes=volumes,
+                    lash_designs=lash_designs,
+                    questionnaire=questionnaire,
+                    appointments=appointments,
+                )
+        except Exception as e:
+            print(f"   [seed_trackings] omitido: {e}")
 
-    # 11. Pagos de prueba
-    try:
-        if clients and appointments:
-            seed_payments(db, clients=clients, branches=branches, appointments=appointments)
-    except Exception as e:
-        print(f"   [seed_payments] omitido: {e}")
+        # 11. Pagos de prueba
+        try:
+            if clients and appointments:
+                seed_payments(db, clients=clients, branches=branches, appointments=appointments)
+        except Exception as e:
+            print(f"   [seed_payments] omitido: {e}")
 
     # 12. Inventario (categorías, productos, lotes)
     try:

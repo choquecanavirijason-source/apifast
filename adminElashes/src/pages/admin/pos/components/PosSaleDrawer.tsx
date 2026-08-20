@@ -553,10 +553,8 @@ export default function PosSaleDrawer({
                             key={client.id}
                             type="button"
                             onClick={() => {
-                              if (!isSelected) {
-                                setClientId(String(client.id));
-                                setClientSearch(fullName);
-                              }
+                              setClientId(String(client.id));
+                              setClientSearch(fullName);
                               setIsClientMenuOpen(false);
                             }}
                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-[#f3f2f1] ${isSelected ? "bg-[#eef6ff]" : ""}`}

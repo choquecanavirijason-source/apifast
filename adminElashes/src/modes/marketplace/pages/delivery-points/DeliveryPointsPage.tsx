@@ -64,6 +64,7 @@ type Form = {
   city: string;
   name: string;
   address: string;
+  maps_url: string;
   reference: string;
   schedule: string;
   phone: string;
@@ -76,6 +77,7 @@ const emptyForm: Form = {
   city: "",
   name: "",
   address: "",
+  maps_url: "",
   reference: "",
   schedule: "",
   phone: "",
@@ -155,6 +157,7 @@ export default function DeliveryPointsPage() {
       city: p.city ?? "",
       name: p.name,
       address: p.address,
+      maps_url: p.maps_url ?? "",
       reference: p.reference ?? "",
       schedule: p.schedule ?? "",
       phone: p.phone ?? "",
@@ -184,6 +187,7 @@ export default function DeliveryPointsPage() {
         city: form.city.trim() || undefined,
         name: form.name.trim(),
         address: form.address.trim(),
+        maps_url: form.maps_url.trim() || undefined,
         reference: form.reference.trim() || undefined,
         schedule: form.schedule.trim() || undefined,
         phone: form.phone.trim() || undefined,
@@ -437,6 +441,22 @@ export default function DeliveryPointsPage() {
               placeholder="Av. Larco 123"
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-brand-tertiary">Link de Google Maps (opcional)</label>
+            <input
+              type="text"
+              value={form.maps_url}
+              onChange={(e) => setForm((f) => ({ ...f, maps_url: e.target.value }))}
+              placeholder="https://maps.app.goo.gl/..."
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <p className="text-xs text-slate-400">
+              Buscá el local en Google Maps, tocá "Compartir" y pegá el link acá. Si lo cargás,
+              "Cómo llegar" en la app lleva directo al pin exacto en vez de buscar por texto
+              (que a veces falla con direcciones informales).
+            </p>
           </div>
 
           <div className="space-y-1.5">

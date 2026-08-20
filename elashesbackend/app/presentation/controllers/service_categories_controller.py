@@ -58,6 +58,8 @@ def create_new_service_category(
         description=payload.description,
         image_url=payload.image_url,
         is_mobile=payload.is_mobile,
+        has_maintenance=payload.has_maintenance,
+        has_removal=payload.has_removal,
     )
 
 
@@ -126,6 +128,8 @@ def update_existing_service_category(
         description=payload.description,
         image_url=payload.image_url,
         is_mobile=payload.is_mobile,
+        has_maintenance=payload.has_maintenance,
+        has_removal=payload.has_removal,
     )
 
 

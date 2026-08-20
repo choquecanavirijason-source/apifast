@@ -76,6 +76,9 @@ class TrackingResponse(BaseModel):
     design_notes: Optional[str] = None
     last_application_date: datetime
     questionnaire_responses: Optional[Dict[str, Any]] = None
+    # Calculadas por el backend a partir del efecto/volumen/diseño aplicado.
+    next_maintenance_date: Optional[datetime] = None
+    next_removal_date: Optional[datetime] = None
 
     client: ClientSummary
     professional: Optional[UserSummary] = None

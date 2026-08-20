@@ -74,6 +74,55 @@ export default function ServiceFormModal({
           </button>
         </div>
 
+        {/* Mantenimiento / retiro — solo algunas categorías lo necesitan
+            (ej. Extensiones sí, Lifting/Tratamientos no). Los días concretos
+            se cargan por servicio (en Editar/Nuevo servicio), acá solo el
+            check que habilita esos campos ahí. */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <p className="text-sm font-medium text-slate-700">Retoque y retiro</p>
+          <p className="-mt-2 text-xs text-slate-500">
+            Activa lo que aplique a esta categoría. Los días se cargan por cada servicio.
+          </p>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600">Tiene mantenimiento</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.hasMaintenance}
+              onClick={() => onFormChange("hasMaintenance", !form.hasMaintenance)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                form.hasMaintenance ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  form.hasMaintenance ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600">Tiene retiro</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.hasRemoval}
+              onClick={() => onFormChange("hasRemoval", !form.hasRemoval)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                form.hasRemoval ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  form.hasRemoval ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* Cuestionario por categoría */}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
           <div className="flex items-center justify-between">

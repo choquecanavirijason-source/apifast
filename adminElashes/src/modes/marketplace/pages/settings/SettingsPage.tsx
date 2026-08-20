@@ -6,6 +6,7 @@ import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, StatCard } from "@/components/common/ui";
 import api from "@/core/services/api";
 import { fetchAdminProducts } from "@/core/services/marketplace/marketplace.service";
+import variables from "@/core/config/variables";
 
 type Status = "loading" | "ok" | "error";
 interface BackendStatus {
@@ -13,9 +14,7 @@ interface BackendStatus {
   marketplace: Status; marketplaceMs?: number; marketplaceError?: string;
 }
 
-const VITE_API_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://34.55.150.142/api";
+const VITE_API_URL = variables.apiUrl || "http://34.55.150.142/api";
 
 async function pingElashes(): Promise<{ ms: number }> {
   const start = Date.now();

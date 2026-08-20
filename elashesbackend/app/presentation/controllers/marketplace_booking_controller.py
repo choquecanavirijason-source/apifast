@@ -14,11 +14,15 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.countries import COUNTRY_CODE_TO_NAME
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, require_permission
 from app.domain.entities.client import Client
+from app.domain.entities.user import User
 from app.domain.entities.branch import Branch
 from app.domain.entities.service_agenda import Appointment, Service
+from app.domain.entities.tracking import Tracking
 from app.application.services.service_agenda_service import create_appointment
+from app.application.services.reminder_service import run_daily_reminder_check
+from app.infrastructure.security.jwt import create_access_token
 
 router = APIRouter(prefix="/booking-public", tags=["Reservas Marketplace"])
 
@@ -53,10 +57,29 @@ class _BookingPayload(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[str]) -> Client:
+def _find_or_create_client(
+    db: Session, email: str, name: str, phone: Optional[str], branch_id: int
+) -> Client:
     ident = email.strip().lower()
     client = db.query(Client).filter(func.lower(Client.email) == ident).first()
     if client:
+        # Cliente sin sucursal (ej. creado antes de este fix, o por otra vía sin
+        # branch_id): el selector de clientes en Caja filtra por sucursal activa
+        # (Client.branch_id == branch_id) y NULL nunca matchea — quedaba invisible
+        # ahí para siempre. Se la asignamos con la de su primera reserva real.
+        changed = False
+        if client.branch_id is None:
+            client.branch_id = branch_id
+            changed = True
+        # El teléfono viaja en cada reserva (viene de su perfil marketplace
+        # actual) — si lo cambió después de crear la ficha del salón, esa
+        # ficha quedaba con el dato viejo para siempre. Lo mantenemos al día.
+        if phone and (client.phone or "").strip() != phone.strip():
+            client.phone = phone
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(client)
         return client
     # Buscar por nombre completo (clientes del salón que entraron por nombre+CI,
     # sin cuenta de email propia todavía).
@@ -68,8 +91,12 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
         # de la app, que busca por email exacto.
         if "@" in email and (client.email or "").strip().lower() != ident:
             client.email = email
-            db.commit()
-            db.refresh(client)
+        if client.branch_id is None:
+            client.branch_id = branch_id
+        if phone and (client.phone or "").strip() != phone.strip():
+            client.phone = phone
+        db.commit()
+        db.refresh(client)
         return client
     # Cliente del app: crear ficha en el salón
     parts = name.strip().split(" ", 1)
@@ -78,6 +105,7 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
         last_name=parts[1] if len(parts) > 1 else "",
         email=email if "@" in email else None,
         phone=phone,
+        branch_id=branch_id,
     )
     db.add(client)
     db.commit()
@@ -85,7 +113,7 @@ def _find_or_create_client(db: Session, email: str, name: str, phone: Optional[s
     return client
 
 
-def _appointment_dict(a: Appointment) -> dict:
+def _appointment_dict(a: Appointment, tracking: Optional[Tracking] = None) -> dict:
     # Nombres de todos los servicios de la cita (multi-servicio)
     names = [s.name for s in a.services if s] or ([a.service.name] if a.service else [])
     return {
@@ -100,6 +128,27 @@ def _appointment_dict(a: Appointment) -> dict:
         "end_time": a.end_time.isoformat() if a.end_time else None,
         "status": a.status,
         "advance_payment_amount": a.advance_payment_amount,
+        # Recomendación de mantenimiento/retiro registrada al finalizar el
+        # servicio (Tracking.appointment_id) — None si aún no se finalizó o
+        # el diseño aplicado no tiene duración configurada en el catálogo.
+        "next_maintenance_date": tracking.next_maintenance_date.isoformat()
+        if tracking and tracking.next_maintenance_date
+        else None,
+        "next_removal_date": tracking.next_removal_date.isoformat()
+        if tracking and tracking.next_removal_date
+        else None,
+        # Detalle de lo que se le hizo — lo carga la operaria al finalizar
+        # (Queue.tsx). None si la cita todavía no se finalizó.
+        "treatment_detail": {
+            "eye_type": tracking.eye_type.name if tracking.eye_type else None,
+            "effect": tracking.effect.name if tracking.effect else None,
+            "volume": tracking.volume.name if tracking.volume else None,
+            "lash_design": tracking.lash_design.name if tracking.lash_design else None,
+            "notes": tracking.design_notes,
+            "professional_name": tracking.professional.username if tracking.professional else None,
+        }
+        if tracking
+        else None,
     }
 
 
@@ -255,7 +304,7 @@ def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(g
             detail="Ese horario acaba de ocuparse. Elige otro horario.",
         )
 
-    client = _find_or_create_client(db, payload.email, payload.name, payload.phone)
+    client = _find_or_create_client(db, payload.email, payload.name, payload.phone, branch.id)
 
     appointment = create_appointment(
         db=db,
@@ -292,4 +341,106 @@ def my_appointments(
         .limit(50)
         .all()
     )
-    return [_appointment_dict(a) for a in appointments]
+
+    appointment_ids = [a.id for a in appointments]
+    trackings_by_appointment = {
+        t.appointment_id: t
+        for t in db.query(Tracking)
+        .options(
+            joinedload(Tracking.eye_type),
+            joinedload(Tracking.effect),
+            joinedload(Tracking.volume),
+            joinedload(Tracking.lash_design),
+            joinedload(Tracking.professional),
+        )
+        .filter(Tracking.appointment_id.in_(appointment_ids))
+        .all()
+    } if appointment_ids else {}
+
+    return [_appointment_dict(a, trackings_by_appointment.get(a.id)) for a in appointments]
+
+
+@router.get("/ws-ticket")
+def get_ws_ticket(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Token corto para que la app marketplace abra /ws/client/{client_id} y
+    reciba en vivo el aviso de "servicio finalizado" mientras tiene la app
+    abierta. 404 si la clienta todavía no tiene ficha en el salón (nunca
+    reservó) — no hay nada que notificarle todavía."""
+    ident = email.strip().lower()
+    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    token = create_access_token(
+        subject=f"client:{client.id}",
+        expires_delta=timedelta(hours=12),
+    )
+    return {"client_id": client.id, "token": token}
+
+
+@router.get("/pending-reminders")
+def get_pending_reminders(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Recordatorios de mantenimiento/retiro ya generados por el chequeo
+    diario (ver reminder_service.py) para esta clienta. La app los pide al
+    abrir/reanudar para no perderse los que llegaron mientras estaba
+    cerrada — el WebSocket solo cubre el caso de que ya esté conectada
+    cuando corre el chequeo. La app se encarga de no repetir la
+    notificación local para un mismo id."""
+    ident = email.strip().lower()
+    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    if not client:
+        return []
+
+    trackings = (
+        db.query(Tracking)
+        .options(joinedload(Tracking.appointment).joinedload(Appointment.service))
+        .filter(Tracking.client_id == client.id)
+        .filter(
+            (Tracking.maintenance_reminder_sent == True)
+            | (Tracking.removal_reminder_sent == True)
+        )
+        .all()
+    )
+
+    reminders = []
+    for t in trackings:
+        service_name = t.appointment.service.name if t.appointment and t.appointment.service else None
+        if t.maintenance_reminder_sent and t.next_maintenance_date:
+            reminders.append({
+                "id": f"{t.id}-maintenance",
+                "tracking_id": t.id,
+                "appointment_id": t.appointment_id,
+                "type": "maintenance",
+                "date": t.next_maintenance_date.isoformat(),
+                "service_name": service_name,
+            })
+        if t.removal_reminder_sent and t.next_removal_date:
+            reminders.append({
+                "id": f"{t.id}-removal",
+                "tracking_id": t.id,
+                "appointment_id": t.appointment_id,
+                "type": "removal",
+                "date": t.next_removal_date.isoformat(),
+                "service_name": service_name,
+            })
+    return reminders
+
+
+@router.post("/run-reminder-check")
+async def run_reminder_check_now(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("tracking:manage")),
+):
+    """Dispara manualmente el chequeo diario de recordatorios (ver
+    reminder_service.py) — solo para probar el aviso sin esperar al cron de
+    las 9 AM. Corre dentro del proceso real del servidor (a diferencia de un
+    script suelto de docker exec), así el broadcast por WebSocket sí llega a
+    las conexiones abiertas de verdad."""
+    from app.application.services.reminder_service import collect_due_reminders
+    from app.core.ws_manager import client_ws_manager
+
+    due = collect_due_reminders(db)
+    for reminder in due:
+        event = "maintenance_reminder" if reminder["type"] == "maintenance" else "removal_reminder"
+        await client_ws_manager.broadcast(reminder["client_id"], {"event": event, **reminder})
+    return {"due": due}
