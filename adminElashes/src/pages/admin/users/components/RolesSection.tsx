@@ -1,6 +1,7 @@
 import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 import { Settings2, Shield, Trash2 } from "lucide-react";
+import { translatePermission } from "@/core/utils/permissionLabels";
 import type { RoleItem } from "../types";
 
 interface RolesSectionProps {
@@ -46,7 +47,7 @@ export default function RolesSection({ roles, loading, onEditRole, onDeleteRole 
     {
       key: "permissions",
       header: "Permisos Asignados",
-      getValue: (item) => item.permissions?.map((p) => p.name).join(", ") ?? "",
+      getValue: (item) => item.permissions?.map((p) => translatePermission(p.name)).join(", ") ?? "",
       render: (item) => {
         if (!item.permissions?.length)
           return <span className="text-slate-400 text-xs italic">Sin permisos asignados</span>;
@@ -59,9 +60,10 @@ export default function RolesSection({ roles, loading, onEditRole, onDeleteRole 
             {visible.map((p) => (
               <span
                 key={p.id}
+                title={p.name}
                 className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
               >
-                {p.name}
+                {translatePermission(p.name)}
               </span>
             ))}
             {remaining > 0 && (

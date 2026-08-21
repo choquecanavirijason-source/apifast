@@ -137,6 +137,21 @@ def seed_roles(db: Session):
             permission_map["catalog:view"],
             permission_map["branches:view"],
         ],
+        # Cajera: solo lo necesario para operar Ventas (Caja POS, Caja y
+        # seguimiento, Cierre de caja) — no ve Servicios/Inventario como
+        # Secretaria, es más acotado a propósito.
+        "Cajera": [
+            permission_map["payments:view"],
+            permission_map["payments:manage"],
+            permission_map["clients:view"],
+            permission_map["clients:manage"],
+            permission_map["catalog:view"],
+            permission_map["services:view"],
+            permission_map["branches:view"],
+            # El hub de "Caja & Seguimiento" incluye la pestaña Agenda del
+            # día, que necesita esto para cargar sin tirar error.
+            permission_map["appointments:view"],
+        ],
     }
 
     roles = {}
@@ -205,6 +220,16 @@ def seed_users(db: Session, roles: dict, branches: dict):
             "phone": "+59170000002",
             "password": "secretaria123",
             "role": "Secretaria",
+            "branch": "Sucursal Principal",
+            "skill_level": None,
+            "is_active": True,
+        },
+        {
+            "username": "cajera1",
+            "email": "cajera1@elashes.com",
+            "phone": "+59170000003",
+            "password": "cajera123",
+            "role": "Cajera",
             "branch": "Sucursal Principal",
             "skill_level": None,
             "is_active": True,

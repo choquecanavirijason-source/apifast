@@ -5,6 +5,7 @@ import { CheckSquare, Square } from "lucide-react";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
+import { translateAction, translateModule } from "@/core/utils/permissionLabels";
 import type { PermissionItem, RoleItem } from "../types";
 
 interface EditRoleModalProps {
@@ -151,7 +152,7 @@ export default function EditRoleModal({
                           <Square className="h-4 w-4 text-slate-400" />
                         )}
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                          {module}
+                          {translateModule(module)}
                         </span>
                       </div>
                       <span className="text-xs text-slate-400">
@@ -162,9 +163,10 @@ export default function EditRoleModal({
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       {modulePerms.map((permission) => {
                         const checked = selectedPermissionIds.includes(permission.id);
-                        const label = permission.name.includes(":")
+                        const rawLabel = permission.name.includes(":")
                           ? permission.name.split(":").slice(1).join(":").trim()
                           : permission.name;
+                        const label = translateAction(rawLabel);
 
                         return (
                           <label

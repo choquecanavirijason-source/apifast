@@ -276,3 +276,59 @@ def get_low_stock(
         for r in query.all()
         if r.total_stock <= (r.min_stock or 0)
     ]
+
+
+@router.get("/cash-summary")
+def get_cash_summary(
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    start_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    end_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+):
+    """Corte de Caja: ingresos por método de pago vs. gastos, en un rango de
+    fechas y sucursal — ver Salones → Corte de Caja."""
+    from app.domain.entities.expense import Expense
+
+    payments_q = db.query(Payment).filter(Payment.status == "paid")
+    if branch_id:
+        payments_q = payments_q.filter(Payment.branch_id == branch_id)
+    if start_date:
+        payments_q = payments_q.filter(Payment.paid_at >= start_date)
+    if end_date:
+        payments_q = payments_q.filter(Payment.paid_at <= f"{end_date} 23:59:59")
+
+    by_method: dict[str, float] = defaultdict(float)
+    for p in payments_q.all():
+        by_method[p.method] += p.amount
+
+    expenses_q = db.query(Expense)
+    if branch_id:
+        expenses_q = expenses_q.filter(Expense.branch_id == branch_id)
+    if start_date:
+        expenses_q = expenses_q.filter(Expense.expense_date >= start_date)
+    if end_date:
+        expenses_q = expenses_q.filter(Expense.expense_date <= end_date)
+
+    total_expenses = sum(e.amount for e in expenses_q.all())
+    cash_income = by_method.get("cash", 0.0)
+    total_income = sum(by_method.values())
+
+    return {
+        "cash_in_register": {
+            "ventas_efectivo": cash_income,
+            "gastos_efectivo": total_expenses,
+            "saldo": cash_income - total_expenses,
+        },
+        "income_by_method": {
+            "efectivo": by_method.get("cash", 0.0),
+            "tarjeta": by_method.get("card", 0.0),
+            "transferencia": by_method.get("transfer", 0.0),
+            "qr": by_method.get("qr", 0.0),
+            "total": total_income,
+        },
+        "expenses": {
+            "gastos": total_expenses,
+            "total": total_expenses,
+        },
+    }

@@ -1,5 +1,6 @@
 import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
+import { translateModule, translatePermission } from "@/core/utils/permissionLabels";
 
 import type { PermissionItem } from "../types";
 
@@ -14,16 +15,21 @@ export default function PermissionsSection({ permissions, loading }: Permissions
       key: "name",
       header: "Permiso",
       sortable: true,
-      render: (item) => <span className="font-semibold text-slate-800">{item.name}</span>,
+      getValue: (item) => translatePermission(item.name),
+      render: (item) => (
+        <span className="font-semibold text-slate-800" title={item.name}>
+          {translatePermission(item.name)}
+        </span>
+      ),
     },
     {
       key: "module",
-      header: "Modulo",
+      header: "Módulo",
       sortable: true,
-      getValue: (item) => (item.name.includes(":") ? item.name.split(":")[0] : "otros"),
+      getValue: (item) => translateModule(item.name.includes(":") ? item.name.split(":")[0] : "otros"),
       render: (item) => (
         <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-          {item.name.includes(":") ? item.name.split(":")[0] : "otros"}
+          {translateModule(item.name.includes(":") ? item.name.split(":")[0] : "otros")}
         </span>
       ),
     },

@@ -2,7 +2,7 @@
 // español, para mostrar en UI (ej. panel "Información de cuenta"). Los
 // permisos reales del sistema son los listados en MODULE_LABELS — cualquier
 // slug fuera de ese set (o con otro formato) se muestra tal cual, sin romper.
-const MODULE_LABELS: Record<string, string> = {
+export const MODULE_LABELS: Record<string, string> = {
   ai: "Asistente IA",
   clients: "Clientes",
   catalog: "Catálogo",
@@ -21,6 +21,16 @@ const ACTION_LABELS: Record<string, string> = {
   view: "Ver",
   manage: "Gestionar",
 };
+
+/** "ai" -> "Asistente IA". Si no reconoce el módulo, devuelve la clave tal cual. */
+export function translateModule(moduleKey: string): string {
+  return MODULE_LABELS[moduleKey] ?? moduleKey;
+}
+
+/** "view" -> "Ver". Si no reconoce la acción, devuelve la clave tal cual. */
+export function translateAction(actionKey: string): string {
+  return ACTION_LABELS[actionKey] ?? actionKey;
+}
 
 /** "ai:view" -> "Ver Asistente IA". Si no reconoce el formato, devuelve el slug tal cual. */
 export function translatePermission(slug: string): string {

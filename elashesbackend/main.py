@@ -69,6 +69,7 @@ import app.infrastructure.database.migrations.add_country_code_to_branches as m3
 import app.infrastructure.database.migrations.add_maintenance_removal_to_categories as m37
 import app.infrastructure.database.migrations.move_maintenance_removal_days_to_services as m38
 import app.infrastructure.database.migrations.add_reminder_flags_to_tracking as m39
+import app.infrastructure.database.migrations.add_expenses_table as m40
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -79,6 +80,7 @@ from app.presentation.controllers import (
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
+from app.presentation.controllers.expense_controller import router as expenses_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
@@ -134,6 +136,7 @@ async def lifespan(app: FastAPI):
         ("maintenance_removal_to_categories", m37.upgrade),
         ("move_maintenance_removal_days_to_services", m38.upgrade),
         ("reminder_flags_to_tracking", m39.upgrade),
+        ("expenses_table", m40.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -248,6 +251,7 @@ def create_app() -> FastAPI:
     app.include_router(app_settings_controller.router)
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
+    app.include_router(expenses_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)

@@ -198,7 +198,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
-        name: "Caja & Seguimiento",
+        name: "Ventas",
         icon: <ReceiptText size={20} />,
         path: "/admin/pos",
         subItems: [
@@ -271,7 +271,11 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         name: "Salones",
         icon: <Building2 size={20} />,
         path: "/admin/salons",
-        permission: "branches:manage",
+        subItems: [
+          { name: "Sucursales", path: "/admin/salons", permission: "branches:manage" },
+          { name: "Corte de Caja", path: "/admin/salons/corte-caja", permission: ["payments:view", "payments:manage"] },
+          { name: "Caja", path: "/admin/salons/caja", permission: ["payments:view", "payments:manage"] },
+        ],
       },
 
       {
