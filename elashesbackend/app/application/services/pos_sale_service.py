@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.branch import Branch
+from app.domain.entities.cash_close import CashClose
 from app.domain.entities.client import Client, CLIENT_STATUS_EN_ESPERA
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
@@ -127,6 +128,18 @@ def create_sale(
     current_user: User,
 ) -> PosSale:
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
+
+    if payload.branch_id is not None:
+        open_session = (
+            db.query(CashClose)
+            .filter(CashClose.branch_id == payload.branch_id, CashClose.status == "open")
+            .first()
+        )
+        if not open_session:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta sucursal no tiene la caja abierta. Abrila en Salones → Caja antes de vender.",
+            )
 
     # Pago mixto: valida métodos y que la suma cubra el total
     if payload.mixed_payments:

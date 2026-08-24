@@ -2,15 +2,28 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.dependencies import get_db, require_any_permission
+from app.core.media import save_catalog_image
 from app.domain.entities.expense import Expense
 from app.domain.entities.user import User
 
 router = APIRouter(prefix="/expenses", tags=["Gastos"])
+
+
+# Subida de la foto del comprobante — endpoint propio (no /catalog/upload-image)
+# porque ese pide catalog:manage, un permiso sin relación con registrar un
+# gasto de caja; acá se pide payments:manage, que sí es el correcto.
+@router.post("/upload-photo", status_code=status.HTTP_201_CREATED)
+def upload_expense_photo(
+    file: UploadFile = File(...),
+    _: User = Depends(require_any_permission("payments:manage")),
+):
+    image_path = save_catalog_image(file=file, folder="expenses")
+    return {"image": image_path}
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

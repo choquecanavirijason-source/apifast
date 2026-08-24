@@ -70,6 +70,8 @@ import app.infrastructure.database.migrations.add_maintenance_removal_to_categor
 import app.infrastructure.database.migrations.move_maintenance_removal_days_to_services as m38
 import app.infrastructure.database.migrations.add_reminder_flags_to_tracking as m39
 import app.infrastructure.database.migrations.add_expenses_table as m40
+import app.infrastructure.database.migrations.add_cash_session_fields as m41
+import app.infrastructure.database.migrations.add_cash_reconciliation_fields as m42
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -81,6 +83,7 @@ from app.presentation.controllers.notifications_controller import router as noti
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 from app.presentation.controllers.expense_controller import router as expenses_router
+from app.presentation.controllers.cash_session_controller import router as cash_sessions_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
@@ -137,6 +140,8 @@ async def lifespan(app: FastAPI):
         ("move_maintenance_removal_days_to_services", m38.upgrade),
         ("reminder_flags_to_tracking", m39.upgrade),
         ("expenses_table", m40.upgrade),
+        ("cash_session_fields", m41.upgrade),
+        ("cash_reconciliation_fields", m42.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -252,6 +257,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
     app.include_router(expenses_router)
+    app.include_router(cash_sessions_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)

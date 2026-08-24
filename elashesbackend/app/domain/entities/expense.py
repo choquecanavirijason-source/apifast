@@ -1,6 +1,6 @@
+from datetime import datetime
 from sqlalchemy import Column, Integer, Float, String, Date, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 from app.infrastructure.database import Base
 
 
@@ -15,7 +15,7 @@ class Expense(Base):
     description = Column(String(500), nullable=False)
     expense_date = Column(Date, nullable=False)  # fecha del gasto (puede no ser hoy)
     photo_url = Column(String(500), nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     branch = relationship("Branch")
