@@ -4,7 +4,6 @@ export interface CommissionPaymentOut {
   id: number;
   professional_id: number;
   professional_name: string;
-  branch_name: string | null;
   amount: number;
   period_start: string | null;
   period_end: string | null;
@@ -23,7 +22,7 @@ export interface CommissionPaymentCreate {
 }
 
 export const CommissionPaymentsService = {
-  async list(params?: { professional_id?: number; branch_id?: number; from_date?: string; to_date?: string }): Promise<CommissionPaymentOut[]> {
+  async list(params?: { professional_id?: number; from_date?: string; to_date?: string }): Promise<CommissionPaymentOut[]> {
     const res = await api.get<CommissionPaymentOut[]>("/commission-payments", { params });
     return res.data;
   },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Banknote, DoorOpen, Download, Eye, Filter, History, ListChecks, Plus, Save, Trash2, Users } from "lucide-react";
+import { Banknote, DoorOpen, Download, Eye, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 import Layout from "@/components/common/layout";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
@@ -14,11 +14,6 @@ import {
 } from "@/core/services/cash-session/cash-session.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
-import { AgendaService, type ProfessionalForSelect } from "@/core/services/agenda/agenda.service";
-import {
-  CommissionPaymentsService,
-  type CommissionPaymentOut,
-} from "@/core/services/commission-payments/commission-payments.service";
 import variables from "@/core/config/variables";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -1084,196 +1079,8 @@ function HistorialGastosTab() {
 
 // ─── Página ────────────────────────────────────────────────────────────────────
 
-// ─── Pestaña: Comisiones pagadas ─────────────────────────────────────────────
-
-function ComisionesTab() {
-  const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
-  const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
-  const [professionalId, setProfessionalId] = useState<number | "">("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [payments, setPayments] = useState<CommissionPaymentOut[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await CommissionPaymentsService.list({
-        branch_id: branchId ?? undefined,
-        professional_id: professionalId || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
-      });
-      setPayments(data);
-    } catch {
-      toast.error("No se pudo cargar el historial de comisiones.");
-    } finally {
-      setLoading(false);
-    }
-  }, [branchId, professionalId, fromDate, toDate]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  // La lista de operarias para el filtro se acota a la sucursal elegida —
-  // si se cambia de sucursal, la operaria seleccionada deja de tener sentido.
-  useEffect(() => {
-    AgendaService.listProfessionalsForSelect({ branch_id: branchId ?? undefined, limit: 200 })
-      .then(setProfessionals)
-      .catch(() => setProfessionals([]));
-    setProfessionalId("");
-  }, [branchId]);
-
-  useEffect(() => {
-    const handleChange = () => setBranchId(getSelectedBranchId());
-    const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("branchchange", handleChange);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("branchchange", handleChange);
-    };
-  }, []);
-
-  const total = payments.reduce((s, p) => s + p.amount, 0);
-
-  const handleDownloadPdf = () => {
-    void generateTablePdf({
-      title: "Comisiones pagadas a operarias",
-      subtitle: `Total: ${moneyFormatter.format(total)} · ${payments.length} pago${payments.length !== 1 ? "s" : ""}`,
-      filename: "comisiones-pagadas",
-      columns: [
-        { header: "Fecha", key: "registered_at" },
-        { header: "Operaria", key: "professional_name" },
-        { header: "Sucursal", key: "branch_name" },
-        { header: "Monto", key: "amount" },
-        { header: "Período", key: "periodo" },
-        { header: "Notas", key: "notes" },
-        { header: "Registrado por", key: "registered_by_name" },
-      ],
-      rows: payments.map((p) => ({
-        registered_at: dateTimeFmt(p.registered_at),
-        professional_name: p.professional_name,
-        branch_name: p.branch_name ?? "—",
-        amount: moneyFormatter.format(p.amount),
-        periodo: p.period_start ? `${p.period_start} — ${p.period_end ?? "hoy"}` : "—",
-        notes: p.notes ?? "—",
-        registered_by_name: p.registered_by_name ?? "—",
-      })),
-    });
-  };
-
-  const columns: DataTableColumn<CommissionPaymentOut>[] = [
-    {
-      key: "registered_at",
-      header: "Fecha",
-      sortable: true,
-      getValue: (p) => p.registered_at,
-      render: (p) => <span className="text-xs text-[#605e5c]">{dateTimeFmt(p.registered_at)}</span>,
-    },
-    {
-      key: "professional_name",
-      header: "Operaria",
-      sortable: true,
-      render: (p) => <span className="text-xs font-medium text-[#323130]">{p.professional_name}</span>,
-    },
-    {
-      key: "branch_name",
-      header: "Sucursal",
-      sortable: true,
-      render: (p) => <span className="text-xs text-[#605e5c]">{p.branch_name ?? "—"}</span>,
-    },
-    {
-      key: "amount",
-      header: "Monto",
-      sortable: true,
-      getValue: (p) => p.amount,
-      render: (p) => (
-        <span className="text-xs font-semibold tabular-nums text-blue-700">{moneyFormatter.format(p.amount)}</span>
-      ),
-    },
-    {
-      key: "period",
-      header: "Período",
-      render: (p) =>
-        p.period_start ? (
-          <span className="text-xs text-[#605e5c]">{p.period_start} — {p.period_end ?? "hoy"}</span>
-        ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
-        ),
-    },
-    {
-      key: "notes",
-      header: "Notas",
-      render: (p) => <span className="text-xs text-[#605e5c]">{p.notes ?? "—"}</span>,
-    },
-    {
-      key: "registered_by_name",
-      header: "Registrado por",
-      render: (p) => <span className="text-xs text-[#605e5c]">{p.registered_by_name ?? "—"}</span>,
-    },
-  ];
-
-  return (
-    <>
-      <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-4">
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
-            <select
-              value={professionalId}
-              onChange={(e) => setProfessionalId(e.target.value ? Number(e.target.value) : "")}
-              className={`${fieldClass} mt-1`}
-            >
-              <option value="">Todas</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.username}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end gap-2">
-            <Button onClick={() => void load()} leftIcon={<Filter className="h-3.5 w-3.5" />} className="w-full">
-              Filtrar
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleDownloadPdf}
-              disabled={payments.length === 0}
-              leftIcon={<Download className="h-3.5 w-3.5" />}
-            >
-              PDF
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Comisiones pagadas"
-        subtitle={`Total: ${moneyFormatter.format(total)} · ${payments.length} pago${payments.length !== 1 ? "s" : ""}`}
-        bodyClassName="!p-0"
-      >
-        <DataTable
-          data={payments}
-          columns={columns}
-          loading={loading}
-          enableGlobalSearch={false}
-          enableColumnFilters={false}
-          defaultLimit={15}
-        />
-      </SectionCard>
-    </>
-  );
-}
-
 export default function Caja() {
-  const [activeTab, setActiveTab] = useState<"apertura" | "gastos" | "historial" | "comisiones">("apertura");
+  const [activeTab, setActiveTab] = useState<"apertura" | "gastos" | "historial">("apertura");
 
   return (
     <Layout title="Caja" subtitle="Apertura/cierre y registro de gastos de la sucursal activa." variant="cards">
@@ -1314,24 +1121,11 @@ export default function Caja() {
           <History className="h-3.5 w-3.5" />
           Historial de Gastos
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("comisiones")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "comisiones"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <Users className="h-3.5 w-3.5" />
-          Comisiones
-        </button>
       </div>
 
       {activeTab === "apertura" && <AperturaCierreTab />}
       {activeTab === "gastos" && <NuevoGastoTab />}
       {activeTab === "historial" && <HistorialGastosTab />}
-      {activeTab === "comisiones" && <ComisionesTab />}
     </Layout>
   );
 }
