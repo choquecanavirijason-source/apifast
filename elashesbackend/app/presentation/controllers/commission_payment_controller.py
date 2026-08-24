@@ -28,6 +28,7 @@ class CommissionPaymentOut(BaseModel):
     id: int
     professional_id: int
     professional_name: str
+    branch_name: Optional[str]
     amount: float
     period_start: Optional[str]
     period_end: Optional[str]
@@ -44,6 +45,7 @@ class CommissionPaymentOut(BaseModel):
 @router.get("", response_model=list[CommissionPaymentOut])
 def list_commission_payments(
     professional_id: Optional[int] = Query(default=None),
+    branch_id: Optional[int] = Query(default=None, ge=1),
     from_date: Optional[str] = Query(default=None),
     to_date: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
@@ -55,6 +57,10 @@ def list_commission_payments(
     )
     if professional_id:
         q = q.filter(CommissionPayment.professional_id == professional_id)
+    if branch_id:
+        # La sucursal es la de la operaria (User.branch_id), no un campo propio
+        # del pago — sirve para ver "cuánto se pagó en comisiones en esta sucursal".
+        q = q.join(User, User.id == CommissionPayment.professional_id).filter(User.branch_id == branch_id)
     if from_date:
         q = q.filter(CommissionPayment.registered_at >= from_date)
     if to_date:
@@ -67,6 +73,7 @@ def list_commission_payments(
             id=p.id,
             professional_id=p.professional_id,
             professional_name=p.professional.username if p.professional else "—",
+            branch_name=p.professional.branch.name if p.professional and p.professional.branch else None,
             amount=p.amount,
             period_start=p.period_start,
             period_end=p.period_end,
@@ -111,6 +118,7 @@ def create_commission_payment(
         id=payment.id,
         professional_id=payment.professional_id,
         professional_name=pro.username if pro else "—",
+        branch_name=pro.branch.name if pro and pro.branch else None,
         amount=payment.amount,
         period_start=payment.period_start,
         period_end=payment.period_end,
