@@ -173,6 +173,8 @@ function AperturaCierreTab() {
   const [liveDetail, setLiveDetail] = useState<CashSessionDetail | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+  const [historyFromDate, setHistoryFromDate] = useState("");
+  const [historyToDate, setHistoryToDate] = useState("");
 
   const load = useCallback(async () => {
     if (!branchId) {
@@ -197,14 +199,18 @@ function AperturaCierreTab() {
     }
     setHistoryLoading(true);
     try {
-      const data = await CashSessionService.list({ branch_id: branchId });
+      const data = await CashSessionService.list({
+        branch_id: branchId,
+        from_date: historyFromDate || undefined,
+        to_date: historyToDate || undefined,
+      });
       setHistory(data);
     } catch {
       toast.error("No se pudo cargar el historial de la caja.");
     } finally {
       setHistoryLoading(false);
     }
-  }, [branchId]);
+  }, [branchId, historyFromDate, historyToDate]);
 
   const loadLiveDetail = useCallback(async (sessionId: number) => {
     setLiveLoading(true);
@@ -411,8 +417,79 @@ function AperturaCierreTab() {
     },
   ];
 
+  const handleDownloadHistoryPdf = () => {
+    const branchName = history[0]?.branch_name ?? session?.branch_name ?? "—";
+    const rangeLabel = historyFromDate || historyToDate
+      ? `${historyFromDate ? new Date(historyFromDate).toLocaleDateString("es-BO") : "inicio"} — ${historyToDate ? new Date(historyToDate).toLocaleDateString("es-BO") : "hoy"}`
+      : "Todo el período";
+    void generateTablePdf({
+      title: "Historial de apertura y cierre",
+      subtitle: `${branchName} · ${rangeLabel}`,
+      filename: "historial-apertura-cierre",
+      orientation: "landscape",
+      columns: [
+        { header: "Estado", key: "estado" },
+        { header: "Abierta por", key: "opened_by_name" },
+        { header: "Apertura", key: "opened_at" },
+        { header: "Monto inicial", key: "opening_amount" },
+        { header: "Cerrada por", key: "closed_by_name" },
+        { header: "Cierre", key: "closed_at" },
+        { header: "Total vendido", key: "grand_total" },
+        { header: "Esperado", key: "expected_cash" },
+        { header: "Contado", key: "counted_amount" },
+        { header: "Sobra/Falta", key: "difference" },
+      ],
+      rows: history.map((s) => ({
+        estado: s.status === "open" ? "Abierta" : "Cerrada",
+        opened_by_name: s.opened_by_name ?? "—",
+        opened_at: dateTimeFmt(s.opened_at),
+        opening_amount: moneyFormatter.format(s.opening_amount ?? 0),
+        closed_by_name: s.closed_by_name ?? "—",
+        closed_at: s.closed_at ? dateTimeFmt(s.closed_at) : "—",
+        grand_total: s.status === "closed" ? moneyFormatter.format(s.grand_total) : "—",
+        expected_cash: s.expected_cash !== null ? moneyFormatter.format(s.expected_cash) : "—",
+        counted_amount: s.counted_amount !== null ? moneyFormatter.format(s.counted_amount) : "—",
+        difference: s.difference !== null ? moneyFormatter.format(s.difference) : "—",
+      })),
+    });
+  };
+
   const historyTable = branchId ? (
     <SectionCard title="Historial de apertura y cierre" bodyClassName="!p-0">
+      <div className="grid gap-3 border-b border-[#edebe9] p-3 sm:grid-cols-4">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+          <input
+            type="date"
+            value={historyFromDate}
+            onChange={(e) => setHistoryFromDate(e.target.value)}
+            className={`${fieldClass} mt-1`}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+          <input
+            type="date"
+            value={historyToDate}
+            onChange={(e) => setHistoryToDate(e.target.value)}
+            className={`${fieldClass} mt-1`}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button onClick={() => void loadHistory()} className="w-full">Filtrar</Button>
+        </div>
+        <div className="flex items-end">
+          <Button
+            variant="secondary"
+            onClick={handleDownloadHistoryPdf}
+            disabled={history.length === 0}
+            leftIcon={<Download className="h-3.5 w-3.5" />}
+            className="w-full"
+          >
+            PDF
+          </Button>
+        </div>
+      </div>
       <DataTable
         data={history}
         columns={historyColumns}
