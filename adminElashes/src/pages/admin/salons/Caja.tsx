@@ -5,6 +5,7 @@ import Layout from "@/components/common/layout";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 import GenericModal from "@/components/common/modal/GenericModal";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ExpenseService, type ExpenseOut } from "@/core/services/expense/expense.service";
 import {
   CashSessionService,
@@ -171,6 +172,7 @@ function AperturaCierreTab() {
   const [detailSessionId, setDetailSessionId] = useState<number | null>(null);
   const [liveDetail, setLiveDetail] = useState<CashSessionDetail | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!branchId) {
@@ -269,14 +271,19 @@ function AperturaCierreTab() {
     }
   };
 
-  const handleClose = async () => {
+  const handleClose = () => {
     if (!session) return;
     const counted = parseFloat(countedAmount);
     if (!countedAmount.trim() || Number.isNaN(counted) || counted < 0) {
       toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
       return;
     }
-    if (!confirm("¿Cerrar la caja de esta sucursal?")) return;
+    setIsCloseConfirmOpen(true);
+  };
+
+  const performClose = async () => {
+    if (!session) return;
+    const counted = parseFloat(countedAmount);
     setSubmitting(true);
     try {
       const closed = await CashSessionService.close(session.id, counted, closeNotes.trim() || undefined);
@@ -290,6 +297,7 @@ function AperturaCierreTab() {
       toast.error("No se pudo cerrar la caja.");
     } finally {
       setSubmitting(false);
+      setIsCloseConfirmOpen(false);
     }
   };
 
@@ -528,7 +536,7 @@ function AperturaCierreTab() {
           <div className="mt-3">
             <Button
               variant="danger"
-              onClick={() => void handleClose()}
+              onClick={handleClose}
               disabled={submitting || !countedAmount.trim()}
               leftIcon={<DoorOpen className="h-4 w-4" />}
             >
@@ -538,6 +546,16 @@ function AperturaCierreTab() {
         </div>
       </SectionCard>
       {historyTable}
+      <ConfirmDialog
+        isOpen={isCloseConfirmOpen}
+        title="Cerrar caja"
+        message="¿Cerrar la caja de esta sucursal? No vas a poder registrar más ventas ahí hasta que se vuelva a abrir."
+        confirmText="Cerrar caja"
+        variant="danger"
+        isProcessing={submitting}
+        onConfirm={() => void performClose()}
+        onCancel={() => setIsCloseConfirmOpen(false)}
+      />
       </>
     );
   }
@@ -865,6 +883,8 @@ function HistorialGastosTab() {
   const [loading, setLoading] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [deletingExpense, setDeletingExpense] = useState<ExpenseOut | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -895,14 +915,18 @@ function HistorialGastosTab() {
     };
   }, []);
 
-  const handleDelete = async (expense: ExpenseOut) => {
-    if (!confirm(`¿Eliminar el gasto "${expense.description}" (${moneyFormatter.format(expense.amount)})?`)) return;
+  const performDelete = async () => {
+    if (!deletingExpense) return;
+    setDeleting(true);
     try {
-      await ExpenseService.remove(expense.id);
+      await ExpenseService.remove(deletingExpense.id);
       toast.success("Gasto eliminado.");
       void load();
     } catch {
       toast.error("No se pudo eliminar el gasto.");
+    } finally {
+      setDeleting(false);
+      setDeletingExpense(null);
     }
   };
 
@@ -987,7 +1011,7 @@ function HistorialGastosTab() {
     {
       label: "Eliminar",
       icon: <Trash2 className="h-4 w-4" />,
-      onClick: (e) => void handleDelete(e),
+      onClick: (e) => setDeletingExpense(e),
       variant: "danger",
     },
   ];
@@ -1035,6 +1059,20 @@ function HistorialGastosTab() {
           defaultLimit={15}
         />
       </SectionCard>
+      <ConfirmDialog
+        isOpen={deletingExpense !== null}
+        title="Eliminar gasto"
+        message={
+          deletingExpense
+            ? `¿Eliminar el gasto "${deletingExpense.description}" (${moneyFormatter.format(deletingExpense.amount)})?`
+            : ""
+        }
+        confirmText="Eliminar"
+        variant="danger"
+        isProcessing={deleting}
+        onConfirm={() => void performDelete()}
+        onCancel={() => setDeletingExpense(null)}
+      />
     </>
   );
 }
