@@ -458,26 +458,39 @@ function AperturaCierreTab() {
         </div>
         {session.notes && <p className="mt-3 text-xs text-[#605e5c]">Nota: {session.notes}</p>}
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Esperado en caja ahora mismo</p>
-            <p className="text-lg font-bold tabular-nums text-blue-900">
-              {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
-            </p>
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Esperado en caja (solo efectivo)</p>
+              <p className="text-lg font-bold tabular-nums text-blue-900">
+                {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
+              </p>
+              {liveDetail && (
+                <span className="text-xs text-blue-700">
+                  inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total vendido (todos los métodos)</p>
+              <p className="text-lg font-bold tabular-nums text-emerald-800">
+                {liveDetail ? moneyFormatter.format(liveDetail.income_by_method.total) : "…"}
+              </p>
+              {liveDetail && (
+                <span className="text-xs text-emerald-700">
+                  efectivo {moneyFormatter.format(liveDetail.income_by_method.efectivo)} · tarjeta {moneyFormatter.format(liveDetail.income_by_method.tarjeta)} · transferencia {moneyFormatter.format(liveDetail.income_by_method.transferencia)} · QR {moneyFormatter.format(liveDetail.income_by_method.qr)}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadLiveDetail(session.id)}
+              disabled={liveLoading}
+              className="ml-auto text-xs font-semibold text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+            >
+              {liveLoading ? "Actualizando…" : "Actualizar ahora"}
+            </button>
           </div>
-          {liveDetail && (
-            <span className="text-xs text-blue-700">
-              (inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)})
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void loadLiveDetail(session.id)}
-            disabled={liveLoading}
-            className="ml-auto text-xs font-semibold text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
-          >
-            {liveLoading ? "Actualizando…" : "Actualizar ahora"}
-          </button>
         </div>
 
         <div className="mt-5 border-t border-[#edebe9] pt-4">
