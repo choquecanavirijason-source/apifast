@@ -27,14 +27,16 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 
 @router.get("/daily-closing", response_model=DailyClosingResponse)
 def get_daily_closing(
-    date: str = Query(..., description="Fecha en formato YYYY-MM-DD"),
+    date: str = Query(..., description="Fecha inicio en formato YYYY-MM-DD"),
+    to_date: Optional[str] = Query(default=None, description="Fecha fin (YYYY-MM-DD) — si no viene, es un solo día"),
     branch_id: Optional[int] = Query(default=None, ge=1),
     professional_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     _: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
     try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        from_date_val = datetime.strptime(date, "%Y-%m-%d").date()
+        to_date_val = datetime.strptime(to_date, "%Y-%m-%d").date() if to_date else from_date_val
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
 
@@ -47,7 +49,7 @@ def get_daily_closing(
             joinedload(Appointment.service),
             joinedload(Appointment.appointment_services).joinedload(AppointmentService.service),
         )
-        .filter(func.date(Appointment.start_time) == target_date)
+        .filter(func.date(Appointment.start_time).between(from_date_val, to_date_val))
     )
 
     if branch_id:
@@ -215,6 +217,7 @@ def get_daily_closing(
 
     return DailyClosingResponse(
         date=date,
+        to_date=to_date,
         branch_id=branch_id,
         branch_name=branch_name_label,
         items=items,

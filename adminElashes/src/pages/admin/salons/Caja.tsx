@@ -175,6 +175,7 @@ function AperturaCierreTab() {
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [historyFromDate, setHistoryFromDate] = useState("");
   const [historyToDate, setHistoryToDate] = useState("");
+  const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!branchId) {
@@ -268,6 +269,7 @@ function AperturaCierreTab() {
       setOpeningAmount("");
       setOpenNotes("");
       setLastClosed(null);
+      setIsOpenModalOpen(false);
       void load();
       void loadHistory();
     } catch {
@@ -524,7 +526,19 @@ function AperturaCierreTab() {
   if (session) {
     return (
       <>
-      <SectionCard title={`Caja abierta — ${session.branch_name}`}>
+      <SectionCard
+        title={`Caja abierta — ${session.branch_name}`}
+        actions={
+          <Button
+            variant="danger"
+            onClick={handleClose}
+            disabled={submitting || !countedAmount.trim()}
+            leftIcon={<DoorOpen className="h-4 w-4" />}
+          >
+            {submitting ? "Cerrando…" : "Cerrar caja"}
+          </Button>
+        }
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Abierta por</p>
@@ -610,16 +624,6 @@ function AperturaCierreTab() {
               />
             </div>
           </div>
-          <div className="mt-3">
-            <Button
-              variant="danger"
-              onClick={handleClose}
-              disabled={submitting || !countedAmount.trim()}
-              leftIcon={<DoorOpen className="h-4 w-4" />}
-            >
-              {submitting ? "Cerrando…" : "Cerrar caja"}
-            </Button>
-          </div>
         </div>
       </SectionCard>
       {historyTable}
@@ -675,17 +679,43 @@ function AperturaCierreTab() {
         </div>
       </SectionCard>
     )}
-    <SectionCard title="Abrir caja">
-      <p className="mb-4 text-sm text-slate-500">
+    <SectionCard
+      title="Abrir caja"
+      actions={
+        <Button onClick={() => setIsOpenModalOpen(true)} leftIcon={<DoorOpen className="h-4 w-4" />}>
+          Abrir caja
+        </Button>
+      }
+    >
+      <p className="text-sm text-slate-500">
         Esta sucursal no tiene la caja abierta — hasta que se abra, el POS no va a dejar registrar ventas ahí.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+    </SectionCard>
+    {historyTable}
+    <GenericModal
+      isOpen={isOpenModalOpen}
+      onClose={() => setIsOpenModalOpen(false)}
+      title="Abrir caja"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={() => setIsOpenModalOpen(false)} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void handleOpen()} disabled={submitting} leftIcon={<DoorOpen className="h-4 w-4" />}>
+            {submitting ? "Abriendo…" : "Abrir caja"}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Monto inicial</label>
           <input
             type="number"
             min="0"
             step="0.01"
+            autoFocus
             value={openingAmount}
             onChange={(e) => setOpeningAmount(e.target.value)}
             placeholder="0.00"
@@ -703,13 +733,7 @@ function AperturaCierreTab() {
           />
         </div>
       </div>
-      <div className="mt-4">
-        <Button onClick={() => void handleOpen()} disabled={submitting} leftIcon={<DoorOpen className="h-4 w-4" />}>
-          {submitting ? "Abriendo…" : "Abrir caja"}
-        </Button>
-      </div>
-    </SectionCard>
-    {historyTable}
+    </GenericModal>
     </>
   );
 }

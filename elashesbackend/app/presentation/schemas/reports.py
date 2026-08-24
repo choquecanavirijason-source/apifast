@@ -41,6 +41,7 @@ class ProfessionalSummary(BaseModel):
 
 class DailyClosingResponse(BaseModel):
     date: str
+    to_date: Optional[str] = None
     branch_id: Optional[int] = None
     branch_name: Optional[str] = None
     items: List[DailyClosingItem]

@@ -14,6 +14,7 @@ import {
   type DailyClosingItem,
   type DailyClosingResponse,
 } from "../../../core/services/reports/reports.service";
+import { CommissionPaymentsService } from "../../../core/services/commission-payments/commission-payments.service";
 import { getLogoUrlForPdf } from "../../../core/hooks/useLogo";
 
 type DailyClosingItemWithId = DailyClosingItem & { id: number };
@@ -80,7 +81,7 @@ function PaymentBadge({ method }: { method: string | null }) {
 // ── Impresión ─────────────────────────────────────────────────────────────────
 
 async function printReport(
-  date: string,
+  dateLabel: string,
   branchName: string,
   professionalName: string,
   report: DailyClosingResponse,
@@ -136,7 +137,7 @@ async function printReport(
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Cierre de Caja – ${date}</title>
+  <title>Cierre de Caja – ${dateLabel}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 10px; padding: 16px; color: #1a1a1a; }
@@ -155,7 +156,7 @@ async function printReport(
 <body>
   ${logoHtml}
   <h2>Cierre de Caja</h2>
-  <p class="sub">Fecha: ${date}${branchName ? " · " + branchName : ""}${professionalName ? " · Operaria: " + professionalName : ""}</p>
+  <p class="sub">Fecha: ${dateLabel}${branchName ? " · " + branchName : ""}${professionalName ? " · Operaria: " + professionalName : ""}</p>
 
   <div class="summary-grid">
     <div>
@@ -208,6 +209,7 @@ async function printReport(
 
 const EMPTY_REPORT: DailyClosingResponse = {
   date: "",
+  to_date: null,
   branch_id: null,
   branch_name: null,
   items: [],
@@ -220,7 +222,8 @@ const EMPTY_REPORT: DailyClosingResponse = {
 };
 
 export default function CierreDeCaja() {
-  const [date, setDate] = useState(todayStr());
+  const [fromDate, setFromDate] = useState(todayStr());
+  const [toDate, setToDate] = useState(todayStr());
   const [branchId, setBranchId] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
@@ -241,8 +244,7 @@ export default function CierreDeCaja() {
       setCobrandoSaleId(null);
       // Recargar reporte
       setLoading(true);
-      setPaymentConfirmations({});
-      ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+      ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
         .then(setReport).catch(() => {}).finally(() => setLoading(false));
     } catch {
       toast.error("No se pudo registrar el pago.");
@@ -250,14 +252,47 @@ export default function CierreDeCaja() {
       setCobrandoLoading(false);
     }
   };
-  // Confirmaciones de pago: key = professionalId o nombre, value = { confirmedAt, amount }
-  const [paymentConfirmations, setPaymentConfirmations] = useState<Record<string, { confirmedAt: string; amount: number }>>({});
 
-  const confirmPayment = (professionalKey: string, amount: number) => {
-    setPaymentConfirmations((prev) => ({
-      ...prev,
-      [professionalKey]: { confirmedAt: new Date().toLocaleString("es-BO"), amount },
-    }));
+  // Confirmaciones de entrega de comisión — persistidas como CommissionPayment
+  // (period_start/period_end == el rango de fechas elegido arriba), para que
+  // sobrevivan a un refresco de página en vez de vivir solo en memoria.
+  // key = professional_id, value = { confirmedAt, amount }
+  const [paymentConfirmations, setPaymentConfirmations] = useState<Record<string, { confirmedAt: string; amount: number }>>({});
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+
+  const loadConfirmations = () => {
+    CommissionPaymentsService.list({ period_start: fromDate, period_end: toDate })
+      .then((payments) => {
+        const map: Record<string, { confirmedAt: string; amount: number }> = {};
+        for (const p of payments) {
+          map[String(p.professional_id)] = {
+            confirmedAt: new Date(p.registered_at).toLocaleString("es-BO"),
+            amount: p.amount,
+          };
+        }
+        setPaymentConfirmations(map);
+      })
+      .catch(() => {});
+  };
+
+  const confirmPayment = async (professionalKey: string, amount: number) => {
+    const professionalId = Number(professionalKey);
+    if (Number.isNaN(professionalId)) return;
+    setConfirmingKey(professionalKey);
+    try {
+      await CommissionPaymentsService.create({
+        professional_id: professionalId,
+        amount,
+        period_start: fromDate,
+        period_end: toDate,
+        notes: "Confirmado desde Cierre de Caja",
+      });
+      loadConfirmations();
+    } catch {
+      toast.error("No se pudo guardar la confirmación.");
+    } finally {
+      setConfirmingKey(null);
+    }
   };
 
   useEffect(() => {
@@ -283,12 +318,12 @@ export default function CierreDeCaja() {
 
   useEffect(() => {
     setLoading(true);
-    setPaymentConfirmations({});
-    ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+    ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
       .then(setReport)
       .catch(() => toast.error("Error al cargar el reporte"))
       .finally(() => setLoading(false));
-  }, [date, branchId, professionalId]);
+    loadConfirmations();
+  }, [fromDate, toDate, branchId, professionalId]);
 
   const updateStatus = async (id: number, newStatus: string) => {
     setUpdatingId(id);
@@ -297,7 +332,7 @@ export default function CierreDeCaja() {
       toast.success(newStatus === "completed" ? "Ticket finalizado" : "Ticket cancelado");
       // Recargar reporte completo para que comisiones y totales queden correctos
       setLoading(true);
-      ReportsService.getDailyClosing({ date, branch_id: branchId, professional_id: professionalId })
+      ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
         .then(setReport)
         .catch(() => toast.error("Error al recargar el reporte"))
         .finally(() => setLoading(false));
@@ -516,7 +551,15 @@ export default function CierreDeCaja() {
         <Button
           variant="primary"
           leftIcon={<Printer size={15} />}
-          onClick={() => void printReport(date, selectedBranchName, selectedProfessionalName, report, paymentConfirmations)}
+          onClick={() =>
+            void printReport(
+              fromDate === toDate ? fromDate : `${fromDate} — ${toDate}`,
+              selectedBranchName,
+              selectedProfessionalName,
+              report,
+              paymentConfirmations,
+            )
+          }
           disabled={report.items.length === 0}
         >
           Imprimir PDF
@@ -526,11 +569,25 @@ export default function CierreDeCaja() {
       {/* Filtros */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
           <input
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={fromDate}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFromDate(value);
+              if (value > toDate) setToDate(value);
+            }}
+            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate}
+            onChange={(e) => setToDate(e.target.value)}
             className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
           />
         </div>
@@ -631,9 +688,10 @@ export default function CierreDeCaja() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => confirmPayment(key, p.commission)}
+                          onClick={() => void confirmPayment(key, p.commission)}
+                          disabled={confirmingKey === key || !p.professional_id}
                         >
-                          Confirmar recibo
+                          {confirmingKey === key ? "Guardando…" : "Confirmar recibo"}
                         </Button>
                       )}
                     </td>

@@ -33,6 +33,7 @@ export interface ProfessionalSummary {
 
 export interface DailyClosingResponse {
   date: string;
+  to_date: string | null;
   branch_id: number | null;
   branch_name: string | null;
   items: DailyClosingItem[];
@@ -47,10 +48,12 @@ export interface DailyClosingResponse {
 export const ReportsService = {
   async getDailyClosing(params: {
     date: string;
+    to_date?: string | null;
     branch_id?: number | null;
     professional_id?: number | null;
   }): Promise<DailyClosingResponse> {
     const query: Record<string, string | number> = { date: params.date };
+    if (params.to_date) query.to_date = params.to_date;
     if (params.branch_id)     query.branch_id     = params.branch_id;
     if (params.professional_id) query.professional_id = params.professional_id;
     const res = await api.get<DailyClosingResponse>("/reports/daily-closing", { params: query });
