@@ -27,7 +27,9 @@ class MixedPaymentEntry(BaseModel):
 
 
 class PosSaleCreate(BaseModel):
-    client_id: int = Field(..., ge=1)
+    # Opcional: si no viene, la venta se registra con el "Cliente Mostrador"
+    # de la sucursal (walk-in) para no frenar el servicio por falta de datos.
+    client_id: Optional[int] = Field(default=None, ge=1)
     branch_id: Optional[int] = Field(default=None, ge=1)
     payment_method: str = Field(default="cash", min_length=2, max_length=50)
     discount_type: Literal["amount", "percent"] = "amount"

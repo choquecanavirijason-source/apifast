@@ -100,6 +100,7 @@ export default function PosSaleStepOne({
   const handleAddServiceToCart = (service: (typeof quickServices)[number]) => {
     onAddServiceToCart(service);
     showAddedMessage(service.name || "Servicio");
+    setIsCartOpen(true);
   };
 
   const handleServiceSelect = (serviceId: string) => {
@@ -108,6 +109,7 @@ export default function PosSaleStepOne({
       filteredServices.find((s) => String(s.id) === serviceId) ||
       services.find((s) => String(s.id) === serviceId);
     showAddedMessage(svc?.name || "Servicio");
+    setIsCartOpen(true);
   };
 
   const handleAddServiceById = (serviceId: string) => {
@@ -115,6 +117,7 @@ export default function PosSaleStepOne({
     if (!svc) return;
     onAddServiceToCart(svc);
     showAddedMessage(svc.name || "Servicio");
+    setIsCartOpen(true);
   };
 
   const handleChangeLineService = (localId: string, serviceId: string) => {
@@ -130,9 +133,9 @@ export default function PosSaleStepOne({
 
   return (
     <div
-      className={`relative flex h-full min-h-0 w-full flex-col bg-[#f3f2f1] text-[#323130] ${
+      className={`relative flex h-full min-h-0 w-full flex-col bg-[#f3f2f1] text-[#323130] transition-[padding] duration-200 ${
         isLoading ? "pointer-events-none opacity-60" : ""
-      }`}
+      } ${isCartOpen ? "pr-112 sm:pr-128" : ""}`}
     >
       {/* Toast de confirmación */}
       {addToCartMessage && (

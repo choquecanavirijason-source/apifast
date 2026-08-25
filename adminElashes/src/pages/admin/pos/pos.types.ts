@@ -103,8 +103,8 @@ export type PosSaleStepOneProps = {
   finalizeSaleLabel: string;
   finalizeFooterHint: string;
   onFinalizeSale: () => void;
-  /** Crea turno inmediato con la hora actual, sin abrir el planificador. payLater=true → cobra al finalizar. */
-  onCreateImmediateTicket: (payLater: boolean) => void;
+  /** Crea turno inmediato con la hora actual, sin abrir el planificador. payLater=true → cobra al finalizar. startService=true → pasa el ticket directo a "En servicio" (botón "Pasar a servicio"). */
+  onCreateImmediateTicket: (payLater: boolean, startService?: boolean) => void;
   isSubmittingCheckout: boolean;
   linkAppointmentId: number | null;
   ticketPreviews: PosCheckoutTicketPreview[];

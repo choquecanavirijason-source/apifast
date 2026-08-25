@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import StreamingResponse
@@ -28,10 +28,12 @@ router = APIRouter(
 def get_sales(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=300),
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    client_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
-    return list_sales(db=db, skip=skip, limit=limit)
+    return list_sales(db=db, skip=skip, limit=limit, branch_id=branch_id, client_id=client_id)
 
 
 @router.get("/{sale_id}", response_model=PosSaleResponse)

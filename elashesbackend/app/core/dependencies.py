@@ -128,6 +128,21 @@ def resolve_branch_id(requested: Optional[int], current_user: User) -> Optional[
     return current_user.branch_id
 
 
+def enforce_own_branch(payload_branch_id: Optional[int], current_user: User) -> None:
+    """Bloquea a un rol acotado a su sucursal (ej. Cajera, Operaria) de vender
+    o crear turnos en OTRA sucursal distinta a la suya — antes solo la UI
+    ocultaba el selector, pero nada impedía mandar otro branch_id directo
+    a la API. SuperAdmin/Admin/Secretaria quedan exentos (ver resolve_branch_id)."""
+    if payload_branch_id is None:
+        return
+    allowed = resolve_branch_id(payload_branch_id, current_user)
+    if allowed != payload_branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No podés operar en una sucursal distinta a la tuya.",
+        )
+
+
 def require_any_permission(*permission_names: str) -> Callable:
     """Permite acceso si el usuario tiene al menos uno de los permisos indicados."""
     def permission_checker(

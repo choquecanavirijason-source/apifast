@@ -13,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { ChevronDown, RefreshCw, Tv2, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
 
@@ -20,9 +21,11 @@ import Layout from "../../../components/common/layout";
 import { Button } from "../../../components/common/ui";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { AgendaService, type ProfessionalForSelect, type ServiceCategoryOption, type ServiceOption, type TicketItem } from "../../../core/services/agenda/agenda.service";
-import { CatalogService, type CatalogItem, type QuestionnaireItem } from "../../../core/services/catalog/catalog.service";
-import { ClientService } from "../../../core/services/client/client.service";
+import { AgendaService, type ClientForSelect, type ProfessionalForSelect, type ServiceCategoryOption, type ServiceOption, type TicketItem } from "../../../core/services/agenda/agenda.service";
+import { CatalogService, type QuestionnaireItem } from "../../../core/services/catalog/catalog.service";
+import { ClientService, type EyeTypeOption } from "../../../core/services/client/client.service";
+import { BranchService } from "../../../core/services/branch/branch.service";
+import RegisterClientModal from "../clients/RegisterClientModal";
 import { TrackingService } from "../../../core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
@@ -54,38 +57,16 @@ import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 const SHOW_ALL_DATES_FOR_TESTING = true;
 
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<TicketItem[]>([]);
-  const [trackedTicketIds, setTrackedTicketIds] = useState<Set<number>>(() => {
-    try {
-      const raw = sessionStorage.getItem("cds_tracked_ids");
-      if (raw) return new Set(JSON.parse(raw) as number[]);
-    } catch { /* ignore */ }
-    return new Set<number>();
-  });
-
-  const addTrackedId = (id: number) => {
-    setTrackedTicketIds((prev) => {
-      const next = new Set([...prev, id]);
-      try { sessionStorage.setItem("cds_tracked_ids", JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
-  };
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
-  const [eyeTypes, setEyeTypes] = useState<CatalogItem[]>([]);
-  const [effects, setEffects] = useState<CatalogItem[]>([]);
-  const [volumes, setVolumes] = useState<CatalogItem[]>([]);
-  const [lashDesigns, setLashDesigns] = useState<CatalogItem[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireItem[]>([]);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [finishTarget, setFinishTarget] = useState<TicketItem | null>(null);
   const [finishNotes, setFinishNotes] = useState("");
   const [finishProfessionalId, setFinishProfessionalId] = useState("");
-  const [finishEyeTypeId, setFinishEyeTypeId] = useState("");
-  const [finishEffectId, setFinishEffectId] = useState("");
-  const [finishVolumeId, setFinishVolumeId] = useState("");
-  const [finishLashDesignId, setFinishLashDesignId] = useState("");
   const [finishQuestionnaireId, setFinishQuestionnaireId] = useState("");
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireItem | null>(null);
   const [questionnaireResponses, setQuestionnaireResponses] = useState<Record<string, unknown>>({});
@@ -111,6 +92,20 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [categoriesLookup, setCategoriesLookup] = useState<ServiceCategoryOption[]>([]);
   const [categoryRequiresQuestionnaire, setCategoryRequiresQuestionnaire] = useState(false);
   const [finishSiblingIds, setFinishSiblingIds] = useState<number[]>([]);
+
+  // Clienta del ticket — se puede corregir/asignar antes de finalizar en vez
+  // de quedarse con "Cliente Mostrador" para siempre.
+  const [clients, setClients] = useState<ClientForSelect[]>([]);
+  const [eyeTypes, setEyeTypes] = useState<EyeTypeOption[]>([]);
+  const [eyeTypesError, setEyeTypesError] = useState<string | null>(null);
+  const [isLoadingEyeTypes, setIsLoadingEyeTypes] = useState(false);
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [registerClientTarget, setRegisterClientTarget] = useState<TicketItem | null>(null);
+
+  // Cola por operaria: si al liberarse una operaria hay clientas esperándola
+  // específicamente (ya asignadas mientras estaba ocupada), se pregunta si
+  // arrancar con la siguiente en vez de hacerlo solo/automático.
+  const [queuePromptTicket, setQueuePromptTicket] = useState<TicketItem | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
@@ -165,13 +160,19 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       if (event.event === "ticket_deleted") {
         return prev.filter((t) => t.id !== event.ticket_id);
       }
+      // event.professional_id ya viene con el valor real (puede ser null si
+      // se quitó la operaria) — usar "??" acá pisaba ese null con el valor
+      // viejo y la operaria "revivía" en la tarjeta apenas llegaba el evento.
+      const professional = event.professional_id != null
+        ? professionals.find((p) => p.id === event.professional_id)
+        : null;
       return prev.map((t) =>
         t.id === event.ticket_id
-          ? { ...t, status: event.status, professional_id: event.professional_id ?? t.professional_id }
+          ? { ...t, status: event.status, professional_id: event.professional_id, professional_name: professional?.username ?? null }
           : t
       );
     });
-  }, [loadTickets]);
+  }, [loadTickets, professionals]);
 
   useWebSocket(activeBranchId, applyWsEvent);
 
@@ -227,23 +228,30 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       });
   }, [activeBranchId]);
 
+  // Clientas para poder asignarlas/corregirlas en un ticket antes de finalizar
   useEffect(() => {
-    CatalogService.listEyeTypes({ limit: 200 })
+    AgendaService.listClientsForSelect({
+      limit: 200,
+      ...(activeBranchId ? { branch_id: activeBranchId } : {}),
+    })
+      .then(setClients)
+      .catch(() => setClients([]));
+  }, [activeBranchId]);
+
+  useEffect(() => {
+    setIsLoadingEyeTypes(true);
+    setEyeTypesError(null);
+    ClientService.listEyeTypes({ limit: 100 })
       .then(setEyeTypes)
-      .catch(() => setEyeTypes([]));
+      .catch(() => setEyeTypesError("No se pudieron cargar. Intenta de nuevo."))
+      .finally(() => setIsLoadingEyeTypes(false));
 
-    CatalogService.listEffects({ limit: 200 })
-      .then(setEffects)
-      .catch(() => setEffects([]));
+    BranchService.list({ limit: 200 })
+      .then(setBranches)
+      .catch(() => setBranches([]));
+  }, []);
 
-    CatalogService.listVolumes({ limit: 200 })
-      .then(setVolumes)
-      .catch(() => setVolumes([]));
-
-    CatalogService.listLashDesigns({ limit: 200 })
-      .then(setLashDesigns)
-      .catch(() => setLashDesigns([]));
-
+  useEffect(() => {
     CatalogService.listQuestionnaires({ limit: 200 })
       .then(setQuestionnaires)
       .catch(() => setQuestionnaires([]));
@@ -369,10 +377,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     };
   }, [finishTarget, servicesLookup, categoriesLookup]);
 
+  // Orden de llegada: el ticket más viejo (id más chico) primero, los nuevos
+  // se van agregando al final de la columna en vez de aparecer arriba.
+  const byArrivalOrder = (a: TicketItem, b: TicketItem) => a.id - b.id;
+
   const waitingTickets = useMemo(
     () => mergeTicketsBySaleId(
       filteredTickets.filter((ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status))
-    ),
+    ).sort(byArrivalOrder),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredTickets]
   );
@@ -380,17 +392,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const inServiceTickets = useMemo(
     () => mergeTicketsBySaleId(
       filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "in_service")
-    ),
+    ).sort(byArrivalOrder),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredTickets]
   );
 
   const completedTickets = useMemo(
     () => mergeTicketsBySaleId(
-      filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed" && !trackedTicketIds.has(ticket.id))
-    ),
+      filteredTickets.filter((ticket) => !ticket.is_ia && ticket.status === "completed")
+    ).sort(byArrivalOrder),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredTickets, trackedTicketIds]
+    [filteredTickets]
   );
 
   const operariaStatuses = useOperariaStatuses(tickets, professionals);
@@ -453,7 +465,12 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     const snapshot = tickets;
     applyGroupMoveLocally(allIds, { status: "in_service" });
     try {
-      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "in_service" })));
+      // El chequeo que importa acá (¿la operaria ya está atendiendo a otra
+      // persona ahora mismo?) ya se hizo arriba. El chequeo de "choque de
+      // horario" del backend es para agenda reservada — los tickets en cola
+      // suelen compartir el mismo horario "de relleno" entre sí, así que ese
+      // chequeo los rechazaba sin que hubiera ningún conflicto real.
+      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "in_service", skip_availability_check: true })));
       toast.success("Atención iniciada.");
       void loadTickets();
     } catch (error) {
@@ -461,6 +478,24 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       console.error("Error iniciando atención:", error);
       toast.error(getApiErrorMessage(error, "No se pudo iniciar la atención."));
     }
+  };
+
+  // Se llama después de finalizar/completar un ticket — si la operaria que
+  // acaba de liberarse tiene otra clienta esperándola (ya asignada), ofrece
+  // pasarla a servicio en vez de dejarlo para que alguien se acuerde solo.
+  const checkQueueForFreedOperaria = (professionalId: number | null | undefined) => {
+    if (!professionalId) return;
+    const next = [...waitingTickets]
+      .filter((t) => t.professional_id === professionalId)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
+    if (next) setQueuePromptTicket(next);
+  };
+
+  const handleConfirmQueueStart = async () => {
+    if (!queuePromptTicket) return;
+    const ticket = queuePromptTicket;
+    setQueuePromptTicket(null);
+    await handleStartService(ticket);
   };
 
   const handleOpenFinishModal = (ticket: TicketItem) => {
@@ -483,11 +518,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     setFinishTarget(ticket);
     setFinishSiblingIds(getSiblingIds(ticket));
     setFinishNotes("");
-    setFinishProfessionalId("");
-    setFinishEyeTypeId("");
-    setFinishEffectId("");
-    setFinishVolumeId("");
-    setFinishLashDesignId("");
+    // Precargar con la operaria que ya está asignada al ticket — si no se
+    // toca el selector, no debería volver a pedirla como si no hubiera nadie.
+    setFinishProfessionalId(ticket.professional_id ? String(ticket.professional_id) : "");
     setFinishQuestionnaireId(autoQuestionnaireId);
     setCategoryRequiresQuestionnaire(autoRequired);
     setQuestionnaire(null);
@@ -545,8 +578,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
 
     setIsSubmittingTracking(true);
-
-    const targetId = finishTarget.id;
+    const freedProfessionalId = finishTarget.professional_id;
 
     try {
       await TrackingService.create({
@@ -554,10 +586,6 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         appointment_id: finishTarget.id,
         branch_id: activeBranchId,
         professional_id: finishProfessionalId ? Number(finishProfessionalId) : undefined,
-        eye_type_id: finishEyeTypeId ? Number(finishEyeTypeId) : undefined,
-        effect_id: finishEffectId ? Number(finishEffectId) : undefined,
-        volume_id: finishVolumeId ? Number(finishVolumeId) : undefined,
-        lash_design_id: finishLashDesignId ? Number(finishLashDesignId) : undefined,
         questionnaire_id: finishQuestionnaireId ? Number(finishQuestionnaireId) : undefined,
         design_notes: finishNotes.trim() || undefined,
         last_application_date: new Date().toISOString(),
@@ -565,13 +593,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       });
 
       await AgendaService.updateAppointment(finishTarget.id, { status: "completed" });
-      // Marcar como rastreado ANTES de recargar para que no reaparezca en el tablero
-      addTrackedId(targetId);
       // Completar también los tickets hermanos del mismo sale (ticket "juntos")
       if (finishSiblingIds.length > 0) {
         applyGroupMoveLocally(finishSiblingIds, { status: "completed" });
         await Promise.all(finishSiblingIds.map((id) => AgendaService.updateAppointment(id, { status: "completed" })));
-        finishSiblingIds.forEach(addTrackedId);
       }
       toast.success("Atencion finalizada y tracking registrado.");
       setIsFinishModalOpen(false);
@@ -584,17 +609,13 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       setIsSubmittingTracking(false);
     }
 
-    // Estas llamadas van fuera del try principal para que el 409 de call-next
-    // no cancele el flujo ni muestre error al usuario.
-    if (activeBranchId) {
-      AgendaService.callNextAppointment({ branch_id: activeBranchId }).catch(() => {});
-    }
     AgendaService.listProfessionalsForSelect({
       limit: 200,
       ...(activeBranchId ? { branch_id: activeBranchId } : {}),
     })
       .then(setProfessionals)
       .catch(() => {});
+    checkQueueForFreedOperaria(freedProfessionalId);
     void loadTickets();
   };
 
@@ -707,8 +728,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     applyGroupMoveLocally(allIds, { status: "completed" });
     try {
       await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "completed" })));
-      allIds.forEach(addTrackedId);
       toast.success("Ticket finalizado.");
+      checkQueueForFreedOperaria(ticket.professional_id);
       void loadTickets();
     } catch (error) {
       setTickets(snapshot);
@@ -754,6 +775,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         end_time: formatLocalDateTime(nextEnd),
         professional_id: payload.professionalId ? Number(payload.professionalId) : null,
         is_ia: payload.isIa,
+        // Este popup ya no deja tocar fecha/hora, solo operaria — no tiene
+        // sentido bloquear por choque de horario: se la está poniendo en su
+        // cola para cuando se libere, no reservando ese horario exacto.
+        skip_availability_check: true,
       });
 
       toast.success("Ticket actualizado.");
@@ -764,6 +789,68 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       toast.error("No se pudo actualizar fecha, hora u operaria del ticket.");
     } finally {
       setEditingTicketId(null);
+    }
+  };
+
+  const handleChangeTicketClient = async (ticket: TicketItem, clientId: string) => {
+    const parsed = Number(clientId);
+    if (!clientId || Number.isNaN(parsed)) return;
+    const client = clients.find((c) => c.id === parsed);
+    const snapshot = tickets;
+    applyTicketMoveLocally(ticket.id, {
+      client_id: parsed,
+      client_name: client ? `${client.nombre} ${client.apellido}`.trim() : ticket.client_name,
+    });
+    setEditingTicketId(ticket.id);
+    try {
+      await AgendaService.updateAppointment(ticket.id, { client_id: parsed });
+      toast.success("Clienta actualizada.");
+      void loadTickets();
+    } catch (error) {
+      setTickets(snapshot);
+      console.error("Error actualizando clienta del ticket:", error);
+      toast.error(getApiErrorMessage(error, "No se pudo actualizar la clienta del ticket."));
+    } finally {
+      setEditingTicketId(null);
+    }
+  };
+
+  const handleRegisterClientSubmit = async (form: HTMLFormElement) => {
+    if (!registerClientTarget) return;
+    const fd = new FormData(form);
+    const nombre = String(fd.get("nombre") ?? "").trim();
+    const apellido = String(fd.get("apellido") ?? "").trim();
+    const edadRaw = String(fd.get("edad") ?? "").trim();
+    const phoneCC = String(fd.get("phone_country_code") ?? "+591").trim();
+    const phone = String(fd.get("phone") ?? "").trim();
+    const eyeRaw = String(fd.get("eye_type_id") ?? "").trim();
+    const branchRaw = String(fd.get("branch_id") ?? "").trim();
+    if (!nombre || !apellido) { toast.warning("Nombre y apellido son obligatorios."); return; }
+    const parsedEdad = Number(edadRaw);
+    const edad = edadRaw && Number.isFinite(parsedEdad) ? parsedEdad : undefined;
+    if (edad !== undefined && (edad < 1 || edad > 100)) {
+      toast.warning(edad < 1 ? "La edad no puede ser 0." : "La edad no puede ser mayor a 100.");
+      return;
+    }
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const parsedEyeTypeId = Number(eyeRaw);
+    const eye_type_id = eyeRaw && Number.isFinite(parsedEyeTypeId) && parsedEyeTypeId > 0 ? parsedEyeTypeId : undefined;
+    const parsedBranchId = Number(branchRaw);
+    const branch_id = branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0
+      ? parsedBranchId
+      : (activeBranchId ?? undefined);
+    try {
+      const created = await ClientService.create({
+        name: nombre, last_name: apellido, age: edad,
+        phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined,
+        eye_type_id, branch_id,
+      });
+      setClients((prev) => [{ id: created.id, nombre: created.nombre, apellido: created.apellido, phone: created.phone }, ...prev]);
+      await handleChangeTicketClient(registerClientTarget, String(created.id));
+      toast.success("Clienta registrada y asignada al ticket.");
+      setRegisterClientTarget(null);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "No se pudo registrar la clienta."));
     }
   };
 
@@ -945,12 +1032,12 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       {/* Contadores */}
       <div className="flex items-center gap-3 px-2 py-1">
         {[
-          { label: "Espera", count: waitingTickets.length, color: "#D83B01" },
-          { label: "Servicio", count: inServiceTickets.length, color: "#094732" },
-          { label: "Finalizadas", count: completedTickets.length, color: "#107C10" },
+          { label: "Espera", count: waitingTickets.length },
+          { label: "Servicio", count: inServiceTickets.length },
+          { label: "Finalizadas", count: completedTickets.length },
         ].map((s) => (
           <div key={s.label} className="flex flex-col items-center">
-            <p className="text-sm font-semibold tabular-nums" style={{ color: s.color }}>{s.count}</p>
+            <p className="text-sm font-semibold tabular-nums text-[#201f1e]">{s.count}</p>
             <p className="text-[8px] font-semibold uppercase tracking-wide text-[#605e5c]">{s.label}</p>
           </div>
         ))}
@@ -1024,12 +1111,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={waitingTickets}
             isEmptyLabel="Sin clientas en espera."
             highlightTicket={isRecentlyCreated}
-            accentColor="orange"
             renderCard={(ticket) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                clients={clients}
+                onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
+                onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
@@ -1037,7 +1126,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
-                      className="flex-1 rounded-lg bg-[#094732] px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
+                      className="rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Iniciar atención
                     </button>
@@ -1065,12 +1154,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={inServiceTickets}
             isEmptyLabel="Sin servicios activos."
             highlightTicket={isRecentlyCreated}
-            accentColor="blue"
             renderCard={(ticket) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                clients={clients}
+                onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
+                onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
@@ -1078,7 +1169,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
-                      className="flex-1 rounded-lg bg-[#094732] px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
+                      className="rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Finalizar
                     </button>
@@ -1106,22 +1197,33 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={completedTickets}
             isEmptyLabel="Sin finalizadas hoy."
             highlightTicket={isRecentlyCreated}
-            accentColor="green"
             renderCard={(ticket) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                clients={clients}
+                onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
+                onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleOpenFinishModal(ticket); }}
-                    className="w-full rounded-lg border border-[#107c10]/30 bg-[#f1fbf1] py-1.5 text-[11px] font-semibold text-[#107c10] hover:bg-[#dff6dd] transition-colors"
-                  >
-                    Completar pago
-                  </button>
+                  ticket.sale_id ? (
+                    <span className="inline-block rounded-lg border border-[#107c10]/30 bg-[#f1fbf1] px-3 py-1.5 text-center text-[11px] font-semibold text-[#107c10]">
+                      Pagado — Venta #{ticket.sale_id}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/admin/pos-tracking", { state: { fromAgendaReservation: { appointmentId: ticket.id } } });
+                      }}
+                      className="rounded-lg border border-[#0078d4]/30 bg-[#eef6ff] px-3 py-1.5 text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] transition-colors"
+                    >
+                      Completar pago
+                    </button>
+                  )
                 }
                 showRemaining={false}
                 statusColors={{}}
@@ -1172,6 +1274,25 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
               setDeleteConfirmationCode("");
             }
           }}
+        />
+
+        <ConfirmDialog
+          isOpen={queuePromptTicket !== null}
+          title="Operaria libre"
+          message={
+            queuePromptTicket ? (
+              <p>
+                <strong>{professionals.find((p) => p.id === queuePromptTicket.professional_id)?.username ?? "La operaria"}</strong> quedó libre
+                y tiene a <strong>{queuePromptTicket.client_name}</strong> esperándola (ticket {queuePromptTicket.ticket_code ?? `#${queuePromptTicket.id}`}).
+                ¿Iniciar su atención ahora?
+              </p>
+            ) : ""
+          }
+          confirmText="Iniciar atención"
+          cancelText="Todavía no"
+          variant="success"
+          onConfirm={() => void handleConfirmQueueStart()}
+          onCancel={() => setQueuePromptTicket(null)}
         />
 
         <GenericModal isOpen={isFinishModalOpen} onClose={() => setIsFinishModalOpen(false)} title="Finalizar atencion" size="lg">
@@ -1235,65 +1356,31 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
               </div>
 
               <div>
-                <label className={BC_LABEL}>Tipo de ojo</label>
-                <select
-                  value={finishEyeTypeId}
-                  onChange={(event) => setFinishEyeTypeId(event.target.value)}
-                  className={BC_FIELD}
-                >
-                  <option value="">Selecciona</option>
-                  {eyeTypes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                <label className={BC_LABEL}>Servicio(s)</label>
+                <p className={`${BC_FIELD} flex items-center bg-[#f3f2f1] text-[#323130]`}>
+                  {finishPreview?.serviceNames.join(" + ") || "—"}
+                </p>
               </div>
 
               <div>
-                <label className={BC_LABEL}>Efecto</label>
+                <label className={BC_LABEL}>Clienta</label>
                 <select
-                  value={finishEffectId}
-                  onChange={(event) => setFinishEffectId(event.target.value)}
+                  value={String(finishTarget?.client_id ?? "")}
+                  onChange={(event) => {
+                    if (!finishTarget) return;
+                    const clientId = event.target.value;
+                    const client = clients.find((c) => String(c.id) === clientId);
+                    setFinishTarget({
+                      ...finishTarget,
+                      client_id: Number(clientId),
+                      client_name: client ? `${client.nombre} ${client.apellido}`.trim() : finishTarget.client_name,
+                    });
+                    void handleChangeTicketClient(finishTarget, clientId);
+                  }}
                   className={BC_FIELD}
                 >
-                  <option value="">Selecciona</option>
-                  {effects.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={BC_LABEL}>Volumen</label>
-                <select
-                  value={finishVolumeId}
-                  onChange={(event) => setFinishVolumeId(event.target.value)}
-                  className={BC_FIELD}
-                >
-                  <option value="">Selecciona</option>
-                  {volumes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={BC_LABEL}>Diseno de pestanas</label>
-                <select
-                  value={finishLashDesignId}
-                  onChange={(event) => setFinishLashDesignId(event.target.value)}
-                  className={BC_FIELD}
-                >
-                  <option value="">Selecciona</option>
-                  {lashDesigns.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
                   ))}
                 </select>
               </div>
@@ -1395,6 +1482,25 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             </Button>
           </div>
         </GenericModal>
+
+        <RegisterClientModal
+          isOpen={registerClientTarget !== null}
+          onClose={() => setRegisterClientTarget(null)}
+          onSubmit={(form) => void handleRegisterClientSubmit(form)}
+          eyeTypes={eyeTypes}
+          branches={branches}
+          eyeTypesError={eyeTypesError}
+          isLoadingEyeTypes={isLoadingEyeTypes}
+          onRetryEyeTypes={() => {
+            setIsLoadingEyeTypes(true);
+            setEyeTypesError(null);
+            ClientService.listEyeTypes({ limit: 100 })
+              .then(setEyeTypes)
+              .catch(() => setEyeTypesError("No se pudieron cargar. Intenta de nuevo."))
+              .finally(() => setIsLoadingEyeTypes(false));
+          }}
+          defaultBranchId={activeBranchId}
+        />
     </>
   );
 

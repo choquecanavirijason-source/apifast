@@ -34,6 +34,7 @@ export type IPermission =
   | "branches:manage"
   | "forms:manage"
   | "tracking:manage"
+  | "dashboard:view"
 
   // Usuario
   | "usuario_listar"

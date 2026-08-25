@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.dependencies import enforce_own_branch
 from app.domain.entities.branch import Branch
 from app.domain.entities.cash_close import CashClose
 from app.domain.entities.client import Client, CLIENT_STATUS_EN_ESPERA
@@ -16,7 +17,7 @@ from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleUpdate
 from app.application.services.service_agenda_service import create_appointment
-from app.application.services.client_service import update_client_status
+from app.application.services.client_service import get_or_create_generic_client, update_client_status
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -112,9 +113,20 @@ def list_sales(
     db: Session,
     skip: int = 0,
     limit: int = 100,
+    branch_id: Optional[int] = None,
+    client_id: Optional[int] = None,
 ):
+    # Sin estos filtros, el límite se aplica sobre TODAS las sucursales/clientas
+    # combinadas — una sucursal con poco movimiento podía quedar sin ver sus
+    # propias ventas recientes, y el historial de una clienta mostraba ventas
+    # de otras clientas si el límite se llenaba antes de llegar a las suyas.
+    query = _sale_query(db)
+    if branch_id is not None:
+        query = query.filter(PosSale.branch_id == branch_id)
+    if client_id is not None:
+        query = query.filter(PosSale.client_id == client_id)
     return (
-        _sale_query(db)
+        query
         .order_by(PosSale.created_at.desc(), PosSale.id.desc())
         .offset(skip)
         .limit(limit)
@@ -127,6 +139,16 @@ def create_sale(
     payload: PosSaleCreate,
     current_user: User,
 ) -> PosSale:
+    enforce_own_branch(payload.branch_id, current_user)
+    for item in payload.items:
+        enforce_own_branch(item.branch_id, current_user)
+
+    # Sin clienta elegida: se usa el "Cliente Mostrador" de la sucursal para no
+    # frenar el servicio — se puede completar con los datos reales después.
+    if payload.client_id is None:
+        generic = get_or_create_generic_client(db=db, branch_id=payload.branch_id)
+        payload.client_id = generic.id
+
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
 
     if payload.branch_id is not None:

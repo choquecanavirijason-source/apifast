@@ -132,6 +132,9 @@ export default function PosSaleDrawer({
   const step3Done = isMixedMode ? mixedTotal > 0 : !!paymentMethod;
 
   // All hooks must be declared before any conditional return (React Rules of Hooks)
+  // Separa "Detalle de la venta" en pestañas (Servicios/Cliente/Pago) en vez de
+  // un solo scroll largo — pensado para operarias sin mucha experiencia.
+  const [activeStep, setActiveStep] = useState<"servicios" | "cliente" | "pago">("servicios");
   const [serviceQuery, setServiceQuery] = useState("");
   const [isServiceMenuOpen, setIsServiceMenuOpen] = useState(false);
   const [ticketsOpen, setTicketsOpen] = useState(false);
@@ -187,10 +190,7 @@ export default function PosSaleDrawer({
   const tutorDataComplete = !isMinorClient || (tutorNombre.trim() !== "" && tutorCI.trim() !== "");
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const clientSectionRef = useRef<HTMLDivElement | null>(null);
-  const paymentSectionRef = useRef<HTMLDivElement | null>(null);
   const ticketSummaryRef = useRef<HTMLDivElement | null>(null);
-  const prevStep1Ref = useRef(step1Done);
   const prevStep2Ref = useRef(step2Done);
   const prevStep3Ref = useRef(step3Done);
 
@@ -201,17 +201,16 @@ export default function PosSaleDrawer({
     setTutorTelefono("");
   }, [selectedClient?.id]);
 
+  // Al abrir el panel para una venta nueva, siempre arranca en "Servicios".
   useEffect(() => {
-    if (step1Done && !prevStep1Ref.current) {
-      clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    prevStep1Ref.current = step1Done;
-  }, [step1Done]);
+    if (isOpen) setActiveStep("servicios");
+  }, [isOpen]);
+
+  // No avanza sola de "Servicios" a "Cliente" al agregar el primer
+  // servicio — quien vende puede querer seguir agregando más antes de pasar.
 
   useEffect(() => {
-    if (step2Done && !prevStep2Ref.current) {
-      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (step2Done && !prevStep2Ref.current) setActiveStep("pago");
     prevStep2Ref.current = step2Done;
   }, [step2Done]);
 
@@ -333,13 +332,17 @@ export default function PosSaleDrawer({
   const panelProgress = (
     <div className="shrink-0 flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
       {([
-        { label: "Servicios", done: step1Done, active: !step1Done },
-        { label: "Cliente", done: step2Done, active: step1Done && !step2Done },
-        { label: "Pago", done: step3Done, active: step2Done && !step3Done },
-      ] as { label: string; done: boolean; active: boolean }[]).map((step, i) => (
-        <div
-          key={step.label}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold border-r last:border-r-0 border-[#edebe9] ${
+        { key: "servicios", label: "Servicios", done: step1Done, active: activeStep === "servicios" },
+        { key: "cliente", label: "Cliente", done: step2Done, active: activeStep === "cliente" },
+        { key: "pago", label: "Pago", done: step3Done, active: activeStep === "pago" },
+      ] as { key: "servicios" | "cliente" | "pago"; label: string; done: boolean; active: boolean }[]).map((step, i) => (
+        <button
+          key={step.key}
+          type="button"
+          onClick={() => setActiveStep(step.key)}
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold border-r last:border-r-0 border-[#edebe9] transition-colors ${
+            step.active ? "bg-white" : "hover:bg-white/60"
+          } ${
             step.done ? "text-[#107c10]" : step.active ? "text-[#0078d4]" : "text-[#a19f9d]"
           }`}
         >
@@ -355,7 +358,7 @@ export default function PosSaleDrawer({
             {step.done ? "✓" : i + 1}
           </span>
           {step.label}
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -364,6 +367,7 @@ export default function PosSaleDrawer({
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto bg-white">
 
       {/* ── Carrito ─────────────────────────────────────────────────────────── */}
+      {activeStep === "servicios" && (
       <div className={`border-b border-[#edebe9] ${stepBorder(step1Done, !step1Done)}`}>
         <div className={`flex items-center gap-2 px-4 py-3 ${!step1Done ? "bg-[#fff4ce]" : "bg-[#faf9f8]"}`}>
           <ShoppingCart className={`h-4 w-4 ${!step1Done ? "text-[#8a6a1f]" : "text-[#0078d4]"}`} />
@@ -490,17 +494,24 @@ export default function PosSaleDrawer({
             <> · Con descuento: <span className="font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span></>
           )}
         </div>
-      </div>
 
-      {/* ── Datos de la venta ────────────────────────────────────────────────── */}
-      <div className="pb-4">
-        <div className="border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
-          <p className="text-sm font-semibold text-[#323130]">Datos de la venta</p>
-          <p className="text-xs text-[#605e5c]">Cliente, cobro y notas</p>
+        <div className="px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setActiveStep("cliente")}
+            disabled={!step1Done}
+            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-sm bg-[#0078d4] text-sm font-semibold text-white transition hover:bg-[#005a9e] disabled:cursor-not-allowed disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+          >
+            Siguiente: Cliente
+          </button>
         </div>
+      </div>
+      )}
 
-        {/* Cliente — bloqueado hasta que haya al menos un servicio */}
-        <div className="relative" ref={clientSectionRef}>
+      {activeStep === "cliente" && (
+      <div className="pb-4">
+        {/* Cliente */}
+        <div className="relative">
         <div
           className={`border-b px-4 py-4 border-[#edebe9] ${stepBorder(step2Done, step1Done && !step2Done)} ${step1Done && !step2Done ? "bg-[#f0f8ff]" : ""} transition-[filter,opacity] duration-200 ${!step1Done ? "blur-[3px] opacity-40 pointer-events-none select-none" : ""}`}
         >
@@ -508,7 +519,7 @@ export default function PosSaleDrawer({
             <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step2Done ? "bg-[#107c10] text-white" : "bg-[#d13438] text-white"}`}>
               {step2Done ? "✓" : "2"}
             </span>
-            <p className="text-xs font-semibold text-[#323130]">Cliente <span className="text-[#d13438]">*</span></p>
+            <p className="text-xs font-semibold text-[#323130]">Cliente <span className="text-[#605e5c] font-normal">(opcional)</span></p>
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1" ref={clientComboboxRef}>
@@ -584,15 +595,16 @@ export default function PosSaleDrawer({
             <button
               type="button"
               onClick={onOpenRegisterClient}
-              title="Nuevo cliente"
-              className="flex h-9 w-9 flex-none items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8] text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+              title="Registrar nueva clienta"
+              className="flex h-9 flex-none items-center gap-1.5 rounded-sm bg-[#0078d4] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#005a9e] active:bg-[#004578]"
             >
               <Plus className="h-4 w-4" />
+              Nueva
             </button>
           </div>
           {!selectedClient && step1Done && (
-            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#d13438]">
-              ⚠ Selecciona o crea un cliente para continuar
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-[#605e5c]">
+              Sin elegir: la venta queda a nombre de "Cliente Mostrador"
             </p>
           )}
           {/* Historial reciente de la clienta */}
@@ -694,8 +706,30 @@ export default function PosSaleDrawer({
           </div>
         )}
 
+        <div className="flex gap-2 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setActiveStep("servicios")}
+            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-sm border border-[#8a8886] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+          >
+            Atrás
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveStep("pago")}
+            disabled={!tutorDataComplete}
+            className="flex h-10 flex-2 items-center justify-center gap-1.5 rounded-sm bg-[#0078d4] text-sm font-semibold text-white transition hover:bg-[#005a9e] disabled:cursor-not-allowed disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+          >
+            Siguiente: Pago
+          </button>
+        </div>
+      </div>
+      )}
+
+      {activeStep === "pago" && (
+      <div className="pb-4">
         {/* Tickets + Operaria + Pago */}
-        <div ref={paymentSectionRef}>
+        <div>
         <div>
 
         {linkAppointmentId && (
@@ -775,20 +809,17 @@ export default function PosSaleDrawer({
                       {professionals.map((p) => {
                         const inService = p.is_busy === true;
                         const hasPending = !inService && (p.active_count_today ?? 0) > 0;
-                        const isUnavailable = inService;
                         const freeAt = p.busy_until_time ?? professionalBusyUntilMap.get(String(p.id));
                         return (
                           <button
                             key={p.id}
                             type="button"
-                            disabled={isUnavailable}
-                            onClick={() => { if (!isUnavailable) { setSellerId(String(p.id)); setIsSellerOpen(false); } }}
+                            onClick={() => { setSellerId(String(p.id)); setIsSellerOpen(false); }}
+                            title={inService ? "Ocupada ahora — se puede igual poner en su cola con \"Crear turno\"" : undefined}
                             className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
-                              isUnavailable
-                                ? "cursor-not-allowed opacity-60"
-                                : String(p.id) === sellerId
-                                  ? "bg-[#eef6ff]"
-                                  : "hover:bg-[#f3f2f1]"
+                              String(p.id) === sellerId
+                                ? "bg-[#eef6ff]"
+                                : "hover:bg-[#f3f2f1]"
                             }`}
                           >
                             <span className={`flex items-center gap-2 ${inService ? "line-through text-[#a19f9d]" : "text-[#323130]"}`}>
@@ -814,7 +845,7 @@ export default function PosSaleDrawer({
                                   ⚡ Temp.
                                 </span>
                               )}
-                              {String(p.id) === sellerId && !isUnavailable && (
+                              {String(p.id) === sellerId && (
                                 <span className="text-[10px] font-bold text-[#0078d4]">●</span>
                               )}
                               {p.branch_name && (
@@ -1059,8 +1090,18 @@ export default function PosSaleDrawer({
         </div>
         </div>
 
-
+        <div className="px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setActiveStep("cliente")}
+            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-sm border border-[#8a8886] bg-white text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+          >
+            Atrás
+          </button>
+        </div>
       </div>
+      )}
+
     </div>
   );
 
@@ -1137,11 +1178,11 @@ export default function PosSaleDrawer({
         </div>
       )}
 
-      <div className="px-4 py-3">
+      <div className="px-3 py-2">
       {/* Total */}
-      <div className="mb-2 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
-        <span className="text-xs font-semibold text-[#605e5c]">Total a cobrar</span>
-        <span className="text-lg font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span>
+      <div className="mb-1.5 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2.5 py-1.5">
+        <span className="text-[11px] font-semibold text-[#605e5c]">Total a cobrar</span>
+        <span className="text-base font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span>
       </div>
 
       {/* Vaciar carrito */}
@@ -1149,37 +1190,57 @@ export default function PosSaleDrawer({
         type="button"
         onClick={() => cartLines.forEach((l) => onRemoveLine(l.localId))}
         disabled={cartCount === 0 || isSubmitting}
-        className={`mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-sm border text-sm font-semibold transition-all ${
+        className={`mb-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-sm border text-xs font-semibold transition-all ${
           cartCount === 0
             ? "cursor-not-allowed border-[#edebe9] bg-[#f3f2f1] text-[#a19f9d]"
             : "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
         }`}
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-3.5 w-3.5" />
         Vaciar carrito
       </button>
 
       {/* ── Modo WALK-IN: pago siempre al momento ───────────────────────── */}
-      {onImmediateCheckout && !linkAppointmentId ? (
+      {onImmediateCheckout && !linkAppointmentId ? ((() => {
+        // "Pasar a servicio" arranca la atención ya mismo — sin operaria
+        // asignada (línea por línea o con el selector general de arriba) no
+        // tiene sentido dejarlo pasar, quedaría "en servicio" sin nadie. Si
+        // la operaria elegida está ocupada tampoco puede arrancar ya mismo
+        // (para eso está "Crear turno", que la deja en su cola).
+        const missingSellerForService = cartLines.some((l) => {
+          const effectiveId = l.professional_id || sellerId;
+          if (!effectiveId) return true;
+          const pro = professionals.find((p) => String(p.id) === effectiveId);
+          return pro?.is_busy === true;
+        });
+        return (
         <>
           {/* Validación */}
-          {(cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete) && (
-            <p className="mb-2 rounded-sm bg-[#fff4ce] px-3 py-1.5 text-center text-[11px] font-medium text-[#8a6a1f]">
+          {(cartCount === 0 || !tutorDataComplete || !step3Done) && (
+            <p className="mb-1.5 rounded-sm bg-[#fff4ce] px-2.5 py-1 text-center text-[10px] font-medium text-[#8a6a1f]">
               {cartCount === 0
                 ? "Agrega al menos un servicio"
-                : !selectedClient
-                  ? "Selecciona o registra una clienta"
-                  : !tutorDataComplete
-                    ? "Completa los datos del tutor (cliente menor)"
-                    : isMixedMode
-                      ? "Ingresa los montos del pago mixto"
-                      : "Selecciona método de pago"}
+                : !tutorDataComplete
+                  ? "Completa los datos del tutor (cliente menor)"
+                  : isMixedMode
+                    ? "Ingresa los montos del pago mixto"
+                    : "Selecciona método de pago"}
+            </p>
+          )}
+          {!selectedClient && cartCount > 0 && (
+            <p className="mb-1.5 rounded-sm bg-[#f0f8ff] px-2.5 py-1 text-center text-[10px] font-medium text-[#0078d4]">
+              Sin clienta: se registra como "Cliente Mostrador".
+            </p>
+          )}
+          {cartCount > 0 && step3Done && tutorDataComplete && missingSellerForService && (
+            <p className="mb-1.5 rounded-sm bg-[#fff4ce] px-2.5 py-1 text-center text-[10px] font-medium text-[#8a6a1f]">
+              Para "Pasar a servicio" elegí una operaria libre (arriba, o por ticket). Si está ocupada, usá "Crear turno" para dejarla en su cola.
             </p>
           )}
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
+              disabled={cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting}
               onClick={() => {
                 if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
                   openQrOverlay(() => onImmediateCheckout(false));
@@ -1187,8 +1248,8 @@ export default function PosSaleDrawer({
                   onImmediateCheckout(false);
                 }
               }}
-              className={`flex h-11 flex-1 items-center justify-center rounded-sm text-sm font-semibold transition-all ${
-                cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
+              className={`flex h-9 flex-1 items-center justify-center rounded-sm text-xs font-semibold transition-all ${
+                cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting
                   ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
                   : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
               }`}
@@ -1197,10 +1258,10 @@ export default function PosSaleDrawer({
             </button>
             <button
               type="button"
-              disabled={cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting}
+              disabled={cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting}
               onClick={() => onImmediateCheckout(false, true)}
-              className={`flex h-11 flex-1 items-center justify-center rounded-sm text-sm font-semibold transition-all ${
-                cartCount === 0 || !selectedClient || !step3Done || !tutorDataComplete || isSubmitting
+              className={`flex h-9 flex-1 items-center justify-center rounded-sm text-xs font-semibold transition-all ${
+                cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting
                   ? "cursor-not-allowed bg-[#f3f2f1] text-[#a19f9d]"
                   : "bg-[#0078d4] text-white hover:bg-[#005a9e]"
               }`}
@@ -1209,7 +1270,8 @@ export default function PosSaleDrawer({
             </button>
           </div>
         </>
-      ) : (
+        );
+      })()) : (
         /* ── Modo RESERVA / COBRO EXISTENTE: botón único original ─────── */
         <>
           {secondaryActionLabel && onSecondaryAction && (
@@ -1406,12 +1468,8 @@ export default function PosSaleDrawer({
   return (
     <>
       {qrOverlay}
-      <button
-        type="button"
-        className="fixed inset-0 z-43 bg-[#323130]/40 backdrop-blur-[1px]"
-        aria-label="Cerrar panel de venta"
-        onClick={onClose}
-      />
+      {/* Sin fondo bloqueante: el carrito queda abierto mientras se sigue
+          agregando servicios desde la izquierda — se cierra solo con la X. */}
       <div
         className="fixed right-0 top-0 z-45 flex h-full max-h-dvh w-full max-w-md flex-col border-l border-[#edebe9] bg-[#faf9f8] shadow-2xl sm:max-w-lg"
         role="dialog"

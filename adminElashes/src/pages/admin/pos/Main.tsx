@@ -222,7 +222,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             ticketPreviews={pos.checkoutTicketPreviews}
             onGoToScheduleStep={() => pos.setStep(2)}
             onFinalizeSale={() => void pos.handleCheckout()}
-            onCreateImmediateTicket={(payLater) => void pos.handleImmediateCheckout(payLater)}
+            onCreateImmediateTicket={(payLater, startService) => void pos.handleImmediateCheckout(payLater, startService)}
             isSubmittingCheckout={pos.isSubmitting}
             ticketMode={pos.ticketMode}
             setTicketMode={pos.setTicketMode}

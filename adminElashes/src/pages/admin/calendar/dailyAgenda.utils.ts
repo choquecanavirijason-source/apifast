@@ -108,13 +108,13 @@ export function ticketCardClass(status?: string | null): string {
     return "border-rose-300 bg-rose-50 text-rose-900";
   }
   if (s === "confirmed" || s === "confirmado") {
-    return "border-emerald-400 bg-emerald-50 text-emerald-900";
+    return "border-[#094732]/60 bg-[#ecfdf5] text-[#094732]";
   }
   if (s === "waiting" || s === "en_espera_validacion") {
     return "border-amber-300 bg-amber-50 text-amber-950";
   }
   if (s === "completed" || s === "finalizado" || s === "atendido") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-900";
+    return "border-[#094732]/40 bg-[#ecfdf5] text-[#094732]";
   }
   return "border-[#b4d7f0] bg-[#f0f6fc] text-[#004578]";
 }

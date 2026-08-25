@@ -19,7 +19,8 @@ export interface MixedPaymentEntry {
 }
 
 export interface PosSaleCreatePayload {
-  client_id: number;
+  /** Opcional: sin clienta elegida, el backend usa el "Cliente Mostrador" de la sucursal. */
+  client_id?: number;
   branch_id?: number | null;
   payment_method: string;
   discount_type: "amount" | "percent";
@@ -130,13 +131,14 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
 }
 
 export const PosSaleService = {
-  async list(params?: { skip?: number; limit?: number; client_id?: number }): Promise<PosSaleItem[]> {
+  async list(params?: { skip?: number; limit?: number; client_id?: number; branch_id?: number }): Promise<PosSaleItem[]> {
     try {
       const response = await api.get<PosSaleItem[]>("/pos-sales/", {
         params: {
           skip: params?.skip ?? 0,
           limit: params?.limit ?? 100,
           client_id: params?.client_id,
+          branch_id: params?.branch_id,
         },
       });
       return response.data;

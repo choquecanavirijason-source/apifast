@@ -62,6 +62,10 @@ def seed_permissions(db: Session):
         "appointments:view", "appointments:manage",
         "branches:view", "branches:manage",
         "ai:view", "ai:manage",
+        # Ver el Dashboard general (ingresos, reportes, exports) — aparte de
+        # clients/payments/etc porque combina datos de varios módulos a la
+        # vez y no todo rol con esos permisos individuales debería verlo junto.
+        "dashboard:view",
     ]
     created = []
     for name in permissions_list:
@@ -99,6 +103,7 @@ def seed_roles(db: Session):
             permission_map["users:manage"],
             permission_map["ai:view"],
             permission_map["ai:manage"],
+            permission_map["dashboard:view"],
         ],
         "Operaria": [
             permission_map["clients:view"],
@@ -130,6 +135,7 @@ def seed_roles(db: Session):
             permission_map["appointments:manage"],
             permission_map["branches:view"],
             permission_map["inventory:view"],
+            permission_map["dashboard:view"],
         ],
         "EncargadaAlmacen": [
             permission_map["inventory:view"],
@@ -151,6 +157,9 @@ def seed_roles(db: Session):
             # El hub de "Caja & Seguimiento" incluye la pestaña Agenda del
             # día, que necesita esto para cargar sin tirar error.
             permission_map["appointments:view"],
+            # Crear una venta en el POS genera el ticket/cita de agenda —
+            # sin esto, la cajera no puede completar ninguna venta.
+            permission_map["appointments:manage"],
         ],
     }
 

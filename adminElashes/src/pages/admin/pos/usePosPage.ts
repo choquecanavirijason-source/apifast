@@ -458,7 +458,7 @@ export function usePosPage({
         AgendaService.listServices({ limit: 200, branch_id: branchFilter }),
         AgendaService.listServiceCategories(),
         AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: branchFilter }),
-        PosSaleService.list({ limit: 100 }),
+        PosSaleService.list({ limit: 100, branch_id: branchFilter }),
         AgendaService.listTickets({ limit: 500, branch_id: branchFilter, start_date: saleBaseDate, end_date: saleBaseDate }),
       ]);
       const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda"] as const;
@@ -482,10 +482,10 @@ export function usePosPage({
       else failures.push(`${labels[3]}: ${getApiErrorMessage(settled[3].reason, "Error al cargar profesionales.")}`);
 
       if (settled[4].status === "fulfilled") {
-        const filtered = activeBranchId ? settled[4].value.filter((s) => s.branch_id === activeBranchId) : settled[4].value;
-        setSales(filtered);
+        const sales = settled[4].value;
+        setSales(sales);
         onPendingPaymentCountChange?.(
-          filtered.filter((s) => s.status !== "paid" && s.status !== "cancelled" && s.appointments.some((a) => a.status === "completed")).length
+          sales.filter((s) => s.status !== "paid" && s.status !== "cancelled" && s.appointments.some((a) => a.status === "completed")).length
         );
       } else {
         failures.push(`${labels[4]}: ${getApiErrorMessage(settled[4].reason, "Error al cargar ventas.")}`);
@@ -758,7 +758,6 @@ export function usePosPage({
 
   const handleImmediateCheckout = async (payLater: boolean, startService?: boolean) => {
     if (!activeBranchId)  return toast.warning("Selecciona una sucursal.");
-    if (!clientId)        return toast.warning("Selecciona una clienta.");
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
     if (!payLater && mixedPayments.length === 0 && !paymentMethod) return toast.warning("Selecciona un método de pago.");
     setIsSubmitting(true);
@@ -780,7 +779,7 @@ export function usePosPage({
         };
       });
       const sale = await PosSaleService.create({
-        client_id: Number(clientId), branch_id: activeBranchId,
+        ...(clientId ? { client_id: Number(clientId) } : {}), branch_id: activeBranchId,
         payment_method: payLater ? "cash" : (mixedPayments.length > 0 ? "mixed" : paymentMethod),
         discount_type: discountType, discount_value: numericDiscount, notes: notes.trim() || undefined, items,
         ...(payLater ? { reservation_only: true } : {}),
