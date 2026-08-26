@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 const fieldClass =
   "h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
@@ -155,6 +157,39 @@ export default function CompletedTicketsHistory() {
     },
   ];
 
+  const dateRangeLabel = fromDate || toDate
+    ? ` · ${fromDate ? new Date(fromDate).toLocaleDateString("es-BO") : "inicio"} — ${toDate ? new Date(toDate).toLocaleDateString("es-BO") : "hoy"}`
+    : "";
+
+  const handleDownloadPdf = () => {
+    void generateTablePdf({
+      title: "Historial de tickets finalizados",
+      subtitle: `Notas de diseño y cuestionarios por ticket${dateRangeLabel}`,
+      filename: "historial-tickets-finalizados",
+      orientation: "landscape",
+      meta: [{ label: "Tickets", value: String(tickets.length) }],
+      columns: [
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio", key: "service" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Comentarios", key: "notes" },
+        { header: "Cuestionario", key: "questionnaire" },
+      ],
+      rows: tickets.map((t) => {
+        const tracking = trackingByAppointment.get(t.id);
+        return {
+          client_name: t.client_name,
+          service: t.service_names?.join(" · ") ?? t.service_name ?? "",
+          professional_name: t.professional_name ?? "Sin asignar",
+          fecha: t.start_time ? new Date(t.start_time).toLocaleString("es-BO") : "",
+          notes: tracking?.design_notes?.trim() ?? "",
+          questionnaire: tracking?.questionnaire?.title ?? "",
+        };
+      }),
+    });
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <SectionCard bodyClassName="!p-5">
@@ -185,6 +220,15 @@ export default function CompletedTicketsHistory() {
                 Limpiar fechas
               </button>
             )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={tickets.length === 0}
+              leftIcon={<Download className="h-3.5 w-3.5" />}
+            >
+              PDF
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>
               Actualizar
             </Button>

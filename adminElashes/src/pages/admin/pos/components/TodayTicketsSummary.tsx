@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CalendarClock, Clock, FileDown, PlusCircle, Receipt } from "lucide-react";
@@ -59,7 +59,7 @@ const COLUMNS: DataTableColumn<FlatRow>[] = [
     header: "Código",
     sortable: true,
     render: (r) => (
-      <span className="font-mono text-[11px] font-bold text-[#0078d4]">{r.ticket_code}</span>
+      <span className="font-mono text-[11px] font-bold text-[#094732]">{r.ticket_code}</span>
     ),
     getValue: (r) => r.ticket_code,
   },
@@ -248,7 +248,7 @@ export default function TodayTicketsSummary({
                   type="button"
                   onClick={handleExportPdf}
                   disabled={rows.length === 0}
-                  className="flex items-center gap-1.5 rounded border border-[#0078d4] bg-[#0078d4] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#106ebe] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded border border-[#094732] bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#063324] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FileDown size={13} />
                   Exportar PDF

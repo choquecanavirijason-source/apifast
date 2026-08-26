@@ -414,9 +414,6 @@ export default function UsersMain() {
     }
   };
 
-  const activeUsers = useMemo(() => displayedUsers.filter((item) => item.is_active).length, [displayedUsers]);
-  const inactiveUsers = useMemo(() => displayedUsers.filter((item) => !item.is_active).length, [displayedUsers]);
-
   const tabButtons: Array<{ id: SectionTab; label: string; icon: ReactElement }> = [
     { id: "users", label: isSecretary ? "Operarias" : "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
     ...(isSuperAdmin ? [
@@ -502,8 +499,6 @@ export default function UsersMain() {
       topContent={
         <UsersStats
           userCount={displayedUsers.length}
-          activeUsers={activeUsers}
-          inactiveUsers={inactiveUsers}
           rolesCount={roles.length}
           permissionsCount={permissions.length}
         />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+﻿import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShoppingCart } from "lucide-react";
 import { TICKET_STATUS_OPTIONS } from "../pos.constants";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
@@ -451,7 +451,7 @@ export default function PosSaleStepTwo({
 
   return (
     <div className="flex h-[80dvh] max-h-dvh min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
-      <p className="shrink-0 border-b border-[#c7e0f4] bg-[#deecf9] px-4 py-2 text-[11px] leading-snug text-[#004578]">
+      <p className="shrink-0 border-b border-[#c8e6d9] bg-[#ecfdf5] px-4 py-2 text-[11px] leading-snug text-[#094732]">
         Al confirmar la venta, los tickets en agenda se registran con la <strong>fecha y hora del momento del cobro</strong>{" "}
         (encadenados por duración). La vista del planificador es solo orientativa.
       </p>
@@ -460,7 +460,7 @@ export default function PosSaleStepTwo({
         <div className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
           <div className="flex shrink-0 items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 text-[#0078d4]" />
+              <ShoppingCart className="h-4 w-4 text-[#094732]" />
               <span className="text-sm font-semibold text-[#323130]">Planificador visual</span>
               {editingSaleCode ? (
                 <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-2 py-0.5 text-[10px] font-semibold text-[#8a6a1f]">
@@ -468,7 +468,7 @@ export default function PosSaleStepTwo({
                 </span>
               ) : null}
               {cartLines.length > 0 ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0078d4] px-1.5 text-[10px] font-bold text-white">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#094732] px-1.5 text-[10px] font-bold text-white">
                   {cartLines.length}
                 </span>
               ) : null}
@@ -482,7 +482,7 @@ export default function PosSaleStepTwo({
                 type="date"
                 value={calendarDate}
                 onChange={(event) => setCalendarDate(event.target.value || saleBaseDate)}
-                className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
               />
               <button
                 type="button"
@@ -552,8 +552,8 @@ export default function PosSaleStepTwo({
                           canScheduleTickets
                             ? `cursor-grab active:cursor-grabbing ${
                                 draggingLineId === line.localId
-                                  ? "scale-[0.99] border-[#0078d4] opacity-80 ring-1 ring-[#0078d4]/45"
-                                  : "border-[#edebe9] hover:border-[#9fd3ff]"
+                                  ? "scale-[0.99] border-[#094732] opacity-80 ring-1 ring-[#094732]/45"
+                                  : "border-[#edebe9] hover:border-[#a7f3d0]"
                               }`
                             : "cursor-not-allowed border-[#edebe9] opacity-90"
                         }`}
@@ -566,7 +566,7 @@ export default function PosSaleStepTwo({
                             <p className="text-[11px] text-[#605e5c]">
                               {line.duration_minutes} min - Bs {line.price.toFixed(2)}
                             </p>
-                            <p className={`text-[10px] font-medium ${canScheduleTickets ? "text-[#0078d4]" : "text-[#a19f9d]"}`}>
+                            <p className={`text-[10px] font-medium ${canScheduleTickets ? "text-[#094732]" : "text-[#a19f9d]"}`}>
                               {canScheduleTickets ? "Arrastra este ticket al calendario" : "Programación bloqueada hasta confirmar la venta"}
                             </p>
                           </div>
@@ -574,7 +574,7 @@ export default function PosSaleStepTwo({
                             type="button"
                             disabled={!canScheduleTickets}
                             onClick={() => openAvailabilityPreview(line.localId, assignedDate)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8] text-[#0078d4] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-45"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8] text-[#094732] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-45"
                             title="Ver ocupación del día"
                           >
                             <CalendarDays className="h-3.5 w-3.5" />
@@ -585,7 +585,7 @@ export default function PosSaleStepTwo({
                           <select
                             value={line.service_id}
                             onChange={(event) => updateLine(line.localId, { service_id: event.target.value })}
-                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                           >
                             <option value="">Servicio…</option>
                             {services.map((serviceOption) => (
@@ -604,7 +604,7 @@ export default function PosSaleStepTwo({
                                 if (!event.target.value) updateLine(line.localId, { date: saleBaseDate });
                               }}
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
                             />
                             <input
                               type="time"
@@ -626,7 +626,7 @@ export default function PosSaleStepTwo({
                                 })
                               }
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
                             />
                           </div>
 
@@ -637,7 +637,7 @@ export default function PosSaleStepTwo({
                                 updateLine(line.localId, { professional_id: event.target.value })
                               }
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
                             >
                               <option value="">Operaria…</option>
                               {professionals.map((professional) => {
@@ -670,7 +670,7 @@ export default function PosSaleStepTwo({
                                     time: event.target.checked ? "" : selectedHour || "09:00",
                                   })
                                 }
-                                className="rounded-sm border-[#8a8886] text-[#0078d4] focus:ring-[#0078d4] disabled:cursor-not-allowed"
+                                className="rounded-sm border-[#8a8886] text-[#094732] focus:ring-[#094732] disabled:cursor-not-allowed"
                               />
                               Sin hora
                             </label>
@@ -683,7 +683,7 @@ export default function PosSaleStepTwo({
                                 status: event.target.value === "in_service" ? "in_service" : "pending",
                               })
                             }
-                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                           >
                             {TICKET_STATUS_OPTIONS.map((statusOption) => (
                               <option key={statusOption.value} value={statusOption.value}>
@@ -829,7 +829,7 @@ export default function PosSaleStepTwo({
                     <div
                       key={day.isoDate}
                       className={`sticky top-0 z-20 border-b border-r border-[#edebe9] px-2 py-2 text-xs font-semibold text-[#323130] ${
-                        day.isoDate === todayIso ? "bg-[#eaf4ff]" : "bg-[#faf9f8]"
+                        day.isoDate === todayIso ? "bg-[#ecfdf5]" : "bg-[#faf9f8]"
                       }`}
                     >
                       <p className="uppercase">{day.label}</p>
@@ -866,11 +866,11 @@ export default function PosSaleStepTwo({
                                 : hasConflicts
                                   ? "bg-[#fff4f4]"
                                   : day.isoDate === todayIso
-                                    ? "bg-[#f8fbff]"
+                                    ? "bg-[#ecfdf5]"
                                     : "bg-white"
                             } ${
                               canScheduleTickets && draggingLineId
-                                ? "cursor-copy hover:bg-[#eef6ff] hover:ring-1 hover:ring-inset hover:ring-[#0078d4]/40"
+                                ? "cursor-copy hover:bg-[#ecfdf5] hover:ring-1 hover:ring-inset hover:ring-[#094732]/40"
                                 : ""
                             }`}
                           >
@@ -949,7 +949,7 @@ export default function PosSaleStepTwo({
                                         onClick={() =>
                                           openAvailabilityPreview(line.localId, normalizeLineDate(line))
                                         }
-                                        className="rounded-sm border border-[#edebe9] bg-white/80 p-1 text-[#0078d4] hover:bg-white"
+                                        className="rounded-sm border border-[#edebe9] bg-white/80 p-1 text-[#094732] hover:bg-white"
                                         title="Ver ocupación del día"
                                       >
                                         <CalendarDays className="h-3 w-3" />
@@ -977,7 +977,7 @@ export default function PosSaleStepTwo({
                                         onChange={(event) =>
                                           updateLine(line.localId, { date: event.target.value || normalizeLineDate(line) })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       />
                                       <span className="inline-flex items-center rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2 text-[10px] text-[#605e5c]">
                                         Fecha
@@ -1001,14 +1001,14 @@ export default function PosSaleStepTwo({
                                             without_time: false,
                                           })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       />
                                       <select
                                         value={line.professional_id}
                                         onChange={(event) =>
                                           updateLine(line.localId, { professional_id: event.target.value })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       >
                                         <option value="">Operaria…</option>
                                         {professionals.map((professional) => {
@@ -1072,7 +1072,7 @@ export default function PosSaleStepTwo({
             className={`flex h-14 min-w-14 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/25 transition-all focus:outline-none focus-visible:ring-2 ${
               isSubmitting || cartLines.length === 0 || hasConflicts
                 ? "cursor-not-allowed bg-[#a19f9d] focus-visible:ring-[#a19f9d]"
-                : "bg-[#0078d4] hover:bg-[#005a9e] focus-visible:ring-[#0078d4]"
+                : "bg-[#094732] hover:bg-[#063324] focus-visible:ring-[#094732]"
             }`}
             aria-label={primaryActionLabel}
             title={hasConflicts ? "Resuelve los conflictos antes de confirmar" : primaryActionLabel}
@@ -1090,7 +1090,7 @@ export default function PosSaleStepTwo({
         <button
           type="button"
           onClick={() => setIsSaleDrawerOpen(true)}
-          className={`relative flex h-14 min-w-14 items-center justify-center rounded-full bg-[#0078d4] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#005a9e] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] ${
+          className={`relative flex h-14 min-w-14 items-center justify-center rounded-full bg-[#094732] text-white shadow-lg shadow-slate-900/25 transition-all hover:bg-[#063324] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#094732] ${
             animateCart ? "scale-125 bg-emerald-500" : "scale-100"
           }`}
           aria-label={`Detalle de la venta: ${cartCount} servicios seleccionados`}

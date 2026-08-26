@@ -1,12 +1,26 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Banknote, CheckCircle, CreditCard, Printer, QrCode, Wallet, XCircle } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle,
+  CreditCard,
+  Printer,
+  QrCode,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import { toast } from "react-toastify";
 
 import StatCard from "@/components/common/ui/StatCard";
 import SectionCard from "@/components/common/ui/SectionCard";
 import Button from "@/components/common/ui/Button";
-import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
-import { AgendaService, type ProfessionalForSelect } from "../../../core/services/agenda/agenda.service";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import DataTable, {
+  type DataTableColumn,
+} from "@/components/common/table/DataTable";
+import {
+  AgendaService,
+  type ProfessionalForSelect,
+} from "../../../core/services/agenda/agenda.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import { PosSaleService } from "../../../core/services/pos-sale/pos-sale.service";
 import {
@@ -22,34 +36,33 @@ type DailyClosingItemWithId = DailyClosingItem & { id: number };
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  pending:    "Pendiente",
+  pending: "Pendiente",
   in_service: "En servicio",
-  confirmed:  "Confirmado",
-  completed:  "Completado",
-  cancelled:  "Cancelado",
+  confirmed: "Confirmado",
+  completed: "Completado",
+  cancelled: "Cancelado",
 };
 
-
 const PAYMENT_LABELS: Record<string, string> = {
-  cash:     "Efectivo",
-  qr:       "QR",
+  cash: "Efectivo",
+  qr: "QR",
   transfer: "Transferencia",
-  card:     "Tarjeta",
-  mixed:    "Mixto",
+  card: "Tarjeta",
+  mixed: "Mixto",
 };
 
 const PAYMENT_ICONS: Record<string, typeof Banknote> = {
-  cash:     Banknote,
-  qr:       QrCode,
+  cash: Banknote,
+  qr: QrCode,
   transfer: Wallet,
-  card:     CreditCard,
+  card: CreditCard,
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
-  cash:     "bg-emerald-50 text-emerald-700 border-emerald-200",
-  qr:       "bg-violet-50 text-violet-700 border-violet-200",
+  cash: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  qr: "bg-violet-50 text-violet-700 border-violet-200",
   transfer: "bg-blue-50 text-blue-700 border-blue-200",
-  card:     "bg-orange-50 text-orange-700 border-orange-200",
+  card: "bg-orange-50 text-orange-700 border-orange-200",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,19 +72,30 @@ function todayStr() {
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("es-BO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-BO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function PaymentBadge({ method }: { method: string | null }) {
-  if (!method) return <span className="text-[10px] text-[#a19f9d]">Sin cobrar</span>;
+  if (!method)
+    return <span className="text-[10px] text-[#a19f9d]">Sin cobrar</span>;
   const Icon = PAYMENT_ICONS[method] ?? Banknote;
-  const color = PAYMENT_COLORS[method] ?? "bg-gray-50 text-gray-700 border-gray-200";
+  const color =
+    PAYMENT_COLORS[method] ?? "bg-gray-50 text-gray-700 border-gray-200";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${color}`}
+    >
       <Icon size={10} />
       {PAYMENT_LABELS[method] ?? method}
     </span>
@@ -85,7 +109,10 @@ async function printReport(
   branchName: string,
   professionalName: string,
   report: DailyClosingResponse,
-  paymentConfirmations: Record<string, { confirmedAt: string; amount: number }> = {},
+  paymentConfirmations: Record<
+    string,
+    { confirmedAt: string; amount: number }
+  > = {},
 ) {
   // Abrir la ventana ya mismo (síncrono) para que el navegador no la bloquee como pop-up.
   const win = window.open("", "_blank");
@@ -96,7 +123,8 @@ async function printReport(
     ? `<div style="text-align:center;margin-bottom:12px"><img src="${logoUrl}" alt="Logo" style="max-height:85px;max-width:260px;object-fit:contain" /></div>`
     : "";
   const rows = report.items
-    .map((item, i) => `
+    .map(
+      (item, i) => `
       <tr>
         <td>${i + 1}</td>
         <td>${item.ticket_code ?? "-"}</td>
@@ -107,14 +135,15 @@ async function printReport(
         <td>${fmtDate(item.start_time)} ${fmtTime(item.start_time)}</td>
         <td>${item.duration_minutes} min</td>
         <td>${STATUS_LABELS[item.status] ?? item.status}</td>
-        <td>${item.payment_method ? PAYMENT_LABELS[item.payment_method] ?? item.payment_method : "Sin cobrar"}</td>
+        <td>${item.payment_method ? (PAYMENT_LABELS[item.payment_method] ?? item.payment_method) : "Sin cobrar"}</td>
         <td>Bs ${item.total_price.toFixed(2)}</td>
         <td>${(item.commission_rate * 100).toFixed(0)}% = Bs ${item.commission.toFixed(2)}</td>
-      </tr>`)
+      </tr>`,
+    )
     .join("");
 
   const summaryRows = report.summary_by_professional
-    .map(p => {
+    .map((p) => {
       const key = String(p.professional_id ?? p.professional_name);
       const conf = paymentConfirmations[key];
       return `
@@ -130,7 +159,10 @@ async function printReport(
     .join("");
 
   const paymentRows = Object.entries(report.totals_by_payment)
-    .map(([method, total]) => `<tr><td>${PAYMENT_LABELS[method] ?? method}</td><td>Bs ${total.toFixed(2)}</td></tr>`)
+    .map(
+      ([method, total]) =>
+        `<tr><td>${PAYMENT_LABELS[method] ?? method}</td><td>Bs ${total.toFixed(2)}</td></tr>`,
+    )
     .join("");
 
   const html = `<!DOCTYPE html>
@@ -227,7 +259,9 @@ export default function CierreDeCaja() {
   const [branchId, setBranchId] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
-  const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>(
+    [],
+  );
   const [report, setReport] = useState<DailyClosingResponse>(EMPTY_REPORT);
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
@@ -239,13 +273,23 @@ export default function CierreDeCaja() {
   const registrarPago = async (saleId: number) => {
     setCobrandoLoading(true);
     try {
-      await PosSaleService.update(saleId, { payment_method: cobrandoMethod, status: "paid" });
+      await PosSaleService.update(saleId, {
+        payment_method: cobrandoMethod,
+        status: "paid",
+      });
       toast.success("Pago registrado correctamente.");
       setCobrandoSaleId(null);
       // Recargar reporte
       setLoading(true);
-      ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
-        .then(setReport).catch(() => {}).finally(() => setLoading(false));
+      ReportsService.getDailyClosing({
+        date: fromDate,
+        to_date: toDate,
+        branch_id: branchId,
+        professional_id: professionalId,
+      })
+        .then(setReport)
+        .catch(() => {})
+        .finally(() => setLoading(false));
     } catch {
       toast.error("No se pudo registrar el pago.");
     } finally {
@@ -257,11 +301,19 @@ export default function CierreDeCaja() {
   // (period_start/period_end == el rango de fechas elegido arriba), para que
   // sobrevivan a un refresco de página en vez de vivir solo en memoria.
   // key = professional_id, value = { confirmedAt, amount }
-  const [paymentConfirmations, setPaymentConfirmations] = useState<Record<string, { confirmedAt: string; amount: number }>>({});
+  const [paymentConfirmations, setPaymentConfirmations] = useState<
+    Record<string, { confirmedAt: string; amount: number }>
+  >({});
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<
+    { key: string; amount: number; professionalName: string } | null
+  >(null);
 
   const loadConfirmations = () => {
-    CommissionPaymentsService.list({ period_start: fromDate, period_end: toDate })
+    CommissionPaymentsService.list({
+      period_start: fromDate,
+      period_end: toDate,
+    })
       .then((payments) => {
         const map: Record<string, { confirmedAt: string; amount: number }> = {};
         for (const p of payments) {
@@ -296,7 +348,9 @@ export default function CierreDeCaja() {
   };
 
   useEffect(() => {
-    BranchService.list({ limit: 100 }).then(setBranches).catch(() => {});
+    BranchService.list({ limit: 100 })
+      .then(setBranches)
+      .catch(() => {});
   }, []);
 
   // Recargar operarias cuando cambia la sucursal y limpiar selección si ya no aplica
@@ -318,7 +372,12 @@ export default function CierreDeCaja() {
 
   useEffect(() => {
     setLoading(true);
-    ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
+    ReportsService.getDailyClosing({
+      date: fromDate,
+      to_date: toDate,
+      branch_id: branchId,
+      professional_id: professionalId,
+    })
       .then(setReport)
       .catch(() => toast.error("Error al cargar el reporte"))
       .finally(() => setLoading(false));
@@ -329,10 +388,17 @@ export default function CierreDeCaja() {
     setUpdatingId(id);
     try {
       await ReportsService.updateStatus(id, newStatus);
-      toast.success(newStatus === "completed" ? "Ticket finalizado" : "Ticket cancelado");
+      toast.success(
+        newStatus === "completed" ? "Ticket finalizado" : "Ticket cancelado",
+      );
       // Recargar reporte completo para que comisiones y totales queden correctos
       setLoading(true);
-      ReportsService.getDailyClosing({ date: fromDate, to_date: toDate, branch_id: branchId, professional_id: professionalId })
+      ReportsService.getDailyClosing({
+        date: fromDate,
+        to_date: toDate,
+        branch_id: branchId,
+        professional_id: professionalId,
+      })
         .then(setReport)
         .catch(() => toast.error("Error al recargar el reporte"))
         .finally(() => setLoading(false));
@@ -345,12 +411,12 @@ export default function CierreDeCaja() {
 
   const selectedBranchName = useMemo(
     () => branches.find((b) => b.id === branchId)?.name ?? "",
-    [branches, branchId]
+    [branches, branchId],
   );
 
   const selectedProfessionalName = useMemo(
     () => professionals.find((p) => p.id === professionalId)?.username ?? "",
-    [professionals, professionalId]
+    [professionals, professionalId],
   );
 
   const isActionable = (status: string) =>
@@ -360,7 +426,7 @@ export default function CierreDeCaja() {
 
   const tableData = useMemo<DailyClosingItemWithId[]>(
     () => report.items.map((item) => ({ ...item, id: item.appointment_id })),
-    [report.items]
+    [report.items],
   );
 
   const columns: DataTableColumn<DailyClosingItemWithId>[] = [
@@ -373,7 +439,9 @@ export default function CierreDeCaja() {
             {item.ticket_code ?? `#${item.appointment_id}`}
           </p>
           {item.sale_code && (
-            <p className="font-mono text-[10px] text-[#a19f9d]">{item.sale_code}</p>
+            <p className="font-mono text-[10px] text-[#a19f9d]">
+              {item.sale_code}
+            </p>
           )}
         </div>
       ),
@@ -425,7 +493,9 @@ export default function CierreDeCaja() {
       render: (item) => (
         <span className="whitespace-nowrap font-mono text-[11px] text-[#605e5c]">
           {fmtTime(item.start_time)}
-          <span className="block text-[9px] text-[#a19f9d]">{fmtDate(item.start_time)}</span>
+          <span className="block text-[9px] text-[#a19f9d]">
+            {fmtDate(item.start_time)}
+          </span>
         </span>
       ),
       sortable: true,
@@ -434,15 +504,21 @@ export default function CierreDeCaja() {
     {
       key: "payment_method",
       header: "Pago",
-      render: (item) => <PaymentBadge method={item.is_paid ? (item.payment_method ?? null) : null} />,
-      getValue: (item) => item.is_paid ? (item.payment_method ?? "") : "",
+      render: (item) => (
+        <PaymentBadge
+          method={item.is_paid ? (item.payment_method ?? null) : null}
+        />
+      ),
+      getValue: (item) => (item.is_paid ? (item.payment_method ?? "") : ""),
     },
     {
       key: "total_price",
       header: "Monto / Saldo",
       render: (item) => (
         <div className="whitespace-nowrap">
-          <p className="font-semibold text-[#323130]">Bs {item.total_price.toFixed(2)}</p>
+          <p className="font-semibold text-[#323130]">
+            Bs {item.total_price.toFixed(2)}
+          </p>
           {item.balance_due > 0 ? (
             <p className="text-[10px] font-semibold text-[#d83b01]">
               Debe Bs {item.balance_due.toFixed(2)}
@@ -459,9 +535,14 @@ export default function CierreDeCaja() {
       key: "commission",
       header: "Comisión",
       render: (item) => {
-        const isCompleted = item.status === "completed" || item.status === "confirmed";
+        const isCompleted =
+          item.status === "completed" || item.status === "confirmed";
         if (isCompleted)
-          return <span className="whitespace-nowrap font-semibold text-[#0078d4]">Bs {item.commission.toFixed(2)}</span>;
+          return (
+            <span className="whitespace-nowrap font-semibold text-[#0078d4]">
+              Bs {item.commission.toFixed(2)}
+            </span>
+          );
         if (item.status === "cancelled")
           return <span className="text-[10px] text-[#a19f9d]">—</span>;
         return <span className="text-[10px] text-[#8a6a1f]">Pend.</span>;
@@ -497,7 +578,11 @@ export default function CierreDeCaja() {
                 >
                   {cobrandoLoading ? "…" : "OK"}
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setCobrandoSaleId(null)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setCobrandoSaleId(null)}
+                >
                   ✕
                 </Button>
               </div>
@@ -505,7 +590,10 @@ export default function CierreDeCaja() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => { setCobrandoSaleId(item.sale_id!); setCobrandoMethod("cash"); }}
+                onClick={() => {
+                  setCobrandoSaleId(item.sale_id!);
+                  setCobrandoMethod("cash");
+                }}
               >
                 Cobrar
               </Button>
@@ -541,12 +629,12 @@ export default function CierreDeCaja() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f3f2f1] p-4 sm:p-6">
-
       {/* Header */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#1b1a19]">Reporte por comisiones</h1>
-          <p className="mt-0.5 text-sm text-[#605e5c]">Reporte diario de tickets por operaria</p>
+          <h1 className="text-xl font-bold text-[#1b1a19]">
+            Reporte por comisiones
+          </h1>
         </div>
         <Button
           variant="primary"
@@ -569,7 +657,9 @@ export default function CierreDeCaja() {
       {/* Filtros */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+            Desde
+          </label>
           <input
             type="date"
             value={fromDate}
@@ -582,7 +672,9 @@ export default function CierreDeCaja() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+            Hasta
+          </label>
           <input
             type="date"
             value={toDate}
@@ -592,16 +684,23 @@ export default function CierreDeCaja() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+            Operaria
+          </label>
           <select
             value={professionalId ?? ""}
-            onChange={(e) => setProfessionalId(e.target.value === "" ? null : Number(e.target.value))}
+            onChange={(e) =>
+              setProfessionalId(
+                e.target.value === "" ? null : Number(e.target.value),
+              )
+            }
             className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
           >
             <option value="">Todas las operarias</option>
             {professionals.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.username}{p.branch_name ? ` — ${p.branch_name}` : ""}
+                {p.username}
+                {p.branch_name ? ` — ${p.branch_name}` : ""}
               </option>
             ))}
           </select>
@@ -658,8 +757,18 @@ export default function CierreDeCaja() {
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-[#edebe9] bg-[#faf9f8]">
-                {["Operaria", "Tickets", "Total Bs", "% Com.", "Comisión Bs", "Confirmación"].map((h) => (
-                  <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#605e5c]">
+                {[
+                  "Operaria",
+                  "Tickets",
+                  "Total Bs",
+                  "% Com.",
+                  "Comisión Bs",
+                  "Confirmación",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#605e5c]"
+                  >
                     {h}
                   </th>
                 ))}
@@ -671,27 +780,47 @@ export default function CierreDeCaja() {
                 const conf = paymentConfirmations[key];
                 return (
                   <tr key={key} className="border-b border-[#edebe9]">
-                    <td className="px-3 py-2 font-medium text-[#323130]">{p.professional_name}</td>
-                    <td className="px-3 py-2 text-[#605e5c]">{p.ticket_count}</td>
-                    <td className="px-3 py-2 font-semibold text-[#323130]">Bs {p.total_price.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-[#605e5c]">{(p.commission_rate * 100).toFixed(0)}%</td>
-                    <td className="px-3 py-2 font-semibold text-[#0078d4]">Bs {p.commission.toFixed(2)}</td>
+                    <td className="px-3 py-2 font-medium text-[#323130]">
+                      {p.professional_name}
+                    </td>
+                    <td className="px-3 py-2 text-[#605e5c]">
+                      {p.ticket_count}
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-[#323130]">
+                      Bs {p.total_price.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-[#605e5c]">
+                      {(p.commission_rate * 100).toFixed(0)}%
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-[#0078d4]">
+                      Bs {p.commission.toFixed(2)}
+                    </td>
                     <td className="px-4 py-2">
                       {conf ? (
                         <div>
                           <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800">
                             ✓ Confirmado
                           </span>
-                          <p className="mt-0.5 text-[10px] text-[#605e5c]">{conf.confirmedAt}</p>
+                          <p className="mt-0.5 text-[10px] text-[#605e5c]">
+                            {conf.confirmedAt}
+                          </p>
                         </div>
                       ) : (
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => void confirmPayment(key, p.commission)}
+                          onClick={() =>
+                            setPendingConfirmation({
+                              key,
+                              amount: p.commission,
+                              professionalName: p.professional_name,
+                            })
+                          }
                           disabled={confirmingKey === key || !p.professional_id}
                         >
-                          {confirmingKey === key ? "Guardando…" : "Confirmar recibo"}
+                          {confirmingKey === key
+                            ? "Guardando…"
+                            : "Confirmar recibo"}
                         </Button>
                       )}
                     </td>
@@ -713,11 +842,17 @@ export default function CierreDeCaja() {
         {!loading && report.items.length > 0 && (
           <div className="mb-3 flex items-center gap-4 rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-xs">
             <span className="font-bold text-[#323130]">
-              Total: <span className="text-[#0078d4]">Bs {report.grand_total.toFixed(2)}</span>
+              Total:{" "}
+              <span className="text-[#0078d4]">
+                Bs {report.grand_total.toFixed(2)}
+              </span>
             </span>
             <span className="text-[#605e5c]">|</span>
             <span className="font-bold text-[#323130]">
-              Comisiones: <span className="text-[#0078d4]">Bs {report.grand_commission.toFixed(2)}</span>
+              Comisiones:{" "}
+              <span className="text-[#0078d4]">
+                Bs {report.grand_commission.toFixed(2)}
+              </span>
             </span>
           </div>
         )}
@@ -732,6 +867,25 @@ export default function CierreDeCaja() {
           availableLimits={[10, 25, 50]}
         />
       </SectionCard>
+
+      <ConfirmDialog
+        isOpen={pendingConfirmation !== null}
+        title="Confirmar comisión"
+        message={
+          pendingConfirmation
+            ? `¿Confirmás que le entregaste Bs ${pendingConfirmation.amount.toFixed(2)} de comisión a ${pendingConfirmation.professionalName}?`
+            : ""
+        }
+        confirmText="Confirmar"
+        variant="success"
+        isProcessing={confirmingKey === pendingConfirmation?.key}
+        onConfirm={() => {
+          if (!pendingConfirmation) return;
+          void confirmPayment(pendingConfirmation.key, pendingConfirmation.amount);
+          setPendingConfirmation(null);
+        }}
+        onCancel={() => setPendingConfirmation(null)}
+      />
     </div>
   );
 }

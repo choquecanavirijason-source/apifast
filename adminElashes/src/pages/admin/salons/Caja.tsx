@@ -681,15 +681,14 @@ function AperturaCierreTab() {
     )}
     <SectionCard
       title="Abrir caja"
+      bodyClassName="!hidden"
       actions={
-        <Button onClick={() => setIsOpenModalOpen(true)} leftIcon={<DoorOpen className="h-4 w-4" />}>
+        <Button size="lg" onClick={() => setIsOpenModalOpen(true)} leftIcon={<DoorOpen className="h-4 w-4" />}>
           Abrir caja
         </Button>
       }
     >
-      <p className="text-sm text-slate-500">
-        Esta sucursal no tiene la caja abierta — hasta que se abra, el POS no va a dejar registrar ventas ahí.
-      </p>
+      {null}
     </SectionCard>
     {historyTable}
     <GenericModal

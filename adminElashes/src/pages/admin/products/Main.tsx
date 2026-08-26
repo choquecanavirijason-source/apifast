@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, ArrowRightLeft, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, ArrowRightLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { NotificationsService } from "../../../core/services/notifications/notifications.service";
 import { useSearchParams } from "react-router-dom";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button, InputField, SectionCard, StatCard } from "../../../components/common/ui/index.ts";
 import { CategoryService, type CategoryItem } from "../../../core/services/category/category.service.ts";
 import { BranchService } from "../../../core/services/branch/branch.service.ts";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import {
   ProductService,
   type ProductCreatePayload,
@@ -67,7 +68,10 @@ export default function Main() {
   const [batchQuantity, setBatchQuantity] = useState<string>("1");
   const [batchCostPerUnit, setBatchCostPerUnit] = useState<string>("0");
   const [batchSalePrice, setBatchSalePrice] = useState<string>("");
-  const [selectedInventoryBranchId, setSelectedInventoryBranchId] = useState<number | null>(null);
+  // Sigue al selector de sucursal global del header (no uno propio) — antes
+  // esta pantalla tenía su propio desplegable independiente, así que cambiar
+  // la sucursal arriba no se reflejaba acá.
+  const [selectedInventoryBranchId, setSelectedInventoryBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
   const [transferFromBranchId, setTransferFromBranchId] = useState<string>("");
@@ -237,6 +241,17 @@ export default function Main() {
   useEffect(() => {
     void loadProducts(selectedInventoryBranchId);
   }, [selectedInventoryBranchId]);
+
+  useEffect(() => {
+    const handleChange = () => setSelectedInventoryBranchId(getSelectedBranchId());
+    const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("branchchange", handleChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("branchchange", handleChange);
+    };
+  }, []);
 
   const totalStockUnits = useMemo(() => products.reduce((sum, product) => sum + product.stock, 0), [products]);
   const lowStockCount = useMemo(() => products.filter((product) => product.stock <= product.minStock).length, [products]);
@@ -726,24 +741,6 @@ export default function Main() {
             </Button>
           </div>
 
-          {currentSection === "products" && branches.length > 0 ? (
-            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100/80 px-3 py-1.5">
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              <select
-                value={selectedInventoryBranchId ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedInventoryBranchId(val ? Number(val) : null);
-                }}
-                className="bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
-              >
-                <option value="">Todas las sucursales</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          ) : null}
 
           {currentSection === "products" ? (
             <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">

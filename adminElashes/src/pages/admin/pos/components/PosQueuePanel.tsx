@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { ChevronDown, ChevronUp, Clock, UserCheck, Users } from "lucide-react";
 import SectionCard from "@/components/common/ui/SectionCard";
 import type { TicketItem, ProfessionalForSelect } from "../../../../core/services/agenda/agenda.service";
@@ -48,7 +48,7 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
     <button
       type="button"
       onClick={() => setIsExpanded((v) => !v)}
-      className="flex items-center gap-1.5 text-[11px] font-semibold text-[#605e5c] hover:text-[#0078d4]"
+      className="flex items-center gap-1.5 text-[11px] font-semibold text-[#605e5c] hover:text-[#094732]"
     >
       {inServiceCount > 0 && (
         <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">

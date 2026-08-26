@@ -132,7 +132,6 @@ export default function UsersSection({ users, loading, onEditUser, onDeleteUser,
   return (
     <SectionCard
       title="Listado de Usuarios"
-      subtitle="Vista general de usuarios, correo, teléfono, rol y estado del sistema."
       bodyClassName="!p-0"
     >
       <DataTable

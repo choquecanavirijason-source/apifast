@@ -18,6 +18,7 @@ import {
   ReceiptText,
   UserCheck,
   Bot,
+  Wallet,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -30,6 +31,9 @@ type MenuItem = {
   name: string;
   icon: ReactNode;
   path?: string;
+  /** Coincidencia exacta de ruta (no por prefijo) — usar cuando otra sección
+   *  vive en una URL que empieza igual (ej. "/admin/salons" vs "/admin/salons/caja"). */
+  exact?: boolean;
   permission?: PermissionRule;
   subItems?: MenuSubItem[];
 };
@@ -211,6 +215,17 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
+        name: "Caja",
+        icon: <Wallet size={20} />,
+        path: "/admin/salons/caja",
+        subItems: [
+          { name: "Caja", path: "/admin/salons/caja", permission: ["payments:view", "payments:manage"] },
+          { name: "Corte de Caja", path: "/admin/salons/corte-caja", permission: ["payments:view", "payments:manage"] },
+        ],
+        permission: ["payments:view", "payments:manage"],
+      },
+
+      {
         name: "Inventario",
         icon: <Package size={20} />,
         path: "/admin/products",
@@ -268,14 +283,11 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
-        name: "Salones",
+        name: "Sucursales",
         icon: <Building2 size={20} />,
         path: "/admin/salons",
-        subItems: [
-          { name: "Sucursales", path: "/admin/salons", permission: "branches:manage" },
-          { name: "Corte de Caja", path: "/admin/salons/corte-caja", permission: ["payments:view", "payments:manage"] },
-          { name: "Caja", path: "/admin/salons/caja", permission: ["payments:view", "payments:manage"] },
-        ],
+        exact: true,
+        permission: "branches:manage",
       },
 
       {
@@ -698,6 +710,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
             ) : (
               <NavLink
                 to={item.path!}
+                end={item.exact}
                 onKeyDown={handleLeafLinkKeyDown}
                 title={item.name}
                 aria-label={item.name}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PosSidePanel — carrito visible en el sidebar de escritorio.
  * Solo muestra servicios agregados + total + botón para abrir el cobro.
  */
@@ -48,16 +48,16 @@ export default function PosSidePanel({
       {/* ── Cabecera ──────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center justify-between border-b border-[#edebe9] px-4 py-3">
         <div className="flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-[#0078d4]" />
+          <ShoppingCart className="h-4 w-4 text-[#094732]" />
           <span className="text-sm font-semibold text-[#323130]">Carrito</span>
           {cartCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0078d4] px-1.5 text-[10px] font-bold text-white">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#094732] px-1.5 text-[10px] font-bold text-white">
               {cartCount}
             </span>
           )}
         </div>
         {cartCount > 0 && (
-          <span className="text-sm font-bold text-[#0078d4]">Bs {total.toFixed(2)}</span>
+          <span className="text-sm font-bold text-[#094732]">Bs {total.toFixed(2)}</span>
         )}
       </div>
 
@@ -84,13 +84,13 @@ export default function PosSidePanel({
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[#faf9f8]"
                 >
                   {/* Ícono / indicador de duplicado */}
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-[#eef6ff] text-[10px] font-bold text-[#0078d4]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-[#ecfdf5] text-[10px] font-bold text-[#094732]">
                     {rpt > 1 ? `×${rpt}` : "✓"}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-[#323130]">{svcName}</p>
-                    <p className="text-xs font-semibold text-[#0078d4]">
+                    <p className="text-xs font-semibold text-[#094732]">
                       Bs {line.price.toFixed(2)}
                     </p>
                   </div>
@@ -132,7 +132,7 @@ export default function PosSidePanel({
             )}
             <div className="flex justify-between border-t border-[#edebe9] pt-1.5 text-sm font-bold text-[#323130]">
               <span>Total</span>
-              <span className="text-[#0078d4]">Bs {total.toFixed(2)}</span>
+              <span className="text-[#094732]">Bs {total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -140,7 +140,7 @@ export default function PosSidePanel({
           <button
             type="button"
             onClick={onOpenCheckout}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-sm bg-[#0078d4] text-sm font-semibold text-white shadow-sm transition hover:bg-[#005a9e] active:bg-[#004578]"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-sm bg-[#094732] text-sm font-semibold text-white shadow-sm transition hover:bg-[#063324] active:bg-[#094732]"
           >
             Cobrar venta
             <ArrowRight className="h-4 w-4" />

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { CalendarDays, ShoppingCart } from "lucide-react";
 
 type Props = {
@@ -68,14 +68,14 @@ export default function PosToolbar({
             title={isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
             className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
               isCartOpen
-                ? "border-[#0078d4] bg-[#deecf9] text-[#0050a0]"
+                ? "border-[#094732] bg-[#ecfdf5] text-[#094732]"
                 : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
             }`}
           >
             <ShoppingCart className="h-3.5 w-3.5" />
             {isCartOpen ? "Cerrar carrito" : "Ver carrito"}
             {cartLinesCount > 0 ? (
-              <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${isCartOpen ? "bg-[#0078d4] text-white" : "bg-[#323130] text-white"}`}>
+              <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${isCartOpen ? "bg-[#094732] text-white" : "bg-[#323130] text-white"}`}>
                 {cartLinesCount}
               </span>
             ) : null}

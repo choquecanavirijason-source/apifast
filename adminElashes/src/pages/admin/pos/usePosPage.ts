@@ -19,10 +19,12 @@ import {
 } from "../../../core/services/pos-sale/pos-sale.service";
 import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
+import { ProductService } from "../../../core/services/product/product.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
 import type { RootState } from "../../../store";
-import type { CartLine, PosSaleDraft, ReceiptTicketEdit } from "./pos.types";
+import type { Product } from "../../../core/types/IProduct";
+import type { CartLine, PosSaleDraft, ProductCartLine, ReceiptTicketEdit } from "./pos.types";
 
 import {
   getLocalDateInputValue,
@@ -81,6 +83,7 @@ export function usePosPage({
   const [serviceCategories, setServiceCategories] = useState<ServiceCategoryOption[]>([]);
   const [professionals, setProfessionals]   = useState<ProfessionalForSelect[]>([]);
   const [sales, setSales]                   = useState<PosSaleItem[]>([]);
+  const [products, setProducts]             = useState<Product[]>([]);
   const [existingTickets, setExistingTickets] = useState<TicketItem[]>([]);
   const [eyeTypes, setEyeTypes]             = useState<EyeTypeOption[]>([]);
   const [branches, setBranches]             = useState<BranchData[]>([]);
@@ -100,6 +103,7 @@ export function usePosPage({
   const [discountValue, setDiscountValue]   = useState("0");
   const [notes, setNotes]                   = useState("");
   const [cartLines, setCartLines]           = useState<CartLine[]>([]);
+  const [productLines, setProductLines]     = useState<ProductCartLine[]>([]);
   const [serviceSearch, setServiceSearch]   = useState("");
   const [selectedServiceCategoryId, setSelectedServiceCategoryId] = useState("all");
   const [sellerId, setSellerId]             = useState("");
@@ -186,7 +190,14 @@ export function usePosPage({
     return categoryFiltered.filter((s) => s.name.toLowerCase().includes(term) || s.price.toFixed(2).includes(term));
   }, [services, serviceSearch, selectedServiceCategoryId]);
 
-  const subtotal       = useMemo(() => cartLines.reduce((s, l) => s + l.price, 0), [cartLines]);
+  const productsSubtotal = useMemo(
+    () => productLines.reduce((s, l) => s + l.unit_price * l.quantity, 0),
+    [productLines]
+  );
+  const subtotal       = useMemo(
+    () => cartLines.reduce((s, l) => s + l.price, 0) + productsSubtotal,
+    [cartLines, productsSubtotal]
+  );
   const discountAmount = useMemo(
     () => (discountType === "percent" ? subtotal * (numericDiscount / 100) : numericDiscount),
     [discountType, numericDiscount, subtotal]
@@ -460,8 +471,9 @@ export function usePosPage({
         AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: branchFilter }),
         PosSaleService.list({ limit: 100, branch_id: branchFilter }),
         AgendaService.listTickets({ limit: 500, branch_id: branchFilter, start_date: saleBaseDate, end_date: saleBaseDate }),
+        ProductService.listProducts({ limit: 200, branch_id: branchFilter, active_only: true }),
       ]);
-      const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda"] as const;
+      const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda", "Productos"] as const;
       const failures: string[] = [];
 
       if (settled[0].status === "fulfilled") setClients(settled[0].value);
@@ -496,6 +508,12 @@ export function usePosPage({
       else {
         failures.push(`${labels[5]}: ${getApiErrorMessage(settled[5].reason, "Error al cargar tickets de agenda.")}`);
         setExistingTickets([]);
+      }
+
+      if (settled[6].status === "fulfilled") setProducts(settled[6].value);
+      else {
+        failures.push(`${labels[6]}: ${getApiErrorMessage(settled[6].reason, "Error al cargar productos.")}`);
+        setProducts([]);
       }
 
       if (failures.length > 0) {
@@ -551,6 +569,12 @@ export function usePosPage({
       const parsed = JSON.parse(raw) as Partial<PosSaleDraft>;
       const parsedCartLines = Array.isArray(parsed.cartLines)
         ? parsed.cartLines.filter(isCartLine).map(normalizeCartLine) : [];
+      const parsedProductLines = Array.isArray(parsed.productLines)
+        ? parsed.productLines.filter(
+            (l): l is ProductCartLine =>
+              Boolean(l) && typeof l.localId === "string" && typeof l.product_id === "string" && typeof l.quantity === "number"
+          )
+        : [];
       setClientId(typeof parsed.clientId === "string" ? parsed.clientId : "");
       setClientSearch(typeof parsed.clientSearch === "string" ? parsed.clientSearch : "");
       setPaymentMethod(typeof parsed.paymentMethod === "string" ? parsed.paymentMethod : "");
@@ -563,6 +587,7 @@ export function usePosPage({
       setDiscountValue(typeof parsed.discountValue === "string" ? parsed.discountValue : "0");
       setNotes(typeof parsed.notes === "string" ? parsed.notes : "");
       setCartLines(parsedCartLines);
+      setProductLines(parsedProductLines);
       setServiceSearch(typeof parsed.serviceSearch === "string" ? parsed.serviceSearch : "");
       setSelectedServiceCategoryId(typeof parsed.selectedServiceCategoryId === "string" ? parsed.selectedServiceCategoryId : "all");
       setSellerId(typeof parsed.sellerId === "string" ? parsed.sellerId : "");
@@ -658,14 +683,16 @@ export function usePosPage({
     const isEmpty =
       !clientId && !clientSearch && (!paymentMethod || paymentMethod === "cash") &&
       discountType === "amount" && (discountValue === "" || discountValue === "0") &&
-      !notes.trim() && cartLines.length === 0 && !serviceSearch && selectedServiceCategoryId === "all" && !sellerId;
+      !notes.trim() && cartLines.length === 0 && productLines.length === 0 && !serviceSearch && selectedServiceCategoryId === "all" && !sellerId;
     if (isEmpty) { sessionStorage.removeItem(draftKey); return; }
-    sessionStorage.setItem(draftKey, JSON.stringify({ clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft));
-  }, [isDraftHydrated, activeBranchId, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, serviceSearch, selectedServiceCategoryId, sellerId]);
+    sessionStorage.setItem(draftKey, JSON.stringify({ clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft));
+  }, [isDraftHydrated, activeBranchId, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
 
   useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
   useEffect(() => { if (section) setActiveTab(section); }, [section]);
-  useEffect(() => { onCartCountChange?.(cartLines.length); }, [cartLines.length, onCartCountChange]);
+  useEffect(() => {
+    onCartCountChange?.(cartLines.length + productLines.length);
+  }, [cartLines.length, productLines.length, onCartCountChange]);
   useEffect(() => {
     if (!cartDrawerSignal) return;
     setActiveTab("sale"); setStep(1); setIsCartOpen(true);
@@ -731,10 +758,55 @@ export function usePosPage({
   const handleUpdateTicketTime = (localId: string, date: string, time: string) =>
     updateLine(localId, { date, time, without_time: false, time_manual: true });
 
+  // ── Productos (inventario) en el carrito ───────────────────────────────────
+
+  const addProductToCart = (product: Product) => {
+    setProductLines((prev) => {
+      const existing = prev.find((l) => l.product_id === String(product.id));
+      if (existing) {
+        if (existing.quantity >= existing.availableStock) {
+          toast.warning(`No hay más stock disponible de "${product.name}".`);
+          return prev;
+        }
+        return prev.map((l) =>
+          l.localId === existing.localId ? { ...l, quantity: l.quantity + 1 } : l
+        );
+      }
+      if (product.stock <= 0) {
+        toast.warning(`"${product.name}" no tiene stock en esta sucursal.`);
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          localId: createLocalId(),
+          product_id: String(product.id),
+          name: product.name,
+          unit_price: product.price,
+          quantity: 1,
+          availableStock: product.stock,
+        },
+      ];
+    });
+  };
+
+  const updateProductQuantity = (localId: string, quantity: number) => {
+    setProductLines((prev) =>
+      prev.map((l) => {
+        if (l.localId !== localId) return l;
+        const clamped = Math.max(1, Math.min(quantity, l.availableStock));
+        return { ...l, quantity: clamped };
+      })
+    );
+  };
+
+  const removeProductLine = (localId: string) =>
+    setProductLines((prev) => prev.filter((l) => l.localId !== localId));
+
   const resetSaleForm = () => {
     setEditingSale(null); setLinkAppointmentId(null); agendaHydrateDoneRef.current = null;
     setClientId(""); setClientSearch(""); setServiceSearch(""); setSelectedServiceCategoryId("all");
-    setPaymentMethod(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setSellerId("");
+    setPaymentMethod(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
     sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     if (embedded) setActiveTab("sale");
   };
@@ -758,6 +830,9 @@ export function usePosPage({
 
   const handleImmediateCheckout = async (payLater: boolean, startService?: boolean) => {
     if (!activeBranchId)  return toast.warning("Selecciona una sucursal.");
+    // "Crear turno" / "Pasar a servicio" son acciones de agenda — no aplican
+    // a una venta de solo productos (sin servicio que agendar). Para vender
+    // solo productos se usa "Finalizar venta" (handleCheckout).
     if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
     if (!payLater && mixedPayments.length === 0 && !paymentMethod) return toast.warning("Selecciona un método de pago.");
     setIsSubmitting(true);
@@ -802,10 +877,15 @@ export function usePosPage({
 
   const handleCheckout = async () => {
     if (!activeBranchId)        return toast.warning("Selecciona una sucursal para la venta.");
-    if (!clientId)              return toast.warning("Selecciona un cliente.");
-    if (cartLines.length === 0) return toast.warning("El carrito está vacío.");
+    // Sin clienta elegida, el backend usa el "Cliente Mostrador" de la
+    // sucursal (walk-in) — no hace falta frenar el cobro por esto.
+    if (cartLines.length === 0 && productLines.length === 0) return toast.warning("El carrito está vacío.");
     if (cartLines.some((l) => l.status === "in_service" && !l.professional_id))
       return toast.warning("Si un ticket está 'En atencion', debes seleccionar operaria.");
+    // Editar productos de una venta ya creada no está soportado todavía —
+    // solo se pueden agregar productos al armar una venta nueva.
+    if (editingSale && productLines.length > 0)
+      return toast.warning("No se pueden agregar productos al editar una venta existente. Creá una venta nueva.");
     if (numericDiscount > 0) {
       const applied = discountType === "percent" ? subtotal * (numericDiscount / 100) : numericDiscount;
       if (applied >= subtotal) return toast.warning("El descuento no puede ser igual o mayor al subtotal de la venta.");
@@ -879,16 +959,25 @@ export function usePosPage({
       };
 
       const sale = await PosSaleService.create({
-        client_id: Number(clientId), branch_id: activeBranchId,
+        ...(clientId ? { client_id: Number(clientId) } : {}), branch_id: activeBranchId,
         payment_method: mixedPayments.length > 0 ? "mixed" : paymentMethod,
         discount_type: discountType, discount_value: numericDiscount, notes: notes.trim() || undefined,
         items: buildItems(),
+        product_items: productLines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity })),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
         ...(mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
       });
       sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
       const ticketCodes = sale.appointments.map((a) => a.ticket_code).filter((c): c is string => Boolean(c));
-      toast.success(ticketCodes.length > 0 ? `Venta completada. Tickets: ${ticketCodes.join(", ")}` : linkAppointmentId ? "Venta completada. Reserva cobrada en agenda." : "Venta completada. Tickets creados en agenda.");
+      const productSummary = sale.product_lines.length > 0
+        ? `Productos: ${sale.product_lines.map((p) => `${p.product?.name ?? "Producto"} x${p.quantity}`).join(", ")}`
+        : "";
+      toast.success(
+        ticketCodes.length > 0 ? `Venta completada. Tickets: ${ticketCodes.join(", ")}`
+        : linkAppointmentId ? "Venta completada. Reserva cobrada en agenda."
+        : productSummary ? `Venta completada. ${productSummary}`
+        : "Venta completada. Tickets creados en agenda."
+      );
       setLinkAppointmentId(null); setReceiptSale(sale); resetSaleForm();
       await loadContext();
       if (!embedded) navigate("/admin/pos/history");
@@ -1090,13 +1179,13 @@ export function usePosPage({
 
   return {
     activeTab, setActiveTab, step, setStep,
-    clients, services, serviceCategories, professionals, sales, existingTickets, eyeTypes, branches,
+    clients, services, serviceCategories, professionals, sales, products, existingTickets, eyeTypes, branches,
     eyeTypesError, isLoadingEyeTypes, isLoading,
     activeBranchId, setActiveBranchId,
     clientId, setClientId, clientSearch, setClientSearch,
     paymentMethod, setPaymentMethod, mixedPayments, setMixedPayments,
     discountType, setDiscountType, discountValue, setDiscountValue,
-    notes, setNotes, cartLines, serviceSearch, setServiceSearch,
+    notes, setNotes, cartLines, productLines, serviceSearch, setServiceSearch,
     selectedServiceCategoryId, setSelectedServiceCategoryId, sellerId, setSellerId,
     ticketMode, setTicketMode, linkAppointmentId,
     isSubmitting, receiptSale, setReceiptSale, editingSale,
@@ -1120,6 +1209,7 @@ export function usePosPage({
     lineAvailability, checkoutTicketPreviews, activeAvailabilityLine, occupiedTicketsForPreview, previewHourSlots,
     qrRef, clientComboboxRef, serviceComboboxRef, serviceMenuRef,
     updateServiceMenuPosition, addServiceToCart, removeLastCartLineForService, removeLine, updateLine,
+    addProductToCart, updateProductQuantity, removeProductLine,
     handleUpdateTicketTime, resetSaleForm, handleServiceSelect, handleSelectHourFromPreview,
     handleImmediateCheckout, handleCheckout,
     updateReceiptTicketEdit, saveReceiptTicketEdits, handleOpenPrintPreview,

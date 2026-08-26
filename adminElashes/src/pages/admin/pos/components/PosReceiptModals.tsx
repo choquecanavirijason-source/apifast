@@ -1,4 +1,4 @@
-import { useMemo, useState, type RefObject } from "react";
+﻿import { useMemo, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Clock, FileDown, Printer, ReceiptText } from "lucide-react";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
@@ -238,6 +238,23 @@ export default function PosReceiptModals({
                 )}
               </div>
             </div>
+
+            {receiptSale.product_lines.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-left">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Productos vendidos</h3>
+                <div className="space-y-2">
+                  {receiptSale.product_lines.map((line) => (
+                    <div key={line.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{line.product?.name ?? `Producto #${line.product_id}`}</p>
+                        <p className="text-[11px] text-slate-500">Bs {line.unit_price.toFixed(2)} c/u x{line.quantity}</p>
+                      </div>
+                      <span className="text-sm font-bold text-slate-700">Bs {line.subtotal.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {pdfStatus === "done" && (
               <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5">
@@ -497,6 +514,24 @@ export default function PosReceiptModals({
                     )}
                   </div>
 
+                  {receiptSale.product_lines.length > 0 && (
+                    <>
+                      <div className="my-3 border-t border-dashed border-slate-300" />
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Productos</p>
+                      <div className="space-y-2">
+                        {receiptSale.product_lines.map((line) => (
+                          <div key={line.id} className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">{line.product?.name ?? `Producto #${line.product_id}`}</p>
+                              <p className="text-[11px] text-slate-500">Bs {line.unit_price.toFixed(2)} c/u x{line.quantity}</p>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700">Bs {line.subtotal.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   <div className="my-3 border-t border-dashed border-slate-300" />
 
                   <div className="flex items-center justify-between">
@@ -553,7 +588,7 @@ export default function PosReceiptModals({
                 type="date"
                 value={availabilityPreviewDate || activeAvailabilityLine?.date || saleBaseDate}
                 onChange={(event) => setAvailabilityPreviewDate(event.target.value)}
-                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
               />
             </div>
 
@@ -564,7 +599,7 @@ export default function PosReceiptModals({
                 value={availabilitySearch}
                 onChange={(event) => setAvailabilitySearch(event.target.value)}
                 placeholder="Operaria, cliente o servicio"
-                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                className="h-10 w-full rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
               />
             </div>
           </div>
@@ -598,7 +633,7 @@ export default function PosReceiptModals({
                       {weekDays.map((d, dayIndex) => (
                         <div
                           key={d.toISOString()}
-                          className={`relative ${dragOverDayIndex === dayIndex ? 'bg-[#f3fbff]' : ''}`}
+                          className={`relative ${dragOverDayIndex === dayIndex ? 'bg-[#ecfdf5]' : ''}`}
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = 'move';
@@ -699,7 +734,7 @@ export default function PosReceiptModals({
                             {ticket.client_name} · {(ticket.service_name ?? (ticket.service_names ?? []).join(" · ")) || "Servicio"}
                           </p>
                         </div>
-                        <span className="shrink-0 text-[11px] font-semibold text-[#0078d4]">
+                        <span className="shrink-0 text-[11px] font-semibold text-[#094732]">
                           {formatHourMinute(ticket.start_time)} - {formatHourMinute(ticket.end_time)}
                         </span>
                       </div>

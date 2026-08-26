@@ -1,10 +1,12 @@
-import { Building2, CalendarDays, ShoppingCart } from "lucide-react";
+﻿import { useState } from "react";
+import { Building2, CalendarDays, Package, ShoppingCart, Wrench } from "lucide-react";
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
 import SalesHistoryTable from "./components/SalesHistoryTable";
+import ProductSalesHistoryTable from "./components/ProductSalesHistoryTable";
 import PosSaleStepOne from "./components/PosSaleStepOne";
 import PosSaleStepTwo from "./components/PosSaleStepTwo";
 import PosReceiptModals from "./components/PosReceiptModals";
@@ -27,6 +29,7 @@ export type PosPageProps = {
 
 export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal }: PosPageProps) {
   const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal });
+  const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
 
   return (
     <Layout
@@ -38,7 +41,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               <span className="block text-[11px] leading-tight text-[#605e5c]">Punto de venta · Dynamics-style</span>
             </span>
             <span className="flex shrink-0 items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-              <CalendarDays className="h-4 w-4 text-[#0078d4]" />
+              <CalendarDays className="h-4 w-4 text-[#094732]" />
               <span className="font-medium text-[#323130]">
                 {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
               </span>
@@ -95,15 +98,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 title={pos.isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
                 className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   pos.isCartOpen
-                    ? "border-[#0078d4] bg-[#deecf9] text-[#0050a0]"
+                    ? "border-[#094732] bg-[#ecfdf5] text-[#094732]"
                     : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
                 }`}
               >
                 <ShoppingCart className="h-3.5 w-3.5" />
                 {pos.isCartOpen ? "Cerrar carrito" : "Ver carrito"}
-                {pos.cartLines.length > 0 && (
-                  <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${pos.isCartOpen ? "bg-[#0078d4] text-white" : "bg-[#323130] text-white"}`}>
-                    {pos.cartLines.length}
+                {pos.cartLines.length + pos.productLines.length > 0 && (
+                  <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${pos.isCartOpen ? "bg-[#094732] text-white" : "bg-[#323130] text-white"}`}>
+                    {pos.cartLines.length + pos.productLines.length}
                   </span>
                 )}
               </button>
@@ -142,9 +145,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                   key={branch.id}
                   type="button"
                   onClick={() => { setSelectedBranchId(branch.id); pos.setActiveBranchId(branch.id); }}
-                  className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#0078d4] hover:bg-[#eef6ff]"
+                  className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#094732] hover:bg-[#ecfdf5]"
                 >
-                  <Building2 className="h-5 w-5 shrink-0 text-[#0078d4]" />
+                  <Building2 className="h-5 w-5 shrink-0 text-[#094732]" />
                   <div>
                     <p className="text-sm font-semibold text-[#323130]">{branch.name}</p>
                     {branch.address && <p className="text-xs text-[#605e5c]">{branch.address}</p>}
@@ -161,6 +164,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             labelClass={labelClass}
             fieldClass={fieldClass}
             isLoading={pos.isLoading}
+            products={pos.products}
+            productLines={pos.productLines}
+            onAddProductToCart={pos.addProductToCart}
+            onUpdateProductQuantity={pos.updateProductQuantity}
+            onRemoveProductLine={pos.removeProductLine}
             serviceSearch={pos.serviceSearch}
             onServiceSearchChange={(value) => { pos.setServiceSearch(value); pos.updateServiceMenuPosition(); pos.setIsServiceMenuOpen(true); }}
             onServiceInputFocus={() => { pos.updateServiceMenuPosition(); pos.setIsServiceMenuOpen(true); }}
@@ -284,37 +292,66 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
         /* ── History tab ─────────────────────────────────────────────── */
         ) : pos.activeTab === "history" ? (
-          <SalesHistoryTable
-            historySearch={pos.historySearch}
-            onHistorySearchChange={pos.setHistorySearch}
-            historyClientFilter={pos.historyClientFilter}
-            onHistoryClientFilterChange={pos.setHistoryClientFilter}
-            historyClientOptions={pos.historyClientOptions}
-            historyPaymentFilter={pos.historyPaymentFilter}
-            onHistoryPaymentFilterChange={pos.setHistoryPaymentFilter}
-            historyPaymentOptions={pos.historyPaymentOptions}
-            historyDateFrom={pos.historyDateFrom}
-            onHistoryDateFromChange={pos.setHistoryDateFrom}
-            historyDateTo={pos.historyDateTo}
-            onHistoryDateToChange={pos.setHistoryDateTo}
-            filteredSalesTotalAmount={pos.filteredSalesTotalAmount}
-            allSalesTotalAmount={pos.allSalesTotalAmount}
-            rowsPerPage={pos.rowsPerPage}
-            rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-            onRowsPerPageChange={pos.setRowsPerPage}
-            colFilters={pos.colFilters}
-            onColFilterChange={(key, value) => pos.setColFilters((prev) => ({ ...prev, [key]: value }))}
-            pagedSales={pos.pagedSales}
-            currentPage={pos.currentPage}
-            totalPages={pos.totalPages}
-            filteredSalesCount={pos.filteredSales.length}
-            onPageChange={pos.setCurrentPage}
-            onViewDetail={pos.setReceiptSale}
-            onEditSale={(sale) => void pos.handleEditSaleFromHistory(sale)}
-            onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
-            onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
-            allFilteredSales={pos.filteredSales}
-          />
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="inline-flex w-fit rounded-lg border border-slate-200 bg-white p-0.5 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setHistoryView("servicios")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  historyView === "servicios" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                Servicios
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryView("productos")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  historyView === "productos" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                <Package className="h-3.5 w-3.5" />
+                Productos
+              </button>
+            </div>
+
+            {historyView === "servicios" ? (
+              <SalesHistoryTable
+                historySearch={pos.historySearch}
+                onHistorySearchChange={pos.setHistorySearch}
+                historyClientFilter={pos.historyClientFilter}
+                onHistoryClientFilterChange={pos.setHistoryClientFilter}
+                historyClientOptions={pos.historyClientOptions}
+                historyPaymentFilter={pos.historyPaymentFilter}
+                onHistoryPaymentFilterChange={pos.setHistoryPaymentFilter}
+                historyPaymentOptions={pos.historyPaymentOptions}
+                historyDateFrom={pos.historyDateFrom}
+                onHistoryDateFromChange={pos.setHistoryDateFrom}
+                historyDateTo={pos.historyDateTo}
+                onHistoryDateToChange={pos.setHistoryDateTo}
+                filteredSalesTotalAmount={pos.filteredSalesTotalAmount}
+                allSalesTotalAmount={pos.allSalesTotalAmount}
+                rowsPerPage={pos.rowsPerPage}
+                rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+                onRowsPerPageChange={pos.setRowsPerPage}
+                colFilters={pos.colFilters}
+                onColFilterChange={(key, value) => pos.setColFilters((prev) => ({ ...prev, [key]: value }))}
+                pagedSales={pos.pagedSales}
+                currentPage={pos.currentPage}
+                totalPages={pos.totalPages}
+                filteredSalesCount={pos.filteredSales.length}
+                onPageChange={pos.setCurrentPage}
+                onViewDetail={pos.setReceiptSale}
+                onEditSale={(sale) => void pos.handleEditSaleFromHistory(sale)}
+                onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
+                onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
+                allFilteredSales={pos.filteredSales}
+              />
+            ) : (
+              <ProductSalesHistoryTable sales={pos.filteredSales} />
+            )}
+          </div>
 
         /* ── Last ticket tab ─────────────────────────────────────────── */
         ) : (

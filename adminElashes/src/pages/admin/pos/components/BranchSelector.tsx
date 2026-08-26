@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Building2 } from "lucide-react";
 
 type Branch = { id: number; name: string; address?: string | null };
@@ -28,9 +28,9 @@ export default function BranchSelector({
               key={branch.id}
               type="button"
               onClick={() => onSelect(branch.id)}
-              className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#0078d4] hover:bg-[#eef6ff]"
+              className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#094732] hover:bg-[#ecfdf5]"
             >
-              <Building2 className="h-5 w-5 shrink-0 text-[#0078d4]" />
+              <Building2 className="h-5 w-5 shrink-0 text-[#094732]" />
               <div>
                 <p className="text-sm font-semibold text-[#323130]">{branch.name}</p>
                 {branch.address && (<p className="text-xs text-[#605e5c]">{branch.address}</p>)}

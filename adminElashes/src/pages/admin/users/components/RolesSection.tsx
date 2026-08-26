@@ -94,7 +94,6 @@ export default function RolesSection({ roles, loading, onEditRole, onDeleteRole 
   return (
     <SectionCard
       title="Roles del Sistema"
-      subtitle="Edita los permisos de cada rol para controlar qué secciones y acciones puede ver cada usuario."
       bodyClassName="!p-0"
     >
       <DataTable

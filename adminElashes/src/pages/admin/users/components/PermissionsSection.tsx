@@ -38,7 +38,6 @@ export default function PermissionsSection({ permissions, loading }: Permissions
   return (
     <SectionCard
       title="Permisos por Módulo"
-      subtitle="Vista agrupada para entender mejor qué acciones puede habilitar cada rol."
       bodyClassName="!p-0"
     >
       <DataTable

@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Minus, Search, ShoppingBag, X } from "lucide-react";
 
 import GenericModal from "../../../../components/common/modal/GenericModal";
 import type { ServiceCategoryOption, ServiceOption } from "../../../../core/services/agenda/agenda.service";
 
 const bcField =
-  "w-full h-10 rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]";
+  "w-full h-10 rounded-sm border border-[#8a8886] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#094732] focus:ring-1 focus:ring-[#094732]";
 
 type CategorySelectionModalProps = {
   isOpen: boolean;
@@ -80,7 +80,7 @@ export default function CategorySelectionModal({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">Total estimado</p>
-              <p className="mt-0.5 text-2xl font-semibold tabular-nums text-[#0078d4] sm:text-3xl">Bs {totalBs.toFixed(2)}</p>
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums text-[#094732] sm:text-3xl">Bs {totalBs.toFixed(2)}</p>
               <p className="mt-1 text-xs text-[#605e5c]">
                 <span className="font-semibold text-[#323130]">{totalQty}</span> unidades en esta venta
               </p>
@@ -91,10 +91,10 @@ export default function CategorySelectionModal({
                 onClick={() => setCartDrawerOpen(true)}
                 className="relative flex h-10 items-center gap-2 rounded-sm border border-[#8a8886] bg-white px-4 text-sm font-semibold text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
               >
-                <ShoppingBag className="h-4 w-4 text-[#0078d4]" />
+                <ShoppingBag className="h-4 w-4 text-[#094732]" />
                 Detalle del carrito
                 {totalQty > 0 ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0078d4] px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#094732] px-1 text-[10px] font-bold text-white ring-2 ring-white">
                     {totalQty}
                   </span>
                 ) : null}
@@ -148,7 +148,7 @@ export default function CategorySelectionModal({
               {cartLines.map(({ service, count }) => (
                 <div
                   key={service.id}
-                  className="inline-flex max-w-full items-center gap-2 rounded-sm border border-[#0078d4]/40 bg-[#f0f6ff] py-1 pl-1 pr-2 text-left shadow-sm"
+                  className="inline-flex max-w-full items-center gap-2 rounded-sm border border-[#094732]/40 bg-[#f0f6ff] py-1 pl-1 pr-2 text-left shadow-sm"
                 >
                   <div className="h-9 w-9 shrink-0 overflow-hidden rounded-sm bg-[#edebe9]">
                     {service.image_url ? (
@@ -188,7 +188,7 @@ export default function CategorySelectionModal({
                     onClick={() => onIncrementSelection(String(service.id))}
                     className={`group flex cursor-pointer flex-col overflow-hidden rounded-sm border bg-white text-left shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition hover:shadow-md ${
                       isSelected
-                        ? "border-[#0078d4] ring-2 ring-[#0078d4]/30"
+                        ? "border-[#094732] ring-2 ring-[#094732]/30"
                         : "border-[#edebe9] hover:border-[#c8c6c4]"
                     }`}
                   >
@@ -205,7 +205,7 @@ export default function CategorySelectionModal({
                         </div>
                       )}
                       {isSelected ? (
-                        <span className="absolute left-2 top-2 rounded-sm bg-[#0078d4] px-2 py-0.5 text-xs font-bold text-white shadow">
+                        <span className="absolute left-2 top-2 rounded-sm bg-[#094732] px-2 py-0.5 text-xs font-bold text-white shadow">
                           ×{selectionCount}
                         </span>
                       ) : null}
@@ -245,7 +245,7 @@ export default function CategorySelectionModal({
                 <p className="text-base font-semibold text-[#323130]">
                   {totalQty} {totalQty === 1 ? "unidad" : "unidades"}
                 </p>
-                <p className="mt-0.5 text-xl font-semibold tabular-nums text-[#0078d4]">Bs {totalBs.toFixed(2)}</p>
+                <p className="mt-0.5 text-xl font-semibold tabular-nums text-[#094732]">Bs {totalBs.toFixed(2)}</p>
               </div>
               <button
                 type="button"
@@ -303,7 +303,7 @@ export default function CategorySelectionModal({
               <button
                 type="button"
                 onClick={() => setCartDrawerOpen(false)}
-                className="mt-2 w-full rounded-sm bg-[#0078d4] py-2.5 text-sm font-semibold text-white transition hover:bg-[#005a9e]"
+                className="mt-2 w-full rounded-sm bg-[#094732] py-2.5 text-sm font-semibold text-white transition hover:bg-[#063324]"
               >
                 Volver al catálogo
               </button>
