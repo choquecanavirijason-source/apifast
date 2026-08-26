@@ -231,6 +231,8 @@ export default function TicketsPage() {
         key: "ticket_code",
         header: "Código",
         getValue: (item) => item.ticket_code ?? `#${item.id}`,
+        sortable: true,
+        filterable: true,
         render: (item) => (
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-sm font-bold text-[#094732]">
             <Ticket className="h-3.5 w-3.5" />
@@ -241,11 +243,16 @@ export default function TicketsPage() {
       {
         key: "client_name",
         header: "Cliente",
+        sortable: true,
+        filterable: true,
         render: (item) => <span className="font-semibold text-slate-800">{item.client_name}</span>,
       },
       {
         key: "service_name",
         header: "Servicio",
+        getValue: (item) => (item.service_names?.length ? item.service_names.join(" · ") : item.service_name ?? ""),
+        sortable: true,
+        filterable: true,
         render: (item) => (
           <span className="text-sm text-slate-600">
             {item.service_names?.length
@@ -257,6 +264,7 @@ export default function TicketsPage() {
       {
         key: "start_time",
         header: "Fecha",
+        sortable: true,
         render: (item) => (
           <span className="text-sm text-slate-500">{formatDate(item.start_time)}</span>
         ),
@@ -265,6 +273,7 @@ export default function TicketsPage() {
         key: "schedule",
         header: "Horario",
         getValue: (item) => `${item.start_time} ${item.end_time}`,
+        sortable: true,
         render: (item) => (
           <span className="text-sm font-semibold text-slate-700">
             {formatHour(item.start_time)} - {formatHour(item.end_time)}
@@ -274,6 +283,9 @@ export default function TicketsPage() {
       {
         key: "status",
         header: "Estado",
+        getValue: (item) => STATUS_LABELS[item.status] ?? item.status,
+        sortable: true,
+        filterable: true,
         render: (item) => (
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-bold ${
@@ -331,6 +343,7 @@ export default function TicketsPage() {
     <FilterActionBar
       left={
         <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold text-slate-800">Listado de tickets</h2>
           <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
             <Filter className="h-4 w-4 text-slate-400" />
             <select
@@ -391,13 +404,6 @@ export default function TicketsPage() {
         title="Tickets"
         subtitle="Busca y gestiona tickets por servicio. Asigna pagos a clientes."
         variant="table"
-        topContent={
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-            <p className="text-sm text-slate-700">
-              Cada ticket se asigna a un cliente según el servicio. Registra pagos vinculados al ticket para llevar el control.
-            </p>
-          </div>
-        }
         toolbar={renderToolbar()}
       >
       
@@ -409,7 +415,6 @@ export default function TicketsPage() {
           availableLimits={[10, 15, 25, 50]}
           loading={isLoading}
           globalSearchPlaceholder={isLoading ? "Cargando tickets..." : "Buscar tickets..."}
-          enableColumnFilters={false}
           actions={[
             {
               label: "Ver pagos",

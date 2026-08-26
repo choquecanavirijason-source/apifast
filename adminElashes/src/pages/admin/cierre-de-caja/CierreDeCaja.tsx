@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Banknote, CheckCircle, CreditCard, Printer, QrCode, Wallet, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -137,7 +137,7 @@ async function printReport(
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Cierre de Caja – ${dateLabel}</title>
+  <title>Reporte por comisiones – ${dateLabel}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 10px; padding: 16px; color: #1a1a1a; }
@@ -155,7 +155,7 @@ async function printReport(
 </head>
 <body>
   ${logoHtml}
-  <h2>Cierre de Caja</h2>
+  <h2>Reporte por comisiones</h2>
   <p class="sub">Fecha: ${dateLabel}${branchName ? " · " + branchName : ""}${professionalName ? " · Operaria: " + professionalName : ""}</p>
 
   <div class="summary-grid">
@@ -285,7 +285,7 @@ export default function CierreDeCaja() {
         amount,
         period_start: fromDate,
         period_end: toDate,
-        notes: "Confirmado desde Cierre de Caja",
+        notes: "Confirmado desde Reporte por comisiones",
       });
       loadConfirmations();
     } catch {
@@ -545,7 +545,7 @@ export default function CierreDeCaja() {
       {/* Header */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#1b1a19]">Cierre de Caja</h1>
+          <h1 className="text-xl font-bold text-[#1b1a19]">Reporte por comisiones</h1>
           <p className="mt-0.5 text-sm text-[#605e5c]">Reporte diario de tickets por operaria</p>
         </div>
         <Button

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart2, ClipboardList, Download, List, Package, Search } from "lucide-react";
+import { BarChart2, Download, List, Package, Search } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import Layout from "@/components/common/layout";
-import FilterActionBar from "@/components/common/FilterActionBar";
-import { Button, SectionCard, StatCard } from "@/components/common/ui";
+import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
@@ -113,10 +112,14 @@ export default function TicketsHistoryPage() {
   }, [activeBranchId, fromDate, toDate]);
 
   useEffect(() => {
-    void AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria" })
+    void AgendaService.listProfessionalsForSelect({
+      limit: 200,
+      role_name: "Operaria",
+      branch_id: activeBranchId ?? undefined,
+    })
       .then(setProfessionals)
       .catch(() => setProfessionals([]));
-  }, []);
+  }, [activeBranchId]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -370,65 +373,53 @@ export default function TicketsHistoryPage() {
       title="Seguimiento de servicios"
       subtitle="Control de calidad: notas de diseño, cuestionarios y estado de cada ticket. Vista operativa sin comisiones."
       variant="cards"
+      topContent={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-800">Seguimiento de servicios</h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={filteredTickets.length === 0}
+              leftIcon={<Download className="h-3.5 w-3.5" />}
+            >
+              PDF
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
+            <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
+          </div>
+        </div>
+      }
       toolbar={
-        <FilterActionBar
-          left={
-            <div className="flex items-center gap-2 text-xs text-slate-600">
-              <ClipboardList className="h-3.5 w-3.5" />
-              <span className="font-semibold">{filteredTickets.length} tickets</span>
-              {(search || professionalFilter || statusFilter || fromDate || toDate) && (
-                <span className="rounded-full bg-[#0078d4]/10 px-2 py-0.5 text-[10px] font-bold text-[#0078d4]">
-                  Filtros activos
-                </span>
-              )}
-            </div>
-          }
-          right={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleDownloadPdf}
-                disabled={filteredTickets.length === 0}
-                leftIcon={<Download className="h-3.5 w-3.5" />}
-              >
-                PDF
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
-              <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
-            </div>
-          }
-        />
+        <div className="flex gap-1 rounded-xl border border-[#edebe9] bg-[#f3f2f1] p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab("tickets")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              activeTab === "tickets"
+                ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
+                : "text-[#605e5c] hover:bg-white/50"
+            }`}
+          >
+            <List className="h-3.5 w-3.5" />
+            Historial de tickets
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("servicios")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              activeTab === "servicios"
+                ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
+                : "text-[#605e5c] hover:bg-white/50"
+            }`}
+          >
+            <BarChart2 className="h-3.5 w-3.5" />
+            Uso por servicio
+          </button>
+        </div>
       }
     >
-      {/* ── Pestañas ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 rounded-xl border border-[#edebe9] bg-[#f3f2f1] p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveTab("tickets")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "tickets"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <List className="h-3.5 w-3.5" />
-          Historial de tickets
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("servicios")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "servicios"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <BarChart2 className="h-3.5 w-3.5" />
-          Uso por servicio
-        </button>
-      </div>
-
       {/* ── Sección: Uso por servicio ─────────────────────────────────────── */}
       {activeTab === "servicios" && (
         <SectionCard bodyClassName="!p-4">
@@ -508,20 +499,42 @@ export default function TicketsHistoryPage() {
 
       {/* ── Filtros (solo en pestaña tickets) ────────────────────────────── */}
       {activeTab === "tickets" && <>
-      {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Total" value={filteredTickets.length} tone="slate" />
-        <StatCard
-          label="Completados"
-          value={filteredTickets.filter((t) => t.status === "completed").length}
-          tone="emerald"
-        />
-        <StatCard
-          label="Pendientes / En curso"
-          value={filteredTickets.filter((t) => t.status === "pending" || t.status === "in_service" || t.status === "waiting").length}
-          tone="amber"
-        />
-        <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
+      {/* ── Estados + ingresos: cajas clicables, todas en una sola fila ───── */}
+      <div className="mt-2 flex flex-nowrap items-stretch gap-2 overflow-x-auto py-1">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("")}
+          className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition ${
+            !statusFilter
+              ? "border-[#0078d4] bg-[#deecf9]"
+              : "border-slate-200 bg-white hover:bg-slate-50"
+          }`}
+        >
+          <span className="text-xs font-medium text-slate-500">Total</span>
+          <span className="text-sm font-semibold tabular-nums text-slate-800">{tickets.length}</span>
+        </button>
+        {availableStatuses.map((s) => {
+          const count = tickets.filter((t) => t.status === s).length;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition ${
+                statusFilter === s
+                  ? (STATUS_BADGE[s] ?? "bg-slate-100 border-slate-200") + " ring-1 ring-current"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <span className="text-xs font-medium text-slate-500">{STATUS_LABELS[s] ?? s}</span>
+              <span className="text-sm font-semibold tabular-nums text-slate-800">{count}</span>
+            </button>
+          );
+        })}
+        <div className="flex shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <span className="text-xs font-medium text-emerald-700">Ingresos</span>
+          <span className="text-sm font-semibold tabular-nums text-emerald-700">{moneyFormatter.format(totalRevenue)}</span>
+        </div>
       </div>
 
       {/* ── Filtros ──────────────────────────────────────────────────────── */}
@@ -565,68 +578,11 @@ export default function TicketsHistoryPage() {
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
         </div>
-
-        {/* Chips de estado */}
-        {availableStatuses.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setStatusFilter("")}
-              className={`rounded-full border px-3 py-0.5 text-[11px] font-semibold transition ${
-                !statusFilter
-                  ? "border-[#0078d4] bg-[#deecf9] text-[#0050a0]"
-                  : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
-              }`}
-            >
-              Todos ({tickets.length})
-            </button>
-            {availableStatuses.map((s) => {
-              const count = filteredTickets.filter((t) => t.status === s).length;
-              const total = tickets.filter((t) => t.status === s).length;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
-                  className={`flex items-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-semibold transition ${
-                    statusFilter === s
-                      ? (STATUS_BADGE[s] ?? "bg-slate-100 text-slate-600 border-slate-200") + " ring-1 ring-current"
-                      : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
-                  }`}
-                >
-                  {STATUS_LABELS[s] ?? s}
-                  <span className="rounded-full bg-black/10 px-1.5">{statusFilter === s ? count : total}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </SectionCard>
 
       {/* ── Tabla ────────────────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-0">
         {error && <div className="border-b border-[#edebe9] p-4 text-sm text-rose-600">{error}</div>}
-
-        {/* Resumen del filtro activo */}
-        {(professionalFilter || statusFilter) && !isLoading && (
-          <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[#605e5c]">
-              {professionalFilter && (
-                <span className="flex items-center gap-1 rounded-full bg-[#deecf9] px-2.5 py-0.5 font-semibold text-[#0050a0]">
-                  Operaria: {professionals.find((p) => String(p.id) === professionalFilter)?.username ?? professionalFilter}
-                  <button type="button" onClick={() => setProfessionalFilter("")} className="ml-0.5 opacity-60 hover:opacity-100">×</button>
-                </span>
-              )}
-              {statusFilter && (
-                <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold ${STATUS_BADGE[statusFilter] ?? "bg-slate-100 text-slate-600"}`}>
-                  Estado: {STATUS_LABELS[statusFilter] ?? statusFilter}
-                  <button type="button" onClick={() => setStatusFilter("")} className="ml-0.5 opacity-60 hover:opacity-100">×</button>
-                </span>
-              )}
-            </div>
-            <span className="text-xs font-bold text-emerald-700">{moneyFormatter.format(totalRevenue)}</span>
-          </div>
-        )}
 
         <DataTable
           data={filteredTickets}

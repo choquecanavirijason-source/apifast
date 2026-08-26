@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Download, List, UserCheck, X } from "lucide-react";
+import { Banknote, Download, List, X } from "lucide-react";
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
@@ -106,7 +106,6 @@ export default function ProfessionalServiceHistory() {
 
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [commissionRows, setCommissionRows] = useState<CommissionExportRow[]>([]);
@@ -132,13 +131,17 @@ export default function ProfessionalServiceHistory() {
 
   const loadProfessionals = useCallback(async () => {
     try {
-      const data = await AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria" });
+      const data = await AgendaService.listProfessionalsForSelect({
+        limit: 200,
+        role_name: "Operaria",
+        branch_id: activeBranchId ?? undefined,
+      });
       setProfessionals(data);
     } catch (err) {
       console.error("Error cargando profesionales:", err);
       setProfessionals([]);
     }
-  }, []);
+  }, [activeBranchId]);
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -229,10 +232,9 @@ export default function ProfessionalServiceHistory() {
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
       if (selectedProfessionalId !== null && ticket.professional_id !== selectedProfessionalId) return false;
-      if (statusFilter && ticket.status !== statusFilter) return false;
       return true;
     });
-  }, [tickets, selectedProfessionalId, statusFilter]);
+  }, [tickets, selectedProfessionalId]);
 
   const selectedProfName = useMemo(
     () => selectedProfessionalId !== null
@@ -254,11 +256,6 @@ export default function ProfessionalServiceHistory() {
   const totalCommission = useMemo(
     () => completedTickets.reduce((s, t) => s + getTicketCommission(t), 0),
     [completedTickets]
-  );
-
-  const availableStatuses = useMemo(
-    () => Array.from(new Set(tickets.map((t) => t.status).filter(Boolean))).sort(),
-    [tickets]
   );
 
   const columns = useMemo<DataTableColumn<TicketItem>[]>(() => [
@@ -496,19 +493,7 @@ export default function ProfessionalServiceHistory() {
 
   const renderToolbar = () => (
     <FilterActionBar
-      left={
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-          {selectedProfName ? (
-            <>
-              <UserCheck className="h-3.5 w-3.5 text-[#0078d4]" />
-              <span className="text-[#0078d4]">{selectedProfName}</span>
-              <span className="text-slate-400">— {filteredTickets.length} tickets</span>
-            </>
-          ) : (
-            <span>Todas las operarias — {filteredTickets.length} tickets</span>
-          )}
-        </div>
-      }
+      left={<h2 className="text-lg font-semibold text-slate-800">Comisiones por operaria</h2>}
       right={
         <div className="flex items-center gap-2">
           <Button
@@ -524,7 +509,7 @@ export default function ProfessionalServiceHistory() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => { setFromDate(""); setToDate(""); setStatusFilter(""); setSelectedProfessionalId(null); }}
+            onClick={() => { setFromDate(""); setToDate(""); setSelectedProfessionalId(null); }}
           >
             Limpiar filtros
           </Button>
@@ -571,7 +556,7 @@ export default function ProfessionalServiceHistory() {
       {/* ── Filtros (compartidos entre las dos pestañas: operaria, estado,
            rango de fechas) ─────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
           {/* Operaria */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
@@ -617,17 +602,6 @@ export default function ProfessionalServiceHistory() {
             )}
           </div>
 
-          {/* Estado */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Estado</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${fieldClass} mt-1`}>
-              <option value="">Todos</option>
-              {availableStatuses.map((s) => (
-                <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Desde */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
@@ -640,31 +614,6 @@ export default function ProfessionalServiceHistory() {
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
         </div>
-
-        {/* Resumen rápido de estados */}
-        {filteredTickets.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {availableStatuses.map((s) => {
-              const count = filteredTickets.filter((t) => t.status === s).length;
-              if (count === 0) return null;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
-                  className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
-                    statusFilter === s
-                      ? (STATUS_BADGE[s] ?? "bg-slate-100 text-slate-600") + " ring-1 ring-current"
-                      : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
-                  }`}
-                >
-                  {STATUS_LABELS[s] ?? s}
-                  <span className="rounded-full bg-black/10 px-1.5">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </SectionCard>
 
       {/* ── Pestaña: Comisiones ─────────────────────────────────────────── */}
@@ -698,21 +647,6 @@ export default function ProfessionalServiceHistory() {
       {/* ── Tabla de tickets ─────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-0">
         {error ? <div className="border-b border-[#edebe9] p-4 text-sm text-rose-600">{error}</div> : null}
-
-        {selectedProfessionalId !== null && !isLoading && (
-          <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#deecf9] px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-[#0078d4]" />
-              <span className="text-xs font-semibold text-[#0050a0]">
-                Tickets de {selectedProfName} — {filteredTickets.length} resultado{filteredTickets.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="flex flex-col items-end gap-0.5 text-xs">
-              <span className="font-bold text-emerald-700">{moneyFormatter.format(totalRevenue)} ingresos</span>
-              <span className="font-bold text-[#0050a0]">{moneyFormatter.format(totalCommission)} comisión</span>
-            </div>
-          </div>
-        )}
 
         <DataTable
           data={filteredTickets}

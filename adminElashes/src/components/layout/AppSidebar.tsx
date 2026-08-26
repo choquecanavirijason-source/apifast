@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import useAuth from "../../core/hooks/useAuth";
@@ -205,7 +205,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           { name: "Nueva venta", path: "/admin/pos", permission: ["payments:view", "payments:manage"] },
           { name: "Historial de ventas", path: "/admin/pos/history", permission: ["payments:view", "payments:manage"] },
           { name: "Caja y seguimiento", path: "/admin/pos-tracking", permission: ["payments:view", "payments:manage"] },
-          { name: "Cierre de caja", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
+          { name: "Reporte por comisiones", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
         ],
         permission: ["payments:view", "payments:manage"],
       },
