@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff, Globe2, Building2 } from "lucide-react";
+import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff, Globe2, Building2, FileDown } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -9,6 +9,7 @@ import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import api from "@/core/services/api";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminDeliveryPoints,
@@ -248,6 +249,30 @@ export default function DeliveryPointsPage() {
     countryFilter === "all" ? points : points.filter((p) => p.country_code === countryFilter);
   const activeCount = points.filter((p) => p.is_active).length;
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Puntos de Entrega",
+      filename: "puntos-entrega-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Puntos", value: String(filteredPoints.length) },
+        { label: "Activos", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "country", header: "País" },
+        { key: "name", header: "Punto de entrega" },
+        { key: "address", header: "Dirección" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: filteredPoints.map((p) => ({
+        country: p.country_name,
+        name: p.name,
+        address: p.address,
+        is_active: p.is_active ? "Activo" : "Inactivo",
+      })),
+    });
+  };
+
   const columns: DataTableColumn<MarketplaceDeliveryPoint>[] = [
     {
       key: "country",
@@ -324,9 +349,14 @@ export default function DeliveryPointsPage() {
         </div>
       }
       right={
-        <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
-          Nuevo punto de entrega
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
+          <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
+            Nuevo punto de entrega
+          </Button>
+        </div>
       }
     />
   );

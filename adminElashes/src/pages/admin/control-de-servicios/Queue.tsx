@@ -124,8 +124,16 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
   const REFRESH_INTERVAL = 45;
 
+  // El polling (cada 45s) y el WS pueden disparar varios loadTickets() en
+  // paralelo (p. ej. uno arrancó justo antes de mover un ticket y responde
+  // después). Sin esto, esa respuesta vieja pisaba el cambio recién hecho
+  // con el estado de antes — el ticket "volvía" hasta el próximo refresh.
+  // Solo se aplica la respuesta de la petición más reciente.
+  const loadTicketsRequestIdRef = useRef(0);
+
   const loadTickets = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
+    const requestId = ++loadTicketsRequestIdRef.current;
     try {
       const today = todayDate();
       const data = await AgendaService.listTickets({
@@ -134,15 +142,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         start_date: SHOW_ALL_DATES_FOR_TESTING ? today : (filterDate || today),
         end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
+      if (requestId !== loadTicketsRequestIdRef.current) return;
       setTickets(data);
       setLastRefresh(new Date());
       setCountdown(REFRESH_INTERVAL);
     } catch (error) {
+      if (requestId !== loadTicketsRequestIdRef.current) return;
       console.error("Error cargando tickets:", error);
       if (!silent) toast.error("No se pudo cargar el tablero de atencion.");
       if (!silent) setTickets([]);
     } finally {
-      if (!silent) setIsLoading(false);
+      if (requestId === loadTicketsRequestIdRef.current && !silent) setIsLoading(false);
     }
   }, [activeBranchId, filterDate]);
 
@@ -687,6 +697,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       try {
         await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { is_ia: true })));
         toast.success("Ticket movido a Tickets con IA.");
+        void loadTickets(true);
       } catch (error) {
         setTickets(snapshot);
         console.error("Error moviendo ticket a IA:", error);
@@ -724,6 +735,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         skip_availability_check: true,
       })));
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
+      void loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
       console.error("Error moviendo ticket:", error);
@@ -1405,7 +1417,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
               <div>
                 <label className={BC_LABEL}>Servicio(s)</label>
-                <p className={`${BC_FIELD} flex items-center bg-[#f3f2f1] text-[#323130]`}>
+                <p className="min-h-9 w-full rounded-sm border border-[#8a8886] bg-[#f3f2f1] px-2.5 py-1.5 text-sm leading-snug text-[#323130]">
                   {finishPreview?.serviceNames.join(" + ") || "—"}
                 </p>
               </div>

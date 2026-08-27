@@ -113,6 +113,8 @@ export type PosSaleStepOneProps = {
   setDiscountType: (value: "amount" | "percent") => void;
   paymentMethod: string;
   setPaymentMethod: (value: string) => void;
+  cashReceived: string;
+  setCashReceived: (value: string) => void;
   mixedPayments: MixedPaymentEntry[];
   setMixedPayments: (value: MixedPaymentEntry[]) => void;
   notes: string;
@@ -179,6 +181,8 @@ export type PosSaleStepTwoProps = {
   setDiscountType: (value: "amount" | "percent") => void;
   paymentMethod: string;
   setPaymentMethod: (value: string) => void;
+  cashReceived: string;
+  setCashReceived: (value: string) => void;
   notes: string;
   setNotes: (value: string) => void;
   onOpenRegisterClient: () => void;

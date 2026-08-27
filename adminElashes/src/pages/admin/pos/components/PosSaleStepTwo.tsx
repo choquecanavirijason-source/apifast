@@ -118,6 +118,8 @@ export default function PosSaleStepTwo({
   setDiscountType,
   paymentMethod,
   setPaymentMethod,
+  cashReceived,
+  setCashReceived,
   notes,
   setNotes,
   onOpenRegisterClient,
@@ -1142,6 +1144,8 @@ export default function PosSaleStepTwo({
         setDiscountType={setDiscountType}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
+        cashReceived={cashReceived}
+        setCashReceived={setCashReceived}
         notes={notes}
         setNotes={setNotes}
         onOpenRegisterClient={onOpenRegisterClient}

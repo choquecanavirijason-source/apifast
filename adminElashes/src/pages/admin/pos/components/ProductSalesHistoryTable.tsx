@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Package, FileDown, Eye, XCircle, Trash2 } from "lucide-react";
+import { Package, FileDown, RefreshCw, Eye, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
 import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
@@ -25,9 +25,11 @@ type ProductSalesHistoryTableProps = {
   onViewDetail: (sale: PosSaleItem) => void;
   onCancelSale: (sale: PosSaleItem) => void;
   onDeleteSale: (sale: PosSaleItem) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 };
 
-export default function ProductSalesHistoryTable({ sales, onViewDetail, onCancelSale, onDeleteSale }: ProductSalesHistoryTableProps) {
+export default function ProductSalesHistoryTable({ sales, onViewDetail, onCancelSale, onDeleteSale, onRefresh, isRefreshing = false }: ProductSalesHistoryTableProps) {
   const rows = useMemo<ProductSaleRow[]>(() => {
     const flat: ProductSaleRow[] = [];
     for (const sale of sales) {
@@ -180,15 +182,28 @@ export default function ProductSalesHistoryTable({ sales, onViewDetail, onCancel
         </div>
       }
       right={
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleExportPdf}
-          disabled={rows.length === 0}
-          leftIcon={<FileDown className="h-4 w-4" />}
-        >
-          PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          {onRefresh && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />}
+            >
+              Actualizar
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={rows.length === 0}
+            leftIcon={<FileDown className="h-4 w-4" />}
+          >
+            PDF
+          </Button>
+        </div>
       }
     />
   );

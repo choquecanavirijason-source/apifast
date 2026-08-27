@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, Mail, ShoppingBag, DollarSign, Calendar, TrendingUp, Store, Smartphone } from "lucide-react";
+import { Users, Mail, ShoppingBag, DollarSign, Calendar, TrendingUp, Store, Smartphone, FileDown } from "lucide-react";
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -13,8 +13,9 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
-import { StatCard } from "@/components/common/ui";
+import { Button, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 import {
   fetchCustomers,
   type MarketplaceCustomer,
@@ -163,6 +164,36 @@ export default function CustomersPage() {
     },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Clientes del Marketplace",
+      filename: "clientes-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Clientes", value: String(customers.length) },
+        { label: "Frecuentes", value: String(repeatCount) },
+        { label: "Desde la app", value: String(appCount) },
+        { label: "Desde el salón", value: String(salonCount) },
+      ],
+      columns: [
+        { key: "customer_name", header: "Cliente" },
+        { key: "customer_phone", header: "Teléfono" },
+        { key: "order_count", header: "Pedidos" },
+        { key: "total_spent", header: "Total gastado" },
+        { key: "last_order_at", header: "Último pedido" },
+        { key: "source", header: "Origen" },
+      ],
+      rows: customers.map((c) => ({
+        customer_name: c.customer_name,
+        customer_phone: c.customer_phone,
+        order_count: c.order_count,
+        total_spent: formatCurrency(c.total_spent),
+        last_order_at: formatDate(c.last_order_at),
+        source: c.source === "app" ? "App" : "Salón",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -177,6 +208,11 @@ export default function CustomersPage() {
             <strong className="text-emerald-700">{salonCount}</strong> salón
           </span>
         </div>
+      }
+      right={
+        <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+          PDF
+        </Button>
       }
     />
   );

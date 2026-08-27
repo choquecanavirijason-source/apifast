@@ -175,19 +175,6 @@ export default function InventoryOverviewPage() {
           </div>
         </div>
 
-        {/* Leyenda de origen */}
-        <div className="flex items-center gap-4 px-4 py-2 border-b border-slate-50 bg-slate-50/50">
-          {[
-            { color: "bg-emerald-100 text-emerald-700", label: "Salón + Marketplace" },
-            { color: "bg-blue-100 text-blue-700", label: "Solo Salón" },
-            { color: "bg-purple-100 text-purple-700", label: "Solo Marketplace" },
-          ].map((l) => (
-            <span key={l.label} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${l.color}`}>
-              {l.label}
-            </span>
-          ))}
-        </div>
-
         {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

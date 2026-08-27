@@ -54,6 +54,8 @@ export default function PosSaleStepOne({
   setDiscountType,
   paymentMethod,
   setPaymentMethod,
+  cashReceived,
+  setCashReceived,
   mixedPayments,
   setMixedPayments,
   notes,
@@ -245,6 +247,8 @@ export default function PosSaleStepOne({
         setDiscountType={setDiscountType}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
+        cashReceived={cashReceived}
+        setCashReceived={setCashReceived}
         mixedPayments={mixedPayments}
         setMixedPayments={setMixedPayments}
         notes={notes}

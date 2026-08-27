@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { useWebSocket, type WsEvent } from "../../../core/hooks/useWebSocket";
 
 import {
   AgendaService,
@@ -16,6 +17,7 @@ import {
   PosSaleService,
   getApiErrorMessage,
   type PosSaleItem,
+  type PosSaleAppointment,
 } from "../../../core/services/pos-sale/pos-sale.service";
 import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
@@ -98,6 +100,9 @@ export function usePosPage({
   const [clientId, setClientId]             = useState("");
   const [clientSearch, setClientSearch]     = useState("");
   const [paymentMethod, setPaymentMethod]   = useState("");
+  // Solo aplica a pago 100% efectivo (no mixto): cuánto entregó la clienta,
+  // para calcular y registrar el vuelto.
+  const [cashReceived, setCashReceived]     = useState("");
   const [mixedPayments, setMixedPayments]   = useState<Array<{ method: string; amount: number }>>([]);
   const [discountType, setDiscountType]     = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue]   = useState("0");
@@ -553,6 +558,31 @@ export function usePosPage({
   useEffect(() => { void loadContext(); }, [activeBranchId]);
   useEffect(() => { void loadEyeTypes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // El comprobante ("Último ticket") y el historial guardan una foto de la
+  // venta al momento de cobrar — sin esto, si el ticket se mueve a "En
+  // servicio"/"Finalizado" desde Control de Servicios, acá seguía mostrando
+  // "En espera" para siempre hasta recargar la página.
+  const patchAppointmentStatus = (event: WsEvent) => {
+    if (event.event === "ticket_deleted") return;
+    const patchAppointments = (appointments: PosSaleAppointment[]) =>
+      appointments.map((a) => (a.id === event.ticket_id ? { ...a, status: event.status } : a));
+
+    setReceiptSale((prev) =>
+      prev && prev.appointments.some((a) => a.id === event.ticket_id)
+        ? { ...prev, appointments: patchAppointments(prev.appointments) }
+        : prev
+    );
+    setSales((prev) =>
+      prev.map((sale) =>
+        sale.appointments.some((a) => a.id === event.ticket_id)
+          ? { ...sale, appointments: patchAppointments(sale.appointments) }
+          : sale
+      )
+    );
+  };
+
+  useWebSocket(activeBranchId, patchAppointmentStatus);
+
   useEffect(() => {
     if (!isCartOpen) return;
     AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: activeBranchId ?? undefined })
@@ -814,7 +844,7 @@ export function usePosPage({
   const resetSaleForm = () => {
     setEditingSale(null); setLinkAppointmentId(null); agendaHydrateDoneRef.current = null;
     setClientId(""); setClientSearch(""); setServiceSearch(""); setSelectedServiceCategoryId("all");
-    setPaymentMethod(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
+    setPaymentMethod(""); setCashReceived(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
     sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     if (embedded) setActiveTab("sale");
   };
@@ -889,6 +919,9 @@ export function usePosPage({
         discount_type: discountType, discount_value: numericDiscount, notes: notes.trim() || undefined, items,
         ...(payLater ? { reservation_only: true } : {}),
         ...(!payLater && mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
+        ...(!payLater && mixedPayments.length === 0 && paymentMethod === "cash" && cashReceived
+          ? { cash_received: Number(cashReceived) }
+          : {}),
       });
       if (startService) {
         await Promise.all(
@@ -996,6 +1029,9 @@ export function usePosPage({
         product_items: productLines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity })),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
         ...(mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
+        ...(mixedPayments.length === 0 && paymentMethod === "cash" && cashReceived
+          ? { cash_received: Number(cashReceived) }
+          : {}),
       });
       sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
       const ticketCodes = sale.appointments.map((a) => a.ticket_code).filter((c): c is string => Boolean(c));
@@ -1210,10 +1246,10 @@ export function usePosPage({
   return {
     activeTab, setActiveTab, step, setStep,
     clients, services, serviceCategories, professionals, sales, products, existingTickets, eyeTypes, branches,
-    eyeTypesError, isLoadingEyeTypes, isLoading,
+    eyeTypesError, isLoadingEyeTypes, isLoading, loadContext,
     activeBranchId, setActiveBranchId,
     clientId, setClientId, clientSearch, setClientSearch,
-    paymentMethod, setPaymentMethod, mixedPayments, setMixedPayments,
+    paymentMethod, setPaymentMethod, cashReceived, setCashReceived, mixedPayments, setMixedPayments,
     discountType, setDiscountType, discountValue, setDiscountValue,
     notes, setNotes, cartLines, productLines, serviceSearch, setServiceSearch,
     selectedServiceCategoryId, setSelectedServiceCategoryId, sellerId, setSellerId,

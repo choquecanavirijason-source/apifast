@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X, Star, StarOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X, Star, StarOff, FileDown } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -9,6 +9,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, InputField, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminProducts,
@@ -322,6 +323,32 @@ export default function ProductsPage() {
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (p) => setDeleteTarget(p), variant: "danger" },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Productos del Marketplace",
+      filename: "productos-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Productos", value: String(filtered.length) },
+        { label: "Activos", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "name", header: "Producto" },
+        { key: "brand", header: "Marca" },
+        { key: "price", header: "Precio" },
+        { key: "stock", header: "Stock" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: filtered.map((p) => ({
+        name: p.name,
+        brand: p.brand || "—",
+        price: `$${p.price.toFixed(2)}`,
+        stock: p.stock ?? 0,
+        is_active: p.is_active ? "Activo" : "Inactivo",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -371,6 +398,9 @@ export default function ProductsPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
           <Button onClick={openCreate} leftIcon={<Plus className="h-4 w-4" />}>
             Nuevo producto
           </Button>

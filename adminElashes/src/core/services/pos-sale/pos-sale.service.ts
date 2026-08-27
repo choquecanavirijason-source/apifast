@@ -44,6 +44,8 @@ export interface PosSaleCreatePayload {
   mixed_payments?: MixedPaymentEntry[];
   /** Monto de adelanto recibido al reservar. */
   advance_payment_amount?: number;
+  /** Solo si payment_method="cash" (no mixto): monto que entregó la clienta. */
+  cash_received?: number;
 }
 
 export interface PosSaleUpdatePayload {
@@ -76,6 +78,8 @@ export interface PosSalePayment {
   status: string;
   paid_at: string;
   registered_by?: { id: number; username: string } | null;
+  cash_received?: number | null;
+  cash_change?: number | null;
 }
 
 export interface PosSaleProductLine {
@@ -123,6 +127,9 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
     ...(payload.reservation_only ? { reservation_only: true } : {}),
     ...(payload.advance_payment_amount != null && payload.advance_payment_amount > 0
       ? { advance_payment_amount: payload.advance_payment_amount }
+      : {}),
+    ...(!hasMixed && payload.payment_method.trim().toLowerCase() === "cash" && payload.cash_received != null
+      ? { cash_received: Number(payload.cash_received) }
       : {}),
     ...(hasMixed
       ? {

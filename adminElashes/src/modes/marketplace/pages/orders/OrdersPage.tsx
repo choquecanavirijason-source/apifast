@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
-  ClipboardList, RefreshCw, Package, CheckCircle, XCircle, Truck, Clock, MapPin, MessageCircle,
+  ClipboardList, RefreshCw, Package, CheckCircle, XCircle, Truck, Clock, MapPin, MessageCircle, FileDown,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -9,6 +9,7 @@ import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import GenericModal from "@/components/common/modal/GenericModal";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminOrders,
@@ -157,6 +158,29 @@ export default function OrdersPage() {
     },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Pedidos del Marketplace",
+      filename: "pedidos-marketplace",
+      orientation: "landscape",
+      meta: [{ label: "Pedidos", value: String(filteredOrders.length) }],
+      columns: [
+        { key: "order_code", header: "Pedido" },
+        { key: "customer_name", header: "Cliente" },
+        { key: "total", header: "Total" },
+        { key: "items", header: "Productos" },
+        { key: "status", header: "Estado" },
+      ],
+      rows: filteredOrders.map((o) => ({
+        order_code: o.order_code,
+        customer_name: o.customer_name,
+        total: `$${o.total.toFixed(2)}`,
+        items: `${o.items?.length ?? 0} ítem(s)`,
+        status: STATUS_CONFIG[o.status]?.label ?? o.status,
+      })),
+    });
+  };
+
   // ── Toolbar ────────────────────────────────────────────────────────────────
   const toolbar = (
     <FilterActionBar
@@ -181,14 +205,19 @@ export default function OrdersPage() {
         </div>
       }
       right={
-        <Button
-          variant="secondary"
-          onClick={load}
-          disabled={loading}
-          leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
-        >
-          Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={load}
+            disabled={loading}
+            leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
+          >
+            Actualizar
+          </Button>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
+        </div>
       }
     />
   );

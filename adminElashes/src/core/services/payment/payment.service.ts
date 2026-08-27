@@ -22,6 +22,8 @@ export interface PaymentItem {
   reference?: string | null;
   notes?: string | null;
   registered_by?: { id: number; username: string; email?: string } | null;
+  cash_received?: number | null;
+  cash_change?: number | null;
 }
 
 const METHOD_MAP: Record<string, string> = {

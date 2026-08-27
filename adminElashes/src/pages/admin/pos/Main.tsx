@@ -210,6 +210,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             setDiscountType={pos.setDiscountType}
             paymentMethod={pos.paymentMethod}
             setPaymentMethod={pos.setPaymentMethod}
+            cashReceived={pos.cashReceived}
+            setCashReceived={pos.setCashReceived}
             mixedPayments={pos.mixedPayments}
             setMixedPayments={pos.setMixedPayments}
             notes={pos.notes}
@@ -284,6 +286,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             setDiscountType={pos.setDiscountType}
             paymentMethod={pos.paymentMethod}
             setPaymentMethod={pos.setPaymentMethod}
+            cashReceived={pos.cashReceived}
+            setCashReceived={pos.setCashReceived}
             notes={pos.notes}
             setNotes={pos.setNotes}
             onOpenRegisterClient={() => pos.setIsRegisterClientOpen(true)}
@@ -347,6 +351,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
                 onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
                 allFilteredSales={pos.filteredServiceSales}
+                onRefresh={() => void pos.loadContext()}
+                isRefreshing={pos.isLoading}
               />
             ) : (
               <ProductSalesHistoryTable
@@ -354,6 +360,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 onViewDetail={pos.setReceiptSale}
                 onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
                 onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
+                onRefresh={() => void pos.loadContext()}
+                isRefreshing={pos.isLoading}
               />
             )}
           </div>

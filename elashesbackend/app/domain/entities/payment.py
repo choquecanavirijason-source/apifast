@@ -20,6 +20,11 @@ class Payment(Base):
     reference = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)  # Observaciones adicionales
     paid_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Solo para method="cash": cuánto entregó físicamente la clienta y el
+    # vuelto calculado (cash_received - amount) — para que quede registrado
+    # en el comprobante y no solo mental en la cajera.
+    cash_received = Column(Float, nullable=True)
+    cash_change = Column(Float, nullable=True)
 
     client = relationship("Client", back_populates="payments")
     branch = relationship("Branch", back_populates="payments")

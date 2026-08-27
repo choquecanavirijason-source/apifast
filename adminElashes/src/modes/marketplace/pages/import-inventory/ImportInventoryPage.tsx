@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PackagePlus, Check, AlertCircle, Loader2, Download, ImageIcon, RefreshCw, LayoutList, LayoutGrid, Search, RefreshCcwDot } from "lucide-react";
+import { PackagePlus, Check, AlertCircle, Loader2, Download, ImageIcon, RefreshCw, LayoutList, LayoutGrid, Search, RefreshCcwDot, FileDown } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   fetchInventoryProducts,
@@ -15,6 +15,7 @@ import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 interface InventoryProduct {
   id: number;
@@ -220,6 +221,34 @@ export default function ImportInventoryPage() {
     },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Importar del Inventario",
+      subtitle: "Productos del inventario del salón disponibles para el Marketplace",
+      filename: "importar-inventario-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Productos", value: String(inventory.length) },
+        { label: "En marketplace", value: String(importedCount) },
+        { label: "Pendientes", value: String(pendingCount) },
+      ],
+      columns: [
+        { key: "name", header: "Producto" },
+        { key: "category", header: "Categoría" },
+        { key: "price", header: "Precio" },
+        { key: "stock", header: "Stock (salón)" },
+        { key: "imported", header: "Estado" },
+      ],
+      rows: inventory.map((p) => ({
+        name: `${p.name} (${p.sku})`,
+        category: p.category?.name ?? "—",
+        price: `$${p.price.toFixed(2)}`,
+        stock: stockByProduct[p.id] ?? 0,
+        imported: imported.has(p.name.toLowerCase()) ? "En marketplace" : "Pendiente",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -270,6 +299,9 @@ export default function ImportInventoryPage() {
             leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
           >
             Actualizar
+          </Button>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
           </Button>
         </div>
       }

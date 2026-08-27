@@ -5,6 +5,11 @@ import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-s
 import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
 
+// Sección "Horario de tickets" (colapsable, encabezado "Horario · automático")
+// desactivada a pedido — el código queda intacto por si se vuelve a necesitar,
+// solo se oculta su render.
+const SHOW_TICKET_SCHEDULE_SECTION = false;
+
 type PosSaleDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -37,6 +42,9 @@ type PosSaleDrawerProps = {
   setDiscountType: (value: "amount" | "percent") => void;
   paymentMethod: string;
   setPaymentMethod: (value: string) => void;
+  /** Solo pago 100% efectivo (no mixto): monto que entrega la clienta, para calcular el vuelto. */
+  cashReceived?: string;
+  setCashReceived?: (value: string) => void;
   mixedPayments: MixedPaymentEntry[];
   setMixedPayments: (value: MixedPaymentEntry[]) => void;
   notes: string;
@@ -99,6 +107,8 @@ export default function PosSaleDrawer({
   setDiscountType,
   paymentMethod,
   setPaymentMethod,
+  cashReceived = "",
+  setCashReceived,
   mixedPayments,
   setMixedPayments,
   notes,
@@ -750,7 +760,7 @@ export default function PosSaleDrawer({
         {/* Toggle ticket Individual / Grupal */}
         {cartLines.length > 1 && !linkAppointmentId && setTicketMode && (
           <div className="border-b border-[#edebe9] px-4 py-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Modo de ticket</p>
+            <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Modo de ticket</p>
             <div className="flex overflow-hidden rounded-sm border border-[#edebe9]">
               <button
                 type="button"
@@ -769,11 +779,6 @@ export default function PosSaleDrawer({
                 Junto
               </button>
             </div>
-            <p className="mt-1.5 text-[10px] text-[#8a8886]">
-              {ticketMode === "group"
-                ? "Un ticket grupal con todos los servicios y duración total."
-                : "Un ticket por servicio, con su propia operaria y horario."}
-            </p>
           </div>
         )}
 
@@ -784,10 +789,7 @@ export default function PosSaleDrawer({
           const hasActiveToday = (selectedPro?.active_count_today ?? 0) > 0;
           return (
             <div className={`border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
-              <label className={labelClass}>Operaria</label>
-              <p className="mb-2 text-[11px] text-[#605e5c]">
-                Se asignará a los tickets que aún no tengan operaria.
-              </p>
+              <label className="mb-2 block text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Operaria</label>
               <div className="relative" ref={sellerDropdownRef}>
                 <button
                   type="button"
@@ -946,7 +948,7 @@ export default function PosSaleDrawer({
               <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#8a6a1f] text-white"}`}>
                 {step3Done ? "✓" : "3"}
               </span>
-              <p className="text-xs font-semibold text-[#323130]">Método de pago <span className="text-[#d13438]">*</span></p>
+              <p className="text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Método de pago <span className="text-[#d13438]">*</span></p>
               {!step3Done && step1Done && (
                 <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>
               )}
@@ -994,6 +996,42 @@ export default function PosSaleDrawer({
                     </button>
                   ))}
                 </div>
+
+                {/* Efectivo: monto recibido + vuelto */}
+                {paymentMethod === "cash" && setCashReceived && (
+                  <div className="mt-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2.5">
+                    <label className={labelClass} htmlFor="pos-drawer-cash-received">
+                      Monto recibido en efectivo
+                    </label>
+                    <input
+                      id="pos-drawer-cash-received"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder={`Bs ${total.toFixed(2)}`}
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="h-9 w-full rounded-sm border border-[#c8c6c4] bg-white px-2.5 text-sm text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]"
+                    />
+                    {cashReceived.trim() !== "" && (() => {
+                      const received = Number(cashReceived);
+                      if (!Number.isFinite(received)) return null;
+                      const change = received - total;
+                      return change >= 0 ? (
+                        <p className="mt-1.5 flex items-center justify-between text-xs font-bold text-[#094732]">
+                          <span>Vuelto a entregar</span>
+                          <span>Bs {change.toFixed(2)}</span>
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-xs font-semibold text-[#a4262c]">
+                          Faltan Bs {Math.abs(change).toFixed(2)} para cubrir el total.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 {/* Info QR */}
                 {paymentMethod === "qr" && branchQrImageUrl && (
@@ -1118,7 +1156,7 @@ export default function PosSaleDrawer({
     <div className="shrink-0 border-t border-[#edebe9] bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
 
       {/* ── Horario de tickets (colapsable) ── */}
-      {cartCount > 0 && onUpdateTicketTime && (
+      {SHOW_TICKET_SCHEDULE_SECTION && cartCount > 0 && onUpdateTicketTime && (
         <div className="border-b border-[#edebe9]">
           <button
             type="button"
@@ -1190,7 +1228,7 @@ export default function PosSaleDrawer({
       <div className="px-3 py-2">
       {/* Total */}
       <div className="mb-1.5 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2.5 py-1.5">
-        <span className="text-[11px] font-semibold text-[#605e5c]">Total a cobrar</span>
+        <span className="text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Total a cobrar</span>
         <span className="text-base font-bold text-[#094732]">Bs {total.toFixed(2)}</span>
       </div>
 
@@ -1234,16 +1272,6 @@ export default function PosSaleDrawer({
                   : isMixedMode
                     ? "Ingresa los montos del pago mixto"
                     : "Selecciona método de pago"}
-            </p>
-          )}
-          {!selectedClient && cartCount > 0 && (
-            <p className="mb-1.5 rounded-sm bg-[#ecfdf5] px-2.5 py-1 text-center text-[10px] font-medium text-[#094732]">
-              Sin clienta: se registra como "Cliente Mostrador".
-            </p>
-          )}
-          {cartCount > 0 && step3Done && tutorDataComplete && missingSellerForService && (
-            <p className="mb-1.5 rounded-sm bg-[#fff4ce] px-2.5 py-1 text-center text-[10px] font-medium text-[#8a6a1f]">
-              Para "Pasar a servicio" elegí una operaria libre (arriba, o por ticket). Si está ocupada, usá "Crear turno" para dejarla en su cola.
             </p>
           )}
           <div className="flex gap-2">

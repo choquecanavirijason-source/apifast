@@ -9,6 +9,16 @@ import { type PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.se
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import type { ReceiptTicketEdit } from "../pos.types";
 
+const TICKET_STATUS_LABELS: Record<string, string> = {
+  pending: "En espera",
+  confirmed: "Confirmado",
+  waiting: "En espera",
+  in_service: "En atención",
+  completed: "Finalizado",
+  cancelled: "Cancelado",
+};
+const getTicketStatusLabel = (status: string) => TICKET_STATUS_LABELS[status] ?? status;
+
 type PosReceiptModalsProps = {
   receiptSale: PosSaleItem | null;
   onCloseReceipt: () => void;
@@ -169,6 +179,20 @@ export default function PosReceiptModals({
               </p>
             </div>
 
+            {receiptSale.payment_method === "cash" && receiptSale.payments[0]?.cash_received != null && (
+              <div className="flex items-center justify-center gap-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <div className="text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700/70">Recibido</p>
+                  <p className="text-lg font-bold text-emerald-800">Bs {receiptSale.payments[0].cash_received!.toFixed(2)}</p>
+                </div>
+                <div className="h-8 w-px bg-emerald-200" />
+                <div className="text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700/70">Vuelto</p>
+                  <p className="text-lg font-bold text-emerald-800">Bs {(receiptSale.payments[0].cash_change ?? 0).toFixed(2)}</p>
+                </div>
+              </div>
+            )}
+
             {receiptSale.payment_method === "qr" && (
               <div ref={qrRef} className="inline-block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <QRCodeCanvas value={receiptSale.sale_code} size={180} />
@@ -186,7 +210,7 @@ export default function PosReceiptModals({
                     const professionalName =
                       appointment.professional?.username ??
                       "Sin operaria";
-                    const statusLabel = appointment.status === "in_service" ? "En atención" : "En espera";
+                    const statusLabel = getTicketStatusLabel(appointment.status);
                     return (
                       <div key={appointment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
                         <div className="flex items-center justify-between gap-2">
@@ -477,6 +501,18 @@ export default function PosReceiptModals({
                   <span className="text-slate-500">Método de pago</span>
                   <span className="font-semibold capitalize">{receiptSale.payment_method}</span>
                   </div>
+                  {receiptSale.payment_method === "cash" && receiptSale.payments[0]?.cash_received != null && (
+                    <>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-slate-500">Recibido</span>
+                        <span className="font-semibold">Bs {receiptSale.payments[0].cash_received!.toFixed(2)}</span>
+                      </div>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-slate-500">Vuelto</span>
+                        <span className="font-bold text-emerald-600">Bs {(receiptSale.payments[0].cash_change ?? 0).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
 
                   <div className="my-3 border-t border-dashed border-slate-300" />
 
@@ -501,7 +537,7 @@ export default function PosReceiptModals({
                             <p className="text-[10px] text-slate-400">
                               {appointment.professional?.username ? `Operaria: ${appointment.professional.username}` : "Operaria: Sin asignar"}
                               {" · "}
-                              {appointment.status === "in_service" ? "En atencion" : "En espera"}
+                              {getTicketStatusLabel(appointment.status)}
                             </p>
                           </div>
                           <span className="mt-0.5 flex flex-none items-center gap-1 text-[11px] text-slate-400">

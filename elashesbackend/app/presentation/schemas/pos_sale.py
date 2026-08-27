@@ -61,6 +61,11 @@ class PosSaleCreate(BaseModel):
         default=None,
         description="Pago mixto: lista de {method, amount}. Si se provee, payment_method se ignora y se usa 'mixed'.",
     )
+    cash_received: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Solo si payment_method='cash' (pago 100% efectivo, no mixto): monto que entregó la clienta. El vuelto se calcula como cash_received - total.",
+    )
 
 
 class PosSaleUpdate(BaseModel):
