@@ -1,4 +1,5 @@
 import api from "../api";
+import variables from "../../config/variables";
 
 // Todas las llamadas al marketplace van a través de elashesbackend (/marketplace-proxy/...)
 // elashesbackend reenvía internamente a backend_marketplace usando MARKETPLACE_BACKEND_URL en su .env.
@@ -28,11 +29,9 @@ const marketplaceApi = {
  * lo documenta SettingsPage. Antes esto apuntaba directo a elashesbackend
  * (o al dominio pelado en prod) y las imágenes nunca cargaban.
  */
-export const MARKETPLACE_MEDIA_BASE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL}/marketplace-proxy`
-    : undefined) ||
-  "http://34.55.150.142/api/marketplace-proxy";
+export const MARKETPLACE_MEDIA_BASE = variables.apiUrl
+  ? `${variables.apiUrl}/marketplace-proxy`
+  : "http://34.55.150.142/api/marketplace-proxy";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -64,6 +63,11 @@ export interface MarketplaceProduct {
   rating: number;
   review_count: number;
   is_active: boolean;
+  /** Destacado manual — se muestra siempre en Destacados de la app, antes
+   * de completar el resto con más vendidos/mejor calificados. */
+  is_featured: boolean;
+  /** Id del producto en el inventario del salón, si se importó desde ahí. */
+  source_product_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -209,6 +213,17 @@ export async function adjustProductStock(id: number, stock: number): Promise<Mar
   return normalizeProduct(data);
 }
 
+export async function setProductFeatured(
+  id: number,
+  isFeatured: boolean
+): Promise<MarketplaceProduct> {
+  const { data } = await marketplaceApi.patch<Record<string, unknown>>(
+    `/api/products/admin/${id}/featured`,
+    { is_featured: isFeatured }
+  );
+  return normalizeProduct(data);
+}
+
 export async function deleteMarketplaceProduct(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/products/admin/${id}`);
 }
@@ -221,6 +236,23 @@ export async function fetchInventoryProducts(): Promise<InventoryProduct[]> {
   return data;
 }
 
+/**
+ * Stock actual por producto del inventario del salón, sumado entre todas las
+ * sucursales (el endpoint devuelve una fila por sucursal). Se usa para que el
+ * stock que se importa/sincroniza al marketplace refleje el stock real, en
+ * vez de un número fijo.
+ */
+export async function fetchInventoryStockByProduct(): Promise<Record<number, number>> {
+  const { data } = await api.get<{ product_id: number; total_stock: number }[]>(
+    "/inventory/stock-summary"
+  );
+  const totals: Record<number, number> = {};
+  for (const row of data) {
+    totals[row.product_id] = (totals[row.product_id] ?? 0) + row.total_stock;
+  }
+  return totals;
+}
+
 /** Importa un producto del inventario al marketplace (sin subir imagen, usa la URL). */
 export async function importInventoryProduct(payload: {
   name: string;
@@ -229,6 +261,7 @@ export async function importInventoryProduct(payload: {
   description?: string;
   stock?: number;
   image_url?: string | null;
+  source_product_id?: number;
 }): Promise<MarketplaceProduct> {
   const { data } = await marketplaceApi.post<Record<string, unknown>>(
     "/api/products/admin/import",
@@ -436,6 +469,14 @@ export interface MarketplaceReel {
   is_active: boolean;
   sort_order: number;
   created_at: string;
+  like_count: number;
+}
+
+export interface ReelLikeEntry {
+  customer_id: number;
+  name: string;
+  email: string;
+  liked_at: string | null;
 }
 
 export interface CreateReelPayload {
@@ -471,6 +512,82 @@ export async function updateReel(id: number, payload: UpdateReelPayload): Promis
 
 export async function deleteReel(id: number): Promise<void> {
   await marketplaceApi.delete(`/api/reels/admin/${id}`);
+}
+
+export async function fetchReelLikes(reelId: number): Promise<ReelLikeEntry[]> {
+  const { data } = await marketplaceApi.get<ReelLikeEntry[]>(`/api/reels/admin/${reelId}/likes`);
+  return data;
+}
+
+// ── Delivery Points (puntos de recojo/entrega, por país) ────────────────────────
+
+export interface MarketplaceDeliveryPoint {
+  id: number;
+  country_code: string;
+  country_name: string;
+  city: string | null;
+  name: string;
+  address: string;
+  /** Link de Google Maps (compartido desde la app) — si está cargado, la
+   * app usa esto directo para "Cómo llegar" en vez de una búsqueda de texto. */
+  maps_url: string | null;
+  reference: string | null;
+  schedule: string | null;
+  phone: string | null;
+  is_active: boolean;
+  sort_order: number;
+  /** Id de la sucursal del salón (elashesbackend) que originó este punto,
+   * si se creó eligiendo una desde el selector — null si se cargó a mano. */
+  branch_id: number | null;
+  created_at: string;
+}
+
+export interface CreateDeliveryPointPayload {
+  country_code: string;
+  country_name: string;
+  city?: string;
+  name: string;
+  address: string;
+  maps_url?: string;
+  reference?: string;
+  schedule?: string;
+  phone?: string;
+  sort_order?: number;
+  branch_id?: number | null;
+}
+
+export interface UpdateDeliveryPointPayload extends Partial<CreateDeliveryPointPayload> {
+  is_active?: boolean;
+}
+
+export async function fetchAdminDeliveryPoints(): Promise<MarketplaceDeliveryPoint[]> {
+  const { data } = await marketplaceApi.get<MarketplaceDeliveryPoint[]>("/api/delivery-points/admin");
+  return data;
+}
+
+export async function createDeliveryPoint(
+  payload: CreateDeliveryPointPayload
+): Promise<MarketplaceDeliveryPoint> {
+  const { data } = await marketplaceApi.post<MarketplaceDeliveryPoint>(
+    "/api/delivery-points/admin",
+    payload
+  );
+  return data;
+}
+
+export async function updateDeliveryPoint(
+  id: number,
+  payload: UpdateDeliveryPointPayload
+): Promise<MarketplaceDeliveryPoint> {
+  const { data } = await marketplaceApi.put<MarketplaceDeliveryPoint>(
+    `/api/delivery-points/admin/${id}`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteDeliveryPoint(id: number): Promise<void> {
+  await marketplaceApi.delete(`/api/delivery-points/admin/${id}`);
 }
 
 // ── Customers ─────────────────────────────────────────────────────────────────

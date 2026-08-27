@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ClipboardList, RefreshCw, Package, CheckCircle, XCircle, Truck, Clock, MapPin, MessageCircle,
@@ -47,13 +47,16 @@ export default function OrdersPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [detailOrder, setDetailOrder] = useState<MarketplaceOrder | null>(null);
 
-  const filterRef = useRef(filterStatus);
-  filterRef.current = filterStatus;
-
+  // Se trae SIEMPRE la lista completa (sin filtrar por estado en el server):
+  // el filtro de la pestaña se aplica en el cliente (filteredOrders más
+  // abajo). Antes, cada cambio de pestaña volvía a pedir solo ese estado y
+  // reemplazaba `orders` entero, así que "Todos" y las tarjetas de
+  // Pendientes/Entregados terminaban reflejando el filtro activo en vez del
+  // total real.
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetchAdminOrders({ limit: 200, status: filterRef.current || undefined });
+      const res = await fetchAdminOrders({ limit: 200 });
       setOrders(res.items);
     } catch {
       if (!silent) toast.error("No se pudieron cargar los pedidos");
@@ -66,7 +69,12 @@ export default function OrdersPage() {
     void load();
     const id = window.setInterval(() => void load(true), 30_000);
     return () => window.clearInterval(id);
-  }, [filterStatus]);
+  }, []);
+
+  const filteredOrders = useMemo(
+    () => (filterStatus ? orders.filter((o) => o.status === filterStatus) : orders),
+    [orders, filterStatus],
+  );
 
   const handleStatusChange = async (order: MarketplaceOrder, newStatus: string) => {
     setUpdatingId(order.id);
@@ -167,7 +175,7 @@ export default function OrdersPage() {
               onClick={() => setFilterStatus(filterStatus === key ? "" : key)}
               className={filterStatus === key ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"}
             >
-              {cfg.label}
+              {cfg.label} ({orders.filter((o) => o.status === key).length})
             </Button>
           ))}
         </div>
@@ -200,7 +208,7 @@ export default function OrdersPage() {
         </div>
 
         <DataTable
-          data={orders}
+          data={filteredOrders}
           columns={columns}
           actions={actions}
           loading={loading}

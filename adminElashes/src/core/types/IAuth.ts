@@ -8,6 +8,9 @@ export interface IAuth {
   permissions?: string[];
   phone_number? : string;
   is_active?: boolean;
+  /** Sucursal fija del usuario (roles acotados como Cajera/Operaria) — null/undefined para roles que operan en todas. */
+  branch_id?: number | null;
+  branch?: { id: number; name: string } | null;
 }
 
 export interface IAuthRequest {

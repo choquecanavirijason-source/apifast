@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { ShoppingCart } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Package, ShoppingCart, Wrench } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
+import ProductSelectorCard from "./ProductSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
 import type { PosSaleStepOneProps } from "../pos.types";
 
@@ -8,6 +9,11 @@ export default function PosSaleStepOne({
   labelClass: _labelClass,
   fieldClass: _fieldClass,
   isLoading,
+  products,
+  productLines,
+  onAddProductToCart,
+  onUpdateProductQuantity,
+  onRemoveProductLine,
   serviceSearch,
   onServiceSearchChange,
   onServiceInputFocus,
@@ -71,8 +77,8 @@ export default function PosSaleStepOne({
   branchQrImageUrl,
 }: PosSaleStepOneProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
-  const [animateCart, setAnimateCart] = useState(false);
-  const cartCount = cartLines.length;
+  const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
+  const cartCount = cartLines.length + productLines.length;
 
   const cartCountByServiceId = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -85,11 +91,7 @@ export default function PosSaleStepOne({
 
   useEffect(() => {
     if (!addToCartMessage) return;
-    setAnimateCart(true);
-    const timer = window.setTimeout(() => {
-      setAddToCartMessage("");
-      setAnimateCart(false);
-    }, 2200);
+    const timer = window.setTimeout(() => setAddToCartMessage(""), 2200);
     return () => window.clearTimeout(timer);
   }, [addToCartMessage]);
 
@@ -100,6 +102,13 @@ export default function PosSaleStepOne({
   const handleAddServiceToCart = (service: (typeof quickServices)[number]) => {
     onAddServiceToCart(service);
     showAddedMessage(service.name || "Servicio");
+    setIsCartOpen(true);
+  };
+
+  const handleAddProductToCart = (product: (typeof products)[number]) => {
+    onAddProductToCart(product);
+    showAddedMessage(product.name || "Producto");
+    setIsCartOpen(true);
   };
 
   const handleServiceSelect = (serviceId: string) => {
@@ -108,13 +117,7 @@ export default function PosSaleStepOne({
       filteredServices.find((s) => String(s.id) === serviceId) ||
       services.find((s) => String(s.id) === serviceId);
     showAddedMessage(svc?.name || "Servicio");
-  };
-
-  const handleAddServiceById = (serviceId: string) => {
-    const svc = services.find((s) => String(s.id) === serviceId);
-    if (!svc) return;
-    onAddServiceToCart(svc);
-    showAddedMessage(svc.name || "Servicio");
+    setIsCartOpen(true);
   };
 
   const handleChangeLineService = (localId: string, serviceId: string) => {
@@ -130,9 +133,9 @@ export default function PosSaleStepOne({
 
   return (
     <div
-      className={`relative flex h-full min-h-0 w-full flex-col bg-[#f3f2f1] text-[#323130] ${
+      className={`relative flex h-full min-h-0 w-full flex-col bg-[#f3f2f1] text-[#323130] transition-[padding] duration-200 ${
         isLoading ? "pointer-events-none opacity-60" : ""
-      }`}
+      } ${isCartOpen ? "pr-112 sm:pr-128" : ""}`}
     >
       {/* Toast de confirmación */}
       {addToCartMessage && (
@@ -142,57 +145,87 @@ export default function PosSaleStepOne({
         </div>
       )}
 
-      {/* Catálogo — ocupa todo el espacio */}
-      <div className="min-h-0 w-full flex-1 overflow-hidden">
-        <ServiceSelectorCard
-          labelClass="mb-2 block text-sm font-semibold text-[#323130]"
-          fieldClass="h-9 w-full rounded-sm border border-[#8a8886] text-sm focus:border-[#0078d4] focus:ring-0"
-          serviceSearch={serviceSearch}
-          onServiceSearchChange={onServiceSearchChange}
-          onServiceInputFocus={onServiceInputFocus}
-          onToggleServiceMenu={onToggleServiceMenu}
-          isServiceMenuOpen={isServiceMenuOpen}
-          serviceMenuPosition={serviceMenuPosition}
-          filteredServices={filteredServices}
-          onServiceSelect={handleServiceSelect}
-          selectedServiceCategoryId={selectedServiceCategoryId}
-          onCategoryFilterChange={onCategoryFilterChange}
-          serviceCategories={serviceCategories}
-          onOpenCategoryModal={onOpenCategoryModal}
-          quickServices={quickServices}
-          onAddServiceToCart={handleAddServiceToCart}
-          onRemoveServiceFromCart={onRemoveServiceFromCart}
-          serviceComboboxRef={serviceComboboxRef}
-          serviceMenuRef={serviceMenuRef}
-          cartCountByServiceId={cartCountByServiceId}
-        />
+      {/* Servicios | Productos */}
+      <div className="shrink-0 px-4 pt-3 sm:px-5">
+        <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setCatalogView("servicios")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+              catalogView === "servicios" ? "bg-[#094732] text-white shadow-sm" : "text-[#605e5c] hover:bg-[#f3f2f1]"
+            }`}
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            Servicios
+          </button>
+          <button
+            type="button"
+            onClick={() => setCatalogView("productos")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+              catalogView === "productos" ? "bg-[#094732] text-white shadow-sm" : "text-[#605e5c] hover:bg-[#f3f2f1]"
+            }`}
+          >
+            <Package className="h-3.5 w-3.5" />
+            Productos
+            {productLines.length > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
+                {productLines.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* FAB carrito */}
-      <button
-        type="button"
-        onClick={() => setIsCartOpen(true)}
-        className={`fixed bottom-6 right-6 z-42 flex h-14 min-w-14 items-center justify-center rounded-full text-white shadow-lg shadow-slate-900/25 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] ${
-          animateCart ? "scale-125 bg-emerald-500" : "scale-100 bg-[#0078d4] hover:bg-[#005a9e]"
-        }`}
-        aria-label={`Detalle de la venta: ${cartCount} servicios`}
-      >
-        <ShoppingCart className="h-6 w-6" />
-        <span className="absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-xs font-bold text-white ring-2 ring-white">
-          {cartCount}
-        </span>
-      </button>
+      {/* Catálogo — ocupa todo el espacio */}
+      <div className="min-h-0 w-full flex-1 overflow-hidden">
+        {catalogView === "servicios" ? (
+          <ServiceSelectorCard
+            labelClass="mb-2 block text-sm font-semibold text-[#323130]"
+            fieldClass="h-9 w-full rounded-sm border border-[#8a8886] text-sm focus:border-[#094732] focus:ring-0"
+            serviceSearch={serviceSearch}
+            onServiceSearchChange={onServiceSearchChange}
+            onServiceInputFocus={onServiceInputFocus}
+            onToggleServiceMenu={onToggleServiceMenu}
+            isServiceMenuOpen={isServiceMenuOpen}
+            serviceMenuPosition={serviceMenuPosition}
+            filteredServices={filteredServices}
+            onServiceSelect={handleServiceSelect}
+            selectedServiceCategoryId={selectedServiceCategoryId}
+            onCategoryFilterChange={onCategoryFilterChange}
+            serviceCategories={serviceCategories}
+            onOpenCategoryModal={onOpenCategoryModal}
+            quickServices={quickServices}
+            onAddServiceToCart={handleAddServiceToCart}
+            onRemoveServiceFromCart={onRemoveServiceFromCart}
+            serviceComboboxRef={serviceComboboxRef}
+            serviceMenuRef={serviceMenuRef}
+            cartCountByServiceId={cartCountByServiceId}
+          />
+        ) : (
+          <ProductSelectorCard
+            labelClass="mb-2 block text-sm font-semibold text-[#323130]"
+            fieldClass="h-9 w-full rounded-sm border border-[#8a8886] text-sm focus:border-[#094732] focus:ring-0"
+            products={products}
+            productLines={productLines}
+            onAddProductToCart={handleAddProductToCart}
+            onUpdateProductQuantity={onUpdateProductQuantity}
+            onRemoveProductLine={onRemoveProductLine}
+          />
+        )}
+      </div>
 
       {/* Drawer de cobro */}
       <PosSaleDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartLines={cartLines}
+        productLines={productLines}
+        onUpdateProductQuantity={onUpdateProductQuantity}
+        onRemoveProductLine={onRemoveProductLine}
         services={services}
         subtotal={subtotal}
         total={total}
         onRemoveLine={onRemoveLine}
-        onAddServiceById={handleAddServiceById}
         onChangeLineService={handleChangeLineService}
         clientComboboxRef={clientComboboxRef}
         clientSearch={clientSearch}
@@ -221,26 +254,36 @@ export default function PosSaleStepOne({
         primaryActionLabel={
           linkAppointmentId
             ? finalizeSaleLabel          // cobrar reserva → directo
-            : "Confirmar venta"          // modo planificador (step2)
+            : cartLines.length === 0 && productLines.length > 0
+              ? "Cobrar venta"            // solo productos: no hay nada que agendar
+              : "Confirmar venta"         // modo planificador (step2)
         }
         onPrimaryAction={() => {
           setIsCartOpen(false);
-          if (linkAppointmentId) {
-            onFinalizeSale();            // reserva: cobra directo
+          if (linkAppointmentId || (cartLines.length === 0 && productLines.length > 0)) {
+            onFinalizeSale();            // reserva, o venta solo-productos: cobra directo
           } else {
             onGoToScheduleStep();        // venta con planificador: ir al paso 2
           }
         }}
         primaryActionDisabled={
-          cartCount === 0 || !selectedClient || (mixedPayments.length === 0 && !paymentMethod) || isSubmittingCheckout
+          // Sin clienta elegida, el backend asigna el "Cliente Mostrador" de
+          // la sucursal — no hace falta bloquear el cobro por eso.
+          cartCount === 0 || (mixedPayments.length === 0 && !paymentMethod) || isSubmittingCheckout
         }
         footerHint={
           linkAppointmentId
             ? finalizeFooterHint
-            : "Usa 'Crear turno ahora' para atención inmediata o 'Agendar reserva' para elegir horario."
+            : cartLines.length === 0 && productLines.length > 0
+              ? "Venta de productos: se cobra directo, sin turno en agenda."
+              : "Usa 'Crear turno ahora' para atención inmediata o 'Agendar reserva' para elegir horario."
         }
-        onImmediateCheckout={linkAppointmentId ? undefined : onCreateImmediateTicket}
-        onSecondaryAction={linkAppointmentId ? undefined : () => { setIsCartOpen(false); onGoToScheduleStep(); }}
+        onImmediateCheckout={linkAppointmentId || (cartLines.length === 0 && productLines.length > 0) ? undefined : onCreateImmediateTicket}
+        onSecondaryAction={
+          linkAppointmentId || (cartLines.length === 0 && productLines.length > 0)
+            ? undefined
+            : () => { setIsCartOpen(false); onGoToScheduleStep(); }
+        }
         isSubmitting={isSubmittingCheckout}
         linkAppointmentId={linkAppointmentId}
         ticketPreviews={ticketPreviews}

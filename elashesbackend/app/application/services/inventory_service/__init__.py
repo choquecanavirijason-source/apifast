@@ -26,7 +26,10 @@ from .categories import (
 from .movements import (
     ALLOWED_MOVEMENT_TYPES,
     create_inventory_movement,
+    deduct_stock_fifo,
     list_movements,
+    restock_from_sale,
+    sale_stock_tag,
 )
 from .products import (
     create_product,
@@ -60,6 +63,9 @@ __all__ = [
     "ALLOWED_MOVEMENT_TYPES",
     "list_movements",
     "create_inventory_movement",
+    "deduct_stock_fifo",
+    "restock_from_sale",
+    "sale_stock_tag",
     # stock
     "get_stock_summary",
     # transfers

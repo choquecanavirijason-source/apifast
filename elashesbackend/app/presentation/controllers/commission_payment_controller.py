@@ -46,6 +46,10 @@ def list_commission_payments(
     professional_id: Optional[int] = Query(default=None),
     from_date: Optional[str] = Query(default=None),
     to_date: Optional[str] = Query(default=None),
+    # Coincidencia exacta de período — usado por Cierre de Caja para saber si
+    # ya se confirmó la entrega de comisión de un rango de fechas puntual.
+    period_start: Optional[str] = Query(default=None),
+    period_end: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
@@ -59,6 +63,10 @@ def list_commission_payments(
         q = q.filter(CommissionPayment.registered_at >= from_date)
     if to_date:
         q = q.filter(CommissionPayment.registered_at <= f"{to_date}T23:59:59")
+    if period_start:
+        q = q.filter(CommissionPayment.period_start == period_start)
+    if period_end:
+        q = q.filter(CommissionPayment.period_end == period_end)
 
     payments = q.order_by(CommissionPayment.registered_at.desc()).all()
 

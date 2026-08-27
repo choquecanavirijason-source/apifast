@@ -21,6 +21,11 @@ export default defineConfig({
     },
   },
   base: '/',
+  // host: true expone el server de dev en la red local (no solo localhost)
+  // para poder compartir el link con otra PC/celular en el mismo WiFi.
+  server: {
+    host: true,
+  },
   build: {
     outDir: '../server/public/app',
     emptyOutDir: true,

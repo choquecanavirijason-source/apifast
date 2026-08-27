@@ -17,6 +17,42 @@ from app.domain.entities.tracking import EyeType
 from app.presentation.schemas.client import ClientCreate, ClientUpdate
 
 
+# Marca al cliente "Mostrador" generado automáticamente cuando se vende sin
+# elegir clienta — permite ubicarlo y protegerlo de un borrado accidental.
+GENERIC_CLIENT_CI = "SISTEMA-MOSTRADOR"
+
+
+def get_or_create_generic_client(db: Session, branch_id: Optional[int]) -> Client:
+    """Cliente 'Mostrador' de la sucursal — se usa cuando se registra una
+    venta sin elegir clienta, para no frenar el servicio. Uno por sucursal
+    (y uno global si no hay sucursal), creado la primera vez que hace falta."""
+    existing = (
+        db.query(Client)
+        .filter(Client.ci == GENERIC_CLIENT_CI, Client.branch_id == branch_id)
+        .first()
+    )
+    if existing:
+        return existing
+
+    branch_name = None
+    if branch_id:
+        branch = db.query(Branch).filter(Branch.id == branch_id).first()
+        branch_name = branch.name if branch else None
+
+    generic = Client(
+        name="Cliente",
+        last_name=f"Mostrador — {branch_name}" if branch_name else "Mostrador",
+        branch_id=branch_id,
+        ci=GENERIC_CLIENT_CI,
+        status=CLIENT_STATUS_SIN_ESTADO,
+        marketplace_enabled=False,
+    )
+    db.add(generic)
+    db.commit()
+    db.refresh(generic)
+    return generic
+
+
 def _validate_age(age: Optional[int]) -> None:
     if age is None:
         return
@@ -242,6 +278,12 @@ def delete_client(db: Session, client_id: int) -> None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cliente no encontrado",
+        )
+
+    if client.ci == GENERIC_CLIENT_CI:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede eliminar el cliente Mostrador — lo usa el sistema para ventas sin clienta.",
         )
 
     db.delete(client)

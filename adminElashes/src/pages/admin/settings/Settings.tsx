@@ -6,7 +6,8 @@ import useAuth from '../../../core/hooks/useAuth'
 import { ImagePlus, Trash2, CheckCircle2 } from 'lucide-react'
 
 export default function Settings() {
-  const { isAdmin } = useAuth()
+  const { hasRole } = useAuth()
+  const isSuperAdmin = hasRole('SuperAdmin')
   const [theme, setTheme] = React.useState<string>(() => localStorage.getItem('ui:theme') || 'light')
   const [primary, setPrimary] = React.useState<string>(() => localStorage.getItem('ui:primary') || '')
   const [secondary, setSecondary] = React.useState<string>(() => localStorage.getItem('ui:secondary') || '')
@@ -25,6 +26,10 @@ export default function Settings() {
   const { logoBase64, logoName, saveLogo, removeLogo } = useLogo()
   const [logoError, setLogoError] = React.useState<string | null>(null)
   const [logoSuccess, setLogoSuccess] = React.useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = React.useState(false)
+  const [isRemovingLogo, setIsRemovingLogo] = React.useState(false)
+  const [pendingLogoFile, setPendingLogoFile] = React.useState<File | null>(null)
+  const [pendingLogoPreview, setPendingLogoPreview] = React.useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -86,12 +91,21 @@ export default function Settings() {
   }
 
   // ── Logo handlers ──────────────────────────────────────────────────────────
+  // Revoca la URL de preview anterior para no filtrar memoria.
+  React.useEffect(() => {
+    return () => {
+      if (pendingLogoPreview) URL.revokeObjectURL(pendingLogoPreview)
+    }
+  }, [pendingLogoPreview])
+
+  /** Solo valida y guarda el archivo en memoria; el guardado real ocurre al presionar "Guardar logo". */
   const handleLogoFile = (file: File) => {
     setLogoError(null)
     setLogoSuccess(false)
 
-    if (!file.type.startsWith('image/')) {
-      setLogoError('Solo se admiten archivos de imagen (PNG, JPG, SVG, WebP).')
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setLogoError('Solo se admiten archivos de imagen (PNG, JPG, WebP).')
       return
     }
     if (file.size > 500 * 1024) {
@@ -99,42 +113,9 @@ export default function Settings() {
       return
     }
 
-    const persist = (dataUrl: string) => {
-      try {
-        saveLogo(dataUrl, file.name)
-        setLogoSuccess(true)
-        setTimeout(() => setLogoSuccess(false), 3000)
-      } catch (err) {
-        setLogoError(err instanceof Error ? err.message : 'No se pudo guardar el logo.')
-      }
-    }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const raw = e.target?.result as string
-
-      if (file.type === 'image/svg+xml') {
-        // SVG no funciona en jsPDF → convertir a PNG vía canvas
-        const img = new Image()
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = img.naturalWidth || 800
-          canvas.height = img.naturalHeight || 400
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            ctx.drawImage(img, 0, 0)
-            persist(canvas.toDataURL('image/png'))
-          } else {
-            persist(raw)
-          }
-        }
-        img.onerror = () => persist(raw)
-        img.src = raw
-      } else {
-        persist(raw)
-      }
-    }
-    reader.readAsDataURL(file)
+    if (pendingLogoPreview) URL.revokeObjectURL(pendingLogoPreview)
+    setPendingLogoFile(file)
+    setPendingLogoPreview(URL.createObjectURL(file))
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,16 +131,56 @@ export default function Settings() {
     if (file) handleLogoFile(file)
   }
 
+  const handleCancelPendingLogo = () => {
+    if (pendingLogoPreview) URL.revokeObjectURL(pendingLogoPreview)
+    setPendingLogoFile(null)
+    setPendingLogoPreview(null)
+    setLogoError(null)
+  }
+
+  /** Sube al backend el archivo seleccionado (solo se llama al presionar "Guardar logo"). */
+  const handleConfirmSaveLogo = async () => {
+    if (!pendingLogoFile) return
+    setLogoError(null)
+    setIsUploadingLogo(true)
+    try {
+      await saveLogo(pendingLogoFile)
+      if (pendingLogoPreview) URL.revokeObjectURL(pendingLogoPreview)
+      setPendingLogoFile(null)
+      setPendingLogoPreview(null)
+      setLogoSuccess(true)
+      setTimeout(() => setLogoSuccess(false), 3000)
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setLogoError(detail || (err instanceof Error ? err.message : 'No se pudo guardar el logo.'))
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  const handleRemoveLogo = async () => {
+    setLogoError(null)
+    setIsRemovingLogo(true)
+    try {
+      await removeLogo()
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setLogoError(detail || (err instanceof Error ? err.message : 'No se pudo quitar el logo.'))
+    } finally {
+      setIsRemovingLogo(false)
+    }
+  }
+
   return (
     <div>
       <h2 className="page-title">Ajustes</h2>
 
       {/* ── LOGO — solo SuperAdmin ──────────────────────────────────────────── */}
-      {isAdmin() && (
+      {isSuperAdmin && (
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ marginTop: 0 }}>Logo de la aplicación</h3>
           <p style={{ color: '#8a8a8a', fontSize: 13, marginBottom: 16 }}>
-            Este logo aparece en el menú lateral y en los comprobantes de pago PDF. Formato recomendado: PNG o SVG con fondo transparente. Máx. 500 KB.
+            Este logo aparece en el menú lateral y en los comprobantes de pago PDF para todos los usuarios. Formato recomendado: PNG con fondo transparente. Máx. 500 KB.
           </p>
 
           <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -176,10 +197,10 @@ export default function Settings() {
               overflow: 'hidden',
               flexShrink: 0,
             }}>
-              {logoBase64 ? (
+              {pendingLogoPreview || logoBase64 ? (
                 <img
-                  src={logoBase64}
-                  alt="Logo actual"
+                  src={pendingLogoPreview ?? logoBase64 ?? undefined}
+                  alt={pendingLogoPreview ? 'Logo seleccionado (sin guardar)' : 'Logo actual'}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: 8 }}
                 />
               ) : (
@@ -217,18 +238,32 @@ export default function Settings() {
               >
                 <ImagePlus style={{ width: 22, height: 22, margin: '0 auto 6px', color: '#6ee7b7' }} />
                 <p style={{ fontSize: 13, color: '#4b5563', margin: 0 }}>
-                  <strong>Clic para subir</strong> o arrastra aquí
+                  {pendingLogoFile ? (
+                    <strong>Cambiar imagen seleccionada</strong>
+                  ) : (
+                    <><strong>Clic para subir</strong> o arrastra aquí</>
+                  )}
                 </p>
-                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, SVG, WebP — máx. 500 KB</p>
+                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, WebP — máx. 500 KB</p>
               </div>
 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleFileInputChange}
+                disabled={isUploadingLogo}
                 style={{ display: 'none' }}
               />
+
+              {/* Selección pendiente de guardar */}
+              {pendingLogoFile && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pendingLogoFile.name} <em style={{ color: '#d97706' }}>(sin guardar)</em>
+                  </span>
+                </div>
+              )}
 
               {/* Feedback */}
               {logoError && (
@@ -241,24 +276,58 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* Nombre del archivo + botón eliminar */}
-              {logoBase64 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {logoName ?? 'logo.png'}
-                  </span>
+              {pendingLogoFile ? (
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
-                    onClick={removeLogo}
+                    onClick={() => void handleConfirmSaveLogo()}
+                    disabled={isUploadingLogo}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5',
-                      background: '#fff1f2', color: '#dc2626', fontSize: 12, cursor: 'pointer',
+                      padding: '6px 14px', borderRadius: 6, border: '1px solid #16a34a',
+                      background: '#16a34a', color: '#fff', fontSize: 12, fontWeight: 600,
+                      cursor: isUploadingLogo ? 'default' : 'pointer',
+                      opacity: isUploadingLogo ? 0.6 : 1,
                     }}
                   >
-                    <Trash2 style={{ width: 13, height: 13 }} />
-                    Quitar logo
+                    <CheckCircle2 style={{ width: 13, height: 13 }} />
+                    {isUploadingLogo ? 'Guardando…' : 'Guardar logo'}
+                  </button>
+                  <button
+                    onClick={handleCancelPendingLogo}
+                    disabled={isUploadingLogo}
+                    style={{
+                      padding: '6px 14px', borderRadius: 6, border: '1px solid #d1d5db',
+                      background: '#fff', color: '#4b5563', fontSize: 12,
+                      cursor: isUploadingLogo ? 'default' : 'pointer',
+                      opacity: isUploadingLogo ? 0.6 : 1,
+                    }}
+                  >
+                    Cancelar
                   </button>
                 </div>
+              ) : (
+                /* Nombre del archivo guardado + botón eliminar */
+                logoBase64 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {logoName ?? 'logo.png'}
+                    </span>
+                    <button
+                      onClick={() => void handleRemoveLogo()}
+                      disabled={isRemovingLogo}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5',
+                        background: '#fff1f2', color: '#dc2626', fontSize: 12,
+                        cursor: isRemovingLogo ? 'default' : 'pointer',
+                        opacity: isRemovingLogo ? 0.6 : 1,
+                      }}
+                    >
+                      <Trash2 style={{ width: 13, height: 13 }} />
+                      {isRemovingLogo ? 'Quitando…' : 'Quitar logo'}
+                    </button>
+                  </div>
+                )
               )}
             </div>
           </div>

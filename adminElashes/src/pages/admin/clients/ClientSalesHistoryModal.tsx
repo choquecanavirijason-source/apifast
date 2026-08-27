@@ -512,7 +512,7 @@ export default function ClientSalesHistoryModal({
       onClose={onClose}
       title={`Historial comercial — ${clientName}`}
       size="xl"
-      contentClassName="w-[98vw] max-w-[1500px] max-h-[94vh] overflow-hidden flex flex-col"
+      contentClassName="w-[90vw] max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col"
       bodyClassName="flex-1 overflow-auto pr-1"
       footer={(
         <Button type="button" variant="secondary" onClick={onClose}>

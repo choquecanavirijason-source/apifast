@@ -23,6 +23,8 @@ import Designs from '@/pages/admin/catalog/Designs';
 import Volumen from '@/pages/admin/Volumen';
 import ProductsPage from '@/pages/admin/products/Main';
 import SalonsPage from '@/pages/admin/salons/Main';
+import CorteDeCajaPage from '@/pages/admin/salons/CorteDeCaja';
+import CajaPage from '@/pages/admin/salons/Caja';
 import AdminAiPage from '@/pages/admin/ai/Main';
 import ServicesPage from '@/pages/admin/services/Main';
 import ServiceQueuePage from '@/pages/admin/control-de-servicios/Queue';
@@ -53,6 +55,7 @@ import MarketplaceSettingsPage from "@/modes/marketplace/pages/settings/Settings
 import InventoryOverviewPage from "@/modes/marketplace/pages/inventory/InventoryOverviewPage";
 import AdsPage from "@/modes/marketplace/pages/ads/AdsPage";
 import ReelsPage from "@/modes/marketplace/pages/reels/ReelsPage";
+import DeliveryPointsPage from "@/modes/marketplace/pages/delivery-points/DeliveryPointsPage";
 import CustomersPage from "@/modes/marketplace/pages/customers/CustomersPage";
 
 export default function AppRouter() {
@@ -145,7 +148,10 @@ export default function AppRouter() {
         closeOnClick
         pauseOnHover
         draggable
-        style={{ zIndex: 2147483647 }}
+        // Con marginTop 0 el toast queda pegado a la esquina y tapa los
+        // botones de navegación del header (ej. "Control de servicios" en
+        // Caja POS) — se corre hacia abajo para no superponerse.
+        style={{ zIndex: 2147483647, marginTop: "4.25rem" }}
         toastStyle={{ zIndex: 2147483647 }}
       />
       <ScrollToTop />
@@ -174,6 +180,8 @@ export default function AppRouter() {
             <Route path="admin/pos-tracking/agenda" element={<PosTrackingHub />} />
             <Route path="admin/products" element={<ProductsPage />} />
             <Route path="admin/salons" element={<SalonsPage />} />
+            <Route path="admin/salons/corte-caja" element={<CorteDeCajaPage />} />
+            <Route path="admin/salons/caja" element={<CajaPage />} />
             <Route path="admin/ai" element={<AdminAiPage />} />
             <Route path="admin/services" element={<ServicesPage />} />
             <Route path="admin/services/categories" element={<ServicesPage />} />
@@ -201,6 +209,7 @@ export default function AppRouter() {
             <Route path="marketplace/categories" element={<MarketplaceCategoriesPage />} />
             <Route path="marketplace/ads" element={<AdsPage />} />
             <Route path="marketplace/reels" element={<ReelsPage />} />
+            <Route path="marketplace/delivery-points" element={<DeliveryPointsPage />} />
             <Route path="marketplace/customers" element={<CustomersPage />} />
             <Route path="marketplace/catalog" element={<MarketplaceCatalogPage />} />
             <Route path="marketplace/orders" element={<MarketplaceOrdersPage />} />

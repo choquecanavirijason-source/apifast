@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, Edit, Plus, Scissors, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Plus, Scissors, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, SectionCard } from "../../../components/common/ui";
+import { ActionDropdownMenu } from "../../../components/common/table/ActionDropdownMenu";
+import type { DataTableAction } from "../../../components/common/table/DataTable";
 import {
   AgendaService,
   deriveServiceCategoriesFromServices,
@@ -34,6 +36,7 @@ export default function ServicesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteOneModalOpen, setIsDeleteOneModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryOption | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(null);
   const [form, setForm] = useState<ServiceFormState>(emptyServiceForm);
@@ -227,6 +230,8 @@ export default function ServicesPage() {
       isMobile: Boolean(category.is_mobile),
       questionnaireId: category.questionnaire_id ? String(category.questionnaire_id) : "",
       questionnaireRequired: Boolean(category.questionnaire_required),
+      hasMaintenance: Boolean(category.has_maintenance),
+      hasRemoval: Boolean(category.has_removal),
     });
     setOpenMenuId(null);
     setIsEditModalOpen(true);
@@ -245,7 +250,6 @@ export default function ServicesPage() {
     setIsCreateServiceModalOpen(false);
     setIsEditServiceModalOpen(false);
     setIsDeleteServiceModalOpen(false);
-    setOpenServiceMenuId(null);
     setSelectedService(null);
     setServiceForm(emptyServiceItemForm);
     setIsUploadingServiceImage(false);
@@ -281,6 +285,8 @@ export default function ServicesPage() {
         is_mobile: form.isMobile,
         questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
         questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
+        has_maintenance: form.hasMaintenance,
+        has_removal: form.hasRemoval,
       });
       setCategories((prev) => [created, ...prev]);
       toast.success("Categoria creada correctamente.");
@@ -308,6 +314,8 @@ export default function ServicesPage() {
         is_mobile: form.isMobile,
         questionnaire_id: form.questionnaireId ? Number(form.questionnaireId) : null,
         questionnaire_required: form.questionnaireId ? form.questionnaireRequired : null,
+        has_maintenance: form.hasMaintenance,
+        has_removal: form.hasRemoval,
       });
       setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)));
       toast.success("Categoria actualizada correctamente.");
@@ -375,6 +383,8 @@ export default function ServicesPage() {
       durationMinutes: String(service.duration_minutes ?? ""),
       price: String(service.price ?? ""),
       commissionRate: service.commission_rate != null ? String(Math.round(service.commission_rate * 100)) : "",
+      maintenanceDays: service.maintenance_days != null ? String(service.maintenance_days) : "",
+      removalDays: service.removal_days != null ? String(service.removal_days) : "",
     });
     setIsEditServiceModalOpen(true);
   };
@@ -383,6 +393,11 @@ export default function ServicesPage() {
     setSelectedService(service);
     setIsDeleteServiceModalOpen(true);
   };
+
+  const serviceCardActions: DataTableAction<ServiceOption>[] = [
+    { label: "Editar", icon: <Edit className="h-3.5 w-3.5" />, onClick: handleOpenEditService },
+    { label: "Eliminar", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: handleOpenDeleteServiceModal, variant: "danger" },
+  ];
 
   const handleServiceImageSelected = async (file?: File | null) => {
     if (!file) return;
@@ -415,6 +430,8 @@ export default function ServicesPage() {
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
+        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
       });
       setServices((prev) => [created, ...prev]);
       toast.success("Servicio creado correctamente.");
@@ -438,11 +455,15 @@ export default function ServicesPage() {
       const updated = await AgendaService.updateService(selectedService.id, {
         name: serviceForm.name.trim(),
         description: serviceForm.description.trim() || null,
-        image_url: serviceForm.imageUrl.trim() || null,
+        // "" (no null) para que el backend distinga "quitar imagen" de "no tocar imagen":
+        // update_service solo escribe el campo cuando image_url no es None.
+        image_url: serviceForm.imageUrl.trim(),
         category_id: Number(serviceForm.categoryId),
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
+        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
       });
       setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
       toast.success("Servicio actualizado correctamente.");
@@ -470,6 +491,11 @@ export default function ServicesPage() {
   const totalCategories = categories.length;
   const totalServices = services.length;
   const isLoading = isLoadingCategories || isLoadingServices;
+  // Categoría elegida en el modal de servicio — sus checks deciden si se
+  // muestran los campos de días de mantenimiento/retiro más abajo.
+  const selectedCategoryForService = serviceForm.categoryId
+    ? categoryById.get(Number(serviceForm.categoryId))
+    : undefined;
 
   return (
     <Layout
@@ -482,17 +508,29 @@ export default function ServicesPage() {
       variant="cards"
     >
       {isCategoriesView ? (
-        <ServicesToolbar onCreateCategory={handleOpenCreate} />
+        <ServicesToolbar
+          onCreateCategory={handleOpenCreate}
+          search={categorySearch}
+          onSearchChange={setCategorySearch}
+        />
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
-            <p className="text-xs text-slate-500">Cada servicio tiene una categoría de servicio asignada.</p>
+          <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
+          <div className="flex flex-1 items-center justify-end gap-3">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+              <input
+                type="text"
+                value={serviceSearch}
+                onChange={(event) => setServiceSearch(event.target.value)}
+                placeholder="Buscar servicio..."
+                className="h-9 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              />
+            </div>
+            <Button onClick={handleOpenCreateService} leftIcon={<Plus className="h-4 w-4" />}>
+              Nuevo servicio
+            </Button>
           </div>
-          <Button onClick={handleOpenCreateService}>
-            <Plus className="h-4 w-4" />
-            Nuevo servicio
-          </Button>
         </div>
       )}
 
@@ -515,32 +553,6 @@ export default function ServicesPage() {
 
       {isCategoriesView ? (
         <>
-          <SectionCard className="mt-4 border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-[#323130]">Categorías de servicio</h3>
-                  <p className="text-xs text-[#605e5c]">Vista estilo Dynamics 365 con búsqueda y paginación</p>
-                </div>
-                <div className="text-xs text-[#605e5c]">
-                  Mostrando <span className="font-semibold text-[#323130]">{paginatedCategories.length}</span> de{" "}
-                  <span className="font-semibold text-[#323130]">{filteredCategories.length}</span>
-                </div>
-              </div>
-
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
-                <input
-                  type="text"
-                  value={categorySearch}
-                  onChange={(event) => setCategorySearch(event.target.value)}
-                  placeholder="Buscar categoría por nombre o descripción..."
-                  className="h-10 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
-                />
-              </div>
-            </div>
-          </SectionCard>
-
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {paginatedCategories.map((category) => {
               return (
@@ -612,32 +624,6 @@ export default function ServicesPage() {
         </>
       ) : (
         <>
-          <SectionCard className="mt-4 border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-[#323130]">Servicios</h3>
-                  <p className="text-xs text-[#605e5c]">Vista estilo Dynamics 365 con búsqueda y paginación</p>
-                </div>
-                <div className="text-xs text-[#605e5c]">
-                  Mostrando <span className="font-semibold text-[#323130]">{paginatedServices.length}</span> de{" "}
-                  <span className="font-semibold text-[#323130]">{filteredServices.length}</span>
-                </div>
-              </div>
-
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
-                <input
-                  type="text"
-                  value={serviceSearch}
-                  onChange={(event) => setServiceSearch(event.target.value)}
-                  placeholder="Buscar servicio por nombre, descripción o categoría..."
-                  className="h-10 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
-                />
-              </div>
-            </div>
-          </SectionCard>
-
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {paginatedServices.map((service) => {
               const categoryName =
@@ -673,23 +659,32 @@ export default function ServicesPage() {
                           <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{service.description}</p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="relative shrink-0">
                         <button
                           type="button"
-                          onClick={() => handleOpenEditService(service)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
-                          title="Editar"
+                          onClick={(event) => {
+                            if (openMenuId === service.id) {
+                              setOpenMenuId(null);
+                              setMenuAnchorRect(null);
+                              return;
+                            }
+                            setOpenMenuId(service.id);
+                            setMenuAnchorRect(event.currentTarget.getBoundingClientRect());
+                          }}
+                          className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-700 group-hover:opacity-100"
+                          title="Acciones"
+                          aria-label="Acciones"
                         >
-                          <Edit className="h-4 w-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDeleteServiceModal(service)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {openMenuId === service.id ? (
+                          <ActionDropdownMenu
+                            actions={serviceCardActions}
+                            item={service}
+                            anchorRect={menuAnchorRect}
+                            onClose={() => { setOpenMenuId(null); setMenuAnchorRect(null); }}
+                          />
+                        ) : null}
                       </div>
                     </div>
 
@@ -854,6 +849,37 @@ export default function ServicesPage() {
               />
             </div>
           </div>
+
+          {(selectedCategoryForService?.has_maintenance || selectedCategoryForService?.has_removal) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              {selectedCategoryForService?.has_maintenance && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Días para mantenimiento</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Ej. 21"
+                    value={serviceForm.maintenanceDays}
+                    onChange={(event) => handleServiceFormChange("maintenanceDays", event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  />
+                </div>
+              )}
+              {selectedCategoryForService?.has_removal && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Días para retiro</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Ej. 35"
+                    value={serviceForm.removalDays}
+                    onChange={(event) => handleServiceFormChange("removalDays", event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

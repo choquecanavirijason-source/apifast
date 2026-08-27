@@ -1,10 +1,7 @@
 import axios from 'axios';
 import variables from '../config/variables';
 
-const baseURL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  variables.apiUrl ||
-  'http://localhost:8000';
+const baseURL = variables.apiUrl || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: String(baseURL).replace(/\/$/, ''),

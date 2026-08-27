@@ -25,6 +25,12 @@ from app.domain.entities.service_agenda import (
 from app.domain.entities.tracking import Tracking
 from app.domain.entities.user import User
 
+# Sentinel para distinguir "no vino este campo en el PUT" (no tocar) de
+# "vino explícitamente en null" (ej. quitar la operaria asignada). Con
+# professional_id: Optional[int] = None como único valor por defecto, ambos
+# casos se veían idénticos y quitar la operaria nunca se guardaba.
+_UNSET = object()
+
 
 def _appointment_query(db: Session):
     return db.query(Appointment).options(
@@ -488,7 +494,7 @@ def update_appointment(
     db: Session,
     appointment_id: int,
     client_id: Optional[int] = None,
-    professional_id: Optional[int] = None,
+    professional_id=_UNSET,
     service_id: Optional[int] = None,
     service_ids: Optional[List[int]] = None,
     branch_id: Optional[int] = None,
@@ -510,7 +516,7 @@ def update_appointment(
 
     final_client_id = client_id if client_id is not None else appointment.client_id
     final_professional_id = (
-        professional_id if professional_id is not None else appointment.professional_id
+        appointment.professional_id if professional_id is _UNSET else professional_id
     )
     final_service_id = service_id if service_id is not None else appointment.service_id
     final_branch_id = branch_id if branch_id is not None else appointment.branch_id

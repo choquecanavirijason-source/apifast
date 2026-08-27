@@ -19,6 +19,7 @@ import api from "@/core/services/api";
 import variables from "@/core/config/variables";
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
+import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 
 const MODEL_3D_EXTENSIONS = [".glb", ".gltf", ".obj", ".fbx", ".stl"];
@@ -29,6 +30,7 @@ type DesignCombo = {
   effect: string;
   eyeType: string;
   design: string;
+  volume: string;
   note: string;
   pngPreview: string;
   modelFileName: string;
@@ -41,21 +43,21 @@ type DesignApiItem = {
   effect: string | null;
   eye_type: string | null;
   lash_design: string | null;
+  volume: string | null;
   note: string | null;
   image: string | null;
   model_3d_url: string | null;
   model_3d_filename: string | null;
 };
 
-const effects = ["Cat Eye", "Doll", "Fox", "Natural"];
-const eyeTypes = ["Almendrado", "Redondo", "Caido", "Encapotado"];
-const lashDesigns = ["Mapping Clasico", "Wispy", "Kim K", "Open Eye"];
+type CatalogOption = { id: number; name: string };
 
 const emptyForm = {
   name: "",
-  effect: effects[0],
-  eyeType: eyeTypes[0],
-  design: lashDesigns[0],
+  effect: "",
+  eyeType: "",
+  design: "",
+  volume: "",
   note: "",
   pngPreview: "",
   modelFileName: "",
@@ -89,31 +91,15 @@ const resolveMediaUrl = (path: string) => {
 const fromApi = (item: DesignApiItem): DesignCombo => ({
   id: item.id,
   name: item.name,
-  effect: item.effect ?? effects[0],
-  eyeType: item.eye_type ?? eyeTypes[0],
-  design: item.lash_design ?? lashDesigns[0],
+  effect: item.effect ?? "",
+  eyeType: item.eye_type ?? "",
+  design: item.lash_design ?? "",
+  volume: item.volume ?? "",
   note: item.note ?? "",
   pngPreview: item.image ?? "",
   modelFileName: item.model_3d_filename ?? "",
   modelFileUrl: item.model_3d_url ?? "",
 });
-
-function Modal({ isOpen, title, onClose, children }: { isOpen: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-            <span className="text-sm font-semibold">Cerrar</span>
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function DesignsPage() {
   const [rows, setRows] = useState<DesignCombo[]>([]);
@@ -128,8 +114,14 @@ export default function DesignsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const [effects, setEffects] = useState<CatalogOption[]>([]);
+  const [eyeTypes, setEyeTypes] = useState<CatalogOption[]>([]);
+  const [lashDesigns, setLashDesigns] = useState<CatalogOption[]>([]);
+  const [volumes, setVolumes] = useState<CatalogOption[]>([]);
+
   useEffect(() => {
     void loadDesigns();
+    void loadCatalogOptions();
   }, []);
 
   const loadDesigns = async () => {
@@ -144,11 +136,30 @@ export default function DesignsPage() {
     }
   };
 
+  // Trae las opciones reales creadas en Tecnología, Efectos, Tipos de ojo y
+  // Volumen para que los selects de este modal siempre estén al día.
+  const loadCatalogOptions = async () => {
+    try {
+      const [effectsRes, eyeTypesRes, lashDesignsRes, volumesRes] = await Promise.all([
+        api.get("/catalogs/effects", { params: { limit: 500 } }),
+        api.get("/catalogs/eye-types", { params: { limit: 500 } }),
+        api.get("/catalogs/lash-designs", { params: { limit: 500 } }),
+        api.get("/catalogs/volumes", { params: { limit: 500 } }),
+      ]);
+      setEffects(effectsRes.data);
+      setEyeTypes(eyeTypesRes.data);
+      setLashDesigns(lashDesignsRes.data);
+      setVolumes(volumesRes.data);
+    } catch {
+      toast.error("No se pudieron cargar las opciones de efecto, tipo de ojo, tecnología o volumen.");
+    }
+  };
+
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return rows;
     return rows.filter((item) =>
-      [item.name, item.effect, item.eyeType, item.design, item.note]
+      [item.name, item.effect, item.eyeType, item.design, item.volume, item.note]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query))
     );
@@ -180,6 +191,7 @@ export default function DesignsPage() {
       effect: item.effect,
       eyeType: item.eyeType,
       design: item.design,
+      volume: item.volume,
       note: item.note,
       pngPreview: item.pngPreview,
       modelFileName: item.modelFileName,
@@ -239,9 +251,10 @@ export default function DesignsPage() {
 
     const payload = {
       name,
-      effect: form.effect,
-      eye_type: form.eyeType,
-      lash_design: form.design,
+      effect: form.effect || null,
+      eye_type: form.eyeType || null,
+      lash_design: form.design || null,
+      volume: form.volume || null,
       note: form.note || null,
       image: form.pngPreview || null,
       model_3d_url: form.modelFileUrl || null,
@@ -391,12 +404,29 @@ export default function DesignsPage() {
         </div>
       ) : null}
 
-      <Modal
+      <GenericModal
         isOpen={modalMode === "create" || modalMode === "edit"}
         title={modalMode === "edit" ? "Editar diseño" : "Crear diseño"}
         onClose={closeModal}
+        size="md"
+        asForm
+        onSubmit={handleSave}
+        footer={
+          <>
+            <button type="button" onClick={closeModal} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving || uploadingModel}
+              className="rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white hover:bg-[#063324] disabled:opacity-60"
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </button>
+          </>
+        }
       >
-        <form onSubmit={handleSave} className="grid gap-4">
+        <div className="grid gap-4">
           <div>
             <label className="text-xs font-semibold uppercase text-slate-500">Nombre</label>
             <input
@@ -407,7 +437,7 @@ export default function DesignsPage() {
               required
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-xs font-semibold uppercase text-slate-500">Efecto</label>
               <select
@@ -415,7 +445,10 @@ export default function DesignsPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, effect: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {effects.map((item) => <option key={item} value={item}>{item}</option>)}
+                <option value="">
+                  {effects.length === 0 ? "Sin efectos creados" : "Selecciona un efecto"}
+                </option>
+                {effects.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
               </select>
             </div>
             <div>
@@ -425,17 +458,36 @@ export default function DesignsPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, eyeType: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {eyeTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+                <option value="">
+                  {eyeTypes.length === 0 ? "Sin tipos de ojo creados" : "Selecciona un tipo de ojo"}
+                </option>
+                {eyeTypes.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase text-slate-500">Diseño</label>
+              <label className="text-xs font-semibold uppercase text-slate-500">Tecnología</label>
               <select
                 value={form.design}
                 onChange={(event) => setForm((prev) => ({ ...prev, design: event.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {lashDesigns.map((item) => <option key={item} value={item}>{item}</option>)}
+                <option value="">
+                  {lashDesigns.length === 0 ? "Sin tecnologías creadas" : "Selecciona una tecnología"}
+                </option>
+                {lashDesigns.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase text-slate-500">Volumen</label>
+              <select
+                value={form.volume}
+                onChange={(event) => setForm((prev) => ({ ...prev, volume: event.target.value }))}
+                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
+              >
+                <option value="">
+                  {volumes.length === 0 ? "Sin volúmenes creados" : "Selecciona un volumen"}
+                </option>
+                {volumes.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
               </select>
             </div>
           </div>
@@ -519,41 +571,32 @@ export default function DesignsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </GenericModal>
 
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={closeModal} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving || uploadingModel}
-              className="rounded-xl bg-[#094732] px-4 py-2 text-sm font-semibold text-white hover:bg-[#063324] disabled:opacity-60"
-            >
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={modalMode === "view"} title="Detalle del diseño" onClose={closeModal}>
+      <GenericModal isOpen={modalMode === "view"} title="Detalle del diseño" onClose={closeModal} size="md">
         {activeRow && (
           <div className="grid gap-4 text-sm text-slate-600">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-400">Nombre</p>
               <p className="text-base font-semibold text-slate-800">{activeRow.name}</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-semibold uppercase text-slate-400">Efecto</p>
-                <p>{activeRow.effect}</p>
+                <p>{activeRow.effect || "—"}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-slate-400">Tipo de ojo</p>
-                <p>{activeRow.eyeType}</p>
+                <p>{activeRow.eyeType || "—"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Diseño</p>
-                <p>{activeRow.design}</p>
+                <p className="text-xs font-semibold uppercase text-slate-400">Tecnología</p>
+                <p>{activeRow.design || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-400">Volumen</p>
+                <p>{activeRow.volume || "—"}</p>
               </div>
             </div>
             <div>
@@ -587,9 +630,9 @@ export default function DesignsPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </GenericModal>
 
-      <Modal isOpen={Boolean(confirmDeleteItem)} title="Eliminar diseño" onClose={() => setConfirmDeleteItem(null)}>
+      <GenericModal isOpen={Boolean(confirmDeleteItem)} title="Eliminar diseño" onClose={() => setConfirmDeleteItem(null)} size="sm">
         <div className="space-y-4 text-sm text-slate-600">
           <p>
             Vas a eliminar el diseño <span className="font-semibold text-slate-800">{confirmDeleteItem?.name}</span>. Esta acción no se puede deshacer.
@@ -608,7 +651,7 @@ export default function DesignsPage() {
             </button>
           </div>
         </div>
-      </Modal>
+      </GenericModal>
     </Layout>
   );
 }

@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from app.core.dependencies import (
     require_permission,
     resolve_branch_id,
 )
+from app.core.rate_limit import rate_limit
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
@@ -35,12 +36,16 @@ class _SalonLoginPayload(BaseModel):
 
 
 @router.post("/verify-salon-login")
-def verify_salon_login(payload: _SalonLoginPayload, db: Session = Depends(get_db)):
+def verify_salon_login(payload: _SalonLoginPayload, request: Request, db: Session = Depends(get_db)):
     """
     Endpoint INTERNO: verifica que un cliente del salón pueda acceder al marketplace
     usando su email (o nombre) + CI como contraseña. Solo si marketplace_enabled = True.
     Llamado exclusivamente por backend_marketplace en el flujo de login.
+
+    El CI es un número corto y adivinable (no un secreto real) — sin límite
+    de intentos, este endpoint era brute-forceable directamente.
     """
+    rate_limit(request, "verify-salon-login", max_attempts=5, window_seconds=60)
     from sqlalchemy import func, or_
 
     identifier = payload.email.strip().lower()

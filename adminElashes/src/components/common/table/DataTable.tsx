@@ -405,7 +405,10 @@ function DataTable<T extends { id: number | string }>({
                 );
               })}
               {actions && actions.length > 0 ? (
-                <th scope="col" className={`${headerCell} w-14 text-right text-slate-500`}>
+                <th
+                  scope="col"
+                  className={`${headerCell} sticky right-0 z-20 w-14 text-right text-slate-500 shadow-[-6px_0_6px_-4px_rgba(15,23,42,0.12)]`}
+                >
                   <span className="inline-block pt-0.5">···</span>
                 </th>
               ) : null}
@@ -424,6 +427,7 @@ function DataTable<T extends { id: number | string }>({
             ) : (
               visibleData.map((item, index) => {
                 const stripe = index % 2 === 0 ? "bg-white" : "bg-slate-50/40";
+                const stickyStripe = index % 2 === 0 ? "bg-white" : "bg-slate-50";
                 return (
                   <tr
                     key={item.id}
@@ -445,7 +449,9 @@ function DataTable<T extends { id: number | string }>({
                     {actions && actions.length > 0 ? (() => {
                       const visibleActions = actions.filter(a => !a.show || a.show(item));
                       return (
-                        <td className={`${cellBorder} px-1.5 py-1 text-right align-middle`}>
+                        <td
+                          className={`${cellBorder} sticky right-0 z-5 px-1.5 py-1 text-right align-middle shadow-[-6px_0_6px_-4px_rgba(15,23,42,0.12)] ${stickyStripe}`}
+                        >
                           {visibleActions.length > 0 ? (
                             <div className="relative inline-flex">
                               <button

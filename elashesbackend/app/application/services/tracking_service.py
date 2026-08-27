@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
@@ -5,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.domain.entities.branch import Branch
-from app.domain.entities.service_agenda import Appointment
+from app.domain.entities.service_agenda import Appointment, AppointmentService, Service
 from app.domain.entities.tracking import (
     Tracking,
     EyeType,
@@ -120,6 +121,63 @@ def _validate_tracking_relations(
             )
 
 
+def _resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
+    """El servicio principal de la cita (single service_id, o el primero de la
+    lista si la cita tiene varios servicios). None si la cita no existe o no
+    tiene ningún servicio."""
+    if not appointment_id:
+        return None
+
+    appointment = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.service).joinedload(Service.category),
+            joinedload(Appointment.appointment_services)
+            .joinedload(AppointmentService.service)
+            .joinedload(Service.category),
+        )
+        .filter(Appointment.id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        return None
+
+    service = appointment.service
+    if not service:
+        services = appointment.services
+        service = services[0] if services else None
+
+    return service
+
+
+def _resolve_next_dates(
+    db: Session,
+    appointment_id: Optional[int],
+    base_date: datetime,
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Fechas de mantenimiento/retiro. Los días concretos viven en el
+    Service (pueden variar entre servicios de la misma categoría, ej.
+    "Extensiones Clásicas" vs "Volumen 5D"), pero solo cuentan si la
+    categoría de ese servicio tiene has_maintenance/has_removal activado —
+    solo algunas categorías lo necesitan (ej. Extensiones sí, Lifting no)."""
+    service = _resolve_service(db, appointment_id)
+    category = service.category if service else None
+    if not service or not category:
+        return None, None
+
+    next_maintenance_date = (
+        base_date + timedelta(days=service.maintenance_days)
+        if category.has_maintenance and service.maintenance_days is not None
+        else None
+    )
+    next_removal_date = (
+        base_date + timedelta(days=service.removal_days)
+        if category.has_removal and service.removal_days is not None
+        else None
+    )
+    return next_maintenance_date, next_removal_date
+
+
 def list_trackings(
     db: Session,
     skip: int = 0,
@@ -195,6 +253,13 @@ def create_tracking(
         questionnaire_id=payload.questionnaire_id,
     )
 
+    base_date = payload.last_application_date or datetime.utcnow()
+    next_maintenance_date, next_removal_date = _resolve_next_dates(
+        db=db,
+        appointment_id=payload.appointment_id,
+        base_date=base_date,
+    )
+
     tracking = Tracking(
         client_id=payload.client_id,
         appointment_id=payload.appointment_id,
@@ -206,8 +271,10 @@ def create_tracking(
         lash_design_id=payload.lash_design_id,
         questionnaire_id=payload.questionnaire_id,
         design_notes=payload.design_notes,
-        last_application_date=payload.last_application_date,
+        last_application_date=base_date,
         questionnaire_responses=payload.questionnaire_responses,
+        next_maintenance_date=next_maintenance_date,
+        next_removal_date=next_removal_date,
     )
 
     db.add(tracking)
@@ -257,6 +324,16 @@ def update_tracking(
 
     for field, value in update_data.items():
         setattr(tracking, field, value)
+
+    # Recalcular fechas si cambió la cita asociada o la fecha de aplicación
+    # (la categoría del servicio de la cita es la que decide el tiempo).
+    if {"appointment_id", "last_application_date"} & update_data.keys():
+        base_date = update_data.get("last_application_date", tracking.last_application_date)
+        tracking.next_maintenance_date, tracking.next_removal_date = _resolve_next_dates(
+            db=db,
+            appointment_id=appointment_id,
+            base_date=base_date,
+        )
 
     db.commit()
     db.refresh(tracking)

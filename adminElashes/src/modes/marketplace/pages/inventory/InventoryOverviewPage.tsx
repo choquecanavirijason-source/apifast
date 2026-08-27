@@ -7,6 +7,7 @@ import {
   MARKETPLACE_MEDIA_BASE,
   type MarketplaceProduct,
 } from "@/core/services/marketplace/marketplace.service";
+import variables from "@/core/config/variables";
 import Layout from "@/components/common/layout";
 import { StatCard } from "@/components/common/ui";
 
@@ -21,9 +22,7 @@ interface SalonProduct {
   category: { id: number; name: string } | null;
 }
 
-const ELASHES_BASE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  "http://34.55.150.142";
+const ELASHES_BASE = variables.apiUrl || "http://34.55.150.142";
 
 function salonImg(url: string | null) {
   if (!url) return null;

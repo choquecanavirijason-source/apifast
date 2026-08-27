@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, MessageCircle, Loader2, ArrowRightLeft, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, ArrowRightLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { NotificationsService } from "../../../core/services/notifications/notifications.service";
 import { useSearchParams } from "react-router-dom";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button, InputField, SectionCard, StatCard } from "../../../components/common/ui/index.ts";
 import { CategoryService, type CategoryItem } from "../../../core/services/category/category.service.ts";
 import { BranchService } from "../../../core/services/branch/branch.service.ts";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import {
   ProductService,
   type ProductCreatePayload,
@@ -58,7 +59,6 @@ export default function Main() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [isMutating, setIsMutating] = useState(false);
-  const [isSendingAlert, setIsSendingAlert] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -68,7 +68,10 @@ export default function Main() {
   const [batchQuantity, setBatchQuantity] = useState<string>("1");
   const [batchCostPerUnit, setBatchCostPerUnit] = useState<string>("0");
   const [batchSalePrice, setBatchSalePrice] = useState<string>("");
-  const [selectedInventoryBranchId, setSelectedInventoryBranchId] = useState<number | null>(null);
+  // Sigue al selector de sucursal global del header (no uno propio) — antes
+  // esta pantalla tenía su propio desplegable independiente, así que cambiar
+  // la sucursal arriba no se reflejaba acá.
+  const [selectedInventoryBranchId, setSelectedInventoryBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
   const [transferFromBranchId, setTransferFromBranchId] = useState<string>("");
@@ -186,32 +189,6 @@ export default function Main() {
     }
   };
 
-  const handleSendStockAlert = async () => {
-    setIsSendingAlert(true);
-    try {
-      const result = await NotificationsService.sendStockAlert();
-      if (result.sent) {
-        toast.success(
-          `✅ Alerta enviada por WhatsApp a ${result.recipients.filter((r) => r.sent).length} destinatario(s).`,
-          { autoClose: 5000 }
-        );
-      } else if (result.has_wa_me && result.wa_me_url) {
-        // Sin llaves configuradas → abrir WhatsApp Web con mensaje prellenado
-        window.open(result.wa_me_url, "_blank", "noopener,noreferrer");
-        toast.info(
-          "WhatsApp API no configurada. Se abrió WhatsApp con el mensaje listo para enviar manualmente.",
-          { autoClose: 6000 }
-        );
-      } else {
-        toast.warn(result.detail || "No se pudo enviar la alerta.", { autoClose: 5000 });
-      }
-    } catch {
-      toast.error("Error al enviar la alerta de WhatsApp.");
-    } finally {
-      setIsSendingAlert(false);
-    }
-  };
-
   const ALERT_KEY = "stock-alert-last-sent";
   const ALERT_COOLDOWN_MS = 8 * 60 * 60 * 1000; // 8 horas
 
@@ -264,6 +241,17 @@ export default function Main() {
   useEffect(() => {
     void loadProducts(selectedInventoryBranchId);
   }, [selectedInventoryBranchId]);
+
+  useEffect(() => {
+    const handleChange = () => setSelectedInventoryBranchId(getSelectedBranchId());
+    const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("branchchange", handleChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("branchchange", handleChange);
+    };
+  }, []);
 
   const totalStockUnits = useMemo(() => products.reduce((sum, product) => sum + product.stock, 0), [products]);
   const lowStockCount = useMemo(() => products.filter((product) => product.stock <= product.minStock).length, [products]);
@@ -367,6 +355,10 @@ export default function Main() {
       image_url: normalized.imageUrl?.trim() || undefined,
       initial_stock: normalized.stock,
       min_stock: normalized.minStock > 0 ? normalized.minStock : undefined,
+      // Sin esto, el stock inicial siempre caía en la sucursal de id más
+      // bajo (fallback del backend) sin importar el filtro activo en
+      // pantalla — ahora respeta la sucursal que tengas seleccionada.
+      branch_id: selectedInventoryBranchId ?? undefined,
     };
 
     setIsMutating(true);
@@ -749,24 +741,6 @@ export default function Main() {
             </Button>
           </div>
 
-          {currentSection === "products" && branches.length > 0 ? (
-            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100/80 px-3 py-1.5">
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              <select
-                value={selectedInventoryBranchId ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedInventoryBranchId(val ? Number(val) : null);
-                }}
-                className="bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
-              >
-                <option value="">Todas las sucursales</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          ) : null}
 
           {currentSection === "products" ? (
             <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
@@ -828,28 +802,6 @@ export default function Main() {
         variant="table"
         toolbar={renderToolbar()}
       >
-        {currentSection === "products" && lowStockCount > 0 ? (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" />
-              <p className="text-sm font-semibold text-amber-800">
-                {lowStockCount} producto{lowStockCount !== 1 ? "s" : ""} con stock bajo — usa el filtro &quot;Bajo stock&quot; para verlos
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleSendStockAlert()}
-              disabled={isSendingAlert}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-60"
-            >
-              {isSendingAlert
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <MessageCircle className="h-3.5 w-3.5" />}
-              {isSendingAlert ? "Enviando…" : "Notificar por WhatsApp"}
-            </button>
-          </div>
-        ) : null}
-
         {currentSection === "products" ? (
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatCard

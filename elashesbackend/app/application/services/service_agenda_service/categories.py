@@ -46,6 +46,8 @@ def create_service_category(
     description: Optional[str] = None,
     image_url: Optional[str] = None,
     is_mobile: bool = False,
+    has_maintenance: bool = False,
+    has_removal: bool = False,
 ) -> ServiceCategory:
     normalized_name = name.strip()
     existing = (
@@ -64,6 +66,8 @@ def create_service_category(
         description=description,
         image_url=image_url,
         is_mobile=is_mobile,
+        has_maintenance=has_maintenance,
+        has_removal=has_removal,
     )
     db.add(category)
     db.commit()
@@ -78,6 +82,8 @@ def update_service_category(
     description: Optional[str] = None,
     image_url: Optional[str] = None,
     is_mobile: Optional[bool] = None,
+    has_maintenance: Optional[bool] = None,
+    has_removal: Optional[bool] = None,
 ) -> ServiceCategory:
     category = get_service_category_by_id(db, category_id)
 
@@ -103,6 +109,12 @@ def update_service_category(
 
     if is_mobile is not None:
         category.is_mobile = is_mobile
+
+    if has_maintenance is not None:
+        category.has_maintenance = has_maintenance
+
+    if has_removal is not None:
+        category.has_removal = has_removal
 
     db.commit()
     db.refresh(category)

@@ -11,6 +11,7 @@ class Branch(Base):
     address = Column(String(255), nullable=True)
     city = Column(String(100), nullable=True)
     department = Column(String(100), nullable=True)
+    country_code = Column(String(2), nullable=True)
     opening_hours = Column(JSON, nullable=True)
     qr_image_url = Column(String(1024), nullable=True)
     maps_url = Column(String(1024), nullable=True)

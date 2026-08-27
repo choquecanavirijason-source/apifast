@@ -7,6 +7,22 @@ import type {
   TicketItem,
 } from "../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../core/services/pos-sale/pos-sale.service";
+import type { Product } from "../../../core/types/IProduct";
+
+/**
+ * Línea de producto de inventario en el carrito — separada de `CartLine`
+ * (servicios) a propósito: un producto no tiene operaria, horario ni
+ * duración, así que forzarlo por esos campos solo agregaría ruido.
+ */
+export type ProductCartLine = {
+  localId: string;
+  product_id: string;
+  name: string;
+  unit_price: number;
+  quantity: number;
+  /** Stock disponible en la sucursal activa al momento de agregarlo — para no dejar pedir de más. */
+  availableStock: number;
+};
 
 export type CartLine = {
   localId: string;
@@ -50,6 +66,12 @@ export type PosSaleStepOneProps = {
   labelClass: string;
   fieldClass: string;
   isLoading: boolean;
+  /** Productos de inventario de la sucursal activa, para la pestaña "Productos". */
+  products: Product[];
+  productLines: ProductCartLine[];
+  onAddProductToCart: (product: Product) => void;
+  onUpdateProductQuantity: (localId: string, quantity: number) => void;
+  onRemoveProductLine: (localId: string) => void;
   serviceSearch: string;
   onServiceSearchChange: (value: string) => void;
   onServiceInputFocus: () => void;
@@ -103,8 +125,8 @@ export type PosSaleStepOneProps = {
   finalizeSaleLabel: string;
   finalizeFooterHint: string;
   onFinalizeSale: () => void;
-  /** Crea turno inmediato con la hora actual, sin abrir el planificador. payLater=true → cobra al finalizar. */
-  onCreateImmediateTicket: (payLater: boolean) => void;
+  /** Crea turno inmediato con la hora actual, sin abrir el planificador. payLater=true → cobra al finalizar. startService=true → pasa el ticket directo a "En servicio" (botón "Pasar a servicio"). */
+  onCreateImmediateTicket: (payLater: boolean, startService?: boolean) => void;
   isSubmittingCheckout: boolean;
   linkAppointmentId: number | null;
   ticketPreviews: PosCheckoutTicketPreview[];
@@ -184,6 +206,7 @@ export type PosSaleDraft = {
   discountValue: string;
   notes: string;
   cartLines: CartLine[];
+  productLines: ProductCartLine[];
   serviceSearch: string;
   selectedServiceCategoryId: string;
   sellerId: string;

@@ -8,23 +8,23 @@ interface StatusStyle {
 
 const STATUS_STYLES: Record<OperariaCurrentStatus, StatusStyle> = {
   in_service: {
-    dot:   "bg-[#0078d4]",
-    badge: "border-[#deecf9] bg-[#eff6fc] text-[#0078d4]",
+    dot:   "bg-[#201f1e]",
+    badge: "border-[#201f1e] bg-white text-[#201f1e]",
     label: "En servicio",
   },
   pending: {
-    dot:   "bg-[#D83B01]",
-    badge: "border-[#f9ddd5] bg-[#fef0eb] text-[#D83B01]",
+    dot:   "bg-[#605e5c]",
+    badge: "border-[#c8c6c4] bg-white text-[#605e5c]",
     label: "En espera",
   },
   confirmed: {
-    dot:   "bg-[#D83B01]",
-    badge: "border-[#f9ddd5] bg-[#fef0eb] text-[#D83B01]",
+    dot:   "bg-[#605e5c]",
+    badge: "border-[#c8c6c4] bg-white text-[#605e5c]",
     label: "Confirmada",
   },
   completed: {
-    dot:   "bg-[#107C10]",
-    badge: "border-[#bad80a]/40 bg-[#f1faf1] text-[#107C10]",
+    dot:   "bg-[#8a8886]",
+    badge: "border-[#c8c6c4] bg-white text-[#8a8886]",
     label: "Finalizada",
   },
   cancelled: {

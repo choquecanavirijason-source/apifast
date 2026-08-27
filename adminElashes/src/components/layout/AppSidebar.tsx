@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import useAuth from "../../core/hooks/useAuth";
@@ -18,6 +18,7 @@ import {
   ReceiptText,
   UserCheck,
   Bot,
+  Wallet,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -30,6 +31,9 @@ type MenuItem = {
   name: string;
   icon: ReactNode;
   path?: string;
+  /** Coincidencia exacta de ruta (no por prefijo) — usar cuando otra sección
+   *  vive en una URL que empieza igual (ej. "/admin/salons" vs "/admin/salons/caja"). */
+  exact?: boolean;
   permission?: PermissionRule;
   subItems?: MenuSubItem[];
 };
@@ -198,14 +202,25 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
-        name: "Caja & Seguimiento",
+        name: "Ventas",
         icon: <ReceiptText size={20} />,
         path: "/admin/pos",
         subItems: [
           { name: "Nueva venta", path: "/admin/pos", permission: ["payments:view", "payments:manage"] },
           { name: "Historial de ventas", path: "/admin/pos/history", permission: ["payments:view", "payments:manage"] },
           { name: "Caja y seguimiento", path: "/admin/pos-tracking", permission: ["payments:view", "payments:manage"] },
-          { name: "Cierre de caja", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
+          { name: "Reporte por comisiones", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
+        ],
+        permission: ["payments:view", "payments:manage"],
+      },
+
+      {
+        name: "Caja",
+        icon: <Wallet size={20} />,
+        path: "/admin/salons/caja",
+        subItems: [
+          { name: "Caja", path: "/admin/salons/caja", permission: ["payments:view", "payments:manage"] },
+          { name: "Corte de Caja", path: "/admin/salons/corte-caja", permission: ["payments:view", "payments:manage"] },
         ],
         permission: ["payments:view", "payments:manage"],
       },
@@ -268,9 +283,10 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       },
 
       {
-        name: "Salones",
+        name: "Sucursales",
         icon: <Building2 size={20} />,
         path: "/admin/salons",
+        exact: true,
         permission: "branches:manage",
       },
 
@@ -694,6 +710,7 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
             ) : (
               <NavLink
                 to={item.path!}
+                end={item.exact}
                 onKeyDown={handleLeafLinkKeyDown}
                 title={item.name}
                 aria-label={item.name}

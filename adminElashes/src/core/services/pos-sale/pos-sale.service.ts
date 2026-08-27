@@ -18,14 +18,22 @@ export interface MixedPaymentEntry {
   amount: number;
 }
 
+export interface PosSaleProductItemPayload {
+  product_id: number;
+  quantity: number;
+}
+
 export interface PosSaleCreatePayload {
-  client_id: number;
+  /** Opcional: sin clienta elegida, el backend usa el "Cliente Mostrador" de la sucursal. */
+  client_id?: number;
   branch_id?: number | null;
   payment_method: string;
   discount_type: "amount" | "percent";
   discount_value: number;
   notes?: string;
   items: PosSaleItemPayload[];
+  /** Productos de inventario vendidos en la misma venta (sin cita/operaria). */
+  product_items?: PosSaleProductItemPayload[];
   /** Cobra una reserva existente sin duplicar la cita. */
   link_appointment_id?: number;
   /** Solo cobro POS: no crea citas en agenda (horarios en items son ignorados). */
@@ -70,6 +78,15 @@ export interface PosSalePayment {
   registered_by?: { id: number; username: string } | null;
 }
 
+export interface PosSaleProductLine {
+  id: number;
+  product_id: number;
+  product?: { id: number; name: string; sku: string } | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
 export interface PosSaleItem {
   id: number;
   sale_code: string;
@@ -86,6 +103,7 @@ export interface PosSaleItem {
   created_by?: { id: number; username: string } | null;
   appointments: PosSaleAppointment[];
   payments: PosSalePayment[];
+  product_lines: PosSaleProductLine[];
 }
 
 /** Normaliza el body para FastAPI (evita strings vacíos en professional_id, etc.) */
@@ -126,17 +144,22 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       end_time: item.end_time,
       branch_id: item.branch_id != null && item.branch_id > 0 ? item.branch_id : null,
     })),
+    product_items: (payload.product_items ?? []).map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    })),
   };
 }
 
 export const PosSaleService = {
-  async list(params?: { skip?: number; limit?: number; client_id?: number }): Promise<PosSaleItem[]> {
+  async list(params?: { skip?: number; limit?: number; client_id?: number; branch_id?: number }): Promise<PosSaleItem[]> {
     try {
       const response = await api.get<PosSaleItem[]>("/pos-sales/", {
         params: {
           skip: params?.skip ?? 0,
           limit: params?.limit ?? 100,
           client_id: params?.client_id,
+          branch_id: params?.branch_id,
         },
       });
       return response.data;
@@ -146,8 +169,8 @@ export const PosSaleService = {
   },
 
   async create(payload: PosSaleCreatePayload): Promise<PosSaleItem> {
-    if (!payload.items?.length) {
-      throw new Error("Debes agregar al menos un servicio.");
+    if (!payload.items?.length && !payload.product_items?.length) {
+      throw new Error("Debes agregar al menos un servicio o producto.");
     }
 
     try {

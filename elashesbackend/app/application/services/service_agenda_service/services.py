@@ -169,6 +169,8 @@ def create_service(
     duration_minutes: int,
     price: float,
     branch_ids: Optional[List[int]] = None,
+    maintenance_days: Optional[int] = None,
+    removal_days: Optional[int] = None,
 ) -> Service:
     existing = db.query(Service).filter(Service.name == name.strip()).first()
     if existing:
@@ -198,6 +200,8 @@ def create_service(
         category_id=resolved_category_id,
         duration_minutes=duration_minutes,
         price=price,
+        maintenance_days=maintenance_days,
+        removal_days=removal_days,
     )
     db.add(service)
     db.commit()
@@ -223,6 +227,8 @@ def update_service(
     duration_minutes: Optional[int] = None,
     price: Optional[float] = None,
     branch_ids: Optional[List[int]] = None,
+    maintenance_days: Optional[int] = None,
+    removal_days: Optional[int] = None,
 ) -> Service:
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -268,6 +274,12 @@ def update_service(
                 detail="El precio no puede ser negativo",
             )
         service.price = price
+
+    if maintenance_days is not None:
+        service.maintenance_days = maintenance_days
+
+    if removal_days is not None:
+        service.removal_days = removal_days
 
     _sync_service_branches(db=db, service=service, branch_ids=branch_ids)
 

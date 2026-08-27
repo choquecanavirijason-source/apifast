@@ -70,14 +70,19 @@ export default function DayTicketsPanel({
             type="button"
             variant="secondary"
             size="sm"
-            className="inline-flex items-center gap-2 whitespace-nowrap"
+            className="whitespace-nowrap"
             onClick={onOpenAgendaModal}
+            leftIcon={<Clock className="h-4 w-4" />}
           >
-            <Clock className="h-4 w-4" />
             Agenda por horas
           </Button>
-          <Button type="button" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap" onClick={onOpenQuickSale}>
-            <Ticket className="h-4 w-4" />
+          <Button
+            type="button"
+            size="sm"
+            className="whitespace-nowrap"
+            onClick={onOpenQuickSale}
+            leftIcon={<Ticket className="h-4 w-4" />}
+          >
             Asignar ticket
           </Button>
           <div className="flex flex-wrap items-center gap-1 sm:ml-2">

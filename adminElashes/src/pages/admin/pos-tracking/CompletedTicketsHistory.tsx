@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Download } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { Button, SectionCard } from "@/components/common/ui";
+import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 const fieldClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
+  "h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
 
 export default function CompletedTicketsHistory() {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -17,9 +19,6 @@ export default function CompletedTicketsHistory() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
-  const [search, setSearch] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("");
-  const [professionalFilter, setProfessionalFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -107,192 +106,150 @@ export default function CompletedTicketsHistory() {
 
   useWebSocket(activeBranchId, () => { void loadHistory(); });
 
-  const filteredTickets = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const serviceTerm = serviceFilter.trim().toLowerCase();
+  const columns: DataTableColumn<TicketItem>[] = [
+    {
+      key: "client_name",
+      header: "Cliente",
+      render: (t) => <span className="font-semibold text-slate-800">{t.client_name}</span>,
+      sortable: true,
+    },
+    {
+      key: "service",
+      header: "Servicio",
+      getValue: (t) => (t.service_names?.length ? t.service_names.join(" · ") : t.service_name ?? ""),
+      render: (t) => (t.service_names?.length ? t.service_names.join(" · ") : t.service_name ?? "Servicio"),
+      sortable: true,
+    },
+    {
+      key: "professional_name",
+      header: "Operaria",
+      render: (t) => t.professional_name ?? "Sin asignar",
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "start_time",
+      header: "Fecha",
+      getValue: (t) => t.start_time ?? "",
+      render: (t) =>
+        t.start_time
+          ? new Date(t.start_time).toLocaleString("es-BO", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+      sortable: true,
+    },
+    {
+      key: "notes",
+      header: "Comentarios",
+      getValue: (t) => trackingByAppointment.get(t.id)?.design_notes?.trim() ?? "",
+      render: (t) => trackingByAppointment.get(t.id)?.design_notes?.trim() || "Sin comentarios",
+    },
+    {
+      key: "questionnaire",
+      header: "Cuestionario",
+      getValue: (t) => trackingByAppointment.get(t.id)?.questionnaire?.title ?? "",
+      render: (t) => trackingByAppointment.get(t.id)?.questionnaire?.title || "Sin cuestionario",
+    },
+  ];
 
-    return tickets.filter((ticket) => {
-      const serviceNames = ticket.service_names?.length
-        ? ticket.service_names.join(" ")
-        : ticket.service_name ?? "";
-      const serviceText = serviceNames.toLowerCase();
-      const professionalText = ticket.professional_name?.toLowerCase() ?? "";
-      const clientText = ticket.client_name?.toLowerCase() ?? "";
-      const codeText = ticket.ticket_code?.toLowerCase() ?? "";
+  const dateRangeLabel = fromDate || toDate
+    ? ` · ${fromDate ? new Date(fromDate).toLocaleDateString("es-BO") : "inicio"} — ${toDate ? new Date(toDate).toLocaleDateString("es-BO") : "hoy"}`
+    : "";
 
-      const matchesSearch =
-        !term ||
-        clientText.includes(term) ||
-        serviceText.includes(term) ||
-        professionalText.includes(term) ||
-        codeText.includes(term);
-
-      const matchesService = !serviceTerm || serviceText.includes(serviceTerm);
-      const matchesProfessional =
-        !professionalFilter || String(ticket.professional_id ?? "") === professionalFilter;
-
-      return matchesSearch && matchesService && matchesProfessional;
+  const handleDownloadPdf = () => {
+    void generateTablePdf({
+      title: "Historial de tickets finalizados",
+      subtitle: `Notas de diseño y cuestionarios por ticket${dateRangeLabel}`,
+      filename: "historial-tickets-finalizados",
+      orientation: "landscape",
+      meta: [{ label: "Tickets", value: String(tickets.length) }],
+      columns: [
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio", key: "service" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Comentarios", key: "notes" },
+        { header: "Cuestionario", key: "questionnaire" },
+      ],
+      rows: tickets.map((t) => {
+        const tracking = trackingByAppointment.get(t.id);
+        return {
+          client_name: t.client_name,
+          service: t.service_names?.join(" · ") ?? t.service_name ?? "",
+          professional_name: t.professional_name ?? "Sin asignar",
+          fecha: t.start_time ? new Date(t.start_time).toLocaleString("es-BO") : "",
+          notes: tracking?.design_notes?.trim() ?? "",
+          questionnaire: tracking?.questionnaire?.title ?? "",
+        };
+      }),
     });
-  }, [tickets, search, serviceFilter, professionalFilter]);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <SectionCard bodyClassName="!p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Historial de tickets finalizados</h2>
-            <p className="text-xs text-slate-500">Consulta servicios finalizados con notas y cuestionarios.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-800">Historial de tickets finalizados</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className={fieldClass}
+              title="Desde"
+            />
+            <span className="text-xs text-slate-400">a</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className={fieldClass}
+              title="Hasta"
+            />
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => { setFromDate(""); setToDate(""); }}
+                className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+              >
+                Limpiar fechas
+              </button>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={tickets.length === 0}
+              leftIcon={<Download className="h-3.5 w-3.5" />}
+            >
+              PDF
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>
               Actualizar
             </Button>
           </div>
         </div>
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <label className="text-xs font-semibold text-slate-500">Buscar</label>
-            <div className="relative mt-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cliente, servicio, operaria o codigo"
-                className={`${fieldClass} pl-10`}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500">Servicio</label>
-            <input
-              type="text"
-              value={serviceFilter}
-              onChange={(event) => setServiceFilter(event.target.value)}
-              placeholder="Filtrar por servicio"
-              className={`${fieldClass} mt-1`}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500">Operaria</label>
-            <select
-              value={professionalFilter}
-              onChange={(event) => setProfessionalFilter(event.target.value)}
-              className={`${fieldClass} mt-1`}
-            >
-              <option value="">Todas</option>
-              {professionals.map((professional) => (
-                <option key={professional.id} value={String(professional.id)}>
-                  {professional.username}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-500">Desde</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(event) => setFromDate(event.target.value)}
-              className={`${fieldClass} mt-1`}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-500">Hasta</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(event) => setToDate(event.target.value)}
-              className={`${fieldClass} mt-1`}
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setFromDate("");
-                setToDate("");
-                setSearch("");
-                setServiceFilter("");
-                setProfessionalFilter("");
-              }}
-            >
-              Limpiar filtros
-            </Button>
-          </div>
-          <div className="flex items-end text-xs text-slate-500">
-            {filteredTickets.length} resultados
-          </div>
-        </div>
       </SectionCard>
 
-      <SectionCard bodyClassName="!p-0">
-        {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando historial...</div>
-        ) : error ? (
-          <div className="p-6 text-sm text-rose-600">{error}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Servicio</th>
-                  <th className="px-4 py-3">Operaria</th>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Comentarios</th>
-                  <th className="px-4 py-3">Cuestionario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredTickets.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                      Sin tickets finalizados para los filtros actuales.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTickets.map((ticket) => {
-                    const tracking = trackingByAppointment.get(ticket.id);
-                    const serviceLabel = ticket.service_names?.length
-                      ? ticket.service_names.join(" · ")
-                      : ticket.service_name ?? "Servicio";
-                    const notes = tracking?.design_notes?.trim() || "Sin comentarios";
-                    const questionnaire = tracking?.questionnaire?.title || "Sin cuestionario";
-                    const displayDate = ticket.start_time
-                      ? new Date(ticket.start_time).toLocaleString("es-BO", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "";
+      {error ? (
+        <SectionCard bodyClassName="!p-4">
+          <p className="text-sm text-rose-600">{error}</p>
+        </SectionCard>
+      ) : null}
 
-                    return (
-                      <tr key={ticket.id} className="hover:bg-slate-50/70">
-                        <td className="px-4 py-3 font-semibold text-slate-800">{ticket.client_name}</td>
-                        <td className="px-4 py-3 text-slate-600">{serviceLabel}</td>
-                        <td className="px-4 py-3 text-slate-600">{ticket.professional_name ?? "Sin asignar"}</td>
-                        <td className="px-4 py-3 text-slate-500">{displayDate}</td>
-                        <td className="px-4 py-3 text-slate-500">{notes}</td>
-                        <td className="px-4 py-3 text-slate-500">{questionnaire}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+      <DataTable
+        data={tickets}
+        columns={columns}
+        loading={isLoading}
+        defaultLimit={15}
+        availableLimits={[10, 15, 25, 50]}
+        globalSearchPlaceholder="Buscar por cliente, servicio u operaria..."
+      />
     </div>
   );
 }

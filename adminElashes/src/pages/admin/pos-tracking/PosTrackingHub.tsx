@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, CalendarClock, Maximize2, Minimize2, ReceiptText, Users } from "lucide-react";
+import { ArrowLeft, CalendarClock, LogOut, Maximize2, Minimize2, ReceiptText, Store, Users } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
 import DailyAgendaPage from "@/pages/admin/calendar/DailyAgendaPage";
+import { BranchService } from "@/core/services/branch/branch.service";
+import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
+import useAuth from "@/core/hooks/useAuth";
+import { logout as logoutAction } from "@/core/reducer/auth.reducer";
+import type { AppDispatch } from "@/store";
 
 type HubSection = "pos" | "tracking" | "queue" | "agenda";
 
@@ -26,10 +32,59 @@ const HUB_TABS: { id: HubSection; label: string; icon: LucideIcon }[] = [
 export default function PosTrackingHub() {
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+  const { hasRole, user } = useAuth();
+  // Cajera: no vuelve al dashboard general — solo puede salir cerrando sesión.
+  const isCajera = hasRole("Cajera");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [posCartCount, setPosCartCount] = useState(0);
   const [posPendingPayCount, setPosPendingPayCount] = useState(0);
   const [cartDrawerSignal, setCartDrawerSignal] = useState(0);
+
+  // El header global (con el selector de sucursal) se oculta en pantalla
+  // completa (ver .pos-hub-clean-fullscreen en styles.css) — sin esto acá,
+  // no había forma de ver ni cambiar la sucursal activa desde esta pantalla.
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [selectedBranchId, setSelectedBranchIdState] = useState<number | null>(() => getSelectedBranchId());
+
+  // Cajera está atada a su propia sucursal — ni ve ni puede elegir otra acá,
+  // para no terminar operando (o simplemente no viendo sus propios tickets)
+  // en la sucursal equivocada por error.
+  const ownBranchId = isCajera ? (user?.branch_id ?? null) : null;
+
+  useEffect(() => {
+    BranchService.list({ limit: 200 })
+      .then((data) => setBranches(data))
+      .catch(() => setBranches([]));
+  }, []);
+
+  useEffect(() => {
+    const handleChange = () => setSelectedBranchIdState(getSelectedBranchId());
+    const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("branchchange", handleChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("branchchange", handleChange);
+    };
+  }, []);
+
+  // Si la sucursal guardada no es la suya (quedó de una sesión anterior, o
+  // alguien la cambió antes), la corrige sola apenas se sabe cuál es la suya.
+  useEffect(() => {
+    if (ownBranchId && selectedBranchId !== ownBranchId) {
+      setSelectedBranchId(ownBranchId);
+      setSelectedBranchIdState(ownBranchId);
+    }
+  }, [ownBranchId, selectedBranchId]);
+
+  const handleBranchChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    if (ownBranchId) return;
+    const value = Number(event.target.value);
+    const next = Number.isFinite(value) && value > 0 ? value : null;
+    setSelectedBranchIdState(next);
+    setSelectedBranchId(next);
+  };
 
   const resolveSection = (pathname: string): HubSection => {
     const base = "/admin/pos-tracking";
@@ -92,20 +147,55 @@ export default function PosTrackingHub() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className={`sticky top-0 z-20 border-b border-slate-200/80 bg-[#f0f0f3] ${isFullscreen ? "px-3 py-2" : ""}`}>
         <div className="mx-auto flex w-full flex-row items-center justify-between gap-2 px-3 sm:px-4">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
             <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">Operación: Caja &amp; Seguimiento</h1>
+            <div className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white pl-2.5 pr-1.5">
+              <Store className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              <select
+                value={selectedBranchId ?? ""}
+                onChange={handleBranchChange}
+                disabled={Boolean(ownBranchId)}
+                className="max-w-40 truncate bg-transparent text-xs font-semibold text-slate-700 outline-none disabled:cursor-not-allowed disabled:text-slate-500 sm:max-w-none"
+                aria-label="Sucursal activa"
+                title={ownBranchId ? "Tu cuenta está fija a esta sucursal" : "Sucursal activa"}
+              >
+                {ownBranchId ? (
+                  <option value={ownBranchId}>{branches.find((b) => b.id === ownBranchId)?.name ?? user?.branch?.name ?? "Mi sucursal"}</option>
+                ) : (
+                  <>
+                    <option value="">Todas las sucursales</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
           </div>
           <div className="flex w-auto items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-slate-600 transition hover:bg-slate-100"
-              aria-label="Ir atras al dashboard"
-              title="Ir atras al dashboard"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="text-xs font-semibold">Ir atras</span>
-            </button>
+            {isCajera ? (
+              <button
+                type="button"
+                onClick={() => void dispatch(logoutAction())}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-rose-700 transition hover:bg-rose-100"
+                aria-label="Cerrar sesión"
+                title="Cerrar sesión"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="text-xs font-semibold">Cerrar sesión</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-slate-600 transition hover:bg-slate-100"
+                aria-label="Ir atras al dashboard"
+                title="Ir atras al dashboard"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="text-xs font-semibold">Ir atras</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleFullscreen}

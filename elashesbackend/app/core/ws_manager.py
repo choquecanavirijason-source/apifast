@@ -29,3 +29,10 @@ class WsManager:
 
 
 ws_manager = WsManager()
+
+# Canal separado, keyed por client_id (no por branch_id) — para avisos
+# dirigidos a UNA clienta puntual (ej. "tu servicio finalizó") desde la app
+# marketplace. Un canal por sucursal serviría todos los eventos de todas las
+# clientas de esa sucursal a cualquiera conectado — acá sí importa que cada
+# quien reciba solo lo suyo.
+client_ws_manager = WsManager()

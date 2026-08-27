@@ -56,21 +56,42 @@ import app.infrastructure.database.migrations.add_commission_payments_table as m
 import app.infrastructure.database.migrations.add_marketplace_products_table as m28
 import app.infrastructure.database.migrations.add_ci_marketplace_to_clients as m29
 import app.infrastructure.database.migrations.add_maps_url_to_branches as m30
+import app.infrastructure.database.migrations.add_model_3d_to_lash_designs as m31
+import app.infrastructure.database.migrations.add_model_3d_to_effects_eyetypes_volumes as m32
+import app.infrastructure.database.migrations.add_volume_to_designs as m33
+import app.infrastructure.database.migrations.add_app_settings as m34
+import app.infrastructure.database.migrations.add_country_code_to_branches as m35
+# m36 (add_maintenance_removal_days, efectos/volumenes/disenos) se descartó:
+# ese enfoque no encajaba con el negocio, se reemplazó por m37 (categorías).
+# El archivo queda en el repo por historial pero ya no se ejecuta — evita el
+# ciclo inútil de "agregar esas columnas" -> "m37 las vuelve a borrar" en
+# cada arranque.
+import app.infrastructure.database.migrations.add_maintenance_removal_to_categories as m37
+import app.infrastructure.database.migrations.move_maintenance_removal_days_to_services as m38
+import app.infrastructure.database.migrations.add_reminder_flags_to_tracking as m39
+import app.infrastructure.database.migrations.add_expenses_table as m40
+import app.infrastructure.database.migrations.add_cash_session_fields as m41
+import app.infrastructure.database.migrations.add_cash_reconciliation_fields as m42
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
-    service_agenda_controller, reports_controller,
+    service_agenda_controller, reports_controller, app_settings_controller,
 )
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
+from app.presentation.controllers.expense_controller import router as expenses_router
+from app.presentation.controllers.cash_session_controller import router as cash_sessions_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
-from app.core.ws_manager import ws_manager
+from app.core.ws_manager import ws_manager, client_ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
+from app.application.services.reminder_service import run_daily_reminder_check
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -110,6 +131,17 @@ async def lifespan(app: FastAPI):
         ("marketplace_products_table", m28.upgrade),
         ("ci_marketplace_to_clients", m29.upgrade),
         ("maps_url_to_branches", m30.upgrade),
+        ("model_3d_to_lash_designs", m31.upgrade),
+        ("model_3d_to_effects_eyetypes_volumes", m32.upgrade),
+        ("volume_to_designs", m33.upgrade),
+        ("app_settings", m34.upgrade),
+        ("country_code_to_branches", m35.upgrade),
+        ("maintenance_removal_to_categories", m37.upgrade),
+        ("move_maintenance_removal_days_to_services", m38.upgrade),
+        ("reminder_flags_to_tracking", m39.upgrade),
+        ("expenses_table", m40.upgrade),
+        ("cash_session_fields", m41.upgrade),
+        ("cash_reconciliation_fields", m42.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -129,8 +161,25 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # Chequeo diario de recordatorios de mantenimiento/retiro (3 días antes,
+    # ver reminder_service.py). AsyncIOScheduler corre en el mismo loop de
+    # FastAPI para poder hacer broadcast por WebSocket directamente.
+    async def _reminder_job():
+        db = SessionLocal()
+        try:
+            await run_daily_reminder_check(db)
+        except Exception as e:
+            print(f"Error en chequeo de recordatorios: {e}")
+        finally:
+            db.close()
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_reminder_job, CronTrigger(hour=9, minute=0))
+    scheduler.start()
+
     yield
     print(">>> Apagando sistema <<<")
+    scheduler.shutdown(wait=False)
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -163,13 +212,18 @@ def create_app() -> FastAPI:
         "tauri://localhost",
         "http://tauri.localhost",
     ]
+    # Permite acceder desde otra IP de la red (ej. servidor Docker accedido
+    # como http://192.168.x.x:3000) sin tener que listar cada IP a mano.
+    allow_origin_regex = r"^https?://(\d{1,3}\.){3}\d{1,3}(:\d+)?$"
     # En Cloud permitimos cualquier origen (cubre admin web + app mobile)
     if settings.environment == "production":
         allow_origins = ["*"]
+        allow_origin_regex = None
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=allow_origin_regex,
         allow_credentials=settings.environment != "production",
         allow_methods=["*"],
         allow_headers=["*"],
@@ -199,8 +253,11 @@ def create_app() -> FastAPI:
     app.include_router(reports_controller.router)
     app.include_router(admin.router)
     app.include_router(admin_ai_controller.router)
+    app.include_router(app_settings_controller.router)
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
+    app.include_router(expenses_router)
+    app.include_router(cash_sessions_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)
@@ -222,6 +279,30 @@ def create_app() -> FastAPI:
                     await websocket.send_text("pong")
         except WebSocketDisconnect:
             ws_manager.disconnect(websocket, branch_id)
+
+    @app.websocket("/ws/client/{client_id}")
+    async def ws_client(websocket: WebSocket, client_id: int, token: str):
+        # A diferencia de /ws/branch, acá el token es obligatorio y tiene que
+        # estar emitido específicamente para esta clienta (ver
+        # /booking-public/ws-ticket) — si no, cualquiera podría escuchar los
+        # avisos de servicio finalizado de otra persona.
+        try:
+            payload = decode_token(token)
+        except JWTError:
+            await websocket.close(code=1008)
+            return
+        if payload.get("sub") != f"client:{client_id}":
+            await websocket.close(code=1008)
+            return
+
+        await client_ws_manager.connect(websocket, client_id)
+        try:
+            while True:
+                text = await websocket.receive_text()
+                if text == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            client_ws_manager.disconnect(websocket, client_id)
 
     return app
 

@@ -9,6 +9,7 @@ import {
   getTicketCommission,
   getTicketPriceTotal,
 } from "./professionalCommission.utils";
+import type { CommissionExportRow, CommissionExportTotals } from "./History";
 
 const moneyFmt = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -61,23 +62,38 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-center">
         <span className="text-sm font-bold text-slate-700">{proName}</span>
       </div>
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr className="bg-slate-100 text-slate-600">
-            <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide">Cliente</th>
-            <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide text-[10px]">Servicio</th>
-            <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Comisión</th>
-            <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Caja</th>
-          </tr>
-        </thead>
+      {/* overflow-x-auto + table-fixed: sin esto, el ancho de cada columna
+          seguía al contenido de esa fila y quedaba despareja entre filas,
+          además de desbordar el contenedor en pantallas angostas. */}
+      <div className="overflow-x-auto">
+        {/* Comisión/Caja con ancho fijo en px (no %): en una tabla de solo 4
+            columnas ocupando todo el ancho del modal, darles porcentaje las
+            estiraba mucho y el número quedaba pegado al borde derecho, muy
+            lejos del resto de la fila. Con ancho fijo angosto quedan cerca
+            del contenido, igual que en Historial de tickets. */}
+        <table className="w-full min-w-[480px] table-fixed border-collapse text-xs">
+          <colgroup>
+            <col className="w-[26%]" />
+            <col />
+            <col className="w-28" />
+            <col className="w-28" />
+          </colgroup>
+          <thead>
+            <tr className="bg-slate-100 text-slate-600">
+              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide">Cliente</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide text-[10px]">Servicio</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Comisión</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Caja</th>
+            </tr>
+          </thead>
         <tbody>
           {rows.map(({ t, isCancelled, caja, comision, services }) => (
             <tr key={t.id} className={isCancelled ? "bg-rose-50" : "odd:bg-white even:bg-slate-50"}>
-              <td className={`border-b border-slate-100 px-3 py-2 font-medium ${isCancelled ? "text-slate-400 line-through" : "text-slate-800"}`}>
+              <td className={`truncate border-b border-slate-100 px-3 py-2 font-medium ${isCancelled ? "text-slate-400 line-through" : "text-slate-800"}`} title={t.client_name || undefined}>
                 {isCancelled && <span className="mr-1 font-bold text-rose-500">✕</span>}
                 {t.client_name || "—"}
               </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-[10px] ${isCancelled ? "text-slate-300 line-through" : "text-slate-500"}`}>
+              <td className={`truncate border-b border-slate-100 px-3 py-2 text-[10px] ${isCancelled ? "text-slate-300 line-through" : "text-slate-500"}`} title={services || undefined}>
                 {services || "—"}
               </td>
               <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-blue-700"}`}>
@@ -96,7 +112,8 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
             <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-emerald-800">{moneyFmt.format(totalCaja)}</td>
           </tr>
         </tfoot>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }
@@ -179,9 +196,16 @@ type Props = {
   tickets: TicketItem[];
   fromDate: string;
   toDate: string;
+  /** Misma operaria elegida en la pestaña "Historial de tickets" — para que
+   * cambiar de pestaña no "pierda" el filtro que ya se había elegido. */
+  selectedProfessionalId: number | null;
+  /** Reporta el detalle por cita (ya con todos los filtros aplicados) y los
+   * totales hacia arriba, para que el botón "PDF" de la pantalla pueda
+   * exportar esta misma vista cuando esta pestaña está activa. */
+  onStatsChange?: (rows: CommissionExportRow[], totals: CommissionExportTotals) => void;
 };
 
-export default function CommissionPaymentsTab({ professionals, tickets, fromDate, toDate }: Props) {
+export default function CommissionPaymentsTab({ professionals, tickets, fromDate, toDate, selectedProfessionalId, onStatsChange }: Props) {
   const [payments, setPayments] = useState<CommissionPaymentOut[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -202,8 +226,16 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
 
   useEffect(() => { void loadPayments(); }, [loadPayments]);
 
+  const visibleProfessionals = useMemo(
+    () =>
+      selectedProfessionalId !== null
+        ? professionals.filter((p) => p.id === selectedProfessionalId)
+        : professionals,
+    [professionals, selectedProfessionalId]
+  );
+
   const proStats = useMemo(() => {
-    return professionals.map((pro, index) => {
+    return visibleProfessionals.map((pro, index) => {
       const allProTickets = tickets.filter((t) => t.professional_id === pro.id);
       const completedTickets = allProTickets.filter((t) => t.status === "completed");
       const cancelledTickets = allProTickets.filter((t) => t.status === "cancelled");
@@ -231,11 +263,34 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
         cancelledCount: cancelledTickets.length,
       };
     });
-  }, [professionals, tickets, payments]);
+  }, [visibleProfessionals, tickets, payments]);
 
   const totalEarned = useMemo(() => proStats.reduce((s, p) => s + p.earned, 0), [proStats]);
   const totalPaid = useMemo(() => proStats.reduce((s, p) => s + p.paid, 0), [proStats]);
   const totalPending = useMemo(() => proStats.reduce((s, p) => s + p.pending, 0), [proStats]);
+  const totalCaja = useMemo(() => proStats.reduce((s, p) => s + p.totalCaja, 0), [proStats]);
+
+  useEffect(() => {
+    if (!onStatsChange) return;
+    const rows: CommissionExportRow[] = proStats.flatMap((s) =>
+      s.sortedTickets.map((t) => {
+        const isCancelled = t.status === "cancelled";
+        return {
+          professional_name: s.pro.username,
+          client_name: t.client_name || "—",
+          services: t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? ""),
+          fecha: t.start_time ? dateFmt(t.start_time) : "",
+          hora: t.start_time
+            ? new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })
+            : "",
+          status: isCancelled ? "Cancelado" : "Completado",
+          caja: isCancelled ? 0 : getTicketPriceTotal(t),
+          comision: isCancelled ? 0 : getTicketCommission(t),
+        };
+      })
+    );
+    onStatsChange(rows, { caja: totalCaja, comision: totalEarned, pagado: totalPaid, pendiente: totalPending });
+  }, [proStats, totalCaja, totalEarned, totalPaid, totalPending, onStatsChange]);
 
   const handleSavePayment = async (pro: ProfessionalForSelect, amount: number, date: string, notes: string) => {
     setSaving(true);
@@ -302,6 +357,12 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
         </div>
       </div>
 
+      {selectedProfessionalId !== null && visibleProfessionals[0] && (
+        <p className="text-xs font-semibold text-[#0078d4]">
+          Mostrando solo a {visibleProfessionals[0].username} — elegido en "Historial de tickets".
+        </p>
+      )}
+
       {(fromDate || toDate) && (
         <p className="text-xs text-slate-500">
           Período: <strong>{fromDate ? dateFmt(fromDate) : "inicio"}</strong> — <strong>{toDate ? dateFmt(toDate) : "hoy"}</strong>
@@ -358,8 +419,8 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                     size="sm"
                     variant={isPaid ? "secondary" : "primary"}
                     onClick={() => { setRegisteringId(isRegistering ? null : pro.id); setExpandedId(pro.id); }}
+                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
                   >
-                    <Banknote className="h-3.5 w-3.5" />
                     {isPaid ? "Registrar otro pago" : "Registrar pago"}
                   </Button>
                 )}
@@ -367,9 +428,13 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                 <button
                   type="button"
                   onClick={() => setExpandedId(isExpanded ? null : pro.id)}
-                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
-                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {isExpanded ? (
+                    <>Ocultar detalle <ChevronUp className="h-3.5 w-3.5" /></>
+                  ) : (
+                    <>Ver detalle <ChevronDown className="h-3.5 w-3.5" /></>
+                  )}
                 </button>
               </div>
             </div>

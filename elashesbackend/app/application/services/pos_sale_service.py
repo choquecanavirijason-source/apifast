@@ -7,15 +7,19 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.dependencies import enforce_own_branch
 from app.domain.entities.branch import Branch
+from app.domain.entities.cash_close import CashClose
 from app.domain.entities.client import Client, CLIENT_STATUS_EN_ESPERA
+from app.domain.entities.inventory import Batch, Product
 from app.domain.entities.payment import Payment
-from app.domain.entities.pos_sale import PosSale
+from app.domain.entities.pos_sale import PosSale, PosSaleProduct
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleUpdate
 from app.application.services.service_agenda_service import create_appointment
-from app.application.services.client_service import update_client_status
+from app.application.services.client_service import get_or_create_generic_client, update_client_status
+from app.application.services.inventory_service import deduct_stock_fifo, restock_from_sale, sale_stock_tag
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -59,6 +63,8 @@ def _sale_query(db: Session):
         .joinedload(Payment.branch),
         joinedload(PosSale.payments)
         .joinedload(Payment.registered_by),
+        joinedload(PosSale.product_lines)
+        .joinedload(PosSaleProduct.product),
     )
 
 
@@ -111,9 +117,20 @@ def list_sales(
     db: Session,
     skip: int = 0,
     limit: int = 100,
+    branch_id: Optional[int] = None,
+    client_id: Optional[int] = None,
 ):
+    # Sin estos filtros, el límite se aplica sobre TODAS las sucursales/clientas
+    # combinadas — una sucursal con poco movimiento podía quedar sin ver sus
+    # propias ventas recientes, y el historial de una clienta mostraba ventas
+    # de otras clientas si el límite se llenaba antes de llegar a las suyas.
+    query = _sale_query(db)
+    if branch_id is not None:
+        query = query.filter(PosSale.branch_id == branch_id)
+    if client_id is not None:
+        query = query.filter(PosSale.client_id == client_id)
     return (
-        _sale_query(db)
+        query
         .order_by(PosSale.created_at.desc(), PosSale.id.desc())
         .offset(skip)
         .limit(limit)
@@ -126,7 +143,29 @@ def create_sale(
     payload: PosSaleCreate,
     current_user: User,
 ) -> PosSale:
+    enforce_own_branch(payload.branch_id, current_user)
+    for item in payload.items:
+        enforce_own_branch(item.branch_id, current_user)
+
+    # Sin clienta elegida: se usa el "Cliente Mostrador" de la sucursal para no
+    # frenar el servicio — se puede completar con los datos reales después.
+    if payload.client_id is None:
+        generic = get_or_create_generic_client(db=db, branch_id=payload.branch_id)
+        payload.client_id = generic.id
+
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
+
+    if payload.branch_id is not None:
+        open_session = (
+            db.query(CashClose)
+            .filter(CashClose.branch_id == payload.branch_id, CashClose.status == "open")
+            .first()
+        )
+        if not open_session:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta sucursal no tiene la caja abierta. Abrila en Salones → Caja antes de vender.",
+            )
 
     # Pago mixto: valida métodos y que la suma cubra el total
     if payload.mixed_payments:
@@ -152,10 +191,10 @@ def create_sale(
             detail="Tipo de descuento no válido",
         )
 
-    if not payload.items:
+    if not payload.items and not payload.product_items:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Debes agregar al menos un servicio a la venta",
+            detail="Agrega al menos un servicio o producto a la venta",
         )
 
     # Recolectar todos los service IDs (items individuales y grupales)
@@ -166,13 +205,13 @@ def create_sale(
         elif item.service_id is not None:
             all_service_ids.add(item.service_id)
 
-    if not all_service_ids:
+    if payload.items and not all_service_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cada item debe tener al menos service_id o service_ids",
         )
 
-    services = db.query(Service).filter(Service.id.in_(all_service_ids)).all()
+    services = db.query(Service).filter(Service.id.in_(all_service_ids)).all() if all_service_ids else []
     service_map = {service.id: service for service in services}
     if len(service_map) != len(all_service_ids):
         raise HTTPException(
@@ -187,6 +226,40 @@ def create_sale(
             subtotal += sum(service_map[sid].price for sid in item.service_ids if sid in service_map)
         elif item.service_id is not None:
             subtotal += service_map[item.service_id].price
+
+    # Productos: validar existencia/estado + stock disponible en la sucursal
+    # ANTES de tocar nada — si algo falla, la venta entera no se crea.
+    product_map: dict[int, Product] = {}
+    if payload.product_items:
+        if payload.branch_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selecciona una sucursal para vender productos",
+            )
+        product_ids = {item.product_id for item in payload.product_items}
+        products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+        product_map = {p.id: p for p in products}
+        if len(product_map) != len(product_ids):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uno o más productos no existen")
+        for item in payload.product_items:
+            product = product_map[item.product_id]
+            if not product.status:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El producto '{product.name}' no está activo",
+                )
+            available = (
+                db.query(func.coalesce(func.sum(Batch.current_quantity), 0.0))
+                .filter(Batch.product_id == product.id, Batch.branch_id == payload.branch_id)
+                .scalar()
+            )
+            if float(available or 0) < item.quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Stock insuficiente de '{product.name}' en esta sucursal (disponible {available or 0}, pedido {item.quantity})",
+                )
+            subtotal += product.price * item.quantity
+
     subtotal = float(subtotal)
     discount_value = float(payload.discount_value)
 
@@ -316,6 +389,26 @@ def create_sale(
                 paid_at=datetime.utcnow(),
             ))
 
+    # Productos: se registran y descuentan stock al final, después de validar
+    # que el pago (incl. mixto) cubre el total — create_inventory_movement
+    # hace commit por su cuenta, así que todo lo anterior ya debe ser válido.
+    for item in payload.product_items:
+        product = product_map[item.product_id]
+        db.add(PosSaleProduct(
+            sale_id=sale.id,
+            product_id=product.id,
+            quantity=item.quantity,
+            unit_price=product.price,
+            subtotal=product.price * item.quantity,
+        ))
+        deduct_stock_fifo(
+            db=db,
+            product_id=product.id,
+            branch_id=payload.branch_id,
+            quantity=item.quantity,
+            note=f"{sale_stock_tag(sale.id, sale.created_at)} Venta {sale.sale_code} (línea producto: {product.name})",
+        )
+
     db.commit()
 
     update_client_status(db, payload.client_id, CLIENT_STATUS_EN_ESPERA)
@@ -362,12 +455,15 @@ def update_sale(
         sale.discount_value = payload.discount_value
 
     if payload.status is not None:
+        was_already_cancelled = sale.status == "cancelled"
         sale.status = payload.status
         if payload.status == "cancelled":
             for appointment in sale.appointments:
                 appointment.status = "cancelled"
             for payment in sale.payments:
                 payment.status = "cancelled"
+            if not was_already_cancelled and sale.product_lines:
+                restock_from_sale(db, sale.id, sale.sale_code, sale.created_at)
         elif payload.status == "paid":
             for payment in sale.payments:
                 payment.status = "paid"
@@ -383,7 +479,14 @@ def update_sale(
         )
         .scalar()
     )
-    subtotal = float(subtotal_db or 0.0)
+    products_subtotal_db = 0.0
+    if sale.status != "cancelled":
+        products_subtotal_db = (
+            db.query(func.coalesce(func.sum(PosSaleProduct.subtotal), 0.0))
+            .filter(PosSaleProduct.sale_id == sale.id)
+            .scalar()
+        )
+    subtotal = float(subtotal_db or 0.0) + float(products_subtotal_db or 0.0)
     discount_value = float(sale.discount_value or 0)
     if sale.discount_type == "percent":
         discount_amount = subtotal * (discount_value / 100)
@@ -414,11 +517,18 @@ def delete_sale(
 ) -> None:
     sale = get_sale_by_id(db=db, sale_id=sale_id)
 
+    # Si ya estaba cancelada, update_sale ya restituyó el stock — repetirlo
+    # acá lo devolvería dos veces.
+    if sale.product_lines and sale.status != "cancelled":
+        restock_from_sale(db, sale.id, sale.sale_code, sale.created_at)
+
     # Libera relaciones para no romper FK al eliminar la venta.
     for appointment in sale.appointments:
         db.delete(appointment)
     for payment in sale.payments:
         db.delete(payment)
+    for product_line in sale.product_lines:
+        db.delete(product_line)
 
     db.delete(sale)
     db.commit()
@@ -495,11 +605,12 @@ def generate_sale_receipt_pdf(
 
     y -= 4
     dashed_separator()
-    write_line("Servicios", bold=True)
 
-    if not sale.appointments:
-        write_line("Sin tickets asociados.")
-    else:
+    if not sale.appointments and not sale.product_lines:
+        write_line("Sin ítems asociados.")
+
+    if sale.appointments:
+        write_line("Servicios", bold=True)
         for appt in sale.appointments:
             service_names = [svc.name for svc in (appt.services or []) if svc and svc.name]
             if not service_names and appt.service and appt.service.name:
@@ -512,6 +623,16 @@ def generate_sale_receipt_pdf(
 
             write_line(f"- {ticket_code}: {service_label}", bold=True)
             write_line(f"  Operaria: {professional} | Hora: {start_time}", size=max(body_font - 1, 7))
+            y -= 2
+
+    if sale.product_lines:
+        if sale.appointments:
+            y -= 4
+        write_line("Productos", bold=True)
+        for line in sale.product_lines:
+            product_name = line.product.name if line.product else f"Producto #{line.product_id}"
+            write_line(f"- {product_name} x{line.quantity:g}", bold=True)
+            write_line(f"  Bs {line.unit_price:.2f} c/u = Bs {line.subtotal:.2f}", size=max(body_font - 1, 7))
             y -= 2
 
     dashed_separator()

@@ -28,3 +28,19 @@ class PosSale(Base):
     created_by = relationship("User", foreign_keys=[created_by_id])
     appointments = relationship("Appointment", back_populates="sale")
     payments = relationship("Payment", back_populates="sale")
+    product_lines = relationship("PosSaleProduct", back_populates="sale", cascade="all, delete-orphan")
+
+
+class PosSaleProduct(Base):
+    """Producto de inventario vendido dentro de una venta POS (sin cita/operaria/horario)."""
+    __tablename__ = "pos_sale_products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("pos_sales.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Float, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    subtotal = Column(Float, nullable=False)
+
+    sale = relationship("PosSale", back_populates="product_lines")
+    product = relationship("Product")

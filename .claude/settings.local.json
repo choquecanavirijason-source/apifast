@@ -23,7 +23,10 @@
       "Bash(node_modules/.bin/vite build *)",
       "Bash(npx vite *)",
       "Bash(xargs grep -l \"cierre\\\\|caja\")",
-      "Bash(xargs grep -l \"DailyClosing\")"
+      "Bash(xargs grep -l \"DailyClosing\")",
+      "Bash(cd \"/c/Users/usser/OneDrive/Escritorio/microserviciomarketplace/microservicioMarketplace\" && docker compose up -d --build 2>&1 | tail -15 && sleep 2 && docker logs marketplace-api --tail 10)",
+      "Read(//c/Users/usser/OneDrive/Escritorio/microserviciomarketplace/microservicioMarketplace/**)",
+      "Bash(docker exec marketplace-api python3 -c ' *)"
     ]
   }
 }

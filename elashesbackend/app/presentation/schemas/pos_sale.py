@@ -21,19 +21,29 @@ class PosSaleItemCreate(BaseModel):
     branch_id: Optional[int] = Field(default=None, ge=1)
 
 
+class PosSaleProductItemCreate(BaseModel):
+    product_id: int = Field(..., ge=1)
+    quantity: float = Field(..., gt=0)
+
+
 class MixedPaymentEntry(BaseModel):
     method: str = Field(..., min_length=2, max_length=50)
     amount: float = Field(..., gt=0)
 
 
 class PosSaleCreate(BaseModel):
-    client_id: int = Field(..., ge=1)
+    # Opcional: si no viene, la venta se registra con el "Cliente Mostrador"
+    # de la sucursal (walk-in) para no frenar el servicio por falta de datos.
+    client_id: Optional[int] = Field(default=None, ge=1)
     branch_id: Optional[int] = Field(default=None, ge=1)
     payment_method: str = Field(default="cash", min_length=2, max_length=50)
     discount_type: Literal["amount", "percent"] = "amount"
     discount_value: float = Field(default=0, ge=0)
     notes: Optional[str] = Field(default=None, max_length=500)
-    items: List[PosSaleItemCreate] = Field(..., min_length=1)
+    # Sin min_length: una venta puede ser solo de productos (sin servicios).
+    # create_sale valida que items o product_items traiga al menos uno.
+    items: List[PosSaleItemCreate] = Field(default_factory=list)
+    product_items: List[PosSaleProductItemCreate] = Field(default_factory=list)
     link_appointment_id: Optional[int] = Field(
         default=None,
         ge=1,
@@ -62,6 +72,25 @@ class PosSaleUpdate(BaseModel):
     status: Optional[Literal["paid", "cancelled"]] = None
 
 
+class PosSaleProductSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    sku: str
+
+
+class PosSaleProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: int
+    product: Optional[PosSaleProductSummary] = None
+    quantity: float
+    unit_price: float
+    subtotal: float
+
+
 class PosSaleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,3 +112,4 @@ class PosSaleResponse(BaseModel):
     created_by: Optional[UserSummary] = None
     appointments: List[AppointmentResponse] = []
     payments: List[PaymentResponse] = []
+    product_lines: List[PosSaleProductResponse] = []

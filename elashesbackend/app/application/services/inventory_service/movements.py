@@ -158,6 +158,107 @@ def create_inventory_movement(
     return movement
 
 
+def deduct_stock_fifo(
+    db: Session,
+    product_id: int,
+    branch_id: int,
+    quantity: float,
+    note: Optional[str],
+) -> list["InventoryMovement"]:
+    """Descuenta `quantity` de un producto en una sucursal, tomando primero de
+    los lotes más antiguos (por entry_date). Lanza 409 si el stock total
+    disponible no alcanza — no toca nada en ese caso."""
+    if quantity <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La cantidad debe ser mayor a 0")
+
+    batches = (
+        db.query(Batch)
+        .filter(
+            Batch.product_id == product_id,
+            Batch.branch_id == branch_id,
+            Batch.current_quantity > 0,
+        )
+        .order_by(Batch.entry_date.asc(), Batch.id.asc())
+        .all()
+    )
+
+    available = sum(b.current_quantity for b in batches)
+    if available < quantity:
+        product = db.query(Product).filter(Product.id == product_id).first()
+        product_name = product.name if product else f"#{product_id}"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Stock insuficiente de {product_name}: disponible {available}, pedido {quantity}",
+        )
+
+    movements: list[InventoryMovement] = []
+    remaining = quantity
+    for batch in batches:
+        if remaining <= 0:
+            break
+        take = min(batch.current_quantity, remaining)
+        movement = create_inventory_movement(
+            db=db,
+            product_id=product_id,
+            batch_id=batch.id,
+            branch_id=branch_id,
+            movement_type="out",
+            quantity=take,
+            note=note,
+        )
+        movements.append(movement)
+        remaining -= take
+
+    return movements
+
+
+def sale_stock_tag(sale_id: int, created_at) -> str:
+    """Marca única para poder encontrar después todos los movimientos de
+    stock que salieron por una venta puntual.
+
+    NI sale_code NI sale.id alcanzan por sí solos: SQLite reutiliza el id de
+    fila (rowid) de una tabla después de un DELETE cuando la columna no tiene
+    AUTOINCREMENT explícito — como pos_sales sí borra filas (delete_sale),
+    una venta nueva puede terminar con el mismo id que una venta vieja ya
+    borrada, y esta marca dejaría de ser única. Se combina el id con el
+    timestamp de creación (microsegundos) de la venta, que en la práctica
+    nunca coincide entre dos ventas distintas, para que la marca sea
+    verdaderamente única sin tener que cambiar el esquema de la tabla."""
+    stamp = created_at.strftime("%Y%m%d%H%M%S%f") if created_at else "0"
+    return f"[pos_sale:{sale_id}:{stamp}]"
+
+
+def restock_from_sale(db: Session, sale_id: int, sale_code: str, created_at) -> None:
+    """Revierte las salidas de stock hechas para una venta puntual
+    (identificada por su tag único, ver `sale_stock_tag`), creando
+    movimientos "in" compensatorios en los mismos lotes. Usado al cancelar
+    o eliminar una venta con productos.
+    NO es idempotente por sí sola — el llamador debe asegurarse de invocarla
+    una sola vez por venta (ver guardas en pos_sale_service: cancelar
+    restituye, y eliminar una venta YA cancelada no vuelve a restituir)."""
+    tag = sale_stock_tag(sale_id, created_at)
+    out_movements = (
+        db.query(InventoryMovement)
+        .filter(
+            InventoryMovement.movement_type == "out",
+            InventoryMovement.note.like(f"{tag}%"),
+        )
+        .all()
+    )
+    for movement in out_movements:
+        if movement.batch_id is None:
+            continue
+        create_inventory_movement(
+            db=db,
+            product_id=movement.product_id,
+            batch_id=movement.batch_id,
+            branch_id=movement.branch_id,
+            movement_type="in",
+            quantity=movement.quantity,
+            note=f"{tag} Reversión — cancelación {sale_code}",
+        )
+
+
 def _fire_stock_alert_background(db: Session, product: Product, total_stock: int, min_stock: int) -> None:
     """Envía alerta WhatsApp en background sin bloquear la respuesta HTTP."""
     from app.application.services.branch_integration_service import get_whatsapp_config_for_branch

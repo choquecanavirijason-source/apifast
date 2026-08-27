@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronUp, Lock, ShieldCheck } from "lucide-react";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 
+import { translatePermission } from "@/core/utils/permissionLabels";
 import type { BranchItem, PermissionItem, RoleItem, UserItem } from "../types";
 
 const MODULE_LABELS: Record<string, string> = {
@@ -315,7 +316,7 @@ export default function EditUserModal({
                                     : <Check className="h-2.5 w-2.5 text-white" />
                                 )}
                               </div>
-                              <span className="truncate font-medium">{perm.name}</span>
+                              <span className="truncate font-medium" title={perm.name}>{translatePermission(perm.name)}</span>
                               {fromRole && (
                                 <span className="ml-auto shrink-0 text-[9px] text-slate-400">rol</span>
                               )}

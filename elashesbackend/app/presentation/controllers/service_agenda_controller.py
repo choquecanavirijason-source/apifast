@@ -5,7 +5,7 @@ Las categorías se registran en main.py con el mismo prefijo /agenda (ver servic
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db, require_any_permission, require_permission
+from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, require_permission
 from app.core.ws_manager import ws_manager
 from app.domain.entities.user import User
 from app.domain.entities.service_agenda import Appointment
@@ -46,6 +46,7 @@ from app.application.services.service_agenda_service import (
     update_appointment,
     update_service,
 )
+from app.application.services.service_agenda_service.appointments import _UNSET
 
 router = APIRouter(
     prefix="/agenda",
@@ -141,6 +142,8 @@ def create_new_service(
         duration_minutes=payload.duration_minutes,
         price=payload.price,
         branch_ids=payload.branch_ids,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
 
 
@@ -161,6 +164,8 @@ def update_existing_service(
         duration_minutes=payload.duration_minutes,
         price=payload.price,
         branch_ids=payload.branch_ids,
+        maintenance_days=payload.maintenance_days,
+        removal_days=payload.removal_days,
     )
 
 
@@ -217,17 +222,28 @@ def get_professionals_for_select(
     )
     from collections import defaultdict
     # Bolivia = UTC-4. El servidor GCP corre en UTC, por lo que "hoy local" puede
-    # ser ayer en UTC. Cubrimos un rango de 28 h para no perder turnos del día.
+    # ser ayer en UTC — calculamos el día calendario en hora local y lo pasamos
+    # a UTC. Antes se armaban estos límites como STRING con separador "T"
+    # ("...T00:00:00"), pero start_time se guarda en SQLite como texto con
+    # separador " " ("...  00:00:00") — la comparación de texto entre ambos
+    # formatos fallaba (' ' < 'T' en ASCII) y dejaba a operarias con turnos
+    # en curso de HOY marcadas como libres. Con datetime real, SQLAlchemy
+    # compara valores, no el formato del string.
     now_utc = datetime.utcnow()
-    window_start = (now_utc - timedelta(hours=4)).strftime("%Y-%m-%dT00:00:00")
-    window_end = (now_utc + timedelta(hours=4)).strftime("%Y-%m-%dT23:59:59")
+    bolivia_today = (now_utc - timedelta(hours=4)).date()
+    window_start = datetime.combine(bolivia_today, time.min) + timedelta(hours=4)
+    window_end = datetime.combine(bolivia_today, time.max) + timedelta(hours=4)
 
-    # is_busy: cualquier turno actualmente en servicio (sin filtro de fecha)
+    # is_busy: turno en servicio DENTRO de la ventana de "hoy" — sin este filtro,
+    # un ticket viejo que nunca se finalizó/canceló deja a la operaria "ocupada"
+    # para siempre, aunque el tablero (que sí filtra por hoy) no muestre nada.
     in_service_appts = (
         db.query(Appointment)
         .filter(
             Appointment.professional_id.isnot(None),
             Appointment.status == "in_service",
+            Appointment.start_time >= window_start,
+            Appointment.start_time <= window_end,
         )
         .all()
     )
@@ -373,6 +389,7 @@ async def create_new_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    enforce_own_branch(payload.branch_id, current_user)
     result = await run_in_threadpool(
         create_appointment,
         db=db,
@@ -431,12 +448,20 @@ async def update_existing_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    enforce_own_branch(payload.branch_id, current_user)
+    # "professional_id" ausente del body != enviado explícitamente en null
+    # (quitar la operaria asignada) — ver _UNSET en update_appointment. Sin
+    # esto, mover un ticket de columna (que no toca professional_id) lo
+    # dejaba sin operaria en cada guardado.
+    professional_id = (
+        payload.professional_id if "professional_id" in payload.model_fields_set else _UNSET
+    )
     result = await run_in_threadpool(
         update_appointment,
         db=db,
         appointment_id=appointment_id,
         client_id=payload.client_id,
-        professional_id=payload.professional_id,
+        professional_id=professional_id,
         service_id=payload.service_id,
         service_ids=payload.service_ids,
         branch_id=payload.branch_id,

@@ -9,6 +9,21 @@ import type { AppDispatch } from '@/store';
 // Instalación recomendada: npm install lucide-react
 import { User, Lock, Eye, EyeOff, LogIn, Atom } from 'lucide-react';
 
+// Algunos roles tienen una sola pantalla que usan casi todo el tiempo — al
+// loguearse van directo ahí en vez de al Dashboard general. Match por
+// nombre de rol en minúsculas (ver roles.name en la base).
+const ROLE_DEFAULT_ROUTE: Record<string, string> = {
+  cajera: '/admin/pos-tracking',
+};
+
+function resolveLandingRoute(roles: string[]): string {
+  for (const role of roles) {
+    const route = ROLE_DEFAULT_ROUTE[role.trim().toLowerCase()];
+    if (route) return route;
+  }
+  return '/';
+}
+
 export default function Login() {
   const [usuario, setUsuario] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -26,8 +41,8 @@ export default function Login() {
     setLoading(true)
     try {
       await dispatch(login({ email: usuario, password })).unwrap();
-      await dispatch(getMe()).unwrap();
-      navigate('/')
+      const me = await dispatch(getMe()).unwrap();
+      navigate(resolveLandingRoute(me.roles ?? []))
     } catch (err) {
       const msg =
         typeof err === "string"

@@ -1,6 +1,9 @@
-import { Briefcase, Edit, Trash2 } from "lucide-react";
+import { useRef } from "react";
+import { Briefcase, Edit, MoreHorizontal, Trash2 } from "lucide-react";
 
 import type { ServiceCategoryOption } from "../../../../core/services/agenda/agenda.service";
+import { ActionDropdownMenu } from "../../../../components/common/table/ActionDropdownMenu";
+import type { DataTableAction } from "../../../../components/common/table/DataTable";
 
 export type ServiceCardProps = {
   service: ServiceCategoryOption;
@@ -10,7 +13,14 @@ export type ServiceCardProps = {
   onDelete: () => void;
 };
 
-export default function ServiceCard({ service, onEdit, onDelete }: ServiceCardProps) {
+export default function ServiceCard({ service, isMenuOpen, onToggleMenu, onEdit, onDelete }: ServiceCardProps) {
+  const anchorRef = useRef<DOMRect | null>(null);
+
+  const actions: DataTableAction<ServiceCategoryOption>[] = [
+    { label: "Editar", icon: <Edit className="h-3.5 w-3.5" />, onClick: onEdit },
+    { label: "Eliminar", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: onDelete, variant: "danger" },
+  ];
+
   return (
     <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-md">
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-50">
@@ -43,23 +53,27 @@ export default function ServiceCard({ service, onEdit, onDelete }: ServiceCardPr
               {service.is_mobile ? "Movil" : "No movil"}
             </span>
           </div>
-          <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="relative shrink-0">
             <button
               type="button"
-              onClick={onEdit}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
-              title="Editar"
+              onClick={(event) => {
+                anchorRef.current = event.currentTarget.getBoundingClientRect();
+                onToggleMenu();
+              }}
+              className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-700 group-hover:opacity-100"
+              title="Acciones"
+              aria-label="Acciones"
             >
-              <Edit className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-              title="Eliminar"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {isMenuOpen ? (
+              <ActionDropdownMenu
+                actions={actions}
+                item={service}
+                anchorRect={anchorRef.current}
+                onClose={onToggleMenu}
+              />
+            ) : null}
           </div>
         </div>
       </div>

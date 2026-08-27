@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -46,6 +46,10 @@ const GRID_FIRST_HOUR = 9;
 const GRID_LAST_HOUR = 20;
 
 const AGENDA_VIEW_STORAGE_KEY = "daily-agenda-view-mode";
+// Oculto de momento: "Puestos por sección" no tiene asignación real de
+// operaria a puesto, solo llena columnas por índice de la lista, confunde.
+// Poner en true el día que se agregue esa asignación real.
+const SHOW_STATIONS_TOGGLE = false;
 const AGENDA_REFRESH_EVENT = "agendarefresh";
 const AGENDA_POLL_MS = 20_000;
 
@@ -202,15 +206,11 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     return "calendar";
   });
 
-  const [agendaView, setAgendaView] = useState<AgendaViewMode>(() => {
-    try {
-      const v = localStorage.getItem(AGENDA_VIEW_STORAGE_KEY);
-      if (v === "planner" || v === "stations") return v;
-    } catch {
-      /* ignore */
-    }
-    return "planner";
-  });
+  // "Puestos por sección" oculto de momento: no hay asignación real de
+  // operaria a puesto (solo llena columnas por orden de índice de la lista),
+  // así que confunde más de lo que ayuda. Queda el código para retomarlo el
+  // día que se agregue una asignación real de operaria a puesto.
+  const [agendaView, setAgendaView] = useState<AgendaViewMode>("planner");
 
   const setViewMode = useCallback((mode: AgendaViewMode) => {
     setAgendaView(mode);
@@ -415,22 +415,6 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     }
   }, [selectedDate]);
 
-  const monthLabel = useMemo(() => {
-    try {
-      return new Date(`${selectedDate}T12:00:00`).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
-    } catch {
-      return "";
-    }
-  }, [selectedDate]);
-
-  const dayNumber = useMemo(() => {
-    try {
-      return String(new Date(`${selectedDate}T12:00:00`).getDate());
-    } catch {
-      return "";
-    }
-  }, [selectedDate]);
-
   const weekStrip = useMemo(() => buildWeekStrip(selectedDate), [selectedDate]);
 
   const activeBranchLabel = useMemo(() => {
@@ -625,14 +609,14 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         containerClassName={layoutContainerClass}
       >
         <SectionCard className="mb-3 border border-[#d2d0ce] bg-[#faf9f8]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3">
             <div className="flex min-w-0 items-start gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#c7e0f4] bg-[#deecf9] text-[#005a9e]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#c8e6d9] bg-[#ecfdf5] text-[#094732]">
                 <CalendarClock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Calendario · reservas</p>
-                <p className="text-[11px] font-medium text-[#004578]">Sucursal: {activeBranchLabel}</p>
+                <p className="text-[11px] font-medium text-[#094732]">Sucursal: {activeBranchLabel}</p>
                 <p className="text-[11px] text-[#605e5c]">
                   Toca una casilla vacía para nueva reserva. Arrastra una tarjeta por el asa (
                   <span className="inline-block align-middle">⋮⋮</span>) a otra hora o puesto (operaria de la sucursal).
@@ -641,68 +625,67 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
             </div>
 
             <div
-              className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+              className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1"
               role="group"
               aria-label="Tipo de vista"
             >
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Panel</span>
-                <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setMainViewMode("calendar")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      mainView === "calendar"
-                        ? "bg-[#0078d4] text-white shadow-sm"
-                        : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                    }`}
-                  >
-                    <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    Calendario
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMainViewMode("whatsapp")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      mainView === "whatsapp"
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                    }`}
-                  >
-                    <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    Validar WhatsApp
-                  </button>
-                </div>
+              <div className="inline-flex shrink-0 rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setMainViewMode("calendar")}
+                  title="Calendario"
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                    mainView === "calendar"
+                      ? "bg-[#094732] text-white shadow-sm"
+                      : "text-[#605e5c] hover:bg-[#f3f2f1]"
+                  }`}
+                >
+                  <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Calendario
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMainViewMode("whatsapp")}
+                  title="Validar WhatsApp"
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                    mainView === "whatsapp"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-[#605e5c] hover:bg-[#f3f2f1]"
+                  }`}
+                >
+                  <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  WhatsApp
+                </button>
               </div>
 
-              {mainView === "calendar" ? (
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Vista calendario</span>
-                <div className="flex items-center gap-1">
+              {SHOW_STATIONS_TOGGLE && mainView === "calendar" ? (
+                <div className="flex shrink-0 items-center gap-1">
                   <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setViewMode("planner")}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      title="Planilla horaria"
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
                         agendaView === "planner"
-                          ? "bg-[#0078d4] text-white shadow-sm"
+                          ? "bg-[#094732] text-white shadow-sm"
                           : "text-[#605e5c] hover:bg-[#f3f2f1]"
                       }`}
                     >
                       <List className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      Planilla horaria
+                      Planilla
                     </button>
                     <button
                       type="button"
                       onClick={() => setViewMode("stations")}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      title="Puestos por sección"
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
                         agendaView === "stations"
-                          ? "bg-[#0078d4] text-white shadow-sm"
+                          ? "bg-[#094732] text-white shadow-sm"
                           : "text-[#605e5c] hover:bg-[#f3f2f1]"
                       }`}
                     >
                       <Columns3 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      Puestos por sección
+                      Puestos
                     </button>
                   </div>
                   {agendaView === "stations" && canConfigureSections && (
@@ -710,85 +693,82 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       type="button"
                       onClick={() => setSectionsModalOpen(true)}
                       title="Configurar secciones"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
                     >
                       <Settings2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
-              </div>
               ) : null}
 
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#edebe9] pt-3 sm:border-t-0 sm:pt-0">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => setSelectedDate(getLocalDateInputValue())}
-                  >
-                    Hoy
-                  </Button>
-                  <div className="flex max-w-[min(100vw-2rem,520px)] gap-1 overflow-x-auto pb-1">
-                    {weekStrip.map((dayIso) => {
-                      const isSel = dayIso === selectedDate;
-                      const short = new Date(`${dayIso}T12:00:00`).toLocaleDateString("es-BO", {
-                        weekday: "short",
-                      });
-                      const num = new Date(`${dayIso}T12:00:00`).getDate();
-                      return (
-                        <button
-                          key={dayIso}
-                          type="button"
-                          onClick={() => setSelectedDate(dayIso)}
-                          className={`flex min-w-[44px] shrink-0 flex-col items-center rounded-md border px-1.5 py-1 text-[10px] transition ${
-                            isSel
-                              ? "border-[#0078d4] bg-[#deecf9] font-semibold text-[#004578]"
-                              : "border-[#edebe9] bg-white text-[#605e5c] hover:border-[#c8c6c4]"
-                          }`}
-                        >
-                          <span className="uppercase leading-none">{short.replace(/\.$/, "")}</span>
-                          <span className="text-sm font-bold tabular-nums leading-tight">{num}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => setSelectedDate(getLocalDateInputValue())}
+              >
+                Hoy
+              </Button>
+              <div className="flex shrink-0 gap-1">
+                {weekStrip.map((dayIso) => {
+                  const isSel = dayIso === selectedDate;
+                  const short = new Date(`${dayIso}T12:00:00`).toLocaleDateString("es-BO", {
+                    weekday: "short",
+                  });
+                  const num = new Date(`${dayIso}T12:00:00`).getDate();
+                  return (
+                    <button
+                      key={dayIso}
+                      type="button"
+                      onClick={() => setSelectedDate(dayIso)}
+                      className={`flex min-w-[38px] shrink-0 flex-col items-center rounded-md border px-1 py-1 text-[10px] transition ${
+                        isSel
+                          ? "border-[#094732] bg-[#ecfdf5] font-semibold text-[#094732]"
+                          : "border-[#edebe9] bg-white text-[#605e5c] hover:border-[#c8c6c4]"
+                      }`}
+                    >
+                      <span className="uppercase leading-none">{short.replace(/\.$/, "")}</span>
+                      <span className="text-sm font-bold tabular-nums leading-tight">{num}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#edebe9] pt-3 sm:border-t-0 sm:pt-0">
-                <span className="text-xs text-[#605e5c]">
-                  MES: <strong className="text-[#323130]">{monthLabel}</strong> · DÍA:{" "}
-                  <strong className="text-[#323130]">{dayNumber}</strong>
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(-1)}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="h-8 rounded-md border border-[#8a8886] px-2 text-sm"
-                  />
-                  <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(1)}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button type="button" size="sm" className="h-8 gap-1" onClick={() => openNewModal("09:00", null)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Nueva reserva
+              <div className="flex shrink-0 items-center gap-1">
+                <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(-1)}>
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="relative" ref={printDropdownRef}>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 gap-1"
-                    onClick={() => setPrintDropdownOpen((o) => !o)}
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Imprimir
-                  </Button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="h-8 w-[140px] shrink-0 rounded-md border border-[#8a8886] px-2 text-sm"
+                />
+                <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0 gap-1"
+                onClick={() => openNewModal("09:00", null)}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Nueva
+              </Button>
+              <div className="relative shrink-0" ref={printDropdownRef}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1"
+                  onClick={() => setPrintDropdownOpen((o) => !o)}
+                  leftIcon={<Printer className="h-3.5 w-3.5" />}
+                >
+                  Imprimir
+                </Button>
                   {printDropdownOpen && (
                     <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                       <button
@@ -799,18 +779,19 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         <List className="h-3.5 w-3.5 text-slate-400" />
                         Vista planilla
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        <Columns3 className="h-3.5 w-3.5 text-slate-400" />
-                        Vista puestos 1–8
-                      </button>
+                      {SHOW_STATIONS_TOGGLE && (
+                        <button
+                          type="button"
+                          onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <Columns3 className="h-3.5 w-3.5 text-slate-400" />
+                          Vista puestos 1–8
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
             </div>
           </div>
         </SectionCard>
@@ -831,11 +812,11 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
           onDragEnd={handleDragEnd}
         >
         {agendaView === "planner" ? (
-        <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c7d9e8] bg-white shadow-sm print:shadow-none">
-          <div className="bg-[#b8d6f0] px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-[#1a3a52] print:bg-[#b8d6f0]">
+        <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
+          <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-[#201f1e] print:bg-[#f3f2f1]">
             {headerTitle}
           </div>
-          <div className="flex items-center justify-between border-b border-[#e1eaf3] bg-[#f7fbff] px-3 py-1">
+          <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1">
             <p className="text-[10px] text-[#605e5c]">FECHA DE INICIO ({weekdayUpper})</p>
             {openRangesMinutes !== null ? (
               todayOpeningHours ? (
@@ -860,10 +841,10 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 return (
                   <div key={`${slot.minuteOfDay}-${slot.stepMinutes}`} className="contents">
                     <div
-                      className={`border-b border-r border-[#d5e5f2] px-2 py-1.5 text-xs font-medium tabular-nums ${
+                      className={`border-b border-r border-[#edebe9] px-2 py-1.5 text-xs font-medium tabular-nums ${
                         closed
                           ? "bg-[#f3f3f2] text-[#a19f9d]"
-                          : zebra ? "bg-[#f0f7fc]" : "bg-white"
+                          : zebra ? "bg-[#faf9f8]" : "bg-white"
                       }`}
                     >
                       <span className={closed ? "opacity-60" : ""}>{slot.label}</span>
@@ -893,11 +874,11 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           null
                         );
                       }}
-                      className={`border-b border-[#d5e5f2] px-2 py-1.5 transition ${
+                      className={`border-b border-[#edebe9] px-2 py-1.5 transition ${
                         closed
                           ? "cursor-default bg-[#f3f3f2] opacity-60"
-                          : `cursor-pointer rounded-sm hover:bg-[#eef6fc] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 ${
-                              zebra ? "bg-[#f5faff]" : "bg-[#fafcfe]"
+                          : `cursor-pointer rounded-sm hover:bg-[#f3f2f1] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#201f1e]/25 ${
+                              zebra ? "bg-[#fafaf9]" : "bg-white"
                             }`
                       }`}
                     >
@@ -948,7 +929,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 <button
                   type="button"
                   onClick={() => setSectionsModalOpen(true)}
-                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border border-[#c8c6c4] bg-white px-2 py-1 text-[10px] font-semibold text-[#605e5c] transition hover:border-[#0078d4] hover:text-[#0078d4]"
+                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border border-[#c8c6c4] bg-white px-2 py-1 text-[10px] font-semibold text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
                 >
                   <Settings2 className="h-3 w-3" />
                   Configurar
@@ -1001,7 +982,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 return (
                   <div
                     key={`${label}-${idx}`}
-                    style={{ background: sec?.labelBg ?? "#deecf9", color: sec?.headerText ?? "#004578" }}
+                    style={{ background: sec?.labelBg ?? "#ecfdf5", color: sec?.headerText ?? "#094732" }}
                     className="border border-[#edebe9] px-1 py-2 text-center text-[10px] font-semibold leading-tight"
                   >
                     {label}
@@ -1032,7 +1013,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           if (activeDragTicket) return;
                           openNewModal(`${String(hour).padStart(2, "0")}:00`, pro?.id ?? null);
                         }}
-                        className="relative min-h-[88px] cursor-pointer border border-[#edebe9] bg-white p-1.5 transition hover:bg-[#faf9f8] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#0078d4]/35 sm:min-h-[96px]"
+                        className="relative min-h-[88px] cursor-pointer border border-[#edebe9] bg-white p-1.5 transition hover:bg-[#faf9f8] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#094732]/35 sm:min-h-[96px]"
                       >
                         <div className="flex min-h-[80px] flex-wrap items-start gap-1 content-start">
                           {cellTickets.map((t) => (

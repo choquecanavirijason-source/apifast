@@ -3,10 +3,10 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronRight,
-  Clock, GripVertical, Info, Scissors, Trash2, User, X,
+  Clock, GripVertical, Info, Plus, Scissors, Trash2, User, X,
 } from "lucide-react";
 
-import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
+import type { ClientForSelect, ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { formatTime } from "../control.constants";
 
 const getDateInputValue = (iso: string) => {
@@ -24,29 +24,12 @@ const getTimeInputValue = (iso: string) => {
   return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
 };
 
-const ACCENT: Record<string, string> = {
-  pending: "#D83B01", waiting: "#D83B01", confirmed: "#D83B01",
-  in_service: "#094732", completed: "#126b4a", cancelled: "#A4262C",
-};
-
-const AVATAR_COLORS = [
-  ["#094732", "#e4f0eb"],
-  ["#D83B01", "#fef0eb"],
-  ["#0078d4", "#deecf9"],
-  ["#8764b8", "#f3eef9"],
-  ["#ca5010", "#fce9d8"],
-];
-
-function getAvatarColors(name: string) {
-  const idx = (name.charCodeAt(0) ?? 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
-}
-
 const stopPtr = (e: React.PointerEvent) => e.stopPropagation();
 
 export default function DraggableTicketCard({
   ticket, actions, showRemaining, getRemainingLabel,
   onDelete, professionals, onSaveEdits, isSavingEdit,
+  clients, onChangeClient, onOpenRegisterClient,
 }: {
   ticket: TicketItem;
   actions: ReactNode;
@@ -57,6 +40,10 @@ export default function DraggableTicketCard({
   professionals: ProfessionalForSelect[];
   onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string; isIa: boolean }) => void;
   isSavingEdit: boolean;
+  /** Clientas disponibles para reasignar el ticket (o dejarlo como "Cliente Mostrador"). */
+  clients?: ClientForSelect[];
+  onChangeClient?: (ticket: TicketItem, clientId: string) => void;
+  onOpenRegisterClient?: (ticket: TicketItem) => void;
 }) {
   const [quickDate, setQuickDate] = useState(getDateInputValue(ticket.start_time));
   const [quickProId, setQuickProId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
@@ -98,10 +85,13 @@ export default function DraggableTicketCard({
     return () => document.removeEventListener("mousedown", handler);
   }, [editOpen]);
 
+  // Con el popup de "Ajustar turno" abierto, el ticket debería poder seguir
+  // arrastrándose a otra columna sin tener que cerrarlo con la X primero —
+  // los controles del popup ya frenan el drag por su cuenta (stopPtr).
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `ticket-${ticket.id}`,
     data: { ticket, column: ticket.status },
-    disabled: editOpen || detailOpen,
+    disabled: detailOpen,
   });
 
   const style: React.CSSProperties = {
@@ -110,14 +100,15 @@ export default function DraggableTicketCard({
     touchAction: "none",
   };
 
-  const accentColor = ACCENT[ticket.status] ?? "#c4b08a";
-
   const hasChanges =
     quickDate !== getDateInputValue(ticket.start_time) ||
     quickProId !== (ticket.professional_id ? String(ticket.professional_id) : "") ||
     quickTime !== getTimeInputValue(ticket.start_time);
 
   const canEditOperaria = ["pending", "waiting", "confirmed"].includes(ticket.status);
+  // La clienta se puede corregir hasta que el ticket se finalice — después de
+  // eso, la venta/tracking ya quedaron registrados a su nombre.
+  const canEditClient = Boolean(onChangeClient) && ["pending", "waiting", "confirmed", "in_service"].includes(ticket.status);
 
   const primarySvc = ticket.service_names?.[0] ?? ticket.service_name ?? "Sin servicio";
   const extraCount = (ticket.service_names?.length ?? 0) - 1;
@@ -125,10 +116,9 @@ export default function DraggableTicketCard({
   const proName = professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username
     ?? ticket.professional_name ?? null;
 
-  const [avatarFg, avatarBg] = getAvatarColors(ticket.client_name ?? "");
   const initials = (ticket.client_name ?? "?").slice(0, 2).toUpperCase();
 
-  const inputCls = "h-8 w-full rounded-md border border-[#c4b08a] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20";
+  const inputCls = "h-8 w-full rounded-md border border-[#c8c6c4] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#201f1e] focus:ring-2 focus:ring-[#201f1e]/10";
 
   return (
     <div
@@ -138,44 +128,44 @@ export default function DraggableTicketCard({
       {...listeners}
       className={`group relative cursor-grab touch-none rounded-xl border bg-white transition-all active:cursor-grabbing ${
         isDragging
-          ? "border-dashed border-[#D83B01] shadow-none ring-2 ring-[#D83B01]/30"
-          : "border-[#e0dedd] shadow-sm hover:shadow-md hover:border-[#c4c2c0]"
+          ? "border-dashed border-[#201f1e] shadow-none"
+          : "border-[#c8c6c4] hover:border-[#8a8886]"
       }`}
     >
-      {/* ── Popup de edición (solo en espera) ───────────────────────────────── */}
-      {editOpen && canEditOperaria && (
+      {/* ── Popup de edición ──────────────────────────────────────────────── */}
+      {editOpen && (canEditOperaria || canEditClient) && (
         <>
           <div className="absolute inset-0 z-40 rounded-xl bg-white/60 backdrop-blur-[2px]" />
           <div
             ref={editRef}
-            onPointerDown={stopPtr}
-            className="absolute inset-x-0 top-0 z-50 rounded-xl bg-white shadow-2xl ring-1 ring-black/10"
+            className="absolute inset-x-0 top-0 z-50 select-none rounded-xl bg-white shadow-2xl ring-1 ring-black/10"
           >
+            {/* Header y bloque de info: sin stopPtr a propósito — con el popup
+                abierto, esta zona sigue sirviendo para arrastrar el ticket a
+                otra columna sin tener que cerrarlo con la X primero. */}
             {/* Header */}
-            <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-[#f8f7f4] to-[#f3f1ec] px-3 py-2.5 border-b border-[#e8e4dc]">
+            <div className="flex cursor-grab items-center justify-between rounded-t-xl bg-[#f3f2f1] px-3 py-2.5 border-b border-[#e8e4dc]">
               <div className="flex items-center gap-2">
-                <div className="h-3.5 w-0.5 rounded-full bg-[#094732]" />
+                <GripVertical size={12} className="shrink-0 text-[#a19f9d]" />
+                <div className="h-3.5 w-0.5 rounded-full bg-[#201f1e]" />
                 <span className="text-[11px] font-semibold text-[#201f1e]">Ajustar turno</span>
                 {hasChanges && (
-                  <span className="flex items-center gap-1 rounded-full bg-[#094732]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#094732]">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#094732]" />
+                  <span className="flex items-center gap-1 rounded-full border border-[#c8c6c4] px-1.5 py-0.5 text-[9px] font-semibold text-[#201f1e]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#201f1e]" />
                     {isSavingEdit ? "Guardando…" : "Guardado automático"}
                   </span>
                 )}
               </div>
               <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(false)}
-                className="rounded-md p-1 text-[#8a8886] hover:bg-[#ecfdf5] hover:text-[#094732] transition-colors">
+                className="rounded-md p-1 text-[#8a8886] hover:bg-[#ececec] hover:text-[#201f1e] transition-colors">
                 <X size={12} />
               </button>
             </div>
 
             {/* Info del ticket */}
-            <div className="border-b border-[#f0efed] bg-[#fafaf9] px-3 py-2.5 space-y-1.5">
+            <div className="cursor-grab border-b border-[#f0efed] bg-[#fafaf9] px-3 py-2.5 space-y-1.5">
               <div className="flex items-center gap-2.5">
-                <div
-                  style={{ backgroundColor: avatarBg, color: avatarFg }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#c8c6c4] bg-white text-[11px] font-bold text-[#201f1e]">
                   {initials}
                 </div>
                 <div className="min-w-0">
@@ -186,10 +176,10 @@ export default function DraggableTicketCard({
                 </div>
               </div>
               <div className="flex items-center gap-1.5 pl-[42px]">
-                <Scissors size={11} className="shrink-0 text-[#094732]" />
+                <Scissors size={11} className="shrink-0 text-[#605e5c]" />
                 <span className="truncate text-[11px] text-[#605e5c]">{primarySvc}</span>
                 {extraCount > 0 && (
-                  <span className="shrink-0 rounded bg-[#ecfdf5] px-1 py-0.5 text-[9px] font-bold text-[#094732]">+{extraCount}</span>
+                  <span className="shrink-0 rounded border border-[#c8c6c4] px-1 py-0.5 text-[9px] font-bold text-[#605e5c]">+{extraCount}</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5 pl-[42px]">
@@ -201,35 +191,73 @@ export default function DraggableTicketCard({
             </div>
 
             {/* Selector operaria */}
-            <div className="p-3">
-              <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
-                <User size={8} /> Asignar operaria
-              </label>
-              <select value={quickProId} onPointerDown={stopPtr}
-                onChange={(e) => setQuickProId(e.target.value)}
-                className={`${inputCls} cursor-pointer`}>
-                <option value="">Sin operaria</option>
-                {professionals.map((p) => (
-                  <option key={p.id} value={String(p.id)}>{p.username}</option>
-                ))}
-              </select>
-            </div>
+            {canEditOperaria && (
+              <div className="p-3 border-b border-[#f0efed]">
+                <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                  <User size={8} /> Asignar operaria
+                </label>
+                <select value={quickProId} onPointerDown={stopPtr}
+                  onChange={(e) => setQuickProId(e.target.value)}
+                  className={`${inputCls} cursor-pointer`}>
+                  <option value="">Sin operaria</option>
+                  {professionals.map((p) => {
+                    const inService = p.is_busy === true;
+                    // Al <option> nativo no se le puede poner color/badge —
+                    // se marca en el texto. No se bloquea a las ocupadas: este
+                    // selector solo aparece en tickets "en espera", así que
+                    // elegir a una operaria ocupada es justo la forma de
+                    // ponerla en su cola para cuando se libere.
+                    return (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.username} — {inService ? "En servicio" : "Libre"}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            {/* Selector clienta — corregir "Cliente Mostrador" o cambiar de clienta */}
+            {canEditClient && (
+              <div className="p-3">
+                <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                  <User size={8} /> Clienta
+                </label>
+                <div className="flex gap-1.5">
+                  <select
+                    value={String(ticket.client_id ?? "")}
+                    onPointerDown={stopPtr}
+                    onChange={(e) => onChangeClient?.(ticket, e.target.value)}
+                    className={`${inputCls} min-w-0 flex-1 cursor-pointer`}
+                  >
+                    {(clients ?? []).map((c) => (
+                      <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
+                    ))}
+                  </select>
+                  {onOpenRegisterClient && (
+                    <button
+                      type="button"
+                      onPointerDown={stopPtr}
+                      onClick={() => onOpenRegisterClient(ticket)}
+                      title="Registrar nueva clienta"
+                      className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[#201f1e] transition hover:bg-[#f3f2f1]"
+                    >
+                      <Plus size={12} /> Nueva
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
 
       {/* ── Cabecera de la tarjeta: código + drag + acciones icon ─────────── */}
-      <div
-        style={{ borderLeftColor: accentColor }}
-        className="flex items-center justify-between border-l-4 rounded-t-xl bg-[#faf9f8] px-3 py-2 border-b border-[#f0efed]"
-      >
+      <div className="flex items-center justify-between rounded-t-xl bg-[#faf9f8] px-3 py-2 border-b border-[#f0efed]">
         <div className="flex items-center gap-1.5">
           <GripVertical size={13} className="shrink-0 text-[#c8c6c4] group-hover:text-[#8a8886] transition-colors cursor-grab" />
           {ticket.ticket_code ? (
-            <span
-              style={{ color: accentColor, backgroundColor: accentColor + "12", borderColor: accentColor + "30" }}
-              className="rounded border px-1.5 py-0.5 text-[10px] font-mono font-semibold"
-            >
+            <span className="rounded border border-[#c8c6c4] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[#201f1e]">
               {ticket.ticket_code}
             </span>
           ) : (
@@ -240,15 +268,15 @@ export default function DraggableTicketCard({
           <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
             title="Ver detalles"
             className={`rounded-lg p-1.5 transition-colors ${
-              detailOpen ? "bg-[#ecfdf5] text-[#094732]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
+              detailOpen ? "bg-[#ececec] text-[#201f1e]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
             }`}>
             <Info size={13} />
           </button>
-          {canEditOperaria && (
+          {(canEditOperaria || canEditClient) && (
             <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
-              title="Ajustar operaria"
+              title="Ajustar turno"
               className={`rounded-lg p-1.5 transition-colors ${
-                hasChanges ? "bg-[#faf7f0] text-[#9F8351]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
+                hasChanges ? "bg-[#f3f2f1] text-[#201f1e]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
               }`}>
               <ChevronRight size={13} />
             </button>
@@ -261,31 +289,44 @@ export default function DraggableTicketCard({
 
         {/* Avatar + nombre */}
         <div className="flex items-center gap-2.5">
-          <div
-            style={{ backgroundColor: avatarBg, color: avatarFg }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
-          >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c8c6c4] bg-white text-[12px] font-bold text-[#201f1e]">
             {initials}
           </div>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold leading-tight text-[#201f1e]">
               {ticket.client_name}
             </p>
-            <div className="mt-0.5 flex items-center gap-1">
-              <User size={10} className={proName ? "shrink-0 text-[#605e5c]" : "shrink-0 text-[#c8c6c4]"} />
-              <span className={`truncate text-[11px] ${proName ? "font-medium text-[#605e5c]" : "italic text-[#a19f9d]"}`}>
-                {proName ?? "Sin operaria asignada"}
-              </span>
-            </div>
+            {canEditOperaria ? (
+              <button
+                type="button"
+                onPointerDown={stopPtr}
+                onClick={() => setEditOpen(true)}
+                className={`mt-0.5 flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-[#f3f2f1] ${
+                  proName ? "" : "animate-pulse"
+                }`}
+              >
+                <User size={10} className="shrink-0 text-[#605e5c]" />
+                <span className="truncate text-[11px] font-medium text-[#605e5c] underline decoration-dotted">
+                  {proName ?? "Asignar operaria"}
+                </span>
+              </button>
+            ) : (
+              <div className="mt-0.5 flex items-center gap-1">
+                <User size={10} className={proName ? "shrink-0 text-[#605e5c]" : "shrink-0 text-[#c8c6c4]"} />
+                <span className={`truncate text-[11px] ${proName ? "font-medium text-[#605e5c]" : "italic text-[#a19f9d]"}`}>
+                  {proName ?? "Sin operaria asignada"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Servicio */}
-        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-[#ecfdf5] px-2.5 py-1.5">
-          <Scissors size={12} className="shrink-0 text-[#094732]" />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#094732]">{primarySvc}</span>
+        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[#e0dedd] px-2.5 py-1.5">
+          <Scissors size={12} className="shrink-0 text-[#605e5c]" />
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#201f1e]">{primarySvc}</span>
           {extraCount > 0 && (
-            <span className="shrink-0 rounded-md bg-[#094732] px-1.5 py-0.5 text-[9px] font-bold text-white">
+            <span className="shrink-0 rounded-md border border-[#c8c6c4] px-1.5 py-0.5 text-[9px] font-bold text-[#605e5c]">
               +{extraCount}
             </span>
           )}
@@ -300,7 +341,7 @@ export default function DraggableTicketCard({
             </span>
           </div>
           {remaining && (
-            <span className="rounded-full bg-[#ecfdf5] px-2 py-0.5 text-[10px] font-bold text-[#094732]">
+            <span className="rounded-full border border-[#c8c6c4] px-2 py-0.5 text-[10px] font-bold text-[#605e5c]">
               {remaining}
             </span>
           )}
@@ -337,13 +378,13 @@ export default function DraggableTicketCard({
             {ticket.sale_id && (
               <div className="flex gap-1.5">
                 <span className="shrink-0 font-semibold text-[#8a8886]">Venta:</span>
-                <span className="font-semibold text-[#9F8351]">#{ticket.sale_id}</span>
+                <span className="font-semibold text-[#201f1e]">#{ticket.sale_id}</span>
               </div>
             )}
             {(ticket.service_names?.length ?? 0) > 1 && (
               <div className="col-span-2 mt-0.5 flex flex-wrap gap-1">
                 {ticket.service_names!.map((s, i) => (
-                  <span key={i} className="rounded-md bg-[#ecfdf5] px-1.5 py-0.5 text-[10px] font-semibold text-[#094732]">{s}</span>
+                  <span key={i} className="rounded-md border border-[#c8c6c4] px-1.5 py-0.5 text-[10px] font-semibold text-[#605e5c]">{s}</span>
                 ))}
               </div>
             )}
