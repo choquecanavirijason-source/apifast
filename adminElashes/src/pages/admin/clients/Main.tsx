@@ -345,19 +345,22 @@ export default function ClientListPage() {
 
   // --- Columnas de la Tabla ---
   const columns: DataTableColumn<IClient>[] = [
-    { 
-      key: "nombre", 
-      header: "Nombre", 
-      render: (item: IClient) => <span className="font-bold text-slate-800">{item.nombre}</span> 
+    {
+      key: "nombre",
+      header: "Nombre",
+      sortable: true,
+      render: (item: IClient) => <span className="font-bold text-slate-800">{item.nombre}</span>
     },
-    { 
-      key: "apellido", 
-      header: "Apellido", 
-      render: (item: IClient) => <span className="font-semibold text-slate-700">{item.apellido}</span> 
+    {
+      key: "apellido",
+      header: "Apellido",
+      sortable: true,
+      render: (item: IClient) => <span className="font-semibold text-slate-700">{item.apellido}</span>
     },
-    { 
-      key: "visitas", 
-      header: "Frecuencia", 
+    {
+      key: "visitas",
+      header: "Frecuencia",
+      sortable: true,
       render: (item: IClient) => (
         <div className="flex items-center gap-1.5">
            {item.visitas > 5 && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500"/>}
@@ -371,20 +374,23 @@ export default function ClientListPage() {
         </div>
       ) 
     },
-    { 
-      key: "edad", 
-      header: "Edad", 
+    {
+      key: "edad",
+      header: "Edad",
+      sortable: true,
       render: (item: IClient) => <span className="text-slate-600 text-sm font-medium">{item.edad} años</span>
     },
     {
       key: "tipoOjos",
       header: "Tipo de Ojos",
+      sortable: true,
       getValue: (item: IClient) => getEyeTypeLabel(item.tipoOjos),
       render: (item: IClient) => <span className="text-sm text-slate-500 italic">{getEyeTypeLabel(item.tipoOjos)}</span>
     },
     {
       key: "ci",
       header: "CI",
+      sortable: true,
       render: (item: IClient) => (
         <span className="text-xs font-mono text-slate-600">{item.ci || <span className="text-slate-300">—</span>}</span>
       ),
@@ -393,6 +399,7 @@ export default function ClientListPage() {
     {
       key: "marketplaceEnabled",
       header: "Marketplace",
+      sortable: true,
       render: (item: IClient) => (
         <button
           type="button"
@@ -450,6 +457,7 @@ export default function ClientListPage() {
         );
       },
       filterable: true,
+      sortable: true,
       getValue: (item: IClient) => item.status || "sin_estado",
     },
   ];

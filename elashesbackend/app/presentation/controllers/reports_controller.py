@@ -13,6 +13,7 @@ from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
+from app.application.services.service_agenda_service.appointments import update_appointment
 from app.presentation.schemas.reports import (
     DEFAULT_COMMISSION_RATE,
     DailyClosingItem,
@@ -241,11 +242,7 @@ def update_appointment_status(
     if body.status not in allowed:
         raise HTTPException(status_code=400, detail=f"Estado inválido. Use: {', '.join(allowed)}")
 
-    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()
-    if not appt:
-        raise HTTPException(status_code=404, detail="Ticket no encontrado")
-
-    appt.status = body.status
+    appt = update_appointment(db=db, appointment_id=appointment_id, status_value=body.status)
     db.commit()
     return {"ok": True, "appointment_id": appointment_id, "status": appt.status}
 

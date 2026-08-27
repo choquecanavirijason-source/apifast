@@ -260,13 +260,21 @@ export function usePosPage({
     });
   }, [sales, historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters]);
 
-  const filteredSalesTotalAmount = useMemo(() => filteredSales.reduce((s, sale) => s + Number(sale.total ?? 0), 0), [filteredSales]);
-  const allSalesTotalAmount      = useMemo(() => sales.reduce((s, sale) => s + Number(sale.total ?? 0), 0), [sales]);
-  const totalPages = Math.max(1, Math.ceil(filteredSales.length / rowsPerPage));
+  // Solo ventas con al menos un ticket/cita — las ventas 100% de productos
+  // se gestionan en su propia pestaña (ver ProductSalesHistoryTable), para
+  // no mezclar ambos flujos en la misma tabla.
+  const filteredServiceSales = useMemo(
+    () => filteredSales.filter((sale) => (sale.appointments?.length ?? 0) > 0),
+    [filteredSales]
+  );
+
+  const filteredSalesTotalAmount = useMemo(() => filteredServiceSales.reduce((s, sale) => s + Number(sale.total ?? 0), 0), [filteredServiceSales]);
+  const allSalesTotalAmount      = useMemo(() => sales.filter((s) => (s.appointments?.length ?? 0) > 0).reduce((s, sale) => s + Number(sale.total ?? 0), 0), [sales]);
+  const totalPages = Math.max(1, Math.ceil(filteredServiceSales.length / rowsPerPage));
   const pagedSales = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
-    return filteredSales.slice(start, start + rowsPerPage);
-  }, [filteredSales, currentPage, rowsPerPage]);
+    return filteredServiceSales.slice(start, start + rowsPerPage);
+  }, [filteredServiceSales, currentPage, rowsPerPage]);
 
   const editingAppointmentIds = useMemo(() => {
     if (!editingSale) return new Set<number>();
@@ -838,21 +846,43 @@ export function usePosPage({
     setIsSubmitting(true);
     try {
       let cursor = Date.now();
-      const items = cartLines.map((line) => {
-        const duration = Math.max(15, line.duration_minutes || 60);
+      const withSeller = applySellerToCartLines(cartLines, sellerId);
+      let items: Array<{
+        service_id?: number; service_ids?: number[]; professional_id: number | null;
+        branch_id: number; start_time: string; end_time: string;
+      }>;
+      if (ticketMode === "group" && withSeller.length > 1) {
+        const first = withSeller[0];
         let start: Date;
-        if (line.time_manual && line.date && line.time) {
-          const parsed = new Date(`${line.date}T${line.time}:00`);
+        if (first.time_manual && first.date && first.time) {
+          const parsed = new Date(`${first.date}T${first.time}:00`);
           start = Number.isNaN(parsed.getTime()) ? new Date(cursor) : parsed;
         } else { start = new Date(cursor); }
-        const end = new Date(start.getTime() + duration * 60_000);
-        cursor = end.getTime();
-        return {
-          service_id: Number(line.service_id),
-          professional_id: line.professional_id ? Number(line.professional_id) : (sellerId ? Number(sellerId) : null),
+        const totalDuration = withSeller.reduce((acc, l) => acc + Math.max(15, l.duration_minutes || 60), 0);
+        const end = new Date(start.getTime() + totalDuration * 60_000);
+        const groupProfId = sellerId.trim() || withSeller.find((l) => l.professional_id)?.professional_id || null;
+        items = [{
+          service_ids: withSeller.map((l) => Number(l.service_id)),
+          professional_id: groupProfId ? Number(groupProfId) : null,
           branch_id: activeBranchId, start_time: formatLocalDateTime(start), end_time: formatLocalDateTime(end),
-        };
-      });
+        }];
+      } else {
+        items = withSeller.map((line) => {
+          const duration = Math.max(15, line.duration_minutes || 60);
+          let start: Date;
+          if (line.time_manual && line.date && line.time) {
+            const parsed = new Date(`${line.date}T${line.time}:00`);
+            start = Number.isNaN(parsed.getTime()) ? new Date(cursor) : parsed;
+          } else { start = new Date(cursor); }
+          const end = new Date(start.getTime() + duration * 60_000);
+          cursor = end.getTime();
+          return {
+            service_id: Number(line.service_id),
+            professional_id: line.professional_id ? Number(line.professional_id) : (sellerId ? Number(sellerId) : null),
+            branch_id: activeBranchId, start_time: formatLocalDateTime(start), end_time: formatLocalDateTime(end),
+          };
+        });
+      }
       const sale = await PosSaleService.create({
         ...(clientId ? { client_id: Number(clientId) } : {}), branch_id: activeBranchId,
         payment_method: payLater ? "cash" : (mixedPayments.length > 0 ? "mixed" : paymentMethod),
@@ -1205,7 +1235,7 @@ export function usePosPage({
     saleBaseDate, numericDiscount, selectedClient, clientPhone, clientAddress,
     filteredClients, filteredServices, subtotal, discountAmount, total, quickServices,
     categoryModalSelectionCounts, filteredModalServices, historyClientOptions, historyPaymentOptions,
-    filteredSales, filteredSalesTotalAmount, allSalesTotalAmount, totalPages, pagedSales,
+    filteredSales, filteredServiceSales, filteredSalesTotalAmount, allSalesTotalAmount, totalPages, pagedSales,
     lineAvailability, checkoutTicketPreviews, activeAvailabilityLine, occupiedTicketsForPreview, previewHourSlots,
     qrRef, clientComboboxRef, serviceComboboxRef, serviceMenuRef,
     updateServiceMenuPosition, addServiceToCart, removeLastCartLineForService, removeLine, updateLine,

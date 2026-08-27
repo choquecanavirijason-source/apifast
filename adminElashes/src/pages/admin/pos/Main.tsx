@@ -340,16 +340,21 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 pagedSales={pos.pagedSales}
                 currentPage={pos.currentPage}
                 totalPages={pos.totalPages}
-                filteredSalesCount={pos.filteredSales.length}
+                filteredSalesCount={pos.filteredServiceSales.length}
                 onPageChange={pos.setCurrentPage}
                 onViewDetail={pos.setReceiptSale}
                 onEditSale={(sale) => void pos.handleEditSaleFromHistory(sale)}
                 onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
                 onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
-                allFilteredSales={pos.filteredSales}
+                allFilteredSales={pos.filteredServiceSales}
               />
             ) : (
-              <ProductSalesHistoryTable sales={pos.filteredSales} />
+              <ProductSalesHistoryTable
+                sales={pos.filteredSales}
+                onViewDetail={pos.setReceiptSale}
+                onCancelSale={(sale) => void pos.handleCancelSaleFromHistory(sale)}
+                onDeleteSale={(sale) => void pos.handleDeleteSaleFromHistory(sale)}
+              />
             )}
           </div>
 

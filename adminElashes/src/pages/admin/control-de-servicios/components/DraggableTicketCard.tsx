@@ -28,7 +28,7 @@ const stopPtr = (e: React.PointerEvent) => e.stopPropagation();
 
 export default function DraggableTicketCard({
   ticket, actions, showRemaining, getRemainingLabel,
-  onDelete, professionals, onSaveEdits, isSavingEdit,
+  onDelete, professionals, busyProfessionalIds, onSaveEdits, isSavingEdit,
   clients, onChangeClient, onOpenRegisterClient,
 }: {
   ticket: TicketItem;
@@ -38,6 +38,10 @@ export default function DraggableTicketCard({
   getRemainingLabel: (endTime: string) => string;
   onDelete: (ticket: TicketItem) => void;
   professionals: ProfessionalForSelect[];
+  /** IDs de operarias con un ticket "en servicio" ahora mismo, derivado en
+   * vivo de los tickets del tablero — más confiable que `professional.is_busy`,
+   * que es una foto de otro fetch y puede quedar desactualizada. */
+  busyProfessionalIds?: Set<number>;
   onSaveEdits: (ticket: TicketItem, payload: { date: string; time: string; professionalId: string; isIa: boolean }) => void;
   isSavingEdit: boolean;
   /** Clientas disponibles para reasignar el ticket (o dejarlo como "Cliente Mostrador"). */
@@ -85,13 +89,12 @@ export default function DraggableTicketCard({
     return () => document.removeEventListener("mousedown", handler);
   }, [editOpen]);
 
-  // Con el popup de "Ajustar turno" abierto, el ticket debería poder seguir
-  // arrastrándose a otra columna sin tener que cerrarlo con la X primero —
-  // los controles del popup ya frenan el drag por su cuenta (stopPtr).
+  // Con el popup de "Ajustar turno" o el panel de "Info" abiertos, el ticket
+  // debería poder seguir arrastrándose a otra columna sin tener que cerrarlo
+  // primero — sus propios controles ya frenan el drag por su cuenta (stopPtr).
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `ticket-${ticket.id}`,
     data: { ticket, column: ticket.status },
-    disabled: detailOpen,
   });
 
   const style: React.CSSProperties = {
@@ -201,7 +204,7 @@ export default function DraggableTicketCard({
                   className={`${inputCls} cursor-pointer`}>
                   <option value="">Sin operaria</option>
                   {professionals.map((p) => {
-                    const inService = p.is_busy === true;
+                    const inService = busyProfessionalIds?.has(p.id) ?? (p.is_busy === true);
                     // Al <option> nativo no se le puede poner color/badge —
                     // se marca en el texto. No se bloquea a las ocupadas: este
                     // selector solo aparece en tickets "en espera", así que

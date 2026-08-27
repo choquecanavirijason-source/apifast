@@ -64,3 +64,4 @@ class InventoryMovement(Base):
 
     product = relationship("Product", back_populates="movements")
     batch = relationship("Batch", back_populates="movements")
+    branch = relationship("Branch")

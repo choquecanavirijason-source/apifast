@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Iterable, Optional
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.client import (
@@ -13,8 +13,28 @@ from app.domain.entities.client import (
     CLIENT_STATUS_SIN_ESTADO,
 )
 from app.domain.entities.branch import Branch
+from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.tracking import EyeType
 from app.presentation.schemas.client import ClientCreate, ClientUpdate
+
+
+def _attach_visit_counts(db: Session, clients: Iterable[Client]) -> None:
+    """Cuenta las citas completadas ("visitas" reales) por clienta y las
+    asigna como atributo en memoria — no es una columna, se calcula al
+    vuelo para no requerir migración ni mantener un contador duplicado."""
+    client_ids = [c.id for c in clients]
+    if not client_ids:
+        return
+
+    counts = dict(
+        db.query(Appointment.client_id, func.count(Appointment.id))
+        .filter(Appointment.client_id.in_(client_ids), Appointment.status == "completed")
+        .group_by(Appointment.client_id)
+        .all()
+    )
+
+    for client in clients:
+        client.visit_count = counts.get(client.id, 0)
 
 
 # Marca al cliente "Mostrador" generado automáticamente cuando se vende sin
@@ -122,7 +142,9 @@ def list_clients(
             )
         )
 
-    return query.order_by(Client.id.desc()).offset(skip).limit(limit).all()
+    clients = query.order_by(Client.id.desc()).offset(skip).limit(limit).all()
+    _attach_visit_counts(db, clients)
+    return clients
 
 
 def update_client_status(
@@ -153,6 +175,7 @@ def get_client_by_id(db: Session, client_id: int) -> Client:
             detail="Cliente no encontrado",
         )
 
+    _attach_visit_counts(db, [client])
     return client
 
 

@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { Package, FileDown } from "lucide-react";
+import { Package, FileDown, Eye, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
 import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
-import DataTable, { type DataTableColumn } from "../../../../components/common/table/DataTable";
+import DataTable, { type DataTableAction, type DataTableColumn } from "../../../../components/common/table/DataTable";
 
 type ProductSaleRow = {
   id: string;
@@ -16,13 +16,18 @@ type ProductSaleRow = {
   unitPrice: number;
   subtotal: number;
   createdAt: string;
+  status: string;
+  sale: PosSaleItem;
 };
 
 type ProductSalesHistoryTableProps = {
   sales: PosSaleItem[];
+  onViewDetail: (sale: PosSaleItem) => void;
+  onCancelSale: (sale: PosSaleItem) => void;
+  onDeleteSale: (sale: PosSaleItem) => void;
 };
 
-export default function ProductSalesHistoryTable({ sales }: ProductSalesHistoryTableProps) {
+export default function ProductSalesHistoryTable({ sales, onViewDetail, onCancelSale, onDeleteSale }: ProductSalesHistoryTableProps) {
   const rows = useMemo<ProductSaleRow[]>(() => {
     const flat: ProductSaleRow[] = [];
     for (const sale of sales) {
@@ -36,11 +41,36 @@ export default function ProductSalesHistoryTable({ sales }: ProductSalesHistoryT
           unitPrice: line.unit_price,
           subtotal: line.subtotal,
           createdAt: sale.created_at,
+          status: sale.status,
+          sale,
         });
       }
     }
     return flat.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }, [sales]);
+
+  const actions = useMemo<DataTableAction<ProductSaleRow>[]>(
+    () => [
+      {
+        label: "Ver detalle",
+        icon: <Eye className="w-4 h-4" />,
+        onClick: (row) => onViewDetail(row.sale),
+      },
+      {
+        label: "Cancelar venta",
+        icon: <XCircle className="w-4 h-4" />,
+        onClick: (row) => onCancelSale(row.sale),
+        show: (row) => row.status !== "cancelled",
+      },
+      {
+        label: "Eliminar",
+        icon: <Trash2 className="w-4 h-4" />,
+        onClick: (row) => onDeleteSale(row.sale),
+        variant: "danger",
+      },
+    ],
+    [onCancelSale, onDeleteSale, onViewDetail]
+  );
 
   const totalUnits = rows.reduce((s, r) => s + r.quantity, 0);
   const totalAmount = rows.reduce((s, r) => s + r.subtotal, 0);
@@ -125,6 +155,17 @@ export default function ProductSalesHistoryTable({ sales }: ProductSalesHistoryT
         </span>
       ),
     },
+    {
+      key: "status",
+      header: "Estado",
+      sortable: true,
+      render: (r) =>
+        r.status === "cancelled" ? (
+          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">Cancelado</span>
+        ) : (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Pagado</span>
+        ),
+    },
   ];
 
   const renderToolbar = () => (
@@ -156,6 +197,7 @@ export default function ProductSalesHistoryTable({ sales }: ProductSalesHistoryT
     <DataTable
       data={rows}
       columns={columns}
+      actions={actions}
       renderTopToolbar={renderToolbar}
       globalSearchPlaceholder="Buscar por producto, venta o cliente..."
       defaultLimit={15}

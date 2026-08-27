@@ -593,6 +593,14 @@ def update_appointment(
             update_client_status(db, appointment.client_id, CLIENT_STATUS_EN_SERVICIO)
         elif status_value == "completed":
             update_client_status(db, appointment.client_id, CLIENT_STATUS_FINALIZADO)
+        elif status_value == "cancelled":
+            # Si el pago quedó vinculado directamente al ticket (poco común
+            # hoy, pero posible en flujos antiguos), se cancela junto con él.
+            (
+                db.query(Payment)
+                .filter(Payment.appointment_id == appointment.id, Payment.status == "paid")
+                .update({"status": "cancelled"})
+            )
 
     if service_ids is not None:
         normalized = [int(value) for value in service_ids if value is not None]
@@ -608,6 +616,16 @@ def update_appointment(
 
     db.commit()
     db.refresh(appointment)
+
+    if status_value == "cancelled" and appointment.sale_id is not None:
+        # El pago de este ticket vive en la venta (PosSale.payments), no en
+        # el ticket mismo — cancelar un ticket dentro de una venta con varios
+        # servicios debe recalcular el total/pago excluyendo lo cancelado,
+        # igual que ya hace update_sale() al editar una venta desde el POS.
+        from app.application.services.pos_sale_service import update_sale as _recompute_sale_totals
+        from app.presentation.schemas.pos_sale import PosSaleUpdate as _PosSaleUpdate
+
+        _recompute_sale_totals(db=db, sale_id=appointment.sale_id, payload=_PosSaleUpdate())
 
     return get_appointment_by_id(db, appointment.id)
 
