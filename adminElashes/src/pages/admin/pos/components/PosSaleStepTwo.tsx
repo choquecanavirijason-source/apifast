@@ -1155,7 +1155,12 @@ export default function PosSaleStepTwo({
           setIsSaleDrawerOpen(false);
           handleConfirmSaleFlow();
         }}
-        primaryActionDisabled={isSubmitting || cartCount === 0}
+        primaryActionDisabled={
+          isSubmitting
+          || cartCount === 0
+          || !paymentMethod
+          || (paymentMethod === "cash" && (!cashReceived.trim() || Number(cashReceived) < total))
+        }
         footerHint={
           editingSaleCode
             ? "Guarda cambios para actualizar la venta."

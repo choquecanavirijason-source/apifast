@@ -125,7 +125,7 @@ export default function PosSaleDrawer({
   linkAppointmentId = null,
   ticketPreviews = [],
   onGoToScheduleStep,
-  ticketMode = "individual",
+  ticketMode = "group",
   setTicketMode,
   onUpdateTicketTime,
   onUpdateCartLine,
@@ -143,7 +143,8 @@ export default function PosSaleDrawer({
   const step2Done = !!selectedClient;
   const isMixedMode = mixedPayments.length > 0;
   const mixedTotal = mixedPayments.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const step3Done = isMixedMode ? mixedTotal > 0 : !!paymentMethod;
+  const cashReceivedValid = paymentMethod !== "cash" || (cashReceived.trim() !== "" && Number(cashReceived) >= total);
+  const step3Done = isMixedMode ? mixedTotal > 0 : !!paymentMethod && cashReceivedValid;
 
   // All hooks must be declared before any conditional return (React Rules of Hooks)
   // Separa "Detalle de la venta" en pestañas (Servicios/Cliente/Pago) en vez de
@@ -217,6 +218,14 @@ export default function PosSaleDrawer({
   useEffect(() => {
     if (isOpen) setActiveStep("servicios");
   }, [isOpen]);
+
+  // Tras crear el turno / pasar a servicio, el carrito se vacía sin cerrar
+  // el panel — vuelve a "Servicios" en vez de quedarse en "Pago".
+  const prevCartCountRef = useRef(cartLines.length);
+  useEffect(() => {
+    if (cartLines.length === 0 && prevCartCountRef.current > 0) setActiveStep("servicios");
+    prevCartCountRef.current = cartLines.length;
+  }, [cartLines.length]);
 
   // No avanza sola de "Servicios" a "Cliente" al agregar el primer
   // servicio — quien vende puede querer seguir agregando más antes de pasar.
@@ -1271,7 +1280,9 @@ export default function PosSaleDrawer({
                   ? "Completa los datos del tutor (cliente menor)"
                   : isMixedMode
                     ? "Ingresa los montos del pago mixto"
-                    : "Selecciona método de pago"}
+                    : !paymentMethod
+                      ? "Selecciona método de pago"
+                      : "Ingresa el monto recibido en efectivo"}
             </p>
           )}
           <div className="flex gap-2">

@@ -273,7 +273,10 @@ export default function PosSaleStepOne({
         primaryActionDisabled={
           // Sin clienta elegida, el backend asigna el "Cliente Mostrador" de
           // la sucursal — no hace falta bloquear el cobro por eso.
-          cartCount === 0 || (mixedPayments.length === 0 && !paymentMethod) || isSubmittingCheckout
+          cartCount === 0
+          || (mixedPayments.length === 0 && !paymentMethod)
+          || (mixedPayments.length === 0 && paymentMethod === "cash" && (!cashReceived.trim() || Number(cashReceived) < total))
+          || isSubmittingCheckout
         }
         footerHint={
           linkAppointmentId

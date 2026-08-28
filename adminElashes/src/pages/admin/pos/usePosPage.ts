@@ -112,7 +112,7 @@ export function usePosPage({
   const [serviceSearch, setServiceSearch]   = useState("");
   const [selectedServiceCategoryId, setSelectedServiceCategoryId] = useState("all");
   const [sellerId, setSellerId]             = useState("");
-  const [ticketMode, setTicketMode]         = useState<"individual" | "group">("individual");
+  const [ticketMode, setTicketMode]         = useState<"individual" | "group">("group");
   const [linkAppointmentId, setLinkAppointmentId] = useState<number | null>(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
@@ -846,7 +846,8 @@ export function usePosPage({
     setClientId(""); setClientSearch(""); setServiceSearch(""); setSelectedServiceCategoryId("all");
     setPaymentMethod(""); setCashReceived(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
     sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
-    if (embedded) setActiveTab("sale");
+    setStep(1);
+    setActiveTab("sale");
   };
 
   const handleServiceSelect = (serviceId: string) => {
@@ -931,7 +932,7 @@ export function usePosPage({
         );
       }
       toast.success(`Venta completada. Tickets: ${sale.appointments.map((a) => a.ticket_code).filter(Boolean).join(", ")}`);
-      setReceiptSale(sale); resetSaleForm(); setActiveTab("lastticket");
+      setReceiptSale(sale); resetSaleForm();
       await loadContext();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Error al crear el turno."));
@@ -1046,7 +1047,6 @@ export function usePosPage({
       );
       setLinkAppointmentId(null); setReceiptSale(sale); resetSaleForm();
       await loadContext();
-      if (!embedded) navigate("/admin/pos/history");
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : getApiErrorMessage(error, "Error en la venta."));
     } finally { setIsSubmitting(false); }
