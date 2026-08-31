@@ -22,17 +22,6 @@ const dateFmt = (iso: string) =>
     ? new Date(iso).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
 
-const CARD_COLORS = [
-  { bg: "bg-violet-100", text: "text-violet-800" },
-  { bg: "bg-pink-100", text: "text-pink-800" },
-  { bg: "bg-sky-100", text: "text-sky-800" },
-  { bg: "bg-amber-100", text: "text-amber-800" },
-  { bg: "bg-emerald-100", text: "text-emerald-800" },
-  { bg: "bg-rose-100", text: "text-rose-800" },
-  { bg: "bg-indigo-100", text: "text-indigo-800" },
-  { bg: "bg-teal-100", text: "text-teal-800" },
-];
-
 function getInitials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
 }
@@ -88,18 +77,18 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
           </thead>
         <tbody>
           {rows.map(({ t, isCancelled, caja, comision, services }) => (
-            <tr key={t.id} className={isCancelled ? "bg-rose-50" : "odd:bg-white even:bg-slate-50"}>
+            <tr key={t.id} className={isCancelled ? "bg-slate-100" : "odd:bg-white even:bg-slate-50"}>
               <td className={`truncate border-b border-slate-100 px-3 py-2 font-medium ${isCancelled ? "text-slate-400 line-through" : "text-slate-800"}`} title={t.client_name || undefined}>
-                {isCancelled && <span className="mr-1 font-bold text-rose-500">✕</span>}
+                {isCancelled && <span className="mr-1 font-bold text-slate-400">✕</span>}
                 {t.client_name || "—"}
               </td>
               <td className={`truncate border-b border-slate-100 px-3 py-2 text-[10px] ${isCancelled ? "text-slate-300 line-through" : "text-slate-500"}`} title={services || undefined}>
                 {services || "—"}
               </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-blue-700"}`}>
+              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-slate-700"}`}>
                 {isCancelled ? "—" : moneyFmt.format(comision)}
               </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-emerald-700"}`}>
+              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-[#094732]"}`}>
                 {isCancelled ? "—" : moneyFmt.format(caja)}
               </td>
             </tr>
@@ -108,8 +97,8 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
         <tfoot>
           <tr className="bg-slate-100 font-bold">
             <td className="border-t-2 border-slate-300 px-3 py-2 text-slate-700" colSpan={2}>TOTAL</td>
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-blue-800">{moneyFmt.format(totalComision)}</td>
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-emerald-800">{moneyFmt.format(totalCaja)}</td>
+            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-slate-800">{moneyFmt.format(totalComision)}</td>
+            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-[#094732]">{moneyFmt.format(totalCaja)}</td>
           </tr>
         </tfoot>
         </table>
@@ -152,8 +141,8 @@ function RegisterPaymentForm({
   };
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-emerald-800">
+    <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4">
+      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#094732]">
         Registrar pago — {professional.username}
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -341,24 +330,24 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
           <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalEarned)}</p>
           <p className="text-[11px] text-slate-400">{formatCommissionRatePercent()} de tickets completados</p>
         </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total pagado</p>
-          <p className="mt-1 text-xl font-bold text-emerald-800">{moneyFmt.format(totalPaid)}</p>
-          <p className="text-[11px] text-emerald-600">
+        <div className="rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4 text-center shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#094732]">Total pagado</p>
+          <p className="mt-1 text-xl font-bold text-[#094732]">{moneyFmt.format(totalPaid)}</p>
+          <p className="text-[11px] text-[#094732]/80">
             {loadingPayments ? "…" : `${payments.length} registro${payments.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pendiente</p>
-          <p className="mt-1 text-xl font-bold text-amber-800">{moneyFmt.format(totalPending)}</p>
-          <p className="text-[11px] text-amber-600">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendiente</p>
+          <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalPending)}</p>
+          <p className="text-[11px] text-slate-500">
             {proStats.filter((s) => s.pending > 0).length} operaria{proStats.filter((s) => s.pending > 0).length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
       {selectedProfessionalId !== null && visibleProfessionals[0] && (
-        <p className="text-xs font-semibold text-[#0078d4]">
+        <p className="text-xs font-semibold text-slate-600">
           Mostrando solo a {visibleProfessionals[0].username} — elegido en "Historial de tickets".
         </p>
       )}
@@ -370,8 +359,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
       )}
 
       {/* Tarjetas por operaria */}
-      {proStats.map(({ pro, index, earned, paid, pending, isPaid, totalCaja, proPayments, sortedTickets, completedCount, cancelledCount }) => {
-        const color = CARD_COLORS[index % CARD_COLORS.length];
+      {proStats.map(({ pro, earned, paid, pending, isPaid, totalCaja, proPayments, sortedTickets, completedCount, cancelledCount }) => {
         const isExpanded = expandedId === pro.id;
         const isRegistering = registeringId === pro.id;
 
@@ -379,7 +367,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
           <SectionCard key={pro.id} bodyClassName="!p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                isPaid ? "bg-emerald-500 text-white" : earned > 0 ? "bg-amber-400 text-white" : `${color.bg} ${color.text}`
+                isPaid ? "bg-[#094732] text-white" : "bg-slate-200 text-slate-600"
               }`}>
                 {getInitials(pro.username)}
               </div>
@@ -387,14 +375,14 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-slate-800">{pro.username}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className="font-semibold text-emerald-700">{completedCount} completados</span>
+                  <span className="font-semibold text-[#094732]">{completedCount} completados</span>
                   {cancelledCount > 0 && (
-                    <span className="font-semibold text-rose-500">{cancelledCount} cancelados</span>
+                    <span className="font-semibold text-slate-500">{cancelledCount} cancelados</span>
                   )}
                   <span className="text-slate-300">·</span>
                   <span>Caja: <strong className="text-slate-700">{moneyFmt.format(totalCaja)}</strong></span>
                   <span className="text-slate-300">·</span>
-                  <span>Comisión: <strong className="text-blue-700">{moneyFmt.format(earned)}</strong></span>
+                  <span>Comisión: <strong className="text-slate-700">{moneyFmt.format(earned)}</strong></span>
                 </div>
               </div>
 
@@ -404,11 +392,11 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                     Sin comisión
                   </span>
                 ) : isPaid ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf5] px-3 py-1 text-[11px] font-bold text-[#094732]">
                     <CheckCircle className="h-3.5 w-3.5" />Pagado
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">
                     <Clock className="h-3.5 w-3.5" />Pendiente {moneyFmt.format(pending)}
                   </span>
                 )}
@@ -448,7 +436,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
-                    className="h-2 rounded-full bg-emerald-500 transition-all"
+                    className="h-2 rounded-full bg-[#094732] transition-all"
                     style={{ width: `${Math.min(100, earned > 0 ? (paid / earned) * 100 : 0)}%` }}
                   />
                 </div>
@@ -488,12 +476,12 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                       {proPayments.map((p) => (
                         <div
                           key={p.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-[#094732]/15 bg-[#ecfdf5] px-3 py-2"
                         >
                           <div className="flex items-center gap-3">
-                            <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
+                            <CheckCircle className="h-4 w-4 shrink-0 text-[#094732]" />
                             <div>
-                              <p className="text-xs font-bold text-emerald-700">{moneyFmt.format(p.amount)}</p>
+                              <p className="text-xs font-bold text-[#094732]">{moneyFmt.format(p.amount)}</p>
                               <p className="text-[11px] text-slate-500">
                                 {dateFmt(p.registered_at)}
                                 {p.period_start && <> · {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}</>}
