@@ -20,6 +20,7 @@ export interface CashSessionOut {
   expected_cash: number | null;
   counted_amount: number | null;
   difference: number | null;
+  next_fund_amount: number | null;
   notes: string | null;
 }
 
@@ -73,10 +74,11 @@ export const CashSessionService = {
     return res.data;
   },
 
-  async close(sessionId: number, countedAmount: number, notes?: string): Promise<CashSessionOut> {
+  async close(sessionId: number, countedAmount: number, notes: string | undefined, nextFundAmount: number): Promise<CashSessionOut> {
     const res = await api.post<CashSessionOut>(`/cash-sessions/${sessionId}/close`, {
       notes,
       counted_amount: countedAmount,
+      next_fund_amount: nextFundAmount,
     });
     return res.data;
   },

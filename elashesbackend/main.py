@@ -73,6 +73,7 @@ import app.infrastructure.database.migrations.add_expenses_table as m40
 import app.infrastructure.database.migrations.add_cash_session_fields as m41
 import app.infrastructure.database.migrations.add_cash_reconciliation_fields as m42
 import app.infrastructure.database.migrations.add_cash_received_to_payments as m43
+import app.infrastructure.database.migrations.add_cash_close_next_fund_amount as m44
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -144,6 +145,7 @@ async def lifespan(app: FastAPI):
         ("cash_session_fields", m41.upgrade),
         ("cash_reconciliation_fields", m42.upgrade),
         ("cash_received_to_payments", m43.upgrade),
+        ("cash_close_next_fund_amount", m44.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
