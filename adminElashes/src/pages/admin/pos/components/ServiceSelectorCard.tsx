@@ -56,7 +56,7 @@ export default function ServiceSelectorCard({
       <div className="shrink-0 p-4 sm:p-5">
         <div className="flex flex-col md:flex-row gap-4 items-end">
           {/* Input de Búsqueda */}
-          <div className="flex-1 w-full" ref={serviceComboboxRef}>
+          <div className="flex-1 w-full" ref={serviceComboboxRef} data-tour="pos-search">
             <label className={labelClass}>Buscar Producto o Servicio</label>
             <div className="relative">
               <input

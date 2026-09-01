@@ -749,7 +749,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
         bodyClassName="!overflow-y-auto"
       >
         <div className="min-h-[78vh]">
-          <PosPage embedded initialDate={selectedDate} />
+          <PosPage embedded hideTutorial initialDate={selectedDate} />
         </div>
       </GenericModal>
     </div>

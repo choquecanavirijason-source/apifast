@@ -141,6 +141,8 @@ export type PosSaleStepOneProps = {
   onUpdateCartLine?: (localId: string, patch: Partial<{ date: string; time: string; without_time: boolean; time_manual: boolean }>) => void;
   /** URL de la imagen QR de pago estático de la sucursal activa. */
   branchQrImageUrl?: string | null;
+  /** Fuerza la pestaña interna del panel de venta — usado por el tour guiado. */
+  drawerForceStep?: "servicios" | "cliente" | "pago" | null;
 };
 
 export type PosSaleStepTwoProps = {

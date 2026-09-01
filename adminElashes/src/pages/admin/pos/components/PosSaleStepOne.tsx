@@ -77,6 +77,7 @@ export default function PosSaleStepOne({
   setTicketMode,
   onUpdateTicketTime,
   branchQrImageUrl,
+  drawerForceStep = null,
 }: PosSaleStepOneProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
@@ -300,6 +301,7 @@ export default function PosSaleStepOne({
         onUpdateTicketTime={onUpdateTicketTime}
         onUpdateCartLine={(localId, patch) => onUpdateLine(localId, patch)}
         branchQrImageUrl={branchQrImageUrl}
+        forceStep={drawerForceStep}
       />
     </div>
   );

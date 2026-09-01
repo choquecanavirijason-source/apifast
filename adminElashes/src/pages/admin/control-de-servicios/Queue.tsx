@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronDown, Plus, RefreshCw, Tv2, Users } from "lucide-react";
+import { ChevronDown, HelpCircle, Plus, RefreshCw, Tv2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
@@ -47,7 +47,9 @@ import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
 import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
+import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/QueueTutorialModal";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
+import useAuth from "../../../core/hooks/useAuth";
 
 // TEMPORAL (2026-08-17): Control de servicios normalmente solo muestra las
 // citas del día seleccionado. Para agilizar pruebas end-to-end (reservar
@@ -77,6 +79,21 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [countdown, setCountdown] = useState(15);
   const [tvMode, setTvMode] = useState(false);
   const [operariasOpen, setOperariasOpen] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const { user } = useAuth();
+  const tutorialStorageKey = useMemo(() => getQueueTutorialStorageKey(user?.id), [user?.id]);
+
+  // Primera vez que este usuario entra al tablero de atención: mostrar la
+  // guía rápida. La key es por usuario, no por navegador, porque varias
+  // operarias suelen compartir la misma laptop.
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      if (!localStorage.getItem(tutorialStorageKey)) setShowTutorial(true);
+    } catch {
+      // localStorage puede fallar en modo privado — simplemente no se muestra.
+    }
+  }, [tutorialStorageKey, user?.id]);
   const [filterService] = useState("");
   const [filterClient] = useState("");
   const [filterDate] = useState(todayDate());
@@ -1104,6 +1121,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
+          data-tour="queue-call-next"
           onClick={() => void handleCallNext()}
           disabled={waitingTickets.length === 0 || isLoading}
           className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-xs font-semibold transition-all ${
@@ -1145,6 +1163,15 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         >
           <Tv2 className="h-3.5 w-3.5" />
         </button>
+
+        <button
+          type="button"
+          onClick={() => setShowTutorial(true)}
+          title="Ver guía rápida del tablero"
+          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
       </div>
 
     </div>
@@ -1163,6 +1190,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       >
           <DroppableColumn
             id="waiting"
+            dataTour="queue-col-waiting"
             title="En espera"
             subtitle="Tickets pendientes del día"
             tickets={waitingTickets}
@@ -1207,6 +1235,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
           <DroppableColumn
             id="in_service"
+            dataTour="queue-col-inservice"
             title="En servicio"
             subtitle="Atenciones en curso"
             tickets={inServiceTickets}
@@ -1251,6 +1280,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
           <DroppableColumn
             id="completed"
+            dataTour="queue-col-completed"
             title="Finalizadas"
             subtitle="Atenciones completadas"
             tickets={completedTickets}
@@ -1599,6 +1629,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             onClose={() => setTvMode(false)}
           />
         )}
+        {showTutorial && (
+          <QueueTutorialModal onClose={() => setShowTutorial(false)} storageKey={tutorialStorageKey} />
+        )}
       </>
     );
   }
@@ -1622,6 +1655,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           inServiceTickets={inServiceTickets}
           onClose={() => setTvMode(false)}
         />
+      )}
+      {showTutorial && (
+        <QueueTutorialModal onClose={() => setShowTutorial(false)} storageKey={tutorialStorageKey} />
       )}
     </>
   );

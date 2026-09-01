@@ -1,5 +1,5 @@
-﻿import { useState } from "react";
-import { Building2, CalendarDays, Package, ShoppingCart, Wrench } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Building2, CalendarDays, HelpCircle, Package, ShoppingCart, Wrench } from "lucide-react";
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
@@ -11,8 +11,10 @@ import PosSaleStepOne from "./components/PosSaleStepOne";
 import PosSaleStepTwo from "./components/PosSaleStepTwo";
 import PosReceiptModals from "./components/PosReceiptModals";
 import TodayTicketsSummary from "./components/TodayTicketsSummary";
+import PosTutorialModal, { getPosTutorialStorageKey } from "./components/PosTutorialModal";
 import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
 import { usePosPage } from "./usePosPage";
+import useAuth from "../../../core/hooks/useAuth";
 
 const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
 const labelClass = "block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5";
@@ -25,11 +27,34 @@ export type PosPageProps = {
   onPendingPaymentCountChange?: (count: number) => void;
   cartDrawerSignal?: number;
   onRequestSwitchToPos?: () => void;
+  /** No mostrar el tour automático de bienvenida — para embebidos secundarios
+   * (ej. "venta rápida" dentro del Calendario) donde no tiene sentido un
+   * onboarding de "primer contacto". El hub de Caja POS (Caja y seguimiento)
+   * también monta el POS embebido pero SÍ es la pantalla principal de venta,
+   * así que ahí el tour debe mostrarse igual. */
+  hideTutorial?: boolean;
 };
 
-export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal }: PosPageProps) {
+export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false }: PosPageProps) {
   const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal });
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
+  const { user } = useAuth();
+  const tutorialStorageKey = useMemo(() => getPosTutorialStorageKey(user?.id), [user?.id]);
+
+  // Primera vez que este usuario entra al POS (en cualquier navegador/PC):
+  // mostrar la guía rápida — no aplica a embebidos secundarios (ver
+  // hideTutorial arriba). La key es por usuario, no por navegador, porque
+  // varias operarias suelen compartir la misma laptop.
+  useEffect(() => {
+    if (hideTutorial || !user?.id) return;
+    try {
+      if (!localStorage.getItem(tutorialStorageKey)) setShowTutorial(true);
+    } catch {
+      // localStorage puede fallar en modo privado — simplemente no se muestra.
+    }
+  }, [hideTutorial, tutorialStorageKey, user?.id]);
 
   return (
     <Layout
@@ -63,7 +88,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       contentClassName="flex-1 min-h-0 overflow-hidden"
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
-          <div className="inline-flex rounded-sm border border-[#edebe9] bg-[#faf9f8] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+          <div data-tour="pos-tabs" className="inline-flex rounded-sm border border-[#edebe9] bg-[#faf9f8] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             {(["sale", "history", "lastticket"] as const).map((tab) => (
               <button
                 key={tab}
@@ -91,9 +116,18 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             ))}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTutorial(true)}
+              title="Ver guía rápida del POS"
+              className="flex items-center gap-1.5 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-xs font-medium text-[#605e5c] transition-colors hover:bg-[#f3f2f1]"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
             {pos.activeTab === "sale" && pos.step === 1 && (
               <button
                 type="button"
+                data-tour="pos-cart-btn"
                 onClick={() => pos.setIsCartOpen((prev) => !prev)}
                 title={pos.isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
                 className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
@@ -239,6 +273,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             onUpdateTicketTime={pos.handleUpdateTicketTime}
             onUpdateCartLine={(localId, patch) => pos.updateLine(localId, patch)}
             branchQrImageUrl={pos.branches.find((b) => b.id === pos.activeBranchId)?.qr_image_url ?? null}
+            drawerForceStep={tourDrawerStep}
           />
 
         /* ── Sale step 2 ─────────────────────────────────────────────── */
@@ -464,6 +499,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           }}
           onDecrementSelection={pos.removeLastCartLineForService}
         />
+
+        {showTutorial && (
+          <PosTutorialModal
+            onClose={() => setShowTutorial(false)}
+            setIsCartOpen={pos.setIsCartOpen}
+            setDrawerForceStep={setTourDrawerStep}
+            storageKey={tutorialStorageKey}
+          />
+        )}
       </div>
     </Layout>
   );

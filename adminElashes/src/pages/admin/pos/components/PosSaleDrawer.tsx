@@ -75,6 +75,10 @@ type PosSaleDrawerProps = {
   onImmediateCheckout?: (payLater: boolean, startService?: boolean) => void;
   /** URL de la imagen QR estático de pago de la sucursal. */
   branchQrImageUrl?: string | null;
+  /** Fuerza qué pestaña interna (servicios/cliente/pago) mostrar — usado por
+   * el tour guiado del POS para resaltar cada sección sin depender de que
+   * el carrito tenga datos reales cargados. */
+  forceStep?: "servicios" | "cliente" | "pago" | null;
 };
 
 export default function PosSaleDrawer({
@@ -134,6 +138,7 @@ export default function PosSaleDrawer({
   onApplySellerToAllLines,
   onImmediateCheckout,
   branchQrImageUrl,
+  forceStep = null,
 }: PosSaleDrawerProps) {
   const isPanel = mode === "panel";
 
@@ -218,6 +223,11 @@ export default function PosSaleDrawer({
   useEffect(() => {
     if (isOpen) setActiveStep("servicios");
   }, [isOpen]);
+
+  // El tour guiado del POS controla qué pestaña se muestra desde afuera.
+  useEffect(() => {
+    if (forceStep) setActiveStep(forceStep);
+  }, [forceStep]);
 
   // Tras crear el turno / pasar a servicio, el carrito se vacía sin cerrar
   // el panel — vuelve a "Servicios" en vez de quedarse en "Pago".
@@ -342,7 +352,7 @@ export default function PosSaleDrawer({
   );
 
   const panelProgress = (
-    <div className="shrink-0 flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
+    <div data-tour="pos-drawer-tabs" className="shrink-0 flex items-center gap-0 border-b border-[#edebe9] bg-[#f3f2f1]">
       {([
         { key: "servicios", label: "Servicios", done: step1Done, active: activeStep === "servicios" },
         { key: "cliente", label: "Cliente", done: step2Done, active: activeStep === "cliente" },
@@ -539,7 +549,7 @@ export default function PosSaleDrawer({
       {activeStep === "cliente" && (
       <div className="pb-4">
         {/* Cliente */}
-        <div className="relative">
+        <div className="relative" data-tour="pos-drawer-client-search">
         <div
           className={`border-b px-4 py-4 border-[#edebe9] ${stepBorder(step2Done, step1Done && !step2Done)} ${step1Done && !step2Done ? "bg-[#ecfdf5]" : ""} transition-[filter,opacity] duration-200 ${!step1Done ? "blur-[3px] opacity-40 pointer-events-none select-none" : ""}`}
         >
@@ -797,7 +807,7 @@ export default function PosSaleDrawer({
           const isBusy = selectedPro?.is_busy === true;
           const hasActiveToday = (selectedPro?.active_count_today ?? 0) > 0;
           return (
-            <div className={`border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
+            <div data-tour="pos-drawer-operaria" className={`border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
               <label className="mb-2 block text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Operaria</label>
               <div className="relative" ref={sellerDropdownRef}>
                 <button
@@ -912,7 +922,7 @@ export default function PosSaleDrawer({
         })()}
 
         {/* Descuento + Método de pago + Notas */}
-        <div className={`space-y-4 border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)} ${step2Done && !step3Done ? "bg-[#fffdf5]" : ""}`}>
+        <div data-tour="pos-drawer-payment" className={`space-y-4 border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)} ${step2Done && !step3Done ? "bg-[#fffdf5]" : ""}`}>
           <div>
             <label className={labelClass} htmlFor="pos-drawer-discount">Descuento</label>
             <div className="flex gap-2">
@@ -1285,7 +1295,7 @@ export default function PosSaleDrawer({
                       : "Ingresa el monto recibido en efectivo"}
             </p>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2" data-tour="pos-drawer-checkout-buttons">
             <button
               type="button"
               disabled={cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting}
