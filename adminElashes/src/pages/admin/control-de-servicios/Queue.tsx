@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronDown, RefreshCw, Tv2, Users } from "lucide-react";
+import { ChevronDown, HelpCircle, Plus, RefreshCw, Tv2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
@@ -47,7 +47,9 @@ import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
 import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
+import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/QueueTutorialModal";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
+import useAuth from "../../../core/hooks/useAuth";
 
 // TEMPORAL (2026-08-17): Control de servicios normalmente solo muestra las
 // citas del día seleccionado. Para agilizar pruebas end-to-end (reservar
@@ -77,6 +79,21 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const [countdown, setCountdown] = useState(15);
   const [tvMode, setTvMode] = useState(false);
   const [operariasOpen, setOperariasOpen] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const { user } = useAuth();
+  const tutorialStorageKey = useMemo(() => getQueueTutorialStorageKey(user?.id), [user?.id]);
+
+  // Primera vez que este usuario entra al tablero de atención: mostrar la
+  // guía rápida. La key es por usuario, no por navegador, porque varias
+  // operarias suelen compartir la misma laptop.
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      if (!localStorage.getItem(tutorialStorageKey)) setShowTutorial(true);
+    } catch {
+      // localStorage puede fallar en modo privado — simplemente no se muestra.
+    }
+  }, [tutorialStorageKey, user?.id]);
   const [filterService] = useState("");
   const [filterClient] = useState("");
   const [filterDate] = useState(todayDate());
@@ -124,8 +141,16 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
   const REFRESH_INTERVAL = 45;
 
+  // El polling (cada 45s) y el WS pueden disparar varios loadTickets() en
+  // paralelo (p. ej. uno arrancó justo antes de mover un ticket y responde
+  // después). Sin esto, esa respuesta vieja pisaba el cambio recién hecho
+  // con el estado de antes — el ticket "volvía" hasta el próximo refresh.
+  // Solo se aplica la respuesta de la petición más reciente.
+  const loadTicketsRequestIdRef = useRef(0);
+
   const loadTickets = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
+    const requestId = ++loadTicketsRequestIdRef.current;
     try {
       const today = todayDate();
       const data = await AgendaService.listTickets({
@@ -134,15 +159,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         start_date: SHOW_ALL_DATES_FOR_TESTING ? today : (filterDate || today),
         end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
+      if (requestId !== loadTicketsRequestIdRef.current) return;
       setTickets(data);
       setLastRefresh(new Date());
       setCountdown(REFRESH_INTERVAL);
     } catch (error) {
+      if (requestId !== loadTicketsRequestIdRef.current) return;
       console.error("Error cargando tickets:", error);
       if (!silent) toast.error("No se pudo cargar el tablero de atencion.");
       if (!silent) setTickets([]);
     } finally {
-      if (!silent) setIsLoading(false);
+      if (requestId === loadTicketsRequestIdRef.current && !silent) setIsLoading(false);
     }
   }, [activeBranchId, filterDate]);
 
@@ -292,28 +319,15 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     return `${y}-${m}-${d}T${h}:${mi}:${s}`;
   };
 
-  const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => {
-    const saleMap = new Map<number, TicketItem[]>();
-    const noSale: TicketItem[] = [];
-    for (const t of ticketList) {
-      if (t.sale_id) {
-        const group = saleMap.get(t.sale_id) ?? [];
-        group.push(t);
-        saleMap.set(t.sale_id, group);
-      } else {
-        noSale.push(t);
-      }
-    }
-    const result: TicketItem[] = [...noSale];
-    for (const group of saleMap.values()) {
-      const primary = group[0];
-      const allNames = [...new Set(
-        group.flatMap((t) => t.service_names ?? (t.service_name ? [t.service_name] : []))
-      )];
-      result.push({ ...primary, service_names: allNames });
-    }
-    return result;
-  };
+  // Cada ticket de la agenda es su propia tarjeta independiente, aunque
+  // venga de la misma venta — el modo "Separados" del POS crea un
+  // Appointment por servicio justamente para que cada uno se pueda asignar,
+  // iniciar, mover y finalizar por separado (distinta operaria, distinto
+  // horario). Antes esto agrupaba por sale_id en una sola tarjeta con "+N",
+  // lo cual deshacía visualmente esa separación. El modo "Junto" no necesita
+  // agrupamiento: ya crea un solo Appointment con varios service_ids, que
+  // llega aquí con su propio service_names ya completo.
+  const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => ticketList;
 
   const filteredTickets = useMemo(() => {
     const serviceTerm = filterService.trim().toLowerCase();
@@ -407,6 +421,15 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
   const operariaStatuses = useOperariaStatuses(tickets, professionals);
 
+  // El selector "Asignar operaria" del popup de edición usaba `professional.is_busy`
+  // (una foto de `professionals` que solo se refresca en ciertos puntos), por eso
+  // podía mostrar "Libre" a una operaria que el tablero ya sabía "En servicio".
+  // `operariaStatuses` se deriva en vivo de `tickets`, así que es la fuente correcta.
+  const busyProfessionalIds = useMemo(
+    () => new Set(operariaStatuses.filter((o) => o.currentStatus === "in_service").map((o) => o.professionalId)),
+    [operariaStatuses]
+  );
+
   const handleNoShow = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
@@ -462,6 +485,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
+    if (isGroupBusy(allIds)) return;
+    markGroupBusy(allIds);
     const snapshot = tickets;
     applyGroupMoveLocally(allIds, { status: "in_service" });
     try {
@@ -477,6 +502,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       setTickets(snapshot);
       console.error("Error iniciando atención:", error);
       toast.error(getApiErrorMessage(error, "No se pudo iniciar la atención."));
+    } finally {
+      clearGroupBusy(allIds);
     }
   };
 
@@ -633,6 +660,17 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     setIsDraggingBoard(false);
   };
 
+  // IDs de tickets con una petición de cambio de estado en curso — evita que
+  // un doble clic (o arrastrar rápido) dispare dos peticiones superpuestas
+  // para el mismo grupo, que pueden resolver en distinto orden y dejar a los
+  // tickets hermanos de una venta con un status distinto entre sí (el grupo
+  // se "parte" visualmente hasta el próximo refresh).
+  const pendingTicketIdsRef = useRef<Set<number>>(new Set());
+
+  const isGroupBusy = (ids: number[]) => ids.some((id) => pendingTicketIdsRef.current.has(id));
+  const markGroupBusy = (ids: number[]) => ids.forEach((id) => pendingTicketIdsRef.current.add(id));
+  const clearGroupBusy = (ids: number[]) => ids.forEach((id) => pendingTicketIdsRef.current.delete(id));
+
   const applyTicketMoveLocally = (ticketId: number, patch: Partial<TicketItem>) => {
     setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, ...patch } : t)));
   };
@@ -641,11 +679,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     setTickets((prev) => prev.map((t) => (ids.includes(t.id) ? { ...t, ...patch } : t)));
   };
 
-  // Returns IDs of other tickets in the same sale (sibling tickets created "juntos")
-  const getSiblingIds = (ticket: TicketItem): number[] => {
-    if (!ticket.sale_id) return [];
-    return tickets.filter((t) => t.sale_id === ticket.sale_id && t.id !== ticket.id).map((t) => t.id);
-  };
+  // Cada ticket se mueve/asigna/finaliza de forma independiente, aunque
+  // comparta sale_id con otros (ver comentario de mergeTicketsBySaleId).
+  const getSiblingIds = (_ticket: TicketItem): number[] => [];
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragTicket(null);
@@ -671,15 +707,20 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       if (ticket.is_ia) return;
 
       const allIds = [ticketId, ...siblingIds];
+      if (isGroupBusy(allIds)) return;
+      markGroupBusy(allIds);
       const snapshot = tickets;
       applyGroupMoveLocally(allIds, { is_ia: true });
       try {
         await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { is_ia: true })));
         toast.success("Ticket movido a Tickets con IA.");
+        void loadTickets(true);
       } catch (error) {
         setTickets(snapshot);
         console.error("Error moviendo ticket a IA:", error);
         toast.error(getApiErrorMessage(error, "No se pudo mover el ticket a IA."));
+      } finally {
+        clearGroupBusy(allIds);
       }
       return;
     }
@@ -699,6 +740,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
 
     const allIds = [ticketId, ...siblingIds];
+    if (isGroupBusy(allIds)) return;
+    markGroupBusy(allIds);
     const snapshot = tickets;
     applyGroupMoveLocally(allIds, { status: newStatus, is_ia: false });
 
@@ -709,10 +752,13 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         skip_availability_check: true,
       })));
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
+      void loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
       console.error("Error moviendo ticket:", error);
       toast.error(getApiErrorMessage(error, "No se pudo mover el ticket."));
+    } finally {
+      clearGroupBusy(allIds);
     }
   };
 
@@ -724,6 +770,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const handleMarkCompleted = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
+    if (isGroupBusy(allIds)) return;
+    markGroupBusy(allIds);
     const snapshot = tickets;
     applyGroupMoveLocally(allIds, { status: "completed" });
     try {
@@ -735,6 +783,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       setTickets(snapshot);
       console.error("Error finalizando ticket:", error);
       toast.error(getApiErrorMessage(error, "No se pudo finalizar el ticket."));
+    } finally {
+      clearGroupBusy(allIds);
     }
   };
 
@@ -763,9 +813,19 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       : 60 * 60 * 1000;
     const nextEnd = new Date(nextStart.getTime() + durationMs);
 
+    // La operaria se asigna a TODO el grupo (mismos service_names de una
+    // misma venta), no solo al ticket "principal" que muestra la tarjeta —
+    // si no, los demás quedaban sin operaria y al pasar a "En servicio" se
+    // separaban del grupo sin validar el choque de horario de la operaria.
+    const siblingIds = getSiblingIds(ticket);
+    const allIds = [ticket.id, ...siblingIds];
+    if (isGroupBusy(allIds)) return;
+    markGroupBusy(allIds);
+    const professionalId = payload.professionalId ? Number(payload.professionalId) : null;
+
     const snapshot = tickets;
-    applyTicketMoveLocally(ticket.id, {
-      professional_id: payload.professionalId ? Number(payload.professionalId) : null,
+    applyGroupMoveLocally(allIds, {
+      professional_id: professionalId,
       is_ia: payload.isIa,
     });
     setEditingTicketId(ticket.id);
@@ -773,13 +833,18 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       await AgendaService.updateAppointment(ticket.id, {
         start_time: formatLocalDateTime(nextStart),
         end_time: formatLocalDateTime(nextEnd),
-        professional_id: payload.professionalId ? Number(payload.professionalId) : null,
+        professional_id: professionalId,
         is_ia: payload.isIa,
         // Este popup ya no deja tocar fecha/hora, solo operaria — no tiene
         // sentido bloquear por choque de horario: se la está poniendo en su
         // cola para cuando se libere, no reservando ese horario exacto.
         skip_availability_check: true,
       });
+      await Promise.all(siblingIds.map((id) => AgendaService.updateAppointment(id, {
+        professional_id: professionalId,
+        is_ia: payload.isIa,
+        skip_availability_check: true,
+      })));
 
       toast.success("Ticket actualizado.");
       void loadTickets();
@@ -789,6 +854,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       toast.error("No se pudo actualizar fecha, hora u operaria del ticket.");
     } finally {
       setEditingTicketId(null);
+      clearGroupBusy(allIds);
     }
   };
 
@@ -847,6 +913,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       });
       setClients((prev) => [{ id: created.id, nombre: created.nombre, apellido: created.apellido, phone: created.phone }, ...prev]);
       await handleChangeTicketClient(registerClientTarget, String(created.id));
+      // Si se registró desde el modal de "Finalizar atención", ese modal
+      // tiene su propia copia del ticket (finishTarget) — sincronizarla
+      // también, si no, se sigue viendo la clienta anterior hasta cerrarlo.
+      setFinishTarget((prev) =>
+        prev && prev.id === registerClientTarget.id
+          ? { ...prev, client_id: created.id, client_name: `${created.nombre} ${created.apellido}`.trim() }
+          : prev
+      );
       toast.success("Clienta registrada y asignada al ticket.");
       setRegisterClientTarget(null);
     } catch (error) {
@@ -1047,6 +1121,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
+          data-tour="queue-call-next"
           onClick={() => void handleCallNext()}
           disabled={waitingTickets.length === 0 || isLoading}
           className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-xs font-semibold transition-all ${
@@ -1088,6 +1163,15 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         >
           <Tv2 className="h-3.5 w-3.5" />
         </button>
+
+        <button
+          type="button"
+          onClick={() => setShowTutorial(true)}
+          title="Ver guía rápida del tablero"
+          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
       </div>
 
     </div>
@@ -1106,6 +1190,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       >
           <DroppableColumn
             id="waiting"
+            dataTour="queue-col-waiting"
             title="En espera"
             subtitle="Tickets pendientes del día"
             tickets={waitingTickets}
@@ -1116,6 +1201,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
                 onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
                 onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
@@ -1149,6 +1235,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
           <DroppableColumn
             id="in_service"
+            dataTour="queue-col-inservice"
             title="En servicio"
             subtitle="Atenciones en curso"
             tickets={inServiceTickets}
@@ -1159,6 +1246,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
                 onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
                 onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
@@ -1192,6 +1280,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
           <DroppableColumn
             id="completed"
+            dataTour="queue-col-completed"
             title="Finalizadas"
             subtitle="Atenciones completadas"
             tickets={completedTickets}
@@ -1202,6 +1291,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 key={ticket.id}
                 ticket={ticket}
                 professionals={professionals}
+                busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
                 onChangeClient={(t, clientId) => void handleChangeTicketClient(t, clientId)}
                 onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
@@ -1357,32 +1447,42 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
               <div>
                 <label className={BC_LABEL}>Servicio(s)</label>
-                <p className={`${BC_FIELD} flex items-center bg-[#f3f2f1] text-[#323130]`}>
+                <p className="min-h-9 w-full rounded-sm border border-[#8a8886] bg-[#f3f2f1] px-2.5 py-1.5 text-sm leading-snug text-[#323130]">
                   {finishPreview?.serviceNames.join(" + ") || "—"}
                 </p>
               </div>
 
               <div>
                 <label className={BC_LABEL}>Clienta</label>
-                <select
-                  value={String(finishTarget?.client_id ?? "")}
-                  onChange={(event) => {
-                    if (!finishTarget) return;
-                    const clientId = event.target.value;
-                    const client = clients.find((c) => String(c.id) === clientId);
-                    setFinishTarget({
-                      ...finishTarget,
-                      client_id: Number(clientId),
-                      client_name: client ? `${client.nombre} ${client.apellido}`.trim() : finishTarget.client_name,
-                    });
-                    void handleChangeTicketClient(finishTarget, clientId);
-                  }}
-                  className={BC_FIELD}
-                >
-                  {clients.map((c) => (
-                    <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
-                  ))}
-                </select>
+                <div className="flex gap-1.5">
+                  <select
+                    value={String(finishTarget?.client_id ?? "")}
+                    onChange={(event) => {
+                      if (!finishTarget) return;
+                      const clientId = event.target.value;
+                      const client = clients.find((c) => String(c.id) === clientId);
+                      setFinishTarget({
+                        ...finishTarget,
+                        client_id: Number(clientId),
+                        client_name: client ? `${client.nombre} ${client.apellido}`.trim() : finishTarget.client_name,
+                      });
+                      void handleChangeTicketClient(finishTarget, clientId);
+                    }}
+                    className={`${BC_FIELD} min-w-0 flex-1`}
+                  >
+                    {clients.map((c) => (
+                      <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => finishTarget && setRegisterClientTarget(finishTarget)}
+                    title="Registrar nueva clienta"
+                    className="flex shrink-0 items-center gap-1 rounded-sm border border-[#094732] bg-[#094732] px-2.5 text-xs font-semibold text-white transition hover:bg-[#063324]"
+                  >
+                    <Plus size={13} /> Nueva
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1529,6 +1629,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             onClose={() => setTvMode(false)}
           />
         )}
+        {showTutorial && (
+          <QueueTutorialModal onClose={() => setShowTutorial(false)} storageKey={tutorialStorageKey} />
+        )}
       </>
     );
   }
@@ -1552,6 +1655,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           inServiceTickets={inServiceTickets}
           onClose={() => setTvMode(false)}
         />
+      )}
+      {showTutorial && (
+        <QueueTutorialModal onClose={() => setShowTutorial(false)} storageKey={tutorialStorageKey} />
       )}
     </>
   );

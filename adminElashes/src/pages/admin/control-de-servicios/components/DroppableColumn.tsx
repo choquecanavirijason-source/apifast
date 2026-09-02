@@ -9,6 +9,7 @@ export default function DroppableColumn({
   isEmptyLabel,
   renderCard,
   highlightTicket,
+  dataTour,
 }: {
   id: string;
   title: string;
@@ -17,12 +18,13 @@ export default function DroppableColumn({
   isEmptyLabel: string;
   renderCard: (ticket: TicketItem) => ReactNode;
   highlightTicket?: (ticket: TicketItem) => boolean;
+  dataTour?: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const hasTickets = tickets.length > 0;
 
   return (
-    <div className="flex min-h-0 h-full flex-col border border-[#c8c6c4] bg-white">
+    <div data-tour={dataTour} className="flex min-h-0 h-full flex-col border border-[#c8c6c4] bg-white">
       {/* Column header — compacto */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#c8c6c4] bg-[#f3f2f1] px-2 py-1.5">
         <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Plus, Pencil, Trash2, Tag, Eye, EyeOff, Upload, ImageIcon,
-  LayoutList, LayoutGrid, PackagePlus, Search, Loader2, Check,
+  LayoutList, LayoutGrid, PackagePlus, Search, Loader2, Check, FileDown,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -11,6 +11,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, InputField, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminCategories,
@@ -233,6 +234,28 @@ export default function CategoriesPage() {
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (c) => setDeleteTarget(c), variant: "danger" },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Categorías del Marketplace",
+      filename: "categorias-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Categorías", value: String(categories.length) },
+        { label: "Activas", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "name", header: "Categoría" },
+        { key: "description", header: "Descripción" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: categories.map((cat) => ({
+        name: cat.name,
+        description: cat.description || "—",
+        is_active: cat.is_active ? "Activa" : "Inactiva",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -253,6 +276,7 @@ export default function CategoriesPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>PDF</Button>
           <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>Nueva categoría</Button>
         </div>
       }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Layers, Plus, Pencil, Trash2, Upload, Eye, EyeOff,
-  ShoppingBag, Package, X, Search, Tag,
+  ShoppingBag, Package, X, Search, Tag, FileDown,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -11,6 +11,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, InputField, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminCollections,
@@ -405,6 +406,28 @@ export default function CollectionsPage() {
 
   // ── toolbar ───────────────────────────────────────────────────────────────
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Colecciones del Marketplace",
+      filename: "colecciones-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Colecciones", value: String(collections.length) },
+        { label: "Activas", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "name", header: "Colección" },
+        { key: "product_count", header: "Productos" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: collections.map((c) => ({
+        name: c.name,
+        product_count: c.product_count,
+        is_active: c.is_active ? "Activa" : "Inactiva",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -417,9 +440,14 @@ export default function CollectionsPage() {
         </div>
       }
       right={
-        <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
-          Nueva colección
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
+          <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
+            Nueva colección
+          </Button>
+        </div>
       }
     />
   );

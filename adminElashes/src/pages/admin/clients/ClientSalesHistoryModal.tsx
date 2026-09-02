@@ -392,6 +392,19 @@ export default function ClientSalesHistoryModal({
         render: (p) => <StatusBadge status={p.method} />,
       },
       {
+        key: "cash_received",
+        header: "Recibido / Vuelto",
+        render: (p) =>
+          p.method === "cash" && p.cash_received != null ? (
+            <span className="text-xs text-slate-600">
+              {formatMoney(p.cash_received)} <span className="text-slate-400">·</span>{" "}
+              <span className="font-semibold text-emerald-700">vuelto {formatMoney(p.cash_change ?? 0)}</span>
+            </span>
+          ) : (
+            <span className="text-slate-300">—</span>
+          ),
+      },
+      {
         key: "status",
         header: "Estado",
         sortable: true,

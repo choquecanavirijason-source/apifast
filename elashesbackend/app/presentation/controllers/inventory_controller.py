@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
@@ -263,6 +264,8 @@ def get_movements(
     product_id: Optional[int] = Query(default=None, ge=1),
     branch_id: Optional[int] = Query(default=None, ge=1),
     movement_type: Optional[str] = Query(default=None),
+    date_from: Optional[datetime] = Query(default=None),
+    date_to: Optional[datetime] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:view")),
 ):
@@ -273,6 +276,8 @@ def get_movements(
         product_id=product_id,
         branch_id=branch_id,
         movement_type=movement_type,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
-  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart,
+  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -11,6 +11,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminReels,
@@ -319,6 +320,30 @@ export default function ReelsPage() {
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
   ];
 
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Reels del Marketplace",
+      filename: "reels-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Reels", value: String(sortedReels.length) },
+        { label: "Activos", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "caption", header: "Reel" },
+        { key: "product", header: "Producto" },
+        { key: "like_count", header: "Likes" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: sortedReels.map((r) => ({
+        caption: r.caption || "—",
+        product: r.product?.name ?? "—",
+        like_count: r.like_count,
+        is_active: r.is_active ? "Activo" : "Inactivo",
+      })),
+    });
+  };
+
   const toolbar = (
     <FilterActionBar
       left={
@@ -342,6 +367,9 @@ export default function ReelsPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
           <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
             Nuevo reel
           </Button>

@@ -1,5 +1,6 @@
 """Casos de uso para InventoryMovement (entradas, salidas, ajustes, uso por servicio)."""
 import asyncio
+from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -16,6 +17,7 @@ ALLOWED_MOVEMENT_TYPES = {"in", "out", "adjustment", "service_use"}
 def _movement_query(db: Session):
     return db.query(InventoryMovement).options(
         joinedload(InventoryMovement.product),
+        joinedload(InventoryMovement.branch),
     )
 
 
@@ -36,6 +38,8 @@ def list_movements(
     product_id: Optional[int] = None,
     branch_id: Optional[int] = None,
     movement_type: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
 ):
     query = _movement_query(db)
 
@@ -49,6 +53,12 @@ def list_movements(
         query = query.filter(
             InventoryMovement.movement_type == movement_type.strip().lower()
         )
+
+    if date_from is not None:
+        query = query.filter(InventoryMovement.created_at >= date_from)
+
+    if date_to is not None:
+        query = query.filter(InventoryMovement.created_at <= date_to)
 
     return (
         query.order_by(InventoryMovement.created_at.desc(), InventoryMovement.id.desc())

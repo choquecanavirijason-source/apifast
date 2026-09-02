@@ -167,6 +167,7 @@ function AperturaCierreTab() {
   const [openNotes, setOpenNotes] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
   const [countedAmount, setCountedAmount] = useState("");
+  const [nextFundAmount, setNextFundAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [lastClosed, setLastClosed] = useState<CashSessionOut | null>(null);
   const [detailSessionId, setDetailSessionId] = useState<number | null>(null);
@@ -286,18 +287,29 @@ function AperturaCierreTab() {
       toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
       return;
     }
+    const fund = parseFloat(nextFundAmount);
+    if (!nextFundAmount.trim() || Number.isNaN(fund) || fund < 0) {
+      toast.warning("Indicá cuánto dejás en la caja para el siguiente turno.");
+      return;
+    }
+    if (fund > counted) {
+      toast.warning("El fondo para el siguiente turno no puede ser mayor al monto contado.");
+      return;
+    }
     setIsCloseConfirmOpen(true);
   };
 
   const performClose = async () => {
     if (!session) return;
     const counted = parseFloat(countedAmount);
+    const fundAmt = parseFloat(nextFundAmount);
     setSubmitting(true);
     try {
-      const closed = await CashSessionService.close(session.id, counted, closeNotes.trim() || undefined);
+      const closed = await CashSessionService.close(session.id, counted, closeNotes.trim() || undefined, fundAmt);
       toast.success("Caja cerrada.");
       setCloseNotes("");
       setCountedAmount("");
+      setNextFundAmount("");
       setLastClosed(closed);
       void load();
       void loadHistory();
@@ -409,6 +421,17 @@ function AperturaCierreTab() {
         );
       },
     },
+    {
+      key: "next_fund_amount",
+      header: "Fondo siguiente turno",
+      sortable: true,
+      getValue: (s) => s.next_fund_amount ?? 0,
+      render: (s) => (
+        <span className="text-xs font-semibold tabular-nums text-emerald-700">
+          {s.next_fund_amount != null ? moneyFormatter.format(s.next_fund_amount) : "—"}
+        </span>
+      ),
+    },
   ];
 
   const historyActions: DataTableAction<CashSessionOut>[] = [
@@ -440,6 +463,7 @@ function AperturaCierreTab() {
         { header: "Esperado", key: "expected_cash" },
         { header: "Contado", key: "counted_amount" },
         { header: "Sobra/Falta", key: "difference" },
+        { header: "Fondo siguiente turno", key: "next_fund_amount" },
       ],
       rows: history.map((s) => ({
         estado: s.status === "open" ? "Abierta" : "Cerrada",
@@ -452,6 +476,7 @@ function AperturaCierreTab() {
         expected_cash: s.expected_cash !== null ? moneyFormatter.format(s.expected_cash) : "—",
         counted_amount: s.counted_amount !== null ? moneyFormatter.format(s.counted_amount) : "—",
         difference: s.difference !== null ? moneyFormatter.format(s.difference) : "—",
+        next_fund_amount: s.next_fund_amount != null ? moneyFormatter.format(s.next_fund_amount) : "—",
       })),
     });
   };
@@ -532,7 +557,7 @@ function AperturaCierreTab() {
           <Button
             variant="danger"
             onClick={handleClose}
-            disabled={submitting || !countedAmount.trim()}
+            disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
             leftIcon={<DoorOpen className="h-4 w-4" />}
           >
             {submitting ? "Cerrando…" : "Cerrar caja"}
@@ -614,6 +639,25 @@ function AperturaCierreTab() {
               />
             </div>
             <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+                Fondo para el siguiente turno <span className="text-rose-600">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={countedAmount || undefined}
+                step="0.01"
+                required
+                value={nextFundAmount}
+                onChange={(e) => setNextFundAmount(e.target.value)}
+                placeholder="0.00"
+                className={`${fieldClass} mt-1`}
+              />
+              <p className="mt-1 text-[11px] text-[#605e5c]">
+                Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Nota de cierre (opcional)</label>
               <input
                 type="text"
@@ -641,9 +685,16 @@ function AperturaCierreTab() {
     );
   }
 
+  // Si la pantalla se recargó (o abre otra cajera) `lastClosed` local está
+  // vacío — usamos el último cierre del historial (ya viene ordenado por
+  // id descendente) para no perder el fondo dejado para este turno.
+  const lastClosedOrFromHistory = lastClosed ?? history.find((s) => s.status === "closed") ?? null;
+
   return (
     <>
-    {lastClosed && lastClosed.expected_cash !== null && (
+    {lastClosedOrFromHistory && lastClosedOrFromHistory.expected_cash !== null && (() => {
+      const lastClosed = lastClosedOrFromHistory;
+      return (
       <SectionCard title="Arqueo del último cierre">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -676,14 +727,32 @@ function AperturaCierreTab() {
               </p>
             </div>
           )}
+          {lastClosed.next_fund_amount != null && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fondo dejado para el siguiente turno</p>
+              <p className="text-sm font-bold tabular-nums text-emerald-700">
+                {moneyFormatter.format(lastClosed.next_fund_amount)}
+              </p>
+            </div>
+          )}
         </div>
       </SectionCard>
-    )}
+      );
+    })()}
     <SectionCard
       title="Abrir caja"
       bodyClassName="!hidden"
       actions={
-        <Button size="lg" onClick={() => setIsOpenModalOpen(true)} leftIcon={<DoorOpen className="h-4 w-4" />}>
+        <Button
+          size="lg"
+          onClick={() => {
+            if (lastClosedOrFromHistory?.next_fund_amount) {
+              setOpeningAmount(String(lastClosedOrFromHistory.next_fund_amount));
+            }
+            setIsOpenModalOpen(true);
+          }}
+          leftIcon={<DoorOpen className="h-4 w-4" />}
+        >
           Abrir caja
         </Button>
       }
@@ -720,6 +789,12 @@ function AperturaCierreTab() {
             placeholder="0.00"
             className={`${fieldClass} mt-1`}
           />
+          {lastClosedOrFromHistory?.next_fund_amount != null
+            && openingAmount === String(lastClosedOrFromHistory.next_fund_amount) && (
+            <p className="mt-1 text-[11px] text-[#605e5c]">
+              Sugerido a partir del fondo dejado en el cierre anterior — podés cambiarlo.
+            </p>
+          )}
         </div>
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Nota (opcional)</label>

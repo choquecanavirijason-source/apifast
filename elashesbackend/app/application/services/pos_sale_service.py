@@ -377,6 +377,17 @@ def create_sale(
                     paid_at=datetime.utcnow(),
                 ))
         else:
+            cash_received = None
+            cash_change = None
+            if payment_method == "cash" and payload.cash_received is not None:
+                if round(payload.cash_received, 2) < round(total, 2):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"El monto recibido ({payload.cash_received:.2f}) es menor al total a cobrar ({total:.2f}).",
+                    )
+                cash_received = float(payload.cash_received)
+                cash_change = round(cash_received - total, 2)
+
             db.add(Payment(
                 client_id=payload.client_id,
                 branch_id=payload.branch_id,
@@ -387,6 +398,8 @@ def create_sale(
                 status="paid",
                 notes=payload.notes,
                 paid_at=datetime.utcnow(),
+                cash_received=cash_received,
+                cash_change=cash_change,
             ))
 
     # Productos: se registran y descuentan stock al final, después de validar

@@ -369,7 +369,7 @@ export default function ReservationDrawer({
             </div>
 
             <div className="space-y-4 px-4 py-4">
-              <div className="space-y-1.5">
+              <div data-tour="agenda-res-services" className="space-y-1.5">
                 <label className={agendaLabelClass}>Agregar servicio</label>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -479,7 +479,7 @@ export default function ReservationDrawer({
                 ) : null}
               </div>
 
-              <div className="space-y-1.5">
+              <div data-tour="agenda-res-client" className="space-y-1.5">
                 <label className={agendaLabelClass}>Clienta *</label>
                 <div className="flex gap-2">
                   <div className="relative min-w-0 flex-1">
@@ -567,7 +567,7 @@ export default function ReservationDrawer({
                 ) : null}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div data-tour="agenda-res-time" className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={agendaLabelClass} htmlFor="res-time">
                     Hora de inicio
@@ -606,7 +606,7 @@ export default function ReservationDrawer({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div data-tour="agenda-res-pro" className="space-y-1.5">
                 <label className={agendaLabelClass} htmlFor="res-pro">
                   Operaria / puesto
                 </label>
@@ -703,7 +703,7 @@ export default function ReservationDrawer({
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-4">
+          <div data-tour="agenda-res-confirm" className="shrink-0 border-t border-slate-100 bg-white px-4 py-4">
             {!selectedClient || (!isNewClient && !advanceEnabled) ? (
               <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
                 <span className="text-xs font-semibold text-[#094732]">Solo reserva en agenda</span>

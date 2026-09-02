@@ -81,6 +81,35 @@ export interface ProductBatchCreatePayload {
   sale_price_per_unit?: number;
 }
 
+export type InventoryMovementType = "in" | "out" | "adjustment" | "service_use";
+
+export interface InventoryMovement {
+  id: number;
+  productId: number;
+  productName: string;
+  productSku: string;
+  batchId?: number;
+  branchId?: number;
+  branchName?: string;
+  movementType: InventoryMovementType;
+  quantity: number;
+  note?: string;
+  createdAt: string;
+}
+
+interface BackendInventoryMovement {
+  id: number;
+  product_id: number;
+  batch_id?: number | null;
+  branch_id?: number | null;
+  movement_type: InventoryMovementType;
+  quantity: number;
+  note?: string | null;
+  created_at: string;
+  product: { id: number; sku: string; name: string };
+  branch?: { id: number; name: string } | null;
+}
+
 const mapBackendProductToProduct = (product: BackendProduct, stock: number): Product => ({
   id: product.id,
   name: product.name?.trim() ?? "",
@@ -179,5 +208,32 @@ export const ProductService = {
   async createBatch(payload: ProductBatchCreatePayload) {
     const response = await api.post<BackendBatch>("/inventory/batches", payload);
     return response.data;
+  },
+
+  async listMovements(params?: {
+    skip?: number;
+    limit?: number;
+    product_id?: number;
+    branch_id?: number;
+    movement_type?: InventoryMovementType;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<InventoryMovement[]> {
+    const response = await api.get<BackendInventoryMovement[]>("/inventory/movements", {
+      params: { limit: 500, ...params },
+    });
+    return response.data.map((m) => ({
+      id: m.id,
+      productId: m.product_id,
+      productName: m.product?.name ?? "",
+      productSku: m.product?.sku ?? "",
+      batchId: m.batch_id ?? undefined,
+      branchId: m.branch_id ?? undefined,
+      branchName: m.branch?.name ?? undefined,
+      movementType: m.movement_type,
+      quantity: Number(m.quantity ?? 0),
+      note: m.note ?? undefined,
+      createdAt: m.created_at,
+    }));
   },
 };

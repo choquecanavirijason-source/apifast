@@ -53,6 +53,8 @@ class PaymentResponse(BaseModel):
     reference: Optional[str] = None
     notes: Optional[str] = None
     paid_at: datetime
+    cash_received: Optional[float] = None
+    cash_change: Optional[float] = None
 
     client: ClientSummary
     branch: Optional[BranchSummary] = None

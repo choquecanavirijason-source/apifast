@@ -36,6 +36,11 @@ class CashClose(Base):
     counted_amount = Column(Float, nullable=True)
     difference = Column(Float, nullable=True)   # counted_amount - expected_cash
 
+    # Monto que la cajera deja físicamente en el cajón (del counted_amount)
+    # para que el siguiente turno arranque con cambio — se sugiere como
+    # monto inicial al abrir la próxima sesión de esta sucursal.
+    next_fund_amount = Column(Float, nullable=True)
+
     notes = Column(Text, nullable=True)
 
     branch = relationship("Branch", foreign_keys=[branch_id])

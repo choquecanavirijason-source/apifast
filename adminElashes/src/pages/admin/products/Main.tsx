@@ -20,13 +20,14 @@ import {
 import ProductFormModal from "./ProductFormModal.tsx";
 import CategoriesSection from "./CategoriesSection";
 import CategoryCreateModal from "./CategoryCreateModal";
+import MovementsHistoryTable from "./MovementsHistoryTable";
 
 import type { Product } from "../../../core/types/IProduct.ts";
 
 
 type ProductForm = Omit<Product, "id" | "updatedAt">;
 type ProductFormErrors = Partial<Record<keyof ProductForm, string>>;
-type ProductSection = "products" | "categories";
+type ProductSection = "products" | "categories" | "movements";
 interface BranchOption {
   id: number;
   name: string;
@@ -81,7 +82,11 @@ export default function Main() {
   const [isTransferring, setIsTransferring] = useState(false);
 
   const currentSection: ProductSection =
-    searchParams.get("section") === "categories" ? "categories" : "products";
+    searchParams.get("section") === "categories"
+      ? "categories"
+      : searchParams.get("section") === "movements"
+        ? "movements"
+        : "products";
 
   const changeSection = (section: ProductSection) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -739,6 +744,18 @@ export default function Main() {
             >
               Seccion categorias
             </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => changeSection("movements")}
+              className={
+                currentSection === "movements"
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
+                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
+              }
+            >
+              Historial de movimientos
+            </Button>
           </div>
 
 
@@ -833,6 +850,10 @@ export default function Main() {
             isLoading={isMutating && categories.length === 0}
             onOpenCreateModal={openCategoryModal}
           />
+        ) : null}
+
+        {currentSection === "movements" ? (
+          <MovementsHistoryTable branchId={selectedInventoryBranchId} />
         ) : null}
 
         {currentSection === "products" && productsError ? (

@@ -148,7 +148,6 @@ export default function PosTrackingHub() {
       <div className={`sticky top-0 z-20 border-b border-slate-200/80 bg-[#f0f0f3] ${isFullscreen ? "px-3 py-2" : ""}`}>
         <div className="mx-auto flex w-full flex-row items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">Operación: Caja &amp; Seguimiento</h1>
             <div className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white pl-2.5 pr-1.5">
               <Store className="h-3.5 w-3.5 shrink-0 text-slate-500" />
               <select

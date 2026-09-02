@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, ChevronLeft, ChevronRight, Columns3, List, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Columns3, HelpCircle, List, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
 import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
@@ -39,6 +39,7 @@ import AgendaDropCell from "./components/AgendaDropCell";
 import AgendaTicketCard from "./components/AgendaTicketCard";
 import DraggableAgendaTicketCard from "./components/DraggableAgendaTicketCard";
 import StationSectionsModal from "./components/StationSectionsModal";
+import AgendaTutorialModal, { getAgendaTutorialStorageKey } from "./components/AgendaTutorialModal";
 import { useStationSections } from "../../../core/hooks/useStationSections";
 import useAuth from "../../../core/hooks/useAuth";
 
@@ -154,10 +155,24 @@ export type DailyAgendaPageProps = {
 };
 
 export default function DailyAgendaPage({ embedded = false }: DailyAgendaPageProps) {
-  const { isAdmin, hasRole } = useAuth();
+  const { isAdmin, hasRole, user } = useAuth();
   const canConfigureSections = isAdmin() || hasRole("Secretaria");
   const { sections: stationSections, saveSections, totalStations } = useStationSections();
   const [sectionsModalOpen, setSectionsModalOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const tutorialStorageKey = useMemo(() => getAgendaTutorialStorageKey(user?.id), [user?.id]);
+
+  // Primera vez que este usuario entra a la Agenda del día: mostrar la guía
+  // rápida. La key es por usuario, no por navegador, porque varias operarias
+  // suelen compartir la misma laptop.
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      if (!localStorage.getItem(tutorialStorageKey)) setShowTutorial(true);
+    } catch {
+      // localStorage puede fallar en modo privado — simplemente no se muestra.
+    }
+  }, [tutorialStorageKey, user?.id]);
 
   // Mapa columna (0-based) → sección
   const stationColSection = stationSections.flatMap((s) =>
@@ -629,7 +644,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               role="group"
               aria-label="Tipo de vista"
             >
-              <div className="inline-flex shrink-0 rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
+              <div data-tour="agenda-view-toggle" className="inline-flex shrink-0 rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
                 <button
                   type="button"
                   onClick={() => setMainViewMode("calendar")}
@@ -701,6 +716,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 </div>
               ) : null}
 
+              <div data-tour="agenda-date-nav" className="flex shrink-0 flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="secondary"
@@ -749,8 +765,10 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+              </div>
               <Button
                 type="button"
+                data-tour="agenda-new-btn"
                 size="sm"
                 className="h-8 shrink-0 gap-1"
                 onClick={() => openNewModal("09:00", null)}
@@ -761,6 +779,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               <div className="relative shrink-0" ref={printDropdownRef}>
                 <Button
                   type="button"
+                  data-tour="agenda-print-btn"
                   variant="secondary"
                   size="sm"
                   className="h-8 shrink-0 gap-1"
@@ -792,6 +811,14 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     </div>
                   )}
                 </div>
+              <button
+                type="button"
+                onClick={() => setShowTutorial(true)}
+                title="Ver guía rápida de la agenda"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </SectionCard>
@@ -812,7 +839,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
           onDragEnd={handleDragEnd}
         >
         {agendaView === "planner" ? (
-        <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
+        <section data-tour="agenda-grid" className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
           <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-[#201f1e] print:bg-[#f3f2f1]">
             {headerTitle}
           </div>
@@ -1103,6 +1130,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         sections={stationSections}
         onSave={saveSections}
       />
+
+      {showTutorial && (
+        <AgendaTutorialModal
+          onClose={() => setShowTutorial(false)}
+          storageKey={tutorialStorageKey}
+          openReservation={() => openNewModal("09:00", null)}
+          closeReservation={() => setModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

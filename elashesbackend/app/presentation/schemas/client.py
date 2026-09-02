@@ -51,6 +51,7 @@ class ClientSummary(BaseModel):
     last_activity_at: Optional[datetime] = None
     ci: Optional[str] = None
     marketplace_enabled: bool = False
+    visit_count: int = 0
 
     @model_validator(mode="after")
     def apply_sin_estado_after_inactivity(self):

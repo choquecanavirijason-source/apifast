@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Megaphone, Plus, Pencil, Trash2, Upload, Eye, EyeOff, ImageIcon,
-  ArrowUp, ArrowDown, ExternalLink, LayoutList, LayoutGrid,
+  ArrowUp, ArrowDown, ExternalLink, LayoutList, LayoutGrid, FileDown,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -11,6 +11,7 @@ import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, InputField, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
+import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 import {
   fetchAdminAds,
@@ -228,6 +229,29 @@ export default function AdsPage() {
 
   const sortedAds = [...ads].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
   const activeCount = ads.filter((a) => a.is_active).length;
+
+  const handleExportPdf = () => {
+    void generateTablePdf({
+      title: "Publicidad",
+      subtitle: "Banners del Marketplace",
+      filename: "publicidad-marketplace",
+      orientation: "landscape",
+      meta: [
+        { label: "Banners", value: String(sortedAds.length) },
+        { label: "Activos", value: String(activeCount) },
+      ],
+      columns: [
+        { key: "title", header: "Banner" },
+        { key: "link_type", header: "Destino" },
+        { key: "is_active", header: "Estado" },
+      ],
+      rows: sortedAds.map((a) => ({
+        title: a.title,
+        link_type: LINK_TYPE_LABELS[a.link_type],
+        is_active: a.is_active ? "Activo" : "Inactivo",
+      })),
+    });
+  };
   const needsPicker = form.link_type === "product" || form.link_type === "collection" || form.link_type === "category";
   const needsUrl = form.link_type === "url";
 
@@ -325,6 +349,9 @@ export default function AdsPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <Button variant="secondary" onClick={handleExportPdf} leftIcon={<FileDown className="h-4 w-4" />}>
+            PDF
+          </Button>
           <Button onClick={openNew} leftIcon={<Plus className="h-4 w-4" />}>
             Nuevo banner
           </Button>

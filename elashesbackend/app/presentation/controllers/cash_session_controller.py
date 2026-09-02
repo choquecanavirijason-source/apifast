@@ -31,6 +31,11 @@ class CashSessionClose(BaseModel):
     # Lo que la cajera contó físicamente al cerrar — obligatorio, para que
     # no se pueda cerrar sin hacer el arqueo.
     counted_amount: float = Field(..., ge=0)
+    # Monto que deja en el cajón para que el siguiente turno arranque con
+    # cambio — obligatorio (no se puede cerrar sin decidir cuánto queda),
+    # se usa como monto inicial sugerido al abrir la próxima sesión de la
+    # misma sucursal.
+    next_fund_amount: float = Field(..., ge=0)
 
 
 class CashSessionOut(BaseModel):
@@ -53,6 +58,7 @@ class CashSessionOut(BaseModel):
     expected_cash: Optional[float]
     counted_amount: Optional[float]
     difference: Optional[float]
+    next_fund_amount: Optional[float]
     notes: Optional[str]
 
     class Config:
@@ -80,6 +86,7 @@ def _to_out(c: CashClose) -> CashSessionOut:
         expected_cash=c.expected_cash,
         counted_amount=c.counted_amount,
         difference=c.difference,
+        next_fund_amount=c.next_fund_amount,
         notes=c.notes,
     )
 
@@ -174,6 +181,11 @@ def close_cash_session(
         raise HTTPException(status_code=404, detail="Sesión de caja no encontrada.")
     if session.status != "open":
         raise HTTPException(status_code=409, detail="Esta sesión ya está cerrada.")
+    if body.next_fund_amount > body.counted_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="El fondo para el siguiente turno no puede ser mayor al monto contado.",
+        )
 
     now = datetime.utcnow()
     payments = (
@@ -216,6 +228,7 @@ def close_cash_session(
     session.expected_cash = expected_cash
     session.counted_amount = body.counted_amount
     session.difference = body.counted_amount - expected_cash
+    session.next_fund_amount = body.next_fund_amount
     if body.notes:
         session.notes = f"{session.notes}\n{body.notes}".strip() if session.notes else body.notes
 

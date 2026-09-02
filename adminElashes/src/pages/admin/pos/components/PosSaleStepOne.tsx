@@ -54,6 +54,8 @@ export default function PosSaleStepOne({
   setDiscountType,
   paymentMethod,
   setPaymentMethod,
+  cashReceived,
+  setCashReceived,
   mixedPayments,
   setMixedPayments,
   notes,
@@ -75,6 +77,7 @@ export default function PosSaleStepOne({
   setTicketMode,
   onUpdateTicketTime,
   branchQrImageUrl,
+  drawerForceStep = null,
 }: PosSaleStepOneProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
@@ -245,6 +248,8 @@ export default function PosSaleStepOne({
         setDiscountType={setDiscountType}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
+        cashReceived={cashReceived}
+        setCashReceived={setCashReceived}
         mixedPayments={mixedPayments}
         setMixedPayments={setMixedPayments}
         notes={notes}
@@ -269,7 +274,10 @@ export default function PosSaleStepOne({
         primaryActionDisabled={
           // Sin clienta elegida, el backend asigna el "Cliente Mostrador" de
           // la sucursal — no hace falta bloquear el cobro por eso.
-          cartCount === 0 || (mixedPayments.length === 0 && !paymentMethod) || isSubmittingCheckout
+          cartCount === 0
+          || (mixedPayments.length === 0 && !paymentMethod)
+          || (mixedPayments.length === 0 && paymentMethod === "cash" && (!cashReceived.trim() || Number(cashReceived) < total))
+          || isSubmittingCheckout
         }
         footerHint={
           linkAppointmentId
@@ -293,6 +301,7 @@ export default function PosSaleStepOne({
         onUpdateTicketTime={onUpdateTicketTime}
         onUpdateCartLine={(localId, patch) => onUpdateLine(localId, patch)}
         branchQrImageUrl={branchQrImageUrl}
+        forceStep={drawerForceStep}
       />
     </div>
   );

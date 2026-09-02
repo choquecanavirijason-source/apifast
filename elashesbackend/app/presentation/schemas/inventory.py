@@ -157,6 +157,7 @@ class InventoryMovementResponse(BaseModel):
     created_at: datetime
 
     product: BatchProductSummary
+    branch: Optional[BranchSummary] = None
 
 
 # ==========================================

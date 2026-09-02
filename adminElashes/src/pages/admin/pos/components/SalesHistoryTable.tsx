@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FileDown, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
+import { FileDown, RefreshCw, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
@@ -46,6 +46,8 @@ type SalesHistoryTableProps = {
   onCancelSale: (sale: PosSaleItem) => void;
   onDeleteSale: (sale: PosSaleItem) => void;
   allFilteredSales: PosSaleItem[];
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 };
 
 export default function SalesHistoryTable({
@@ -78,6 +80,8 @@ export default function SalesHistoryTable({
   onCancelSale,
   onDeleteSale,
   allFilteredSales,
+  onRefresh,
+  isRefreshing = false,
 }: SalesHistoryTableProps) {
   
   const handleExportPdf = () => {
@@ -129,6 +133,18 @@ export default function SalesHistoryTable({
       }
       right={
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <Button
+              variant="secondary"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />}
+              title="Actualizar historial"
+              className="whitespace-nowrap"
+            >
+              Actualizar
+            </Button>
+          )}
           <Button
             variant="secondary"
             onClick={handleExportPdf}
