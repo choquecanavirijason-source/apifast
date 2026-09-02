@@ -89,12 +89,6 @@ curl http://127.0.0.1:8001/docs
 curl http://127.0.0.1:8001/api/categories
 ```
 
-<<<<<<< HEAD
-=======
-Desde navegador externo:
-- Docs marketplace (acceso directo, usado por la app Flutter): `http://34.55.150.142/mp-api/docs`
-- Categorías: `http://34.55.150.142/mp-api/api/categories`
->>>>>>> f0313b86abc3441f60b9e9adf554d6b9c7fff013
 
 > **Importante:** nginx expone este servicio bajo el prefijo `/mp-api/`, **no** `/marketplace/`.
 > El admin web (React Router) ya usa rutas `/marketplace/*` para sus propias páginas
