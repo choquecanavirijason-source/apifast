@@ -50,39 +50,52 @@ function getDayTickets(tickets: TicketItem[], dateKey: string) {
 
 function PreviewPlannerTable({ tickets }: { tickets: TicketItem[] }) {
   if (tickets.length === 0)
-    return <p className="py-8 text-center text-sm text-gray-400">Sin reservas para este día.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 py-16 text-center">
+        <p className="text-sm font-medium text-slate-400">Sin reservas para este día.</p>
+      </div>
+    );
   return (
-    <table className="w-full border-collapse text-xs">
-      <thead>
-        <tr className="bg-[#094732] text-white">
-          {["Hora", "Cliente", "Servicio(s)", "Operaria", "Estado"].map((h) => (
-            <th key={h} className="border border-gray-300 px-2 py-1.5 text-left font-bold uppercase tracking-wide">{h}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {tickets.map((t, i) => {
-          const start = parseTicketDate(t.start_time);
-          const isCancelled = t.status === "cancelled";
-          const services = t.service_names?.length ? t.service_names.join(" · ") : (t.service_name ?? "—");
-          return (
-            <tr key={t.id} className={isCancelled ? "bg-rose-50" : i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-              <td className={`border border-gray-200 px-2 py-1 font-mono font-semibold whitespace-nowrap ${isCancelled ? "line-through text-gray-400" : ""}`}>
-                {`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`}
-              </td>
-              <td className={`border border-gray-200 px-2 py-1 font-medium ${isCancelled ? "line-through text-gray-400" : ""}`}>{t.client_name || "—"}</td>
-              <td className={`border border-gray-200 px-2 py-1 ${isCancelled ? "line-through text-gray-400" : ""}`}>{services}</td>
-              <td className={`border border-gray-200 px-2 py-1 ${isCancelled ? "line-through text-gray-400" : ""}`}>{t.professional_name ?? "Sin asignar"}</td>
-              <td className="border border-gray-200 px-2 py-1">
-                {isCancelled
-                  ? <span className="font-bold text-rose-600">✕ Cancelado</span>
-                  : <span className="text-emerald-700">{t.status}</span>}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+      <table className="w-full border-collapse text-xs">
+        <thead>
+          <tr className="bg-[#094732] text-white">
+            {["Hora", "Cliente", "Servicio(s)", "Operaria", "Estado"].map((h) => (
+              <th key={h} className="border-b border-[#0b5c40] px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tickets.map((t, i) => {
+            const start = parseTicketDate(t.start_time);
+            const isCancelled = t.status === "cancelled";
+            const services = t.service_names?.length ? t.service_names.join(" · ") : (t.service_name ?? "—");
+            return (
+              <tr
+                key={t.id}
+                className={`transition-colors hover:bg-emerald-50/60 ${
+                  isCancelled ? "bg-rose-50/70" : i % 2 === 0 ? "bg-white" : "bg-slate-50/60"
+                }`}
+              >
+                <td className={`px-3 py-2 font-mono font-semibold whitespace-nowrap ${isCancelled ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                  {`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`}
+                </td>
+                <td className={`px-3 py-2 font-medium ${isCancelled ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.client_name || "—"}</td>
+                <td className={`px-3 py-2 ${isCancelled ? "text-slate-400 line-through" : "text-slate-600"}`}>{services}</td>
+                <td className={`px-3 py-2 ${isCancelled ? "text-slate-400 line-through" : "text-slate-600"}`}>{t.professional_name ?? "Sin asignar"}</td>
+                <td className="px-3 py-2">
+                  {isCancelled
+                    ? <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">✕ Cancelado</span>
+                    : <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">{t.status}</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -111,44 +124,46 @@ function PreviewStationsGrid({ tickets, professionals }: { tickets: TicketItem[]
   const colCount = Math.max(pros.length, STATION_COUNT);
 
   return (
-    <table className="w-full border-collapse text-[11px]">
-      <thead>
-        <tr className="bg-[#094732] text-white">
-          <th className="border border-gray-300 px-2 py-1.5 text-center font-bold w-16">HORA</th>
-          {Array.from({ length: colCount }, (_, i) => (
-            <th key={i} className="border border-gray-300 px-1 py-1.5 text-center font-bold">
-              <div className="text-sm font-black">{i + 1}</div>
-              {pros[i] && <div className="text-[9px] font-normal opacity-80 truncate max-w-20">{pros[i].username}</div>}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {hours.map((hour) => (
-          <tr key={hour}>
-            <td className="border border-gray-300 px-2 py-1 text-center font-mono text-xs font-bold bg-gray-50 w-16">
-              {String(hour).padStart(2, "0")}:00
-            </td>
-            {Array.from({ length: colCount }, (_, col) => {
-              const cell = ticketsByCell.get(`${hour}__${col}`) ?? [];
-              return (
-                <td key={col} className="border border-gray-300 px-1 py-1 align-top min-h-10 h-10">
-                  {cell.map((t) => {
-                    const isCancelled = t.status === "cancelled";
-                    return (
-                      <div key={t.id} className={`text-[10px] leading-tight ${isCancelled ? "line-through text-gray-400" : "font-medium text-gray-800"}`}>
-                        {isCancelled && <span className="font-bold text-rose-500 no-underline">✕ </span>}
-                        {t.client_name || "—"}
-                      </div>
-                    );
-                  })}
-                </td>
-              );
-            })}
+    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+      <table className="w-full border-collapse text-[11px]">
+        <thead>
+          <tr className="bg-[#094732] text-white">
+            <th className="w-16 border-b border-r border-[#0b5c40] px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide">Hora</th>
+            {Array.from({ length: colCount }, (_, i) => (
+              <th key={i} className="border-b border-r border-[#0b5c40] px-1 py-2 text-center font-bold last:border-r-0">
+                <div className="text-sm font-black">{i + 1}</div>
+                {pros[i] && <div className="truncate text-[9px] font-normal opacity-80 max-w-20">{pros[i].username}</div>}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {hours.map((hour) => (
+            <tr key={hour} className="transition-colors hover:bg-emerald-50/50">
+              <td className="w-16 border-r border-slate-100 bg-slate-50 px-2 py-1.5 text-center font-mono text-xs font-bold text-slate-600">
+                {String(hour).padStart(2, "0")}:00
+              </td>
+              {Array.from({ length: colCount }, (_, col) => {
+                const cell = ticketsByCell.get(`${hour}__${col}`) ?? [];
+                return (
+                  <td key={col} className="h-10 min-h-10 border-r border-slate-100 px-1.5 py-1 align-top last:border-r-0">
+                    {cell.map((t) => {
+                      const isCancelled = t.status === "cancelled";
+                      return (
+                        <div key={t.id} className={`text-[10px] leading-tight ${isCancelled ? "text-slate-400 line-through" : "font-medium text-slate-800"}`}>
+                          {isCancelled && <span className="font-bold text-rose-500 no-underline">✕ </span>}
+                          {t.client_name || "—"}
+                        </div>
+                      );
+                    })}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -309,6 +324,9 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
   const [mode, setMode] = useState<PrintMode>(initialMode);
   const [mounted, setMounted] = useState(false);
   const dayTickets = getDayTickets(tickets, selectedDate);
+  const completedCount = dayTickets.filter((t) => t.status === "completed").length;
+  const inProgressCount = dayTickets.filter((t) => t.status === "pending" || t.status === "in_service").length;
+  const cancelledCount = dayTickets.filter((t) => t.status === "cancelled").length;
 
   useEffect(() => {
     setMounted(true);
@@ -371,23 +389,28 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-8"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="print-agenda-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-6xl rounded-xl bg-white shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 id="print-agenda-title" className="text-base font-bold text-slate-800">Vista previa de impresión</h2>
-            <p className="text-xs text-slate-500 capitalize">{dateLabel}</p>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-[#094732]">
+              <Printer className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 id="print-agenda-title" className="text-base font-bold text-slate-800">Vista previa de impresión</h2>
+              <p className="truncate text-xs capitalize text-slate-500">{dateLabel}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
               {tabBtn("planner", "Planilla horaria", List)}
               {tabBtn("stations", "Puestos 1–8", Columns3)}
@@ -395,7 +418,7 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#0b5c40] transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#094732] px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-[#0b5c40] active:scale-[0.98]"
             >
               <Printer className="h-4 w-4" />
               Imprimir
@@ -403,7 +426,8 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              aria-label="Cerrar vista previa"
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             >
               <X className="h-5 w-5" />
             </button>
@@ -411,16 +435,26 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
         </div>
 
         {/* Resumen */}
-        <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 bg-slate-50 px-5 py-2 text-xs text-slate-600">
-          <span><strong className="text-slate-800">{dayTickets.length}</strong> reservas</span>
-          <span><strong className="text-emerald-700">{dayTickets.filter((t) => t.status === "completed").length}</strong> completadas</span>
-          <span><strong className="text-amber-600">{dayTickets.filter((t) => t.status === "pending" || t.status === "in_service").length}</strong> en curso</span>
-          <span><strong className="text-rose-600">{dayTickets.filter((t) => t.status === "cancelled").length}</strong> canceladas</span>
-          <span className="ml-auto text-slate-400 italic">Las canceladas aparecen tachadas en la impresión</span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-6 py-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+            {dayTickets.length} reserva{dayTickets.length !== 1 ? "s" : ""}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {completedCount} completada{completedCount !== 1 ? "s" : ""}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+            {inProgressCount} en curso
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+            {cancelledCount} cancelada{cancelledCount !== 1 ? "s" : ""}
+          </span>
+          <span className="ml-auto hidden text-[11px] italic text-slate-400 sm:inline">
+            Las canceladas aparecen tachadas en la impresión
+          </span>
         </div>
 
         {/* Preview */}
-        <div className="overflow-x-auto p-5">
+        <div className="min-h-0 flex-1 overflow-auto bg-slate-100/60 p-5">
           {mode === "planner"
             ? <PreviewPlannerTable tickets={dayTickets} />
             : <PreviewStationsGrid tickets={dayTickets} professionals={professionals} />

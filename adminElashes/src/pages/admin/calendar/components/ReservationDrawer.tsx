@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, ChevronDown, Info, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Banknote, Info, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/common/ui";
 import {
   AgendaService,
+  deriveServiceCategoriesFromServices,
   type ClientForSelect,
   type ProfessionalForSelect,
   type ServiceOption,
@@ -46,7 +47,7 @@ export default function ReservationDrawer({
 }: ReservationDrawerProps) {
   const [cartLines, setCartLines] = useState<ResCartLine[]>([]);
   const [serviceQuery, setServiceQuery] = useState("");
-  const [isServiceMenuOpen, setIsServiceMenuOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientForSelect | null>(null);
   const [isClientMenuOpen, setIsClientMenuOpen] = useState(false);
@@ -62,13 +63,28 @@ export default function ReservationDrawer({
   const [advanceEnabled, setAdvanceEnabled] = useState(false);
   const [advanceAmount, setAdvanceAmount] = useState("");
 
+  const serviceCategories = useMemo(() => deriveServiceCategoriesFromServices(services), [services]);
+
   const normalizedServiceQuery = serviceQuery.trim().toLowerCase();
   const filteredServices = useMemo(() => {
-    if (!normalizedServiceQuery) return services.slice(0, 14);
-    return services
-      .filter((service) => service.name.toLowerCase().includes(normalizedServiceQuery))
-      .slice(0, 14);
-  }, [normalizedServiceQuery, services]);
+    return services.filter((service) => {
+      if (normalizedServiceQuery && !service.name.toLowerCase().includes(normalizedServiceQuery)) return false;
+      if (selectedCategoryId !== "all") {
+        const categoryId = service.category?.id ?? service.category_id ?? null;
+        if (String(categoryId ?? "") !== selectedCategoryId) return false;
+      }
+      return true;
+    });
+  }, [normalizedServiceQuery, selectedCategoryId, services]);
+
+  const cartCountByServiceId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const line of cartLines) {
+      const key = String(line.service_id);
+      map[key] = (map[key] ?? 0) + 1;
+    }
+    return map;
+  }, [cartLines]);
 
   const cartCount = cartLines.length;
 
@@ -135,7 +151,7 @@ export default function ReservationDrawer({
     setFilteredClients([]);
     setCartLines([]);
     setServiceQuery("");
-    setIsServiceMenuOpen(false);
+    setSelectedCategoryId("all");
     setIsClientMenuOpen(false);
     setDurationMinutes(60);
     setIsNewClient(false);
@@ -221,6 +237,15 @@ export default function ReservationDrawer({
 
   const removeLine = (localId: string) => {
     setCartLines((prev) => prev.filter((l) => l.localId !== localId));
+  };
+
+  /** Quita el último ticket agregado de ese servicio (usado por los controles −/+ de la grilla). */
+  const removeOneServiceFromCart = (serviceId: number) => {
+    setCartLines((prev) => {
+      const lastIndex = prev.map((l) => l.service_id).lastIndexOf(serviceId);
+      if (lastIndex === -1) return prev;
+      return prev.filter((_, i) => i !== lastIndex);
+    });
   };
 
   const changeLineService = (localId: string, serviceId: string) => {
@@ -328,7 +353,7 @@ export default function ReservationDrawer({
         onClick={onClose}
       />
       <div
-        className="fixed right-0 top-0 z-[49] flex h-full max-h-[100dvh] w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl sm:max-w-lg"
+        className="fixed right-0 top-0 z-[49] flex h-full max-h-[100dvh] w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl sm:max-w-lg md:w-[90vw] md:max-w-4xl lg:max-w-6xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reservation-drawer-title"
@@ -352,79 +377,154 @@ export default function ReservationDrawer({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-[#094732]" />
-                  <span className="text-sm font-semibold text-slate-800">Servicios ({cartCount})</span>
-                </div>
-                {cartCount > 0 ? (
-                  <p className="text-[11px] text-slate-500">
-                    Una sola venta/reserva: cada servicio es un ticket con su hora; todos quedan bajo el mismo código de venta.
-                  </p>
-                ) : null}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {/* ── Columna izquierda: catálogo de servicios ─────────────────── */}
+          <div
+            data-tour="agenda-res-services"
+            className="flex max-h-[40vh] min-h-0 flex-col border-b border-slate-100 md:max-h-none md:w-[56%] md:shrink-0 md:border-b-0 md:border-r"
+          >
+            <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-[#094732]" />
+                <span className="text-sm font-semibold text-slate-800">Servicios ({cartCount})</span>
               </div>
-            </div>
-
-            <div className="space-y-4 px-4 py-4">
-              <div data-tour="agenda-res-services" className="space-y-1.5">
-                <label className={agendaLabelClass}>Agregar servicio</label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={serviceQuery}
-                    onChange={(event) => {
-                      setServiceQuery(event.target.value);
-                      setIsServiceMenuOpen(true);
-                    }}
-                    onFocus={() => setIsServiceMenuOpen(true)}
-                    placeholder="Buscar servicio…"
-                    className={`${agendaFieldClass} pl-9`}
-                  />
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={serviceQuery}
+                  onChange={(event) => setServiceQuery(event.target.value)}
+                  placeholder="Buscar servicio…"
+                  className={`${agendaFieldClass} pl-9`}
+                />
+              </div>
+              {serviceCategories.length > 0 ? (
+                <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
                   <button
                     type="button"
-                    onClick={() => setIsServiceMenuOpen((c) => !c)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-                    aria-label="Lista de servicios"
+                    onClick={() => setSelectedCategoryId("all")}
+                    className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                      selectedCategoryId === "all"
+                        ? "border-[#094732] bg-[#094732] text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-[#094732] hover:text-[#094732]"
+                    }`}
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    Todas
                   </button>
-                  {isServiceMenuOpen ? (
-                    <div className="absolute z-[52] mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        {filteredServices.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-slate-400">No se encontraron servicios.</p>
-                        ) : (
-                          filteredServices.map((service) => (
-                            <button
-                              key={service.id}
-                              type="button"
-                              onClick={() => {
-                                addServiceById(String(service.id));
-                                setServiceQuery("");
-                                setIsServiceMenuOpen(false);
-                              }}
-                              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
-                            >
-                              <span className="truncate text-slate-700">{service.name}</span>
-                              <span className="shrink-0 text-xs font-medium text-slate-500">{service.duration_minutes} min</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
+                  {serviceCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(String(category.id))}
+                      className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                        selectedCategoryId === String(category.id)
+                          ? "border-[#094732] bg-[#094732] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-[#094732] hover:text-[#094732]"
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
                 </div>
-              </div>
+              ) : null}
+            </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              {filteredServices.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">No se encontraron servicios.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                  {filteredServices.map((service) => {
+                    const count = cartCountByServiceId[String(service.id)] ?? 0;
+                    return (
+                      <div
+                        key={service.id}
+                        className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
+                          count > 0
+                            ? "border-[#094732] shadow-[0_0_0_2px_rgba(9,71,50,0.15)]"
+                            : "border-[#edebe9] hover:border-[#094732]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => addServiceById(String(service.id))}
+                          className="relative h-24 w-full shrink-0 bg-[#f3f2f1] focus:outline-none"
+                        >
+                          {service.image_url ? (
+                            <img
+                              src={service.image_url}
+                              alt=""
+                              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#c8c6c4]">
+                              {service.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </button>
+
+                        <div className="flex items-center justify-between gap-1.5 px-2 py-2">
+                          <div className="min-w-0">
+                            <p className="line-clamp-1 text-xs font-semibold text-[#323130]" title={service.name}>
+                              {service.name}
+                            </p>
+                            <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
+                            <p className="text-[10px] text-[#8a8886]">{service.duration_minutes} min</p>
+                          </div>
+
+                          {count === 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => addServiceById(String(service.id))}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#094732] text-base font-bold leading-none text-white shadow transition hover:bg-[#063324]"
+                              aria-label={`Agregar ${service.name}`}
+                            >
+                              +
+                            </button>
+                          ) : (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => removeOneServiceFromCart(service.id)}
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d2d0ce] bg-white text-sm font-bold leading-none text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
+                                aria-label={`Quitar ${service.name}`}
+                              >
+                                −
+                              </button>
+                              <span className="w-4 text-center text-xs font-bold text-[#094732]">{count}</span>
+                              <button
+                                type="button"
+                                onClick={() => addServiceById(String(service.id))}
+                                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#094732] text-sm font-bold leading-none text-white shadow transition hover:bg-[#063324]"
+                                aria-label={`Agregar ${service.name}`}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Columna derecha: ticket(s), clienta y datos de la reserva ── */}
+          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="space-y-4 px-4 py-4">
               {cartCount === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm italic text-slate-400">
-                  Opcional: agrega servicios o define duración abajo.
+                  Opcional: elegí servicios a la izquierda o definí la duración manualmente abajo.
                 </p>
               ) : (
                 <div className="space-y-2">
+                  {cartCount > 0 ? (
+                    <p className="text-[11px] text-slate-500">
+                      Una sola venta/reserva: cada servicio es un ticket con su hora; todos quedan bajo el mismo código de venta.
+                    </p>
+                  ) : null}
                   {consecutiveSlots.map((slot, index) => {
                     const { line, serviceName, timeLabel, durationMinutes: slotMins } = slot;
                     return (
@@ -723,6 +823,7 @@ export default function ReservationDrawer({
             <Button type="button" variant="secondary" className="mt-2 w-full" onClick={onClose} disabled={isSubmitting}>
               Cancelar
             </Button>
+          </div>
           </div>
         </form>
       </div>

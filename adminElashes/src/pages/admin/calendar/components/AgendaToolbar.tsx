@@ -52,7 +52,7 @@ export default function AgendaToolbar({
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800">Agenda del día</p>
             <p className="text-xs text-slate-500">
-              Toca una casilla vacía para reservar. Cobro en POS desde cada ticket.
+              Toca una casilla vacía para reservar.
             </p>
           </div>
         </div>

@@ -18,7 +18,7 @@ import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
 import { toast } from "react-toastify";
 import Layout from "../../../components/common/layout";
-import { Button, SectionCard } from "../../../components/common/ui";
+import { SectionCard } from "../../../components/common/ui";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import { ClientService } from "../../../core/services/client/client.service";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
@@ -53,6 +53,21 @@ const AGENDA_VIEW_STORAGE_KEY = "daily-agenda-view-mode";
 const SHOW_STATIONS_TOGGLE = false;
 const AGENDA_REFRESH_EVENT = "agendarefresh";
 const AGENDA_POLL_MS = 20_000;
+
+/**
+ * Barra de herramientas de la agenda: paleta neutra (blanco + grises Fluent).
+ * El verde de marca queda solo para el estado activo y la acción principal.
+ */
+const TB_SEGMENT =
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors";
+const TB_SEGMENT_ON = "bg-white text-[#201f1e] shadow-sm ring-1 ring-black/5";
+const TB_SEGMENT_OFF = "text-[#605e5c] hover:text-[#201f1e]";
+const TB_SEGMENT_GROUP = "inline-flex shrink-0 rounded-md bg-[#f3f2f1] p-0.5";
+const TB_BTN =
+  "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#d2d0ce] bg-white px-2.5 text-xs font-semibold text-[#323130] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]";
+const TB_ICON_BTN =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]";
+const TB_DIVIDER = "hidden h-6 w-px shrink-0 bg-[#edebe9] sm:block";
 
 type AgendaViewMode = "planner" | "stations";
 type MainViewMode = "calendar" | "whatsapp";
@@ -623,83 +638,76 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         pageClassName={layoutPageClass}
         containerClassName={layoutContainerClass}
       >
-        <SectionCard className="mb-3 border border-[#d2d0ce] bg-[#faf9f8]">
-          <div className="flex flex-col gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#c8e6d9] bg-[#ecfdf5] text-[#094732]">
-                <CalendarClock className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Calendario · reservas</p>
-                <p className="text-[11px] font-medium text-[#094732]">Sucursal: {activeBranchLabel}</p>
-                <p className="text-[11px] text-[#605e5c]">
-                  Toca una casilla vacía para nueva reserva. Arrastra una tarjeta por el asa (
-                  <span className="inline-block align-middle">⋮⋮</span>) a otra hora o puesto (operaria de la sucursal).
-                </p>
-              </div>
-            </div>
-
+        <SectionCard
+          className="mb-3 border border-[#e1dfdd] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          bodyClassName="px-3 py-2.5"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {/* Grupo 1 — vista principal */}
             <div
-              className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1"
+              data-tour="agenda-view-toggle"
+              className={TB_SEGMENT_GROUP}
               role="group"
               aria-label="Tipo de vista"
             >
-              <div data-tour="agenda-view-toggle" className="inline-flex shrink-0 rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
-                <button
-                  type="button"
-                  onClick={() => setMainViewMode("calendar")}
-                  title="Calendario"
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                    mainView === "calendar"
-                      ? "bg-[#094732] text-white shadow-sm"
-                      : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                  }`}
-                >
-                  <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Calendario
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMainViewMode("whatsapp")}
-                  title="Validar WhatsApp"
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                    mainView === "whatsapp"
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                  }`}
-                >
-                  <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  WhatsApp
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setMainViewMode("calendar")}
+                title="Calendario"
+                aria-pressed={mainView === "calendar"}
+                className={`${TB_SEGMENT} ${mainView === "calendar" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
+              >
+                <CalendarClock
+                  className={`h-3.5 w-3.5 shrink-0 ${mainView === "calendar" ? "text-brand" : ""}`}
+                  aria-hidden
+                />
+                Calendario
+              </button>
+              <button
+                type="button"
+                onClick={() => setMainViewMode("whatsapp")}
+                title="Validar WhatsApp"
+                aria-pressed={mainView === "whatsapp"}
+                className={`${TB_SEGMENT} ${mainView === "whatsapp" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
+              >
+                <MessageCircle
+                  className={`h-3.5 w-3.5 shrink-0 ${mainView === "whatsapp" ? "text-emerald-500" : ""}`}
+                  aria-hidden
+                />
+                WhatsApp
+              </button>
+            </div>
 
-              {SHOW_STATIONS_TOGGLE && mainView === "calendar" ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
+            {/* Grupo 2 — modo de calendario */}
+            {SHOW_STATIONS_TOGGLE && mainView === "calendar" ? (
+              <>
+                <span aria-hidden className={TB_DIVIDER} />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <div className={TB_SEGMENT_GROUP} role="group" aria-label="Vista de agenda">
                     <button
                       type="button"
                       onClick={() => setViewMode("planner")}
                       title="Planilla horaria"
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                        agendaView === "planner"
-                          ? "bg-[#094732] text-white shadow-sm"
-                          : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                      }`}
+                      aria-pressed={agendaView === "planner"}
+                      className={`${TB_SEGMENT} ${agendaView === "planner" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
                     >
-                      <List className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <List
+                        className={`h-3.5 w-3.5 shrink-0 ${agendaView === "planner" ? "text-brand" : ""}`}
+                        aria-hidden
+                      />
                       Planilla
                     </button>
                     <button
                       type="button"
                       onClick={() => setViewMode("stations")}
                       title="Puestos por sección"
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                        agendaView === "stations"
-                          ? "bg-[#094732] text-white shadow-sm"
-                          : "text-[#605e5c] hover:bg-[#f3f2f1]"
-                      }`}
+                      aria-pressed={agendaView === "stations"}
+                      className={`${TB_SEGMENT} ${agendaView === "stations" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
                     >
-                      <Columns3 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <Columns3
+                        className={`h-3.5 w-3.5 shrink-0 ${agendaView === "stations" ? "text-brand" : ""}`}
+                        aria-hidden
+                      />
                       Puestos
                     </button>
                   </div>
@@ -708,114 +716,154 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       type="button"
                       onClick={() => setSectionsModalOpen(true)}
                       title="Configurar secciones"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+                      aria-label="Configurar secciones"
+                      className={TB_ICON_BTN}
                     >
                       <Settings2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
-              ) : null}
+              </>
+            ) : null}
 
-              <div data-tour="agenda-date-nav" className="flex shrink-0 flex-wrap items-center gap-2">
-              <Button
+            <span aria-hidden className={TB_DIVIDER} />
+
+            {/* Grupo 3 — navegación de fecha */}
+            <div data-tour="agenda-date-nav" className="flex flex-wrap items-center gap-2">
+              <button
                 type="button"
-                variant="secondary"
-                size="sm"
-                className="h-8 shrink-0"
                 onClick={() => setSelectedDate(getLocalDateInputValue())}
+                title="Ir al día de hoy"
+                className={TB_BTN}
               >
                 Hoy
-              </Button>
+              </button>
+
+              <div className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  onClick={() => shiftDate(-1)}
+                  title="Día anterior"
+                  aria-label="Día anterior"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  aria-label="Fecha de la agenda"
+                  className="h-8 w-[132px] border-y border-[#d2d0ce] bg-white px-2 text-xs text-[#323130] outline-none focus:ring-1 focus:ring-brand/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => shiftDate(1)}
+                  title="Día siguiente"
+                  aria-label="Día siguiente"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
               <div className="flex shrink-0 gap-1">
                 {weekStrip.map((dayIso) => {
                   const isSel = dayIso === selectedDate;
-                  const short = new Date(`${dayIso}T12:00:00`).toLocaleDateString("es-BO", {
-                    weekday: "short",
-                  });
-                  const num = new Date(`${dayIso}T12:00:00`).getDate();
+                  const isToday = dayIso === getLocalDateInputValue();
+                  const day = new Date(`${dayIso}T12:00:00`);
+                  const short = day.toLocaleDateString("es-BO", { weekday: "short" });
+                  const num = day.getDate();
                   return (
                     <button
                       key={dayIso}
                       type="button"
                       onClick={() => setSelectedDate(dayIso)}
-                      className={`flex min-w-[38px] shrink-0 flex-col items-center rounded-md border px-1 py-1 text-[10px] transition ${
+                      aria-pressed={isSel}
+                      title={day.toLocaleDateString("es-BO", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                      className={`flex min-w-[38px] shrink-0 flex-col items-center rounded-md border px-1 py-1 text-[10px] transition-colors ${
                         isSel
-                          ? "border-[#094732] bg-[#ecfdf5] font-semibold text-[#094732]"
-                          : "border-[#edebe9] bg-white text-[#605e5c] hover:border-[#c8c6c4]"
+                          ? "border-brand bg-white font-semibold text-brand ring-1 ring-brand/20"
+                          : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#201f1e]"
                       }`}
                     >
                       <span className="uppercase leading-none">{short.replace(/\.$/, "")}</span>
                       <span className="text-sm font-bold tabular-nums leading-tight">{num}</span>
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 h-1 w-1 rounded-full ${isToday ? "bg-brand" : "bg-transparent"}`}
+                      />
                     </button>
                   );
                 })}
               </div>
+            </div>
 
-              <div className="flex shrink-0 items-center gap-1">
-                <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(-1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="h-8 w-[140px] shrink-0 rounded-md border border-[#8a8886] px-2 text-sm"
-                />
-                <Button type="button" variant="secondary" size="sm" className="h-8 px-2" onClick={() => shiftDate(1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              </div>
-              <Button
+            {/* Grupo 4 — acciones */}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button
                 type="button"
                 data-tour="agenda-new-btn"
-                size="sm"
-                className="h-8 shrink-0 gap-1"
                 onClick={() => openNewModal("09:00", null)}
-                leftIcon={<Plus className="h-3.5 w-3.5" />}
+                title="Nueva reserva"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-hover"
               >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
                 Nueva
-              </Button>
+              </button>
+
               <div className="relative shrink-0" ref={printDropdownRef}>
-                <Button
+                <button
                   type="button"
                   data-tour="agenda-print-btn"
-                  variant="secondary"
-                  size="sm"
-                  className="h-8 shrink-0 gap-1"
                   onClick={() => setPrintDropdownOpen((o) => !o)}
-                  leftIcon={<Printer className="h-3.5 w-3.5" />}
+                  title="Imprimir agenda"
+                  aria-haspopup="menu"
+                  aria-expanded={printDropdownOpen}
+                  className={TB_BTN}
                 >
+                  <Printer className="h-3.5 w-3.5" aria-hidden />
                   Imprimir
-                </Button>
-                  {printDropdownOpen && (
-                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[170px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                </button>
+                {printDropdownOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full z-20 mt-1 min-w-[176px] rounded-md border border-[#e1dfdd] bg-white py-1 shadow-lg"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { setPrintMode("planner"); setPrintDropdownOpen(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[#323130] transition-colors hover:bg-[#f3f2f1]"
+                    >
+                      <List className="h-3.5 w-3.5 text-[#605e5c]" aria-hidden />
+                      Vista planilla
+                    </button>
+                    {SHOW_STATIONS_TOGGLE && (
                       <button
                         type="button"
-                        onClick={() => { setPrintMode("planner"); setPrintDropdownOpen(false); }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        role="menuitem"
+                        onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[#323130] transition-colors hover:bg-[#f3f2f1]"
                       >
-                        <List className="h-3.5 w-3.5 text-slate-400" />
-                        Vista planilla
+                        <Columns3 className="h-3.5 w-3.5 text-[#605e5c]" aria-hidden />
+                        Vista puestos 1–8
                       </button>
-                      {SHOW_STATIONS_TOGGLE && (
-                        <button
-                          type="button"
-                          onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          <Columns3 className="h-3.5 w-3.5 text-slate-400" />
-                          Vista puestos 1–8
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowTutorial(true)}
                 title="Ver guía rápida de la agenda"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#c8c6c4] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+                aria-label="Ver guía rápida de la agenda"
+                className={TB_ICON_BTN}
               >
                 <HelpCircle className="h-3.5 w-3.5" />
               </button>
