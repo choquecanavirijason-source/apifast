@@ -9,6 +9,8 @@ interface SectionCardProps {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** Sobrescribe el estilo del header (ej. para quitar el acento dorado del variant "business" en una pantalla puntual). */
+  headerClassName?: string;
   /** "business" = estilo tipo Dynamics/Business Central (paneles lisos, cabecera gris suave). */
   variant?: SectionCardVariant;
 }
@@ -47,13 +49,14 @@ export default function SectionCard({
   children,
   className = "",
   bodyClassName = "",
+  headerClassName,
   variant = "default",
 }: SectionCardProps) {
   const v = variant;
   return (
     <section className={`${shellClass[v]} ${className}`}>
       {(title || subtitle || actions) && (
-        <header className={headerClass[v]}>
+        <header className={headerClassName ?? headerClass[v]}>
           <div>
             {title ? <h3 className={titleClass[v]}>{title}</h3> : null}
             {subtitle ? <p className={subtitleClass[v]}>{subtitle}</p> : null}

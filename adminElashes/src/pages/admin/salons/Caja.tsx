@@ -412,7 +412,7 @@ function AperturaCierreTab() {
       getValue: (s) => s.difference ?? 0,
       render: (s) => {
         if (s.difference === null) return <span className="text-xs text-[#a19f9d]">—</span>;
-        const color = s.difference === 0 ? "text-emerald-700" : s.difference > 0 ? "text-blue-700" : "text-rose-700";
+        const color = s.difference === 0 ? "text-emerald-700" : s.difference > 0 ? "text-[#323130]" : "text-rose-700";
         const sign = s.difference > 0 ? "+" : s.difference < 0 ? "−" : "";
         return (
           <span className={`text-xs font-semibold tabular-nums ${color}`}>
@@ -507,7 +507,6 @@ function AperturaCierreTab() {
         </div>
         <div className="flex items-end">
           <Button
-            variant="secondary"
             onClick={handleDownloadHistoryPdf}
             disabled={history.length === 0}
             leftIcon={<Download className="h-3.5 w-3.5" />}
@@ -582,15 +581,15 @@ function AperturaCierreTab() {
         </div>
         {session.notes && <p className="mt-3 text-xs text-[#605e5c]">Nota: {session.notes}</p>}
 
-        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+        <div className="mt-4 rounded-lg border border-[#d2d0ce] bg-[#faf9f8] px-4 py-3">
           <div className="flex flex-wrap items-start gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Esperado en caja (solo efectivo)</p>
-              <p className="text-lg font-bold tabular-nums text-blue-900">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#323130]">Esperado en caja (solo efectivo)</p>
+              <p className="text-lg font-bold tabular-nums text-[#201f1e]">
                 {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
               </p>
               {liveDetail && (
-                <span className="text-xs text-blue-700">
+                <span className="text-xs text-[#605e5c]">
                   inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)}
                 </span>
               )}
@@ -610,7 +609,7 @@ function AperturaCierreTab() {
               type="button"
               onClick={() => void loadLiveDetail(session.id)}
               disabled={liveLoading}
-              className="ml-auto text-xs font-semibold text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+              className="ml-auto text-xs font-semibold text-[#323130] underline hover:text-[#094732] disabled:opacity-50"
             >
               {liveLoading ? "Actualizando…" : "Actualizar ahora"}
             </button>
@@ -719,7 +718,7 @@ function AperturaCierreTab() {
                   lastClosed.difference === 0
                     ? "text-emerald-700"
                     : lastClosed.difference > 0
-                      ? "text-blue-700"
+                      ? "text-[#323130]"
                       : "text-rose-700"
                 }`}
               >
@@ -767,9 +766,14 @@ function AperturaCierreTab() {
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={() => setIsOpenModalOpen(false)} disabled={submitting}>
+          <button
+            type="button"
+            onClick={() => setIsOpenModalOpen(false)}
+            disabled={submitting}
+            className="rounded-sm border border-[#8a8886] bg-white px-4 py-2 text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Cancelar
-          </Button>
+          </button>
           <Button onClick={() => void handleOpen()} disabled={submitting} leftIcon={<DoorOpen className="h-4 w-4" />}>
             {submitting ? "Abriendo…" : "Abrir caja"}
           </Button>
@@ -1031,16 +1035,20 @@ function NuevoGastoTab() {
         </span>
         <div className="flex gap-2">
           <Button
-            variant="secondary"
             onClick={handleDownloadPdf}
             disabled={draft.length === 0}
             leftIcon={<Download className="h-4 w-4" />}
           >
             PDF
           </Button>
-          <Button variant="secondary" onClick={clearAll} disabled={draft.length === 0 || saving}>
+          <button
+            type="button"
+            onClick={clearAll}
+            disabled={draft.length === 0 || saving}
+            className="rounded-xl border border-[#8a8886] bg-white px-4 py-2 text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-60"
+          >
             Limpiar todo
-          </Button>
+          </button>
           <Button onClick={() => void saveAll()} disabled={draft.length === 0 || saving} leftIcon={<Save className="h-4 w-4" />}>
             {saving ? "Guardando…" : "Guardar gastos"}
           </Button>
@@ -1166,7 +1174,7 @@ function HistorialGastosTab() {
             href={`${variables.apiUrl}${e.photo_url}`}
             target="_blank"
             rel="noreferrer"
-            className="text-xs font-medium text-[#0078d4] underline"
+            className="text-xs font-medium text-[#323130] underline"
           >
             Ver foto
           </a>
@@ -1204,11 +1212,10 @@ function HistorialGastosTab() {
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div className="flex items-end gap-2">
-            <Button variant="secondary" onClick={() => void load()} className="w-full">
+            <Button onClick={() => void load()} className="w-full">
               Actualizar
             </Button>
             <Button
-              variant="secondary"
               onClick={handleDownloadPdf}
               disabled={expenses.length === 0}
               leftIcon={<Download className="h-3.5 w-3.5" />}
