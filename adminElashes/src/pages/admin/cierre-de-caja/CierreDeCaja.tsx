@@ -539,13 +539,13 @@ export default function CierreDeCaja() {
           item.status === "completed" || item.status === "confirmed";
         if (isCompleted)
           return (
-            <span className="whitespace-nowrap font-semibold text-[#0078d4]">
+            <span className="whitespace-nowrap font-semibold text-[#323130]">
               Bs {item.commission.toFixed(2)}
             </span>
           );
         if (item.status === "cancelled")
           return <span className="text-[10px] text-[#a19f9d]">—</span>;
-        return <span className="text-[10px] text-[#8a6a1f]">Pend.</span>;
+        return <span className="text-[10px] text-[#605e5c]">Pend.</span>;
       },
       sortable: true,
       getValue: (item) => item.commission,
@@ -713,14 +713,14 @@ export default function CierreDeCaja() {
           <StatCard
             label="Total cobrado"
             value={`Bs ${report.total_paid.toFixed(2)}`}
-            tone="emerald"
+            tone="slate"
             icon={<Banknote size={14} />}
           />
           {report.total_unpaid > 0 && (
             <StatCard
               label="Sin cobrar"
               value={`Bs ${report.total_unpaid.toFixed(2)}`}
-              tone="amber"
+              tone="slate"
               helperText="Tickets completados sin pago"
             />
           )}
@@ -739,7 +739,7 @@ export default function CierreDeCaja() {
           <StatCard
             label="Comisiones a pagar"
             value={`Bs ${report.grand_commission.toFixed(2)}`}
-            tone="blue"
+            tone="slate"
             icon={<Wallet size={14} />}
           />
         </div>
@@ -751,9 +751,12 @@ export default function CierreDeCaja() {
           variant="business"
           className="mb-5"
           bodyClassName="!p-0"
+          headerClassName="flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
           title="Confirmación de comisiones"
-          subtitle="Marcá cada operaria cuando le hayas entregado su comisión · Solo tickets completados"
         >
+          <p className="border-b border-[#edebe9] bg-[#faf9f8] px-4 py-2 text-xs text-[#605e5c]">
+            Marcá cada operaria cuando le hayas entregado su comisión · Solo tickets completados
+          </p>
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-[#edebe9] bg-[#faf9f8]">
@@ -792,7 +795,7 @@ export default function CierreDeCaja() {
                     <td className="px-3 py-2 text-[#605e5c]">
                       {(p.commission_rate * 100).toFixed(0)}%
                     </td>
-                    <td className="px-3 py-2 font-semibold text-[#0078d4]">
+                    <td className="px-3 py-2 font-semibold text-[#323130]">
                       Bs {p.commission.toFixed(2)}
                     </td>
                     <td className="px-4 py-2">
@@ -806,9 +809,8 @@ export default function CierreDeCaja() {
                           </p>
                         </div>
                       ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
+                        <button
+                          type="button"
                           onClick={() =>
                             setPendingConfirmation({
                               key,
@@ -817,11 +819,12 @@ export default function CierreDeCaja() {
                             })
                           }
                           disabled={confirmingKey === key || !p.professional_id}
+                          className="rounded-sm border border-[#8a8886] bg-white px-3 py-1.5 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {confirmingKey === key
                             ? "Guardando…"
                             : "Confirmar recibo"}
-                        </Button>
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -836,21 +839,24 @@ export default function CierreDeCaja() {
       <SectionCard
         variant="business"
         title="Detalle de tickets"
-        subtitle={`${report.items.length} ticket(s) · Solo completados cuentan para comisión`}
         bodyClassName="!p-3"
+        headerClassName="flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
       >
+        <p className="mb-3 text-xs text-[#605e5c]">
+          {report.items.length} ticket(s) · Solo completados cuentan para comisión
+        </p>
         {!loading && report.items.length > 0 && (
           <div className="mb-3 flex items-center gap-4 rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-xs">
             <span className="font-bold text-[#323130]">
               Total:{" "}
-              <span className="text-[#0078d4]">
+              <span className="text-[#323130]">
                 Bs {report.grand_total.toFixed(2)}
               </span>
             </span>
             <span className="text-[#605e5c]">|</span>
             <span className="font-bold text-[#323130]">
               Comisiones:{" "}
-              <span className="text-[#0078d4]">
+              <span className="text-[#323130]">
                 Bs {report.grand_commission.toFixed(2)}
               </span>
             </span>
