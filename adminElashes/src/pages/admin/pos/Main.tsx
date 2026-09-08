@@ -20,6 +20,12 @@ import useAuth from "../../../core/hooks/useAuth";
 
 const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
 const labelClass = "block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5";
+// Modales de Caja (Abrir/Cerrar): texto en negro, sin colores decorativos —
+// solo negrita para resaltar lo importante.
+const cashLabelClass = "block text-[11px] font-bold uppercase tracking-widest text-[#201f1e] mb-1.5";
+// Borde bien visible siempre (no solo al hacer foco) — con border-slate-200
+// el recuadro donde escribir casi no se notaba.
+const cashFieldClass = "w-full rounded-xl border-2 border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/15";
 
 export type PosPageProps = {
   embedded?: boolean;
@@ -586,7 +592,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         >
           <div className="grid gap-3">
             <div>
-              <label className={labelClass}>Monto inicial</label>
+              <label className={cashLabelClass}>Monto inicial</label>
               <input
                 type="number"
                 min="0"
@@ -595,17 +601,17 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 value={pos.cashOpeningAmount}
                 onChange={(e) => pos.setCashOpeningAmount(e.target.value)}
                 placeholder="0.00"
-                className={`${fieldClass} mt-1`}
+                className={`${cashFieldClass} mt-1`}
               />
             </div>
             <div>
-              <label className={labelClass}>Nota (opcional)</label>
+              <label className={cashLabelClass}>Nota (opcional)</label>
               <input
                 type="text"
                 value={pos.cashOpenNotes}
                 onChange={(e) => pos.setCashOpenNotes(e.target.value)}
                 placeholder="Ej. turno mañana"
-                className={`${fieldClass} mt-1`}
+                className={`${cashFieldClass} mt-1`}
               />
             </div>
           </div>
@@ -638,14 +644,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         >
           <div className="grid gap-3">
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2.5 text-xs">
-              <p className="font-semibold uppercase tracking-wide text-[#605e5c]">Esperado en caja (solo efectivo)</p>
+              <p className="font-bold uppercase tracking-wide text-[#201f1e]">Esperado en caja (solo efectivo)</p>
               <p className="mt-0.5 text-base font-bold tabular-nums text-[#201f1e]">
                 {pos.isLoadingCloseCashDetail ? "…" : `Bs ${(pos.closeCashLiveDetail?.expected_cash ?? 0).toFixed(2)}`}
               </p>
             </div>
             <div>
-              <label className={labelClass}>
-                Monto contado <span className="text-rose-600">*</span>
+              <label className={cashLabelClass}>
+                Monto contado <span className="text-[#201f1e]">*</span>
               </label>
               <input
                 type="number"
@@ -655,12 +661,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 value={pos.closeCountedAmount}
                 onChange={(e) => pos.setCloseCountedAmount(e.target.value)}
                 placeholder="0.00"
-                className={`${fieldClass} mt-1`}
+                className={`${cashFieldClass} mt-1`}
               />
             </div>
             <div>
-              <label className={labelClass}>
-                Fondo para el siguiente turno <span className="text-rose-600">*</span>
+              <label className={cashLabelClass}>
+                Fondo para el siguiente turno <span className="text-[#201f1e]">*</span>
               </label>
               <input
                 type="number"
@@ -670,20 +676,20 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 value={pos.closeNextFundAmount}
                 onChange={(e) => pos.setCloseNextFundAmount(e.target.value)}
                 placeholder="0.00"
-                className={`${fieldClass} mt-1`}
+                className={`${cashFieldClass} mt-1`}
               />
-              <p className="mt-1 text-[11px] text-[#605e5c]">
+              <p className="mt-1 text-[11px] font-medium text-[#201f1e]">
                 Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
               </p>
             </div>
             <div>
-              <label className={labelClass}>Nota (opcional)</label>
+              <label className={cashLabelClass}>Nota (opcional)</label>
               <input
                 type="text"
                 value={pos.closeCashNotes}
                 onChange={(e) => pos.setCloseCashNotes(e.target.value)}
                 placeholder="Ej. faltante justificado, novedades del turno..."
-                className={`${fieldClass} mt-1`}
+                className={`${cashFieldClass} mt-1`}
               />
             </div>
           </div>
