@@ -1,7 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, HelpCircle, Package, ShoppingCart, Wrench } from "lucide-react";
+import { Building2, CalendarDays, DoorOpen, HelpCircle, Lock, Package, ShoppingCart, Wrench } from "lucide-react";
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
+import GenericModal from "../../../components/common/modal/GenericModal";
+import { Button } from "../../../components/common/ui";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
@@ -40,7 +42,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
   const [showTutorial, setShowTutorial] = useState(false);
   const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
-  const { user } = useAuth();
+  const { user, hasPermissionByName } = useAuth();
+  const canOpenCashSession = hasPermissionByName("payments:manage");
   const tutorialStorageKey = useMemo(() => getPosTutorialStorageKey(user?.id), [user?.id]);
 
   // Primera vez que este usuario entra al POS (en cualquier navegador/PC):
@@ -124,6 +127,17 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </button>
+            {pos.cashSession && canOpenCashSession && (
+              <button
+                type="button"
+                onClick={() => void pos.openCloseCashSessionModal()}
+                title="Cerrar caja (arqueo)"
+                className="flex items-center gap-1.5 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-xs font-medium text-[#605e5c] transition-colors hover:bg-[#fde7e9] hover:border-[#d13438] hover:text-[#d13438]"
+              >
+                <DoorOpen className="h-3.5 w-3.5" />
+                Cerrar caja
+              </button>
+            )}
             {pos.activeTab === "sale" && pos.step === 1 && (
               <button
                 type="button"
@@ -190,6 +204,43 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               ))}
             </div>
             <p className="text-xs text-[#a19f9d]">También puedes cambiarla desde el selector en la barra superior</p>
+          </div>
+
+        /* ── Sucursal elegida pero sin caja abierta (o todavía verificando) ── */
+        ) : pos.activeTab === "sale" && pos.activeBranchId && !pos.cashSession ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
+            {pos.isLoadingCashSession ? (
+              <p className="text-sm text-[#605e5c]">Comprobando el estado de la caja…</p>
+            ) : (
+              <>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3f2f1]">
+              <DoorOpen className="h-8 w-8 text-[#a19f9d]" />
+            </div>
+            <div className="max-w-sm text-center">
+              <p className="text-base font-semibold text-[#323130]">La caja de esta sucursal está cerrada</p>
+              <p className="mt-1.5 text-sm text-[#605e5c]">
+                {canOpenCashSession
+                  ? "Abrila para empezar a registrar ventas — sin abrirla no se puede cobrar."
+                  : "Pedile a una encargada o cajera que abra la caja antes de vender."}
+              </p>
+            </div>
+            {canOpenCashSession ? (
+              <button
+                type="button"
+                onClick={() => void pos.openCashSessionModal()}
+                className="flex items-center gap-2 rounded-sm bg-[#094732] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#063324]"
+              >
+                <DoorOpen className="h-4 w-4" />
+                Abrir caja
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-sm border border-[#edebe9] bg-white px-3 py-1.5 text-xs text-[#a19f9d]">
+                <Lock className="h-3.5 w-3.5" />
+                No tenés permiso para abrir caja
+              </span>
+            )}
+              </>
+            )}
           </div>
 
         /* ── Sale step 1 ─────────────────────────────────────────────── */
@@ -508,6 +559,135 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             storageKey={tutorialStorageKey}
           />
         )}
+
+        <GenericModal
+          isOpen={pos.isCashSessionModalOpen}
+          onClose={() => pos.setIsCashSessionModalOpen(false)}
+          title="Abrir caja"
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => pos.setIsCashSessionModalOpen(false)}
+                disabled={pos.isOpeningCashSession}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void pos.handleOpenCashSessionFromPos()}
+                disabled={pos.isOpeningCashSession}
+                leftIcon={<DoorOpen className="h-4 w-4" />}
+              >
+                {pos.isOpeningCashSession ? "Abriendo…" : "Abrir caja"}
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-3">
+            <div>
+              <label className={labelClass}>Monto inicial</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                autoFocus
+                value={pos.cashOpeningAmount}
+                onChange={(e) => pos.setCashOpeningAmount(e.target.value)}
+                placeholder="0.00"
+                className={`${fieldClass} mt-1`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Nota (opcional)</label>
+              <input
+                type="text"
+                value={pos.cashOpenNotes}
+                onChange={(e) => pos.setCashOpenNotes(e.target.value)}
+                placeholder="Ej. turno mañana"
+                className={`${fieldClass} mt-1`}
+              />
+            </div>
+          </div>
+        </GenericModal>
+
+        <GenericModal
+          isOpen={pos.isCloseCashSessionModalOpen}
+          onClose={() => pos.setIsCloseCashSessionModalOpen(false)}
+          title="Cerrar caja"
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => pos.setIsCloseCashSessionModalOpen(false)}
+                disabled={pos.isClosingCashSession}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => void pos.handleCloseCashSessionFromPos()}
+                disabled={pos.isClosingCashSession || !pos.closeCountedAmount.trim() || !pos.closeNextFundAmount.trim()}
+                leftIcon={<DoorOpen className="h-4 w-4" />}
+              >
+                {pos.isClosingCashSession ? "Cerrando…" : "Cerrar caja"}
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-3">
+            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2.5 text-xs">
+              <p className="font-semibold uppercase tracking-wide text-[#605e5c]">Esperado en caja (solo efectivo)</p>
+              <p className="mt-0.5 text-base font-bold tabular-nums text-[#201f1e]">
+                {pos.isLoadingCloseCashDetail ? "…" : `Bs ${(pos.closeCashLiveDetail?.expected_cash ?? 0).toFixed(2)}`}
+              </p>
+            </div>
+            <div>
+              <label className={labelClass}>
+                Monto contado <span className="text-rose-600">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                autoFocus
+                value={pos.closeCountedAmount}
+                onChange={(e) => pos.setCloseCountedAmount(e.target.value)}
+                placeholder="0.00"
+                className={`${fieldClass} mt-1`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>
+                Fondo para el siguiente turno <span className="text-rose-600">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={pos.closeCountedAmount || undefined}
+                step="0.01"
+                value={pos.closeNextFundAmount}
+                onChange={(e) => pos.setCloseNextFundAmount(e.target.value)}
+                placeholder="0.00"
+                className={`${fieldClass} mt-1`}
+              />
+              <p className="mt-1 text-[11px] text-[#605e5c]">
+                Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
+              </p>
+            </div>
+            <div>
+              <label className={labelClass}>Nota (opcional)</label>
+              <input
+                type="text"
+                value={pos.closeCashNotes}
+                onChange={(e) => pos.setCloseCashNotes(e.target.value)}
+                placeholder="Ej. faltante justificado, novedades del turno..."
+                className={`${fieldClass} mt-1`}
+              />
+            </div>
+          </div>
+        </GenericModal>
       </div>
     </Layout>
   );

@@ -38,6 +38,14 @@ class Service(Base):
     # has_maintenance/has_removal activado (el form ya lo condiciona así).
     maintenance_days = Column(Integer, nullable=True)
     removal_days = Column(Integer, nullable=True)
+    # Servicio inactivo = no se ofrece para vender/reservar (POS, Agenda),
+    # pero se mantiene visible en el catálogo de administración para poder
+    # reactivarlo — no se borra ni se filtra de ahí.
+    is_active = Column(Boolean, nullable=False, default=True)
+    # Descuento promocional sobre `price` (0-100) — se aplica solo mientras
+    # esté cargado, así no hay que ir cambiando el precio base a mano cada
+    # vez que empieza/termina una promoción.
+    discount_percent = Column(Float, nullable=True, default=None)
 
     category = relationship("ServiceCategory", back_populates="services")
     appointments = relationship("Appointment", back_populates="service")
@@ -47,6 +55,15 @@ class Service(Base):
     @property
     def branch_ids(self):
         return [item.branch_id for item in self.branch_services if item.is_active]
+
+    @property
+    def effective_price(self):
+        """Precio final a cobrar — `price` con el descuento promocional
+        aplicado, si hay uno cargado. Es lo que debe usar el POS/Agenda al
+        vender/reservar; `price` sigue siendo el precio base editable."""
+        if self.discount_percent and self.discount_percent > 0:
+            return round(self.price * (1 - self.discount_percent / 100), 2)
+        return self.price
 
 
 class BranchService(Base):

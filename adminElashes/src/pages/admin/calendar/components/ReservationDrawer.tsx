@@ -68,6 +68,7 @@ export default function ReservationDrawer({
   const normalizedServiceQuery = serviceQuery.trim().toLowerCase();
   const filteredServices = useMemo(() => {
     return services.filter((service) => {
+      if (service.is_active === false) return false;
       if (normalizedServiceQuery && !service.name.toLowerCase().includes(normalizedServiceQuery)) return false;
       if (selectedCategoryId !== "all") {
         const categoryId = service.category?.id ?? service.category_id ?? null;

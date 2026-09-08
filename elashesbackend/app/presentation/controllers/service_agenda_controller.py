@@ -144,6 +144,8 @@ def create_new_service(
         branch_ids=payload.branch_ids,
         maintenance_days=payload.maintenance_days,
         removal_days=payload.removal_days,
+        is_active=payload.is_active,
+        discount_percent=payload.discount_percent,
     )
 
 
@@ -166,6 +168,8 @@ def update_existing_service(
         branch_ids=payload.branch_ids,
         maintenance_days=payload.maintenance_days,
         removal_days=payload.removal_days,
+        is_active=payload.is_active,
+        discount_percent=payload.discount_percent,
     )
 
 

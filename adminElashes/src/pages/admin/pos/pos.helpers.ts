@@ -105,7 +105,9 @@ export const createDefaultLine = (service?: ServiceOption): CartLine => ({
   without_time: false,
   status: "pending",
   duration_minutes: service?.duration_minutes ?? 60,
-  price: service?.price ?? 0,
+  // effective_price ya trae el descuento promocional aplicado (si hay uno
+  // cargado en el servicio) — así no hace falta editar el precio a mano.
+  price: service?.effective_price ?? service?.price ?? 0,
 });
 
 export const toDateAndTimeInputValues = (iso: string) => {

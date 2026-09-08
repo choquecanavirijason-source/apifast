@@ -65,6 +65,12 @@ class ServiceBase(BaseModel):
     # has_maintenance/has_removal activado.
     maintenance_days: Optional[int] = Field(default=None, ge=0)
     removal_days: Optional[int] = Field(default=None, ge=0)
+    # Activar/desactivar el servicio para venta y reserva (POS, Agenda) sin
+    # borrarlo del catálogo.
+    is_active: bool = True
+    # Descuento promocional sobre `price` (0-100) — opcional, se aplica solo
+    # mientras esté cargado.
+    discount_percent: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 class ServiceCreate(ServiceBase):
@@ -82,6 +88,8 @@ class ServiceUpdate(BaseModel):
     branch_ids: Optional[List[int]] = None
     maintenance_days: Optional[int] = Field(default=None, ge=0)
     removal_days: Optional[int] = Field(default=None, ge=0)
+    is_active: Optional[bool] = None
+    discount_percent: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 class ServiceResponse(BaseModel):
@@ -100,6 +108,9 @@ class ServiceResponse(BaseModel):
     ticket_count: int = 0
     maintenance_days: Optional[int] = None
     removal_days: Optional[int] = None
+    is_active: bool = True
+    discount_percent: Optional[float] = None
+    effective_price: float
 
 
 class ServiceImageUploadResponse(BaseModel):

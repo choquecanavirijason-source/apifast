@@ -105,8 +105,15 @@ export default function ServiceSelectorCard({
                           <p className="truncate text-sm font-semibold text-[#323130]">{service.name}</p>
                           <p className="truncate text-[11px] text-[#605e5c]">{service.description || "Sin descripción"}</p>
                         </div>
-                        <span className="shrink-0 text-xs font-semibold text-[#094732] opacity-0 transition-opacity group-hover:opacity-100">
-                          Bs {service.price.toFixed(2)}
+                        <span className="shrink-0 text-xs font-semibold opacity-0 transition-opacity group-hover:opacity-100">
+                          {service.discount_percent ? (
+                            <span className="flex items-center gap-1">
+                              <span className="text-[#a19f9d] line-through">Bs {service.price.toFixed(2)}</span>
+                              <span className="text-[#a4262c]">Bs {(service.effective_price ?? service.price).toFixed(2)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#094732]">Bs {service.price.toFixed(2)}</span>
+                          )}
                         </span>
                       </button>
                     ))
@@ -204,9 +211,16 @@ export default function ServiceSelectorCard({
                   <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                     <div className="min-w-0">
                       <p className="line-clamp-1 text-xs font-semibold text-[#323130]">{service.name}</p>
-                      <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
+                      {service.discount_percent ? (
+                        <p className="flex items-center gap-1 text-[11px] font-bold">
+                          <span className="text-[#a19f9d] line-through">Bs {service.price.toFixed(2)}</span>
+                          <span className="text-[#a4262c]">Bs {(service.effective_price ?? service.price).toFixed(2)}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
+                      )}
                       {service.commission_rate != null && (
-                        <p className="text-[10px] text-[#8a8886]">Comisión: {service.commission_rate}%</p>
+                        <p className="text-[10px] text-[#8a8886]">Comisión: {Math.round(service.commission_rate * 100)}%</p>
                       )}
                     </div>
 

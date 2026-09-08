@@ -22,6 +22,12 @@ export interface ServiceOption {
   // has_maintenance/has_removal activado.
   maintenance_days?: number | null;
   removal_days?: number | null;
+  /** Activo = se puede vender/reservar (POS, Agenda). Inactivo se mantiene en el catálogo pero no se ofrece. */
+  is_active?: boolean;
+  /** Descuento promocional sobre `price` (0-100) — null/undefined = sin promo. */
+  discount_percent?: number | null;
+  /** Precio final ya con el descuento aplicado — lo que hay que cobrar (calculado por el backend). */
+  effective_price?: number;
 }
 
 export interface ServiceCreatePayload {
@@ -35,6 +41,8 @@ export interface ServiceCreatePayload {
   branch_ids?: number[] | null;
   maintenance_days?: number | null;
   removal_days?: number | null;
+  is_active?: boolean;
+  discount_percent?: number | null;
 }
 
 export interface ServiceUpdatePayload {
@@ -48,6 +56,8 @@ export interface ServiceUpdatePayload {
   branch_ids?: number[] | null;
   maintenance_days?: number | null;
   removal_days?: number | null;
+  is_active?: boolean | null;
+  discount_percent?: number | null;
 }
 
 export interface ServiceImageUploadResponse {

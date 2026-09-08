@@ -5,6 +5,9 @@ import * as XLSX from "xlsx";
 import {
   BarChart,
   Bar,
+  Cell,
+  PieChart,
+  Pie,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -30,7 +33,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import Layout from "@/components/common/layout";
-import { SectionCard, StatCard } from "@/components/common/ui";
+import { Button, SectionCard, StatCard } from "@/components/common/ui";
 import DownloadActions from "@/components/common/ui/DownloadActions";
 import FilterField from "@/components/common/ui/FilterField";
 import { DashboardService, type DashboardOverview } from "@/core/services/dashboard/dashboard.service";
@@ -60,6 +63,9 @@ const CHART_TOOLTIP_STYLE = {
   border: "1px solid #e2e8f0",
   fontSize: 12,
 } as const;
+
+/** Paleta categórica (servicios/productos distintos) — tonos de verde de marca + grises. */
+const BC_COLORS = ["#094732", "#146c52", "#2f8f6d", "#5cae8f", "#8ecab3", "#c8e6d9", "#605e5c", "#a19f9d"];
 
 /** Controles de la página: blancos, mismo alto y radio para que alineen entre sí. */
 const BTN_NEUTRAL =

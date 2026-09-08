@@ -21,6 +21,7 @@ import {
 } from "../../../core/services/pos-sale/pos-sale.service";
 import { ClientService } from "../../../core/services/client/client.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
+import { CashSessionService, type CashSessionOut, type CashSessionDetail } from "../../../core/services/cash-session/cash-session.service";
 import { ProductService } from "../../../core/services/product/product.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
@@ -95,6 +96,23 @@ export function usePosPage({
 
   // ── Branch ────────────────────────────────────────────────────────────────
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
+
+  // ── Caja (sesión de apertura/cierre) — el POS no deja vender sin caja
+  // abierta; se puede abrir directo desde acá en vez de ir a Salones → Caja.
+  const [cashSession, setCashSession]           = useState<CashSessionOut | null>(null);
+  const [isLoadingCashSession, setIsLoadingCashSession] = useState(false);
+  const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
+  const [cashOpeningAmount, setCashOpeningAmount] = useState("");
+  const [cashOpenNotes, setCashOpenNotes]       = useState("");
+  const [isOpeningCashSession, setIsOpeningCashSession] = useState(false);
+  // Cierre de caja (arqueo) desde el POS — mismo flujo que Salones → Caja.
+  const [isCloseCashSessionModalOpen, setIsCloseCashSessionModalOpen] = useState(false);
+  const [closeCountedAmount, setCloseCountedAmount]     = useState("");
+  const [closeNextFundAmount, setCloseNextFundAmount]   = useState("");
+  const [closeCashNotes, setCloseCashNotes]             = useState("");
+  const [isClosingCashSession, setIsClosingCashSession] = useState(false);
+  const [closeCashLiveDetail, setCloseCashLiveDetail]   = useState<CashSessionDetail | null>(null);
+  const [isLoadingCloseCashDetail, setIsLoadingCloseCashDetail] = useState(false);
 
   // ── Sale form ─────────────────────────────────────────────────────────────
   const [clientId, setClientId]             = useState("");
@@ -183,17 +201,21 @@ export function usePosPage({
     return [...selected, ...base];
   }, [clients, clientSearch, clientId, selectedClient]);
 
+  // Servicios desactivados desde el catálogo no se ofrecen para ventas
+  // nuevas (siguen resolviéndose por id en tickets/carrito ya existentes).
+  const sellableServices = useMemo(() => services.filter((s) => s.is_active !== false), [services]);
+
   const filteredServices = useMemo(() => {
     const categoryFiltered = selectedServiceCategoryId === "all"
-      ? services
-      : services.filter((s) => {
+      ? sellableServices
+      : sellableServices.filter((s) => {
           const catId = s.category_id ?? s.category?.id ?? null;
           return String(catId ?? "") === selectedServiceCategoryId;
         });
     const term = serviceSearch.trim().toLowerCase();
     if (!term) return categoryFiltered;
     return categoryFiltered.filter((s) => s.name.toLowerCase().includes(term) || s.price.toFixed(2).includes(term));
-  }, [services, serviceSearch, selectedServiceCategoryId]);
+  }, [sellableServices, serviceSearch, selectedServiceCategoryId]);
 
   const productsSubtotal = useMemo(
     () => productLines.reduce((s, l) => s + l.unit_price * l.quantity, 0),
@@ -223,14 +245,14 @@ export function usePosPage({
   const filteredModalServices = useMemo(() => {
     const term = categoryModalSearch.trim().toLowerCase();
     const base = categoryModalFilterId === "all"
-      ? services
-      : services.filter((s) => {
+      ? sellableServices
+      : sellableServices.filter((s) => {
           const catId = s.category_id ?? s.category?.id ?? null;
           return String(catId ?? "") === categoryModalFilterId;
         });
     if (!term) return base;
     return base.filter((s) => s.name.toLowerCase().includes(term) || s.price.toFixed(2).includes(term));
-  }, [services, categoryModalSearch, categoryModalFilterId]);
+  }, [sellableServices, categoryModalSearch, categoryModalFilterId]);
 
   const historyClientOptions = useMemo(() =>
     Array.from(new Set(sales.map((s) => `${s.client?.name ?? ""} ${s.client?.last_name ?? ""}`.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -558,6 +580,117 @@ export function usePosPage({
   useEffect(() => { void loadContext(); }, [activeBranchId]);
   useEffect(() => { void loadEyeTypes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Caja: sesión de la sucursal activa — se recarga al cambiar de sucursal
+  // o después de abrirla, para saber si ya se puede vender ahí.
+  const loadCashSession = async (branchId: number) => {
+    setIsLoadingCashSession(true);
+    try {
+      const current = await CashSessionService.getCurrent(branchId);
+      setCashSession(current);
+    } catch {
+      setCashSession(null);
+    } finally {
+      setIsLoadingCashSession(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeBranchId) { setCashSession(null); return; }
+    void loadCashSession(activeBranchId);
+  }, [activeBranchId]);
+
+  const openCashSessionModal = async () => {
+    setCashOpeningAmount("");
+    setCashOpenNotes("");
+    setIsCashSessionModalOpen(true);
+    if (!activeBranchId) return;
+    try {
+      const history = await CashSessionService.list({ branch_id: activeBranchId });
+      const lastClosedWithFund = history.find((s) => s.status === "closed" && s.next_fund_amount != null);
+      if (lastClosedWithFund?.next_fund_amount != null) {
+        setCashOpeningAmount(String(lastClosedWithFund.next_fund_amount));
+      }
+    } catch {
+      // silencioso — el monto sugerido es solo una comodidad, no bloquea abrir caja
+    }
+  };
+
+  const handleOpenCashSessionFromPos = async () => {
+    if (!activeBranchId) { toast.warning("Selecciona una sucursal."); return; }
+    const amt = parseFloat(cashOpeningAmount);
+    if (Number.isNaN(amt) || amt < 0) {
+      toast.warning("Cargá el monto inicial de la caja.");
+      return;
+    }
+    setIsOpeningCashSession(true);
+    try {
+      const opened = await CashSessionService.open({
+        branch_id: activeBranchId,
+        opening_amount: amt,
+        notes: cashOpenNotes.trim() || undefined,
+      });
+      setCashSession(opened);
+      setCashOpeningAmount("");
+      setCashOpenNotes("");
+      setIsCashSessionModalOpen(false);
+      toast.success("Caja abierta — ya podés vender.");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "No se pudo abrir la caja — puede que ya haya una abierta."));
+    } finally {
+      setIsOpeningCashSession(false);
+    }
+  };
+
+  const openCloseCashSessionModal = async () => {
+    if (!cashSession) return;
+    setCloseCountedAmount("");
+    setCloseNextFundAmount("");
+    setCloseCashNotes("");
+    setCloseCashLiveDetail(null);
+    setIsCloseCashSessionModalOpen(true);
+    setIsLoadingCloseCashDetail(true);
+    try {
+      const detail = await CashSessionService.getDetail(cashSession.id);
+      setCloseCashLiveDetail(detail);
+    } catch {
+      // silencioso — el "esperado en caja" es solo referencia, no bloquea el cierre
+    } finally {
+      setIsLoadingCloseCashDetail(false);
+    }
+  };
+
+  const handleCloseCashSessionFromPos = async () => {
+    if (!cashSession) return;
+    const counted = parseFloat(closeCountedAmount);
+    if (!closeCountedAmount.trim() || Number.isNaN(counted) || counted < 0) {
+      toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
+      return;
+    }
+    const fund = parseFloat(closeNextFundAmount);
+    if (!closeNextFundAmount.trim() || Number.isNaN(fund) || fund < 0) {
+      toast.warning("Indicá cuánto dejás en la caja para el siguiente turno.");
+      return;
+    }
+    if (fund > counted) {
+      toast.warning("El fondo para el siguiente turno no puede ser mayor al monto contado.");
+      return;
+    }
+    setIsClosingCashSession(true);
+    try {
+      await CashSessionService.close(cashSession.id, counted, closeCashNotes.trim() || undefined, fund);
+      setCashSession(null);
+      setCloseCountedAmount("");
+      setCloseNextFundAmount("");
+      setCloseCashNotes("");
+      setIsCloseCashSessionModalOpen(false);
+      toast.success("Caja cerrada.");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "No se pudo cerrar la caja."));
+    } finally {
+      setIsClosingCashSession(false);
+    }
+  };
+
   // El comprobante ("Último ticket") y el historial guardan una foto de la
   // venta al momento de cobrar — sin esto, si el ticket se mueve a "En
   // servicio"/"Finalizado" desde Control de Servicios, acá seguía mostrando
@@ -787,7 +920,7 @@ export function usePosPage({
       const nextLine: CartLine = { ...line, ...patch };
       if (patch.service_id && patch.service_id !== line.service_id) {
         const svc = services.find((s) => String(s.id) === patch.service_id);
-        if (svc) { nextLine.price = Number(svc.price ?? 0); nextLine.duration_minutes = Math.max(1, Number(svc.duration_minutes ?? 60)); }
+        if (svc) { nextLine.price = Number(svc.effective_price ?? svc.price ?? 0); nextLine.duration_minutes = Math.max(1, Number(svc.duration_minutes ?? 60)); }
       }
       return nextLine;
     }));
@@ -1248,6 +1381,14 @@ export function usePosPage({
     clients, services, serviceCategories, professionals, sales, products, existingTickets, eyeTypes, branches,
     eyeTypesError, isLoadingEyeTypes, isLoading, loadContext,
     activeBranchId, setActiveBranchId,
+    cashSession, isLoadingCashSession, loadCashSession,
+    isCashSessionModalOpen, setIsCashSessionModalOpen, openCashSessionModal,
+    cashOpeningAmount, setCashOpeningAmount, cashOpenNotes, setCashOpenNotes,
+    isOpeningCashSession, handleOpenCashSessionFromPos,
+    isCloseCashSessionModalOpen, setIsCloseCashSessionModalOpen, openCloseCashSessionModal,
+    closeCountedAmount, setCloseCountedAmount, closeNextFundAmount, setCloseNextFundAmount,
+    closeCashNotes, setCloseCashNotes, isClosingCashSession, handleCloseCashSessionFromPos,
+    closeCashLiveDetail, isLoadingCloseCashDetail,
     clientId, setClientId, clientSearch, setClientSearch,
     paymentMethod, setPaymentMethod, cashReceived, setCashReceived, mixedPayments, setMixedPayments,
     discountType, setDiscountType, discountValue, setDiscountValue,

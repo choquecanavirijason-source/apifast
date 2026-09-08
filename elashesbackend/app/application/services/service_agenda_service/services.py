@@ -171,6 +171,8 @@ def create_service(
     branch_ids: Optional[List[int]] = None,
     maintenance_days: Optional[int] = None,
     removal_days: Optional[int] = None,
+    is_active: bool = True,
+    discount_percent: Optional[float] = None,
 ) -> Service:
     existing = db.query(Service).filter(Service.name == name.strip()).first()
     if existing:
@@ -202,6 +204,8 @@ def create_service(
         price=price,
         maintenance_days=maintenance_days,
         removal_days=removal_days,
+        is_active=is_active,
+        discount_percent=discount_percent,
     )
     db.add(service)
     db.commit()
@@ -229,6 +233,8 @@ def update_service(
     branch_ids: Optional[List[int]] = None,
     maintenance_days: Optional[int] = None,
     removal_days: Optional[int] = None,
+    is_active: Optional[bool] = None,
+    discount_percent: Optional[float] = None,
 ) -> Service:
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -280,6 +286,14 @@ def update_service(
 
     if removal_days is not None:
         service.removal_days = removal_days
+
+    if is_active is not None:
+        service.is_active = is_active
+
+    if discount_percent is not None:
+        # 0 = sin descuento (así el form puede "limpiar" la promo sin dejar
+        # el campo ambiguo entre "no tocar" y "borrar").
+        service.discount_percent = discount_percent if discount_percent > 0 else None
 
     _sync_service_branches(db=db, service=service, branch_ids=branch_ids)
 

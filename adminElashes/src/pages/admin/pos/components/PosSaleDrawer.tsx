@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, Tag, X, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
@@ -921,47 +921,8 @@ export default function PosSaleDrawer({
           );
         })()}
 
-        {/* Descuento + Método de pago + Notas */}
+        {/* Método de pago + Notas */}
         <div data-tour="pos-drawer-payment" className={`space-y-4 border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)} ${step2Done && !step3Done ? "bg-[#fffdf5]" : ""}`}>
-          <div>
-            <label className={labelClass} htmlFor="pos-drawer-discount">Descuento</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Tag className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
-                <input
-                  id="pos-drawer-discount"
-                  type="number"
-                  min={0}
-                  className={`${bcField} pl-9`}
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  placeholder="0"
-                />
-              </div>
-              <div className="relative w-24">
-                <select
-                  value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as "amount" | "percent")}
-                  className={`${bcField} cursor-pointer appearance-none pr-7 text-center`}
-                >
-                  <option value="amount">Bs</option>
-                  <option value="percent">%</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#605e5c]" />
-              </div>
-            </div>
-            {(() => {
-              const d = parseFloat(discountValue) || 0;
-              const applied = discountType === "percent" ? subtotal * (d / 100) : d;
-              return applied > 0 && applied >= subtotal ? (
-                <p className="mt-1 text-[11px] font-semibold text-[#d13438]">
-                  ⚠ El descuento no puede igualar o superar el subtotal (Bs {subtotal.toFixed(2)})
-                </p>
-              ) : null;
-            })()}
-          </div>
-
           <div>
             <div className="mb-1.5 flex items-center gap-1.5">
               <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#8a6a1f] text-white"}`}>

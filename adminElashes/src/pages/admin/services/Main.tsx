@@ -346,7 +346,7 @@ export default function ServicesPage() {
     }
   };
 
-  const handleServiceFormChange = (field: keyof ServiceItemFormState, value: string) => {
+  const handleServiceFormChange = (field: keyof ServiceItemFormState, value: string | boolean) => {
     setServiceForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -363,6 +363,11 @@ export default function ServicesPage() {
     if (serviceForm.commissionRate.trim()) {
       const rate = Number(serviceForm.commissionRate);
       if (!Number.isFinite(rate) || rate < 0 || rate > 100) return "La comisión debe ser un porcentaje entre 0 y 100.";
+    }
+
+    if (serviceForm.discountPercent.trim()) {
+      const discount = Number(serviceForm.discountPercent);
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) return "El descuento debe ser un porcentaje entre 0 y 100.";
     }
 
     return null;
@@ -385,6 +390,8 @@ export default function ServicesPage() {
       commissionRate: service.commission_rate != null ? String(Math.round(service.commission_rate * 100)) : "",
       maintenanceDays: service.maintenance_days != null ? String(service.maintenance_days) : "",
       removalDays: service.removal_days != null ? String(service.removal_days) : "",
+      isActive: service.is_active !== false,
+      discountPercent: service.discount_percent != null ? String(service.discount_percent) : "",
     });
     setIsEditServiceModalOpen(true);
   };
@@ -432,6 +439,8 @@ export default function ServicesPage() {
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
         maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
         removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
+        is_active: serviceForm.isActive,
+        discount_percent: serviceForm.discountPercent.trim() ? Number(serviceForm.discountPercent) : null,
       });
       setServices((prev) => [created, ...prev]);
       toast.success("Servicio creado correctamente.");
@@ -464,6 +473,10 @@ export default function ServicesPage() {
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
         maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
         removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
+        is_active: serviceForm.isActive,
+        // 0 (no null) para que el backend distinga "sin cambios" de "borrar la promo":
+        // update_service solo limpia el descuento cuando llega un número (0 = sin descuento).
+        discount_percent: serviceForm.discountPercent.trim() ? Number(serviceForm.discountPercent) : 0,
       });
       setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
       toast.success("Servicio actualizado correctamente.");
@@ -696,9 +709,22 @@ export default function ServicesPage() {
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
                         {service.duration_minutes} min
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-                        Bs {Number(service.price ?? 0).toFixed(2)}
-                      </span>
+                      {service.discount_percent ? (
+                        <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                          <span className="line-through opacity-60">Bs {Number(service.price ?? 0).toFixed(2)}</span>
+                          <span className="font-semibold">Bs {Number(service.effective_price ?? service.price ?? 0).toFixed(2)}</span>
+                          <span className="font-semibold">(-{service.discount_percent}%)</span>
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                          Bs {Number(service.price ?? 0).toFixed(2)}
+                        </span>
+                      )}
+                      {service.is_active === false ? (
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-600">
+                          Inactivo
+                        </span>
+                      ) : null}
                       {service.commission_rate != null ? (
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 font-semibold text-blue-700">
                           Comisión: {Math.round(service.commission_rate * 100)}%
@@ -906,6 +932,55 @@ export default function ServicesPage() {
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
               />
               <p className="text-[10px] text-slate-400">Deja vacío para usar la tasa de la operaria</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Descuento / Promoción (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+                placeholder="Ej: 20"
+                value={serviceForm.discountPercent}
+                onChange={(event) => handleServiceFormChange("discountPercent", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+              {serviceForm.discountPercent.trim() && Number(serviceForm.discountPercent) > 0 && Number(serviceForm.price) >= 0 ? (
+                <p className="text-[11px] font-medium text-emerald-700">
+                  Precio con promo: Bs {(Number(serviceForm.price) * (1 - Number(serviceForm.discountPercent) / 100)).toFixed(2)}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-400">Deja vacío o en 0 para no aplicar promoción</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Estado</label>
+              <button
+                type="button"
+                onClick={() => handleServiceFormChange("isActive", !serviceForm.isActive)}
+                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  serviceForm.isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-300 bg-slate-50 text-slate-500"
+                }`}
+              >
+                {serviceForm.isActive ? "Activo" : "Inactivo"}
+                <span
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                    serviceForm.isActive ? "bg-emerald-600" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      serviceForm.isActive ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </span>
+              </button>
+              <p className="text-[10px] text-slate-400">Inactivo: no se ofrece en el POS ni en la Agenda</p>
             </div>
           </div>
 

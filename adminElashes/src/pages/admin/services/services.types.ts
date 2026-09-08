@@ -30,6 +30,8 @@ export interface ServiceItemFormState {
   commissionRate: string;
   maintenanceDays: string;
   removalDays: string;
+  isActive: boolean;
+  discountPercent: string;
 }
 
 export const emptyServiceItemForm: ServiceItemFormState = {
@@ -42,4 +44,6 @@ export const emptyServiceItemForm: ServiceItemFormState = {
   commissionRate: "",
   maintenanceDays: "",
   removalDays: "",
+  isActive: true,
+  discountPercent: "",
 };
