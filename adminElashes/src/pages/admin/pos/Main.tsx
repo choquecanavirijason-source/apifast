@@ -103,7 +103,9 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 key={tab}
                 type="button"
                 onClick={() => {
-                  if (tab === "sale") pos.resetSaleForm();
+                  // Ojo: no llamar a resetSaleForm() acá — este botón solo
+                  // cambia de pestaña, y antes vaciaba el carrito en progreso
+                  // cada vez que volvías a "Nueva venta" desde Historial.
                   pos.setActiveTab(tab);
                   pos.setStep(1);
                 }}

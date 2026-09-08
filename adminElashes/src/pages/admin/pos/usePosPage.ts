@@ -722,9 +722,6 @@ export function usePosPage({
       .then((data) => setProfessionals(data)).catch(() => {});
   }, [isCartOpen, activeBranchId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId)); }, []);
-
   useEffect(() => {
     BranchService.list({ limit: 200 })
       .then((data) => setBranches(data))
@@ -735,7 +732,7 @@ export function usePosPage({
     setIsDraftHydrated(false);
     const draftKey = getPosDraftStorageKey(activeBranchId);
     try {
-      const raw = sessionStorage.getItem(draftKey);
+      const raw = localStorage.getItem(draftKey);
       if (!raw) { setIsDraftHydrated(true); return; }
       const parsed = JSON.parse(raw) as Partial<PosSaleDraft>;
       const parsedCartLines = Array.isArray(parsed.cartLines)
@@ -762,9 +759,13 @@ export function usePosPage({
       setServiceSearch(typeof parsed.serviceSearch === "string" ? parsed.serviceSearch : "");
       setSelectedServiceCategoryId(typeof parsed.selectedServiceCategoryId === "string" ? parsed.selectedServiceCategoryId : "all");
       setSellerId(typeof parsed.sellerId === "string" ? parsed.sellerId : "");
+      // Si había una venta en progreso, mostrar el carrito de una — si no,
+      // quedaba todo restaurado "por dentro" pero con el panel cerrado, como
+      // si no hubiera pasado nada.
+      if (parsedCartLines.length > 0 || parsedProductLines.length > 0) setIsCartOpen(true);
     } catch (error) {
       console.error("Error leyendo borrador POS:", error);
-      sessionStorage.removeItem(draftKey);
+      localStorage.removeItem(draftKey);
     } finally {
       setIsDraftHydrated(true);
     }
@@ -855,8 +856,8 @@ export function usePosPage({
       !clientId && !clientSearch && (!paymentMethod || paymentMethod === "cash") &&
       discountType === "amount" && (discountValue === "" || discountValue === "0") &&
       !notes.trim() && cartLines.length === 0 && productLines.length === 0 && !serviceSearch && selectedServiceCategoryId === "all" && !sellerId;
-    if (isEmpty) { sessionStorage.removeItem(draftKey); return; }
-    sessionStorage.setItem(draftKey, JSON.stringify({ clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft));
+    if (isEmpty) { localStorage.removeItem(draftKey); return; }
+    localStorage.setItem(draftKey, JSON.stringify({ clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft));
   }, [isDraftHydrated, activeBranchId, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
 
   useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
@@ -978,7 +979,7 @@ export function usePosPage({
     setEditingSale(null); setLinkAppointmentId(null); agendaHydrateDoneRef.current = null;
     setClientId(""); setClientSearch(""); setServiceSearch(""); setSelectedServiceCategoryId("all");
     setPaymentMethod(""); setCashReceived(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
-    sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+    localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
     setStep(1);
     setActiveTab("sale");
   };
@@ -1126,7 +1127,7 @@ export function usePosPage({
         const refreshed = await PosSaleService.getById(updatedSale.id);
         setSales((prev) => prev.map((s) => (s.id === refreshed.id ? refreshed : s)));
         setReceiptSale(refreshed);
-        sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+        localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
         toast.success(`Venta ${refreshed.sale_code} actualizada.`);
         resetSaleForm(); await loadContext();
         if (!embedded) navigate("/admin/pos/history");
@@ -1167,7 +1168,7 @@ export function usePosPage({
           ? { cash_received: Number(cashReceived) }
           : {}),
       });
-      sessionStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+      localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
       const ticketCodes = sale.appointments.map((a) => a.ticket_code).filter((c): c is string => Boolean(c));
       const productSummary = sale.product_lines.length > 0
         ? `Productos: ${sale.product_lines.map((p) => `${p.product?.name ?? "Producto"} x${p.quantity}`).join(", ")}`
