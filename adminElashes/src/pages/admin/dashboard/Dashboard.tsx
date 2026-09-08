@@ -10,9 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
-  PieChart,
-  Pie,
 } from "recharts";
 import {
   Users,
@@ -33,7 +30,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import Layout from "@/components/common/layout";
-import { Button, SectionCard, StatCard } from "@/components/common/ui";
+import { SectionCard, StatCard } from "@/components/common/ui";
 import DownloadActions from "@/components/common/ui/DownloadActions";
 import FilterField from "@/components/common/ui/FilterField";
 import { DashboardService, type DashboardOverview } from "@/core/services/dashboard/dashboard.service";
@@ -50,8 +47,25 @@ interface BranchOption {
 type ExportFormat = "excel" | "pdf";
 type ExportSection = "overview" | "revenue" | "services" | "inventory" | "quicklinks";
 
-/** Paleta inspirada en Dynamics / Business Central (Fluent). */
-const BC_COLORS = ["#0078d4", "#00a4ef", "#8764b8", "#107c10", "#ca5010", "#038387", "#881798", "#5c2d91"];
+/**
+ * Paleta de gráficas: panel blanco + un solo acento azul.
+ * Todas las series miden lo mismo (importe / cantidad), así que comparten color:
+ * pintar cada barra de un color distinto no codifica ninguna información.
+ */
+const CHART_ACCENT = "#2a78d6";
+const CHART_GRID = "#edebe9";
+const CHART_TEXT = "#605e5c";
+const CHART_TOOLTIP_STYLE = {
+  borderRadius: 8,
+  border: "1px solid #e2e8f0",
+  fontSize: 12,
+} as const;
+
+/** Controles de la página: blancos, mismo alto y radio para que alineen entre sí. */
+const BTN_NEUTRAL =
+  "inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50";
+const BTN_DARK =
+  "inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#323130] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#201f1e] disabled:cursor-not-allowed disabled:opacity-50";
 
 const getLocalDateInputValue = (date = new Date()) => {
   const year = date.getFullYear();
@@ -366,7 +380,7 @@ export default function Dashboard() {
         head: [["Item", "Valor"]],
         body: rows.map((row) => [row.label, String(row.value)]),
         styles: { fontSize: 9 },
-        headStyles: { fillColor: [22, 45, 38] },
+        headStyles: { fillColor: [51, 49, 48] },
       });
 
       const pdfFilename = `${safeTitle}-${timestamp}.pdf`;
@@ -379,18 +393,19 @@ export default function Dashboard() {
   };
 
   const bcInput =
-    "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
+    "h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
 
   return (
     <Layout
       title="Centro de rol"
       subtitle="Panel principal · operaciones y finanzas"
       variant="cards"
-      pageClassName="min-h-0 bg-[#f3f2f1]"
+      pageClassName="min-h-0 bg-white"
       containerClassName="!rounded-none !border-0 !bg-transparent !p-0 !shadow-none"
       toolbar={
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-5">
+        <div className="flex flex-col gap-3">
+          {/* Filtros: una sola grilla, todos los campos del mismo ancho y alto */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <FilterField label="Desde">
               <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={bcInput} />
             </FilterField>
@@ -398,7 +413,7 @@ export default function Dashboard() {
               <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={bcInput} />
             </FilterField>
             <FilterField label="Sucursal">
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`min-w-45 ${bcInput}`}>
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={bcInput}>
                 <option value="">Todas las sucursales</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -408,7 +423,7 @@ export default function Dashboard() {
               </select>
             </FilterField>
             <FilterField label="Servicio">
-              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={`min-w-45 ${bcInput}`}>
+              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className={bcInput}>
                 <option value="">Todos los servicios</option>
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>
@@ -419,42 +434,50 @@ export default function Dashboard() {
             </FilterField>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<RefreshCw className="h-4 w-4" />}
+          {/* Acciones: actualizar a la izquierda, descargas agrupadas a la derecha */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+            <button
+              type="button"
               onClick={() => void loadDashboard()}
               disabled={isLoading}
+              className={BTN_NEUTRAL}
             >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} aria-hidden />
               {isLoading ? "Actualizando..." : "Actualizar"}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Download className="h-4 w-4" />}
-              onClick={() => void handleDownload("tickets")}
-              disabled={isDownloading}
-            >
-              Tickets CSV
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Download className="h-4 w-4" />}
-              onClick={() => void handleDownload("payments")}
-              disabled={isDownloading}
-            >
-              Pagos CSV
-            </Button>
-            <Button
-              size="sm"
-              leftIcon={<Download className="h-4 w-4" />}
-              onClick={() => void handleDownload("pos")}
-              disabled={isDownloading}
-            >
-              Ventas POS CSV
-            </Button>
+            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                Descargar CSV
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleDownload("tickets")}
+                disabled={isDownloading}
+                className={BTN_NEUTRAL}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Tickets
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownload("payments")}
+                disabled={isDownloading}
+                className={BTN_NEUTRAL}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Pagos
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownload("pos")}
+                disabled={isDownloading}
+                className={BTN_NEUTRAL}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Ventas POS
+              </button>
+            </div>
           </div>
         </div>
       }
