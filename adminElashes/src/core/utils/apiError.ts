@@ -1,4 +1,17 @@
 import axios from "axios";
+import { translatePermission } from "./permissionLabels";
+
+// El backend manda el detail de 403 con el slug técnico crudo, ej.
+// "Se requiere el permiso: payments:manage" — lo traducimos acá para no
+// mostrarle al usuario un identificador en inglés/técnico.
+const PERMISSION_DETAIL_PREFIX = "Se requiere el permiso: ";
+
+function translatePermissionDetail(detail: string): string {
+  if (!detail.startsWith(PERMISSION_DETAIL_PREFIX)) return detail;
+  const slugs = detail.slice(PERMISSION_DETAIL_PREFIX.length).split(", ");
+  const translated = slugs.map(translatePermission).join(" o ");
+  return `Se requiere el permiso: ${translated}`;
+}
 
 /**
  * Mensaje legible desde respuestas FastAPI (detail string, objeto o lista de validación).
@@ -14,7 +27,7 @@ export function getApiErrorMessage(error: unknown, fallback = "Error en la solic
 
     const detail = data?.detail;
     if (typeof detail === "string") {
-      return detail;
+      return translatePermissionDetail(detail);
     }
 
     if (Array.isArray(detail)) {
