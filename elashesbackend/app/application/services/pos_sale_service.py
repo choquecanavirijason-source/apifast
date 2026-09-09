@@ -219,13 +219,15 @@ def create_sale(
             detail="Uno o más servicios no existen",
         )
 
-    # Subtotal: suma precios de todos los servicios (individuales + grupales)
+    # Subtotal: suma precios de todos los servicios (individuales + grupales).
+    # effective_price ya trae el descuento promocional aplicado (si el
+    # servicio tiene uno cargado) — usar `price` acá cobraría de más.
     subtotal = 0.0
     for item in payload.items:
         if item.service_ids:
-            subtotal += sum(service_map[sid].price for sid in item.service_ids if sid in service_map)
+            subtotal += sum(service_map[sid].effective_price for sid in item.service_ids if sid in service_map)
         elif item.service_id is not None:
-            subtotal += service_map[item.service_id].price
+            subtotal += service_map[item.service_id].effective_price
 
     # Productos: validar existencia/estado + stock disponible en la sucursal
     # ANTES de tocar nada — si algo falla, la venta entera no se crea.
@@ -481,9 +483,12 @@ def update_sale(
             for payment in sale.payments:
                 payment.status = "paid"
 
-    # Recalcula desde BD para reflejar cambios reales de tickets/servicios editados.
+    # Recalcula desde BD para reflejar cambios reales de tickets/servicios
+    # editados. Con descuento aplicado (mismo cálculo que effective_price) —
+    # sumar Service.price a secas cobraría de más en servicios con promo.
+    effective_price_expr = Service.price * (1 - func.coalesce(Service.discount_percent, 0.0) / 100.0)
     subtotal_db = (
-        db.query(func.coalesce(func.sum(Service.price), 0.0))
+        db.query(func.coalesce(func.sum(effective_price_expr), 0.0))
         .select_from(Appointment)
         .outerjoin(Service, Appointment.service_id == Service.id)
         .filter(

@@ -16,6 +16,7 @@ dist/
 *.db
 *.sqlite3
 instance/
+postgres-data/
 
 # IDE
 .vscode/

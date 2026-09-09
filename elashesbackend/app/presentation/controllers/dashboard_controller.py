@@ -311,7 +311,11 @@ def get_dashboard_service_distribution(
                 func.coalesce(Service.name, "Sin servicio").label("service_name"),
                 func.count(Appointment.id).label("tickets_count"),
                 func.sum(case((Appointment.status == "completed", 1), else_=0)).label("completed_count"),
-                func.coalesce(func.sum(Service.price), 0).label("estimated_revenue"),
+                # Con descuento aplicado, si el servicio tiene uno cargado —
+                # si no, sobreestima el ingreso real de servicios en promo.
+                func.coalesce(
+                    func.sum(Service.price * (1 - func.coalesce(Service.discount_percent, 0.0) / 100.0)), 0
+                ).label("estimated_revenue"),
             )
             .select_from(Appointment)
             .outerjoin(Service, Service.id == Appointment.service_id),

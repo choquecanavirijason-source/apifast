@@ -16,7 +16,23 @@ services:
   #   networks:
   #     - app-network
 
-  # --- Backend (Python) — SQLite en /app/elashes.db (persistido con el volumen ./elashesbackend) ---
+  # --- Postgres — migración desde SQLite completada, backend ya le apunta. ---
+  database:
+    image: postgres:16
+    container_name: "elashes-postgres"
+    restart: always
+    environment:
+      POSTGRES_DB: elashes
+      POSTGRES_USER: elashes_user
+      POSTGRES_PASSWORD: cambiar_esto
+    volumes:
+      - ./elashesbackend/postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+  # --- Backend (Python) — Postgres (migrado desde SQLite, ver elashes.db.backup-*) ---
   backend:
     build: ./elashesbackend
     image: proyect-elashes-backend:latest
@@ -27,14 +43,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Sin DB_HOST → Settings usaría sqlite en carpeta del proyecto; en Docker fijamos ruta explícita:
-      - DATABASE_URL=sqlite:////app/elashes.db
+      - DATABASE_URL=postgresql://elashes_user:cambiar_esto@database:5432/elashes
       - SECRET_KEY=tu_clave_secreta_aqui
       # microservicioMarketplace corre en el host (puerto 8001), fuera de este compose.
       # Desde dentro del contenedor "localhost" se refiere al propio contenedor, no al host.
       - MARKETPLACE_BACKEND_URL=http://host.docker.internal:8001
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - database
     networks:
       - app-network
 
