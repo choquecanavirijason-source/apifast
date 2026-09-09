@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission
 from app.core.media import save_catalog_image
 from app.domain.entities.expense import Expense
@@ -111,10 +112,18 @@ def create_expense(
 def delete_expense(
     expense_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:manage")),
+    current_user: User = Depends(require_any_permission("payments:manage")),
 ):
     expense = db.query(Expense).filter(Expense.id == expense_id).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Gasto no encontrado.")
+    branch_id = expense.branch_id
+    description = expense.description
+    amount = expense.amount
     db.delete(expense)
     db.commit()
+    record_audit(
+        db, current_user, "delete", "expense", expense_id,
+        f"Eliminó el gasto '{description}' (Bs {amount:.2f})",
+        branch_id=branch_id,
+    )

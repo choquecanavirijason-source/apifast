@@ -15,6 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit
 from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, require_permission
 from app.core.ws_manager import ws_manager
 from app.domain.entities.user import User
@@ -156,7 +157,7 @@ def update_existing_service(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("services:manage")),
 ):
-    return update_service(
+    result = update_service(
         db=db,
         service_id=service_id,
         name=payload.name,
@@ -171,6 +172,11 @@ def update_existing_service(
         is_active=payload.is_active,
         discount_percent=payload.discount_percent,
     )
+    record_audit(
+        db, current_user, "update", "service", service_id,
+        f"Editó el servicio '{result.name}'",
+    )
+    return result
 
 
 @router.delete("/services/{service_id}", response_model=MessageResponse)
@@ -179,7 +185,13 @@ def delete_existing_service(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("services:manage")),
 ):
+    service = get_service_by_id(db=db, service_id=service_id)
+    service_name = service.name if service else f"#{service_id}"
     delete_service(db=db, service_id=service_id)
+    record_audit(
+        db, current_user, "delete", "service", service_id,
+        f"Eliminó el servicio '{service_name}'",
+    )
     return MessageResponse(message="Servicio eliminado correctamente")
 
 
@@ -482,6 +494,18 @@ async def update_existing_appointment(
             "status": result.status,
             "professional_id": result.professional_id,
         })
+    if payload.status == "cancelled":
+        record_audit(
+            db, current_user, "cancel", "appointment", appointment_id,
+            f"Canceló la cita/ticket #{appointment_id}",
+            branch_id=result.branch_id,
+        )
+    else:
+        record_audit(
+            db, current_user, "update", "appointment", appointment_id,
+            f"Editó la cita/ticket #{appointment_id}",
+            branch_id=result.branch_id,
+        )
     return result
 
 
@@ -495,6 +519,11 @@ async def delete_existing_appointment(
     branch_id = appointment.branch_id
     professional_id = appointment.professional_id
     await run_in_threadpool(delete_appointment, db=db, appointment_id=appointment_id)
+    record_audit(
+        db, current_user, "delete", "appointment", appointment_id,
+        f"Eliminó la cita/ticket #{appointment_id}",
+        branch_id=branch_id,
+    )
     if branch_id:
         await ws_manager.broadcast(branch_id, {
             "event": "ticket_deleted",

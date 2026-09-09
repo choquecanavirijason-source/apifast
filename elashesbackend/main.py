@@ -75,6 +75,7 @@ import app.infrastructure.database.migrations.add_cash_reconciliation_fields as 
 import app.infrastructure.database.migrations.add_cash_received_to_payments as m43
 import app.infrastructure.database.migrations.add_cash_close_next_fund_amount as m44
 import app.infrastructure.database.migrations.add_is_active_and_discount_to_services as m45
+import app.infrastructure.database.migrations.add_audit_logs_table as m46
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -87,6 +88,7 @@ from app.presentation.controllers.service_categories_controller import router as
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 from app.presentation.controllers.expense_controller import router as expenses_router
 from app.presentation.controllers.cash_session_controller import router as cash_sessions_router
+from app.presentation.controllers.audit_log_controller import router as audit_logs_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
@@ -148,6 +150,7 @@ async def lifespan(app: FastAPI):
         ("cash_received_to_payments", m43.upgrade),
         ("cash_close_next_fund_amount", m44.upgrade),
         ("is_active_and_discount_to_services", m45.upgrade),
+        ("audit_logs_table", m46.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -264,6 +267,7 @@ def create_app() -> FastAPI:
     app.include_router(commission_payments_router)
     app.include_router(expenses_router)
     app.include_router(cash_sessions_router)
+    app.include_router(audit_logs_router)
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)

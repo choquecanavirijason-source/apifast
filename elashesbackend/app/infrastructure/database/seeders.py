@@ -66,6 +66,10 @@ def seed_permissions(db: Session):
         # clients/payments/etc porque combina datos de varios módulos a la
         # vez y no todo rol con esos permisos individuales debería verlo junto.
         "dashboard:view",
+        # Auditoría — ver el log de acciones (editar/eliminar/cancelar) del
+        # sistema. Solo SuperAdmin/Admin/Secretaria lo tienen (ver seed_roles);
+        # Cajera/Operaria/EncargadaAlmacen quedan afuera a propósito.
+        "audit:view",
     ]
     created = []
     for name in permissions_list:
@@ -104,6 +108,7 @@ def seed_roles(db: Session):
             permission_map["ai:view"],
             permission_map["ai:manage"],
             permission_map["dashboard:view"],
+            permission_map["audit:view"],
         ],
         "Operaria": [
             permission_map["clients:view"],
@@ -136,6 +141,7 @@ def seed_roles(db: Session):
             permission_map["branches:view"],
             permission_map["inventory:view"],
             permission_map["dashboard:view"],
+            permission_map["audit:view"],
         ],
         "EncargadaAlmacen": [
             permission_map["inventory:view"],

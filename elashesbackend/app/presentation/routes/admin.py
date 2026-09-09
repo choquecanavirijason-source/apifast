@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_role, require_any_role, SUPER_ADMIN_ROLE
 from app.domain.entities.branch import Branch
 from app.domain.entities.user import User
@@ -229,12 +230,17 @@ def update_existing_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_role("SuperAdmin", "Admin")),
 ):
-    return update_user(
+    result = update_user(
         db=db,
         user_id=user_id,
         payload=payload,
         current_user_id=current_user.id,
     )
+    record_audit(
+        db, current_user, "update", "user", user_id,
+        f"Editó el usuario '{result.username}'",
+    )
+    return result
 
 
 @router.delete(
@@ -246,19 +252,24 @@ def delete_existing_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_role("SuperAdmin", "Secretaria")),
 ):
+    target = db.query(User).filter(User.id == user_id).first()
     # Secretaria solo puede eliminar usuarios con rol Operaria
     if current_user.role and current_user.role.name == "Secretaria":
-        target = db.query(User).filter(User.id == user_id).first()
         if not target or not target.role or target.role.name != "Operaria":
             from fastapi import HTTPException, status as http_status
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Solo puedes eliminar operarias",
             )
+    target_username = target.username if target else f"#{user_id}"
     delete_user(
         db=db,
         user_id=user_id,
         current_user_id=current_user.id,
+    )
+    record_audit(
+        db, current_user, "delete", "user", user_id,
+        f"Eliminó el usuario '{target_username}'",
     )
     return MessageResponse(message="Usuario eliminado correctamente")
 

@@ -19,6 +19,7 @@ import {
   UserCheck,
   Bot,
   Wallet,
+  History,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -309,6 +310,13 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
         icon: <Users size={20} />,
         path: "/users",
         permission: "users:manage",
+      },
+
+      {
+        name: "Auditoría",
+        icon: <History size={20} />,
+        path: "/admin/audit-log",
+        permission: "audit:view",
       },
 
       { name: "Ajustes", icon: <Settings size={20} />, path: "/settings", permission: "settings:view" },

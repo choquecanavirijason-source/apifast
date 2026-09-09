@@ -36,6 +36,7 @@ import PosPage from '@/pages/admin/pos/Main';
 import FollowUpPage from '@/pages/admin/follow-up/pages/FollowUpPage';
 import PosTrackingHub from '@/pages/admin/pos-tracking/PosTrackingHub';
 import CierreDeCajaPage from '@/pages/admin/cierre-de-caja/CierreDeCaja';
+import AuditLogPage from '@/pages/admin/audit/AuditLog';
 import CompletedTicketsHistory from "@/pages/admin/pos-tracking/CompletedTicketsHistory";
 import ProfessionalServiceHistory from "@/pages/admin/professionals/History";
 import TicketsHistoryPage from "@/pages/admin/professionals/TicketsHistory";
@@ -197,6 +198,7 @@ export default function AppRouter() {
             <Route path="admin/pos" element={<PosPage section="sale" />} />
             <Route path="admin/pos/history" element={<PosPage section="history" />} />
             <Route path="admin/cierre-de-caja" element={<CierreDeCajaPage />} />
+            <Route path="admin/audit-log" element={<AuditLogPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>

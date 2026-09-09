@@ -16,6 +16,7 @@ export const MODULE_LABELS: Record<string, string> = {
   appointments: "Citas",
   branches: "Sucursales",
   dashboard: "Dashboard",
+  audit: "Auditoría",
 };
 
 const ACTION_LABELS: Record<string, string> = {

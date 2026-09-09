@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission, require_permission
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleResponse, PosSaleUpdate
@@ -61,7 +62,13 @@ def patch_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return update_sale(db=db, sale_id=sale_id, payload=payload)
+    result = update_sale(db=db, sale_id=sale_id, payload=payload)
+    record_audit(
+        db, current_user, "update", "pos_sale", sale_id,
+        f"Editó la venta #{sale_id}",
+        branch_id=getattr(result, "branch_id", None),
+    )
+    return result
 
 
 @router.post("/{sale_id}/cancel", response_model=PosSaleResponse)
@@ -70,7 +77,13 @@ def cancel_existing_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return cancel_sale(db=db, sale_id=sale_id)
+    result = cancel_sale(db=db, sale_id=sale_id)
+    record_audit(
+        db, current_user, "cancel", "pos_sale", sale_id,
+        f"Canceló la venta #{sale_id}",
+        branch_id=getattr(result, "branch_id", None),
+    )
+    return result
 
 
 @router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -80,6 +93,7 @@ def remove_sale(
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
     delete_sale(db=db, sale_id=sale_id)
+    record_audit(db, current_user, "delete", "pos_sale", sale_id, f"Eliminó la venta #{sale_id}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

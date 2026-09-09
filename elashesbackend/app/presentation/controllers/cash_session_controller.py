@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission
 from app.domain.entities.cash_close import CashClose
 from app.domain.entities.expense import Expense
@@ -234,6 +235,11 @@ def close_cash_session(
 
     db.commit()
     db.refresh(session)
+    record_audit(
+        db, current_user, "update", "cash_session", session.id,
+        f"Cerró la caja de la sucursal (contado Bs {body.counted_amount:.2f}, diferencia Bs {session.difference:.2f})",
+        branch_id=session.branch_id,
+    )
     return _to_out(_query(db).filter(CashClose.id == session.id).first())
 
 
