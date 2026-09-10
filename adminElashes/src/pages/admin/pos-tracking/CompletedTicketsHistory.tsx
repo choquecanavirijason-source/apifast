@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
@@ -7,6 +7,7 @@ import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { generateTableExcel } from "@/core/utils/generateTableExcel";
 
 const fieldClass =
   "h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
@@ -161,6 +162,35 @@ export default function CompletedTicketsHistory() {
     ? ` · ${fromDate ? new Date(fromDate).toLocaleDateString("es-BO") : "inicio"} — ${toDate ? new Date(toDate).toLocaleDateString("es-BO") : "hoy"}`
     : "";
 
+  const handleDownloadExcel = () => {
+    generateTableExcel({
+      title: "Historial de tickets finalizados",
+      subtitle: `Notas de diseño y cuestionarios por ticket${dateRangeLabel}`,
+      filename: "historial-tickets-finalizados",
+      sheetName: "Tickets finalizados",
+      meta: [{ label: "Tickets", value: String(tickets.length) }],
+      columns: [
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio", key: "service" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Comentarios", key: "notes" },
+        { header: "Cuestionario", key: "questionnaire" },
+      ],
+      rows: tickets.map((ticket) => {
+        const tracking = trackingByAppointment.get(ticket.id);
+        return {
+          client_name: ticket.client_name,
+          service: ticket.service_names?.join(" · ") ?? ticket.service_name ?? "",
+          professional_name: ticket.professional_name ?? "Sin asignar",
+          fecha: ticket.start_time ? new Date(ticket.start_time).toLocaleString("es-BO") : "",
+          notes: tracking?.design_notes?.trim() ?? "",
+          questionnaire: tracking?.questionnaire?.title ?? "",
+        };
+      }),
+    });
+  };
+
   const handleDownloadPdf = () => {
     void generateTablePdf({
       title: "Historial de tickets finalizados",
@@ -228,6 +258,15 @@ export default function CompletedTicketsHistory() {
               leftIcon={<Download className="h-3.5 w-3.5" />}
             >
               PDF
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadExcel}
+              disabled={tickets.length === 0}
+              leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+            >
+              Excel
             </Button>
             <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>
               Actualizar

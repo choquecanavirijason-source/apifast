@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileDown, Search, Ticket } from "lucide-react";
+import { FileDown, FileSpreadsheet, Search, Ticket } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
 import { AgendaService, type TicketItem } from "../../../core/services/agenda/agenda.service";
 import { PaymentService, type PaymentItem } from "../../../core/services/payment/payment.service";
 import { PosSaleService, type PosSaleItem } from "../../../core/services/pos-sale/pos-sale.service";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
+import { generateTableExcel } from "../../../core/utils/generateTableExcel";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import DataTable, { type DataTableColumn } from "../../../components/common/table/DataTable";
 import { Button, SectionCard } from "../../../components/common/ui";
@@ -464,6 +465,33 @@ export default function ClientSalesHistoryModal({
     });
   };
 
+  const exportSalesExcel = () => {
+    generateTableExcel({
+      title: `Ventas — ${clientName}`,
+      subtitle: "Historial de ventas del cliente",
+      filename: `ventas-cliente-${client?.id ?? "x"}`,
+      sheetName: "Ventas",
+      meta: [
+        { label: "Registros", value: String(filteredSales.length) },
+        { label: "Total filtrado", value: formatMoney(summary.salesTotal) },
+      ],
+      columns: [
+        { key: "sale_code", header: "Código" },
+        { key: "fecha", header: "Fecha" },
+        { key: "total", header: "Total" },
+        { key: "pago", header: "Método" },
+        { key: "estado", header: "Estado" },
+      ],
+      rows: filteredSales.map((sale) => ({
+        sale_code: sale.sale_code,
+        fecha: formatDateTime(sale.created_at),
+        total: Number(sale.total ?? 0),
+        pago: PAYMENT_METHOD_LABELS[sale.payment_method] ?? sale.payment_method,
+        estado: SALE_STATUS_LABELS[sale.status] ?? sale.status,
+      })),
+    });
+  };
+
   const exportTicketsPdf = () => {
     void generateTablePdf({
       title: `Tickets — ${clientName}`,
@@ -483,6 +511,60 @@ export default function ClientSalesHistoryModal({
         inicio: formatDateTime(t.start_time),
         estado: TICKET_STATUS_LABELS[t.status] ?? t.status,
         venta: t.sale_id ? String(t.sale_id) : "—",
+      })),
+    });
+  };
+
+  const exportTicketsExcel = () => {
+    generateTableExcel({
+      title: `Tickets — ${clientName}`,
+      subtitle: "Historial de tickets en agenda",
+      filename: `tickets-cliente-${client?.id ?? "x"}`,
+      sheetName: "Tickets",
+      columns: [
+        { key: "ticket_code", header: "Código" },
+        { key: "servicios", header: "Servicios" },
+        { key: "inicio", header: "Inicio" },
+        { key: "estado", header: "Estado" },
+        { key: "venta", header: "Venta" },
+      ],
+      rows: filteredTickets.map((ticket) => ({
+        ticket_code: ticket.ticket_code || String(ticket.id),
+        servicios: ticket.service_names?.join(", ") || ticket.service_name || "—",
+        inicio: formatDateTime(ticket.start_time),
+        estado: TICKET_STATUS_LABELS[ticket.status] ?? ticket.status,
+        venta: ticket.sale_id ? String(ticket.sale_id) : "—",
+      })),
+    });
+  };
+
+  const exportPaymentsExcel = () => {
+    generateTableExcel({
+      title: `Pagos — ${clientName}`,
+      subtitle: "Historial de pagos del cliente",
+      filename: `pagos-cliente-${client?.id ?? "x"}`,
+      sheetName: "Pagos",
+      meta: [
+        { label: "Registros", value: String(filteredPayments.length) },
+        { label: "Total pagado", value: formatMoney(summary.paidTotal) },
+      ],
+      columns: [
+        { key: "fecha", header: "Fecha" },
+        { key: "monto", header: "Monto" },
+        { key: "metodo", header: "Método" },
+        { key: "estado", header: "Estado" },
+        { key: "ticket", header: "Ticket / cita" },
+        { key: "referencia", header: "Referencia" },
+        { key: "notas", header: "Notas" },
+      ],
+      rows: filteredPayments.map((payment) => ({
+        fecha: formatDateTime(payment.paid_at),
+        monto: Number(payment.amount ?? 0),
+        metodo: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
+        estado: payment.status === "paid" ? "Pagado" : payment.status === "pending" ? "Pendiente" : payment.status === "cancelled" ? "Cancelado" : payment.status,
+        ticket: payment.appointment_id ? `#${payment.appointment_id}` : "—",
+        referencia: payment.reference ?? "—",
+        notas: payment.notes ?? "—",
       })),
     });
   };
@@ -617,6 +699,9 @@ export default function ClientSalesHistoryModal({
                 <Button type="button" variant="secondary" size="sm" leftIcon={<FileDown className="h-4 w-4" />} onClick={exportSalesPdf}>
                   Exportar PDF
                 </Button>
+                <Button type="button" variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="h-4 w-4" />} onClick={exportSalesExcel}>
+                  Exportar Excel
+                </Button>
               </div>
               <DataTable
                 data={filteredSales}
@@ -685,6 +770,9 @@ export default function ClientSalesHistoryModal({
                 <Button type="button" variant="secondary" size="sm" leftIcon={<FileDown className="h-4 w-4" />} onClick={exportTicketsPdf}>
                   Exportar PDF
                 </Button>
+                <Button type="button" variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="h-4 w-4" />} onClick={exportTicketsExcel}>
+                  Exportar Excel
+                </Button>
               </div>
               <DataTable
                 data={filteredTickets}
@@ -744,11 +832,16 @@ export default function ClientSalesHistoryModal({
                   />
                 </div>
               </div>
-              <p className="text-sm text-slate-600">
-                Total filtrado: <strong className="text-emerald-700">{formatMoney(summary.paidTotal)}</strong>
-                {" · "}
-                {filteredPayments.length} de {payments.length} pagos
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+                <p>
+                  Total filtrado: <strong className="text-emerald-700">{formatMoney(summary.paidTotal)}</strong>
+                  {" · "}
+                  {filteredPayments.length} de {payments.length} pagos
+                </p>
+                <Button type="button" variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="h-4 w-4" />} onClick={exportPaymentsExcel}>
+                  Exportar Excel
+                </Button>
+              </div>
               <DataTable
                 data={filteredPayments}
                 columns={paymentColumns}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Banknote, DoorOpen, Download, Eye, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
+import { Banknote, DoorOpen, Download, Eye, FileSpreadsheet, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 import Layout from "@/components/common/layout";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
@@ -14,6 +14,7 @@ import {
 } from "@/core/services/cash-session/cash-session.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { generateTableExcel } from "@/core/utils/generateTableExcel";
 import variables from "@/core/config/variables";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -1137,6 +1138,33 @@ function HistorialGastosTab() {
     });
   };
 
+  const handleDownloadExcel = () => {
+    generateTableExcel({
+      title: "Historial de gastos",
+      subtitle: `Total: ${moneyFormatter.format(total)} · ${expenses.length} gasto${expenses.length !== 1 ? "s" : ""}`,
+      filename: "historial-de-gastos",
+      sheetName: "Gastos",
+      meta: [
+        { label: "Registros", value: String(expenses.length) },
+        { label: "Total", value: moneyFormatter.format(total) },
+      ],
+      columns: [
+        { header: "Fecha", key: "expense_date" },
+        { header: "Sucursal", key: "branch_name" },
+        { header: "Monto", key: "amount" },
+        { header: "Descripción", key: "description" },
+        { header: "Registrado por", key: "created_by_name" },
+      ],
+      rows: expenses.map((expense) => ({
+        expense_date: expense.expense_date,
+        branch_name: expense.branch_name,
+        amount: Number(expense.amount ?? 0),
+        description: expense.description,
+        created_by_name: expense.created_by_name ?? "—",
+      })),
+    });
+  };
+
   const columns: DataTableColumn<ExpenseOut>[] = [
     {
       key: "expense_date",
@@ -1221,6 +1249,13 @@ function HistorialGastosTab() {
               leftIcon={<Download className="h-3.5 w-3.5" />}
             >
               PDF
+            </Button>
+            <Button
+              onClick={handleDownloadExcel}
+              disabled={expenses.length === 0}
+              leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+            >
+              Excel
             </Button>
           </div>
         </div>

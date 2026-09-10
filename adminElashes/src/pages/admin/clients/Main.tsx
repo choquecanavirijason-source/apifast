@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Edit, Trash2, FileDown, Users, Star, ChevronUp, RefreshCw, X, ShoppingBag, History } from "lucide-react";
+import { Plus, Edit, Trash2, FileDown, FileSpreadsheet, Users, Star, ChevronUp, RefreshCw, X, ShoppingBag, History } from "lucide-react";
 import { toast } from "react-toastify";
 import type { IClient } from "../../../core/types/IClient";
 import { ClientService, type EyeTypeOption } from "../../../core/services/client/client.service";
@@ -13,6 +13,7 @@ import RegisterClientModal from "./RegisterClientModal";
 import ClientSalesHistoryModal from "./ClientSalesHistoryModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
+import { generateTableExcel } from "../../../core/utils/generateTableExcel";
 
 const SEEDED_EYE_TYPES_FALLBACK: EyeTypeOption[] = [
   { id: -1, name: "Almendrado" },
@@ -482,6 +483,41 @@ export default function ClientListPage() {
     },
   ];
 
+  const handleExportClientsExcel = () => {
+    generateTableExcel({
+      title: "Listado de Clientes",
+      subtitle: "Clientes registrados en el sistema",
+      filename: "clientes",
+      sheetName: "Clientes",
+      meta: [
+        { label: "Total clientes", value: String(filteredItems.length) },
+        { label: "Vista", value: viewMode === "frequent" ? "Clientes Frecuentes" : "Lista General" },
+      ],
+      columns: [
+        { key: "nombre", header: "Nombre" },
+        { key: "apellido", header: "Apellido" },
+        { key: "edad", header: "Edad" },
+        { key: "tipoOjos", header: "Tipo de Ojos" },
+        { key: "visitas", header: "Visitas" },
+        { key: "status", header: "Estado" },
+        { key: "phone", header: "Teléfono" },
+        { key: "email", header: "Correo" },
+        { key: "ci", header: "CI" },
+      ],
+      rows: filteredItems.map((c) => ({
+        nombre: c.nombre ?? "—",
+        apellido: c.apellido ?? "—",
+        edad: c.edad ?? "—",
+        tipoOjos: getEyeTypeLabel(c.tipoOjos),
+        visitas: c.visitas ?? 0,
+        status: c.status ?? "—",
+        phone: c.phone ?? "—",
+        email: c.email ?? "—",
+        ci: c.ci ?? "—",
+      })),
+    });
+  };
+
   const handleExportClientsPdf = () => {
     void generateTablePdf({
       title: "Listado de Clientes",
@@ -568,6 +604,16 @@ export default function ClientListPage() {
           >
             PDF
           </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportClientsExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            title="Descargar reporte Excel"
+            className="whitespace-nowrap"
+          >
+            Excel
+          </Button>
+
           <Button onClick={handleCreate} leftIcon={<Plus className="h-5 w-5" />} className="whitespace-nowrap">
             Agregar Cliente
           </Button>

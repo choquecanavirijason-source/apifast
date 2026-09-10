@@ -6,8 +6,10 @@ import {
   Eye,
   User,
   FileDown,
+  FileSpreadsheet,
 } from "lucide-react";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
+import { generateTableExcel } from "../../../core/utils/generateTableExcel";
 import { toast } from "react-toastify";
 import type { TicketItem } from "../../../core/services/agenda/agenda.service";
 import {
@@ -306,6 +308,39 @@ export default function TicketsPage() {
     []
   );
 
+  const handleExportExcel = () => {
+    generateTableExcel({
+      title: "Listado de Tickets",
+      subtitle: "Tickets registrados en el sistema",
+      filename: "tickets",
+      sheetName: "Tickets",
+      meta: [
+        { label: "Total", value: String(filteredTickets.length) },
+        ...(ticketDateFilter ? [{ label: "Fecha", value: ticketDateFilter }] : []),
+      ],
+      columns: [
+        { key: "ticket_code", header: "Código" },
+        { key: "client_name", header: "Cliente" },
+        { key: "service", header: "Servicio" },
+        { key: "professional_name", header: "Operaria" },
+        { key: "fecha", header: "Fecha" },
+        { key: "horario", header: "Horario" },
+        { key: "status", header: "Estado" },
+      ],
+      rows: filteredTickets.map((t) => ({
+        ticket_code: t.ticket_code ?? `#${t.id}`,
+        client_name: t.client_name,
+        service: t.service_names?.join(" · ") ?? t.service_name ?? "—",
+        professional_name: t.professional_name ?? "Sin asignar",
+        fecha: t.start_time ? new Date(t.start_time).toLocaleDateString("es-BO") : "—",
+        horario: t.start_time
+          ? `${new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })} - ${new Date(t.end_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}`
+          : "—",
+        status: STATUS_LABELS[t.status] ?? t.status,
+      })),
+    });
+  };
+
   const handleExportPdf = () => {
     void generateTablePdf({
       title: "Listado de Tickets",
@@ -392,6 +427,15 @@ export default function TicketsPage() {
             leftIcon={<FileDown className="h-4 w-4" />}
           >
             PDF
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            title="Descargar reporte Excel"
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+          >
+            Excel
           </Button>
         </div>
       }

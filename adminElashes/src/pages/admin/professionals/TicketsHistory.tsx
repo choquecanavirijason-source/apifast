@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart2, Download, List, Package, Search } from "lucide-react";
+import { BarChart2, Download, FileSpreadsheet, List, Package, Search } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
@@ -7,6 +7,7 @@ import Layout from "@/components/common/layout";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { generateTableExcel } from "@/core/utils/generateTableExcel";
 
 const fieldClass =
   "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] placeholder:text-[#a19f9d] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
@@ -327,6 +328,47 @@ export default function TicketsHistoryPage() {
     setToDate("");
   };
 
+  const handleDownloadExcel = () => {
+    generateTableExcel({
+      title: "Seguimiento de Servicios",
+      subtitle: "Control de calidad: notas de diseño y cuestionarios por ticket",
+      filename: "seguimiento-servicios",
+      sheetName: "Seguimiento",
+      meta: [
+        { label: "Tickets", value: String(filteredTickets.length) },
+        { label: "Completados", value: String(filteredTickets.filter((ticket) => ticket.status === "completed").length) },
+        { label: "Ingresos totales", value: moneyFormatter.format(totalRevenue) },
+      ],
+      columns: [
+        { header: "Código", key: "ticket_code" },
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio(s)", key: "services" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha / Hora", key: "fecha" },
+        { header: "Duración", key: "duration" },
+        { header: "Estado", key: "status" },
+        { header: "Precio", key: "precio" },
+        { header: "Notas seguimiento", key: "notes" },
+        { header: "Cuestionario", key: "questionnaire" },
+      ],
+      rows: filteredTickets.map((ticket) => {
+        const tracking = trackingByAppointment.get(ticket.id);
+        return {
+          ticket_code: ticket.ticket_code ?? `#${ticket.id}`,
+          client_name: ticket.client_name,
+          services: ticket.service_names?.join(" · ") ?? ticket.service_name ?? "",
+          professional_name: ticket.professional_name ?? "Sin asignar",
+          fecha: ticket.start_time ? new Date(ticket.start_time).toLocaleString("es-BO") : "",
+          duration: getDuration(ticket.start_time, ticket.end_time),
+          status: STATUS_LABELS[ticket.status] ?? ticket.status,
+          precio: getPrice(ticket),
+          notes: tracking?.design_notes?.trim() ?? "",
+          questionnaire: tracking?.questionnaire?.title ?? "",
+        };
+      }),
+    });
+  };
+
   const handleDownloadPdf = () => {
     void generateTablePdf({
       title: "Seguimiento de Servicios",
@@ -385,6 +427,15 @@ export default function TicketsHistoryPage() {
               leftIcon={<Download className="h-3.5 w-3.5" />}
             >
               PDF
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadExcel}
+              disabled={filteredTickets.length === 0}
+              leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+            >
+              Excel
             </Button>
             <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
             <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>

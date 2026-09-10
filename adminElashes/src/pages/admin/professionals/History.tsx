@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Download, List, X } from "lucide-react";
+import { Banknote, Download, FileSpreadsheet, List, X } from "lucide-react";
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
@@ -10,6 +10,7 @@ import FilterActionBar from "@/components/common/FilterActionBar";
 import { Button, SectionCard, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { generateTableExcel } from "@/core/utils/generateTableExcel";
 import {
   formatCommissionRatePercent,
   getTicketCommission,
@@ -483,6 +484,89 @@ export default function ProfessionalServiceHistory() {
     });
   };
 
+  const handleDownloadExcelTickets = () => {
+    generateTableExcel({
+      title: "Historial de tickets",
+      subtitle: (selectedProfName ? `Operaria: ${selectedProfName}` : "Todas las operarias") + dateRangeLabel,
+      filename: "historial-tickets",
+      sheetName: "Tickets",
+      meta: [
+        { label: "Tickets", value: String(filteredTickets.length) },
+        { label: "Completados", value: String(completedTickets.length) },
+        { label: "Ingresos", value: moneyFormatter.format(totalRevenue) },
+        { label: "Comisiones", value: moneyFormatter.format(totalCommission) },
+      ],
+      columns: [
+        { header: "Código", key: "ticket_code" },
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio(s)", key: "services" },
+        { header: "Operaria", key: "professional_name" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Hora", key: "hora" },
+        { header: "Estado", key: "status" },
+        { header: "Precio", key: "precio" },
+        { header: "Comisión", key: "comision" },
+        { header: "Sucursal", key: "branch_name" },
+      ],
+      rows: filteredTickets.map((ticket) => ({
+        ticket_code: ticket.ticket_code ?? `#${ticket.id}`,
+        client_name: ticket.client_name,
+        services: ticket.service_names?.join(" · ") ?? ticket.service_name ?? "",
+        professional_name: ticket.professional_name ?? "Sin asignar",
+        fecha: ticket.start_time ? new Date(ticket.start_time).toLocaleDateString("es-BO") : "",
+        hora: ticket.start_time ? new Date(ticket.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }) : "",
+        status: STATUS_LABELS[ticket.status] ?? ticket.status,
+        precio: getTicketPriceTotal(ticket),
+        comision: ticket.status === "completed" ? getTicketCommission(ticket) : 0,
+        branch_name: ticket.branch_name ?? "",
+      })),
+    });
+  };
+
+  const handleDownloadExcelComisiones = () => {
+    generateTableExcel({
+      title: "Comisiones y pagos — detalle de citas",
+      subtitle: (selectedProfName ? `Operaria: ${selectedProfName}` : "Todas las operarias") + dateRangeLabel,
+      filename: "comisiones-y-pagos",
+      sheetName: "Comisiones",
+      meta: [
+        { label: "Citas", value: String(commissionRows.length) },
+        { label: "Caja", value: moneyFormatter.format(commissionTotals.caja) },
+        { label: "Comisiones", value: moneyFormatter.format(commissionTotals.comision) },
+        { label: "Pagado", value: moneyFormatter.format(commissionTotals.pagado) },
+        { label: "Pendiente", value: moneyFormatter.format(commissionTotals.pendiente) },
+      ],
+      columns: [
+        { header: "Operaria", key: "professional_name" },
+        { header: "Cliente", key: "client_name" },
+        { header: "Servicio(s)", key: "services" },
+        { header: "Fecha", key: "fecha" },
+        { header: "Hora", key: "hora" },
+        { header: "Estado", key: "status" },
+        { header: "Caja", key: "caja" },
+        { header: "Comisión", key: "comision" },
+      ],
+      rows: commissionRows.map((row) => ({
+        professional_name: row.professional_name,
+        client_name: row.client_name,
+        services: row.services,
+        fecha: row.fecha,
+        hora: row.hora,
+        status: row.status,
+        caja: row.caja,
+        comision: row.comision,
+      })),
+    });
+  };
+
+  const handleDownloadExcel = () => {
+    if (activeTab === "comisiones") {
+      handleDownloadExcelComisiones();
+    } else {
+      handleDownloadExcelTickets();
+    }
+  };
+
   const handleDownloadPdf = () => {
     if (activeTab === "comisiones") {
       handleDownloadPdfComisiones();
@@ -504,6 +588,15 @@ export default function ProfessionalServiceHistory() {
             leftIcon={<Download className="h-3.5 w-3.5" />}
           >
             PDF
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDownloadExcel}
+            disabled={activeTab === "comisiones" ? commissionRows.length === 0 : filteredTickets.length === 0}
+            leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+          >
+            Excel
           </Button>
           <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>Actualizar</Button>
           <Button

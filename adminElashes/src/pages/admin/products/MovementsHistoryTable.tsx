@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, FileDown, RefreshCcw, SlidersHorizontal } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, FileDown, FileSpreadsheet, RefreshCcw, SlidersHorizontal } from "lucide-react";
 import { toast } from "react-toastify";
 import FilterActionBar from "../../../components/common/FilterActionBar";
 import { Button } from "../../../components/common/ui/index";
 import DataTable, { type DataTableColumn } from "../../../components/common/table/DataTable";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
+import { generateTableExcel } from "../../../core/utils/generateTableExcel";
 import {
   ProductService,
   type InventoryMovement,
@@ -70,6 +71,38 @@ export default function MovementsHistoryTable({ branchId }: MovementsHistoryTabl
     () => movements.filter((m) => m.movementType === "out").reduce((s, m) => s + m.quantity, 0),
     [movements],
   );
+
+  const handleExportExcel = () => {
+    generateTableExcel({
+      title: "Historial de Movimientos de Inventario",
+      subtitle: "Entradas, salidas y ajustes de stock registrados",
+      filename: "movimientos-inventario",
+      sheetName: "Movimientos",
+      meta: [
+        { label: "Movimientos", value: String(movements.length) },
+        { label: "Unidades ingresadas", value: totalIn.toFixed(0) },
+        { label: "Unidades salidas", value: totalOut.toFixed(0) },
+      ],
+      columns: [
+        { key: "fecha", header: "Fecha" },
+        { key: "productName", header: "Producto" },
+        { key: "productSku", header: "SKU" },
+        { key: "movementType", header: "Tipo" },
+        { key: "quantity", header: "Cantidad" },
+        { key: "branchName", header: "Sucursal" },
+        { key: "note", header: "Detalle" },
+      ],
+      rows: movements.map((m) => ({
+        fecha: new Date(m.createdAt).toLocaleString("es-BO"),
+        productName: m.productName,
+        productSku: m.productSku,
+        movementType: TYPE_LABEL[m.movementType],
+        quantity: m.quantity,
+        branchName: m.branchName ?? "—",
+        note: stripInternalTag(m.note) || "—",
+      })),
+    });
+  };
 
   const handleExportPdf = () => {
     void generateTablePdf({
@@ -217,6 +250,15 @@ export default function MovementsHistoryTable({ branchId }: MovementsHistoryTabl
             leftIcon={<FileDown className="h-4 w-4" />}
           >
             PDF
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={movements.length === 0}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+          >
+            Excel
           </Button>
         </div>
       }

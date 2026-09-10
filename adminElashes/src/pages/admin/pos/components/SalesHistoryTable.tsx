@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { FileDown, RefreshCw, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
+import { FileDown, FileSpreadsheet, RefreshCw, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
 import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
+import { generateTableExcel } from "../../../../core/utils/generateTableExcel";
 
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import DataTable, { type DataTableAction, type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
@@ -84,6 +85,45 @@ export default function SalesHistoryTable({
   isRefreshing = false,
 }: SalesHistoryTableProps) {
   
+  const handleExportExcel = () => {
+    generateTableExcel({
+      title: "Historial de Ventas POS",
+      subtitle: "Ventas registradas en el punto de venta",
+      filename: "ventas-pos",
+      sheetName: "Ventas POS",
+      meta: [
+        { label: "Total ventas", value: String(allFilteredSales.length) },
+        { label: "Monto total", value: `Bs ${allFilteredSales.reduce((s, v) => s + Number(v.total ?? 0), 0).toFixed(2)}` },
+      ],
+      columns: [
+        { key: "sale_code", header: "Código" },
+        { key: "client", header: "Cliente" },
+        { key: "services", header: "Servicios" },
+        { key: "created_by", header: "Registró" },
+        { key: "operarias", header: "Operaria(s)" },
+        { key: "payment_method", header: "Método de pago" },
+        { key: "subtotal", header: "Subtotal" },
+        { key: "descuento", header: "Descuento" },
+        { key: "total", header: "Total" },
+        { key: "status", header: "Estado" },
+        { key: "fecha", header: "Fecha" },
+      ],
+      rows: allFilteredSales.map((sale) => ({
+        sale_code: sale.sale_code,
+        client: `${sale.client?.name ?? ""} ${sale.client?.last_name ?? ""}`.trim(),
+        services: sale.appointments?.map((a) => a.service?.name ?? a.services?.map((sv) => sv.name).join(", ") ?? "").filter(Boolean).join(" | ") || "—",
+        created_by: sale.created_by?.username ?? "—",
+        operarias: [...new Set((sale.appointments ?? []).map((a) => a.professional?.username).filter(Boolean))].join(", ") || "—",
+        payment_method: sale.payment_method ?? "—",
+        subtotal: Number(sale.subtotal ?? 0),
+        descuento: sale.discount_value ? `${sale.discount_type === "percent" ? `${sale.discount_value}%` : `Bs ${sale.discount_value}`}` : "—",
+        total: Number(sale.total ?? 0),
+        status: sale.status === "paid" ? "Pagado" : sale.status === "cancelled" ? "Cancelado" : sale.status,
+        fecha: sale.created_at ? new Date(sale.created_at).toLocaleDateString("es-BO") : "—",
+      })),
+    });
+  };
+
   const handleExportPdf = () => {
     void generateTablePdf({
       title: "Historial de Ventas POS",
@@ -153,6 +193,15 @@ export default function SalesHistoryTable({
             className="whitespace-nowrap"
           >
             Imprimir en PDF
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            title="Descargar reporte Excel"
+            className="whitespace-nowrap"
+          >
+            Excel
           </Button>
         </div>
       }
