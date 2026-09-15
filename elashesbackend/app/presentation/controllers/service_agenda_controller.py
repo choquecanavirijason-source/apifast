@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit
+from app.core.audit import describe_changes, record_audit
 from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, require_permission
 from app.core.ws_manager import ws_manager
 from app.domain.entities.user import User
@@ -157,6 +157,11 @@ def update_existing_service(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("services:manage")),
 ):
+    existing = get_service_by_id(db=db, service_id=service_id)
+    old_values = {
+        "name": existing.name, "price": existing.price,
+        "discount_percent": existing.discount_percent, "is_active": existing.is_active,
+    }
     result = update_service(
         db=db,
         service_id=service_id,
@@ -172,9 +177,13 @@ def update_existing_service(
         is_active=payload.is_active,
         discount_percent=payload.discount_percent,
     )
+    changes = describe_changes(old_values, result, {
+        "name": "nombre", "price": "precio",
+        "discount_percent": "descuento %", "is_active": "activo",
+    })
     record_audit(
         db, current_user, "update", "service", service_id,
-        f"Editó el servicio '{result.name}'",
+        f"Editó el servicio '{result.name}' — {changes}",
     )
     return result
 

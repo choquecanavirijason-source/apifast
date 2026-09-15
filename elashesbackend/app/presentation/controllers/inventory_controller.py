@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit
+from app.core.audit import describe_changes, record_audit
 from app.core.dependencies import get_db, require_permission
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
@@ -170,6 +170,11 @@ def update_existing_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    existing = get_product_by_id(db=db, product_id=product_id)
+    old_values = {
+        "name": existing.name, "price": existing.price, "cost": existing.cost,
+        "min_stock": existing.min_stock, "status": existing.status,
+    }
     result = update_product(
         db=db,
         product_id=product_id,
@@ -182,9 +187,13 @@ def update_existing_product(
         image_url=payload.image_url,
         min_stock=payload.min_stock,
     )
+    changes = describe_changes(old_values, result, {
+        "name": "nombre", "price": "precio", "cost": "costo",
+        "min_stock": "stock mínimo", "status": "estado",
+    })
     record_audit(
         db, current_user, "update", "product", product_id,
-        f"Editó el producto '{result.name}'",
+        f"Editó el producto '{result.name}' — {changes}",
     )
     return result
 
@@ -258,15 +267,20 @@ def update_existing_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    existing = get_batch_by_id(db=db, batch_id=batch_id)
+    old_values = {"cost_per_unit": existing.cost_per_unit, "sale_price_per_unit": existing.sale_price_per_unit}
     result = update_batch(
         db=db,
         batch_id=batch_id,
         cost_per_unit=payload.cost_per_unit,
         sale_price_per_unit=payload.sale_price_per_unit,
     )
+    changes = describe_changes(old_values, result, {
+        "cost_per_unit": "costo unitario", "sale_price_per_unit": "precio de venta unitario",
+    })
     record_audit(
         db, current_user, "update", "batch", batch_id,
-        f"Editó el lote #{batch_id} (costo/precio)",
+        f"Editó el lote #{batch_id} — {changes}",
     )
     return result
 
