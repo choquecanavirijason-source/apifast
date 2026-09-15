@@ -192,7 +192,12 @@ def patch_user_skill_level(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
-    return update_skill_level(db=db, user_id=user_id, skill_level=payload.skill_level, branch_id=payload.branch_id, phone=payload.phone)
+    result = update_skill_level(db=db, user_id=user_id, skill_level=payload.skill_level, branch_id=payload.branch_id, phone=payload.phone)
+    record_audit(
+        db, current_user, "update", "user", user_id,
+        f"Editó nivel/sucursal/teléfono del usuario '{result.username}'",
+    )
+    return result
 
 
 @router.get(
@@ -217,7 +222,12 @@ def create_new_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
-    return create_user(db=db, payload=payload)
+    result = create_user(db=db, payload=payload)
+    record_audit(
+        db, current_user, "create", "user", result.id,
+        f"Creó el usuario '{result.username}'",
+    )
+    return result
 
 
 @router.put(
@@ -293,7 +303,7 @@ def assign_branch(
     user_id: int,
     payload: BranchAssignmentPayload,
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
+    current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -305,6 +315,10 @@ def assign_branch(
         user.temp_branch_until = None
         db.commit()
         db.refresh(user)
+        record_audit(
+            db, current_user, "update", "user", user_id,
+            f"Limpió la asignación temporal de sucursal de '{user.username}'",
+        )
         return user
 
     branch = db.query(Branch).filter(Branch.id == payload.branch_id).first()
@@ -329,4 +343,10 @@ def assign_branch(
 
     db.commit()
     db.refresh(user)
+    kind = "permanente" if payload.permanent else f"temporal hasta {payload.temp_until}"
+    record_audit(
+        db, current_user, "update", "user", user_id,
+        f"Reasignó a '{user.username}' a la sucursal '{branch.name}' ({kind})",
+        branch_id=payload.branch_id,
+    )
     return user

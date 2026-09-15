@@ -30,6 +30,10 @@ const ACTION_COLORS: Record<string, string> = {
 
 const ENTITY_LABELS: Record<string, string> = {
   service: "Servicio",
+  product: "Producto",
+  batch: "Lote",
+  inventory_movement: "Movimiento de inventario",
+  stock_transfer: "Transferencia de stock",
   appointment: "Cita / Ticket",
   pos_sale: "Venta",
   user: "Usuario",
