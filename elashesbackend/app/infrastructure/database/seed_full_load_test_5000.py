@@ -346,7 +346,7 @@ def _ensure_users(
         is_operaria = role.name == "Operaria"
         new_items.append(User(
             username=username,
-            email=f"{username}@example.test",
+            email=f"{username}@gmail.com",
             phone=f"+5918{i:08d}"[-13:],
             hashed_password=LOAD_USER_PASSWORD_HASH,
             is_active=(i % 17 != 0),
@@ -666,7 +666,7 @@ def _ensure_clients(db: Session, count: int, branches: list[Branch], eyes: list[
             last_name=f"{last} L5K{i:06d}",
             age=18 + i % 55,
             phone=f"79{i:08d}"[-10:],
-            email=f"load5k.client.{i:06d}@example.test",
+            email=f"load5k.client.{i:06d}@gmail.com",
             branch_id=branches[(i - 1) % len(branches)].id,
             eye_type_id=eyes[(i - 1) % len(eyes)].id,
             status=CLIENT_STATUS_EN_ESPERA,
