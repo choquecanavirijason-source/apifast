@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.audit import describe_changes, record_audit
 from app.core.dependencies import get_db, require_permission
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
@@ -169,7 +170,12 @@ def update_existing_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
-    return update_product(
+    existing = get_product_by_id(db=db, product_id=product_id)
+    old_values = {
+        "name": existing.name, "price": existing.price, "cost": existing.cost,
+        "min_stock": existing.min_stock, "status": existing.status,
+    }
+    result = update_product(
         db=db,
         product_id=product_id,
         sku=payload.sku,
@@ -181,6 +187,15 @@ def update_existing_product(
         image_url=payload.image_url,
         min_stock=payload.min_stock,
     )
+    changes = describe_changes(old_values, result, {
+        "name": "nombre", "price": "precio", "cost": "costo",
+        "min_stock": "stock mínimo", "status": "estado",
+    })
+    record_audit(
+        db, current_user, "update", "product", product_id,
+        f"Editó el producto '{result.name}' — {changes}",
+    )
+    return result
 
 
 @router.delete("/products/{product_id}", response_model=MessageResponse)
@@ -189,7 +204,13 @@ def delete_existing_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    product = get_product_by_id(db=db, product_id=product_id)
+    product_name = product.name if product else f"#{product_id}"
     delete_product(db=db, product_id=product_id)
+    record_audit(
+        db, current_user, "delete", "product", product_id,
+        f"Eliminó el producto '{product_name}'",
+    )
     return MessageResponse(message="Producto eliminado correctamente")
 
 
@@ -246,12 +267,22 @@ def update_existing_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
-    return update_batch(
+    existing = get_batch_by_id(db=db, batch_id=batch_id)
+    old_values = {"cost_per_unit": existing.cost_per_unit, "sale_price_per_unit": existing.sale_price_per_unit}
+    result = update_batch(
         db=db,
         batch_id=batch_id,
         cost_per_unit=payload.cost_per_unit,
         sale_price_per_unit=payload.sale_price_per_unit,
     )
+    changes = describe_changes(old_values, result, {
+        "cost_per_unit": "costo unitario", "sale_price_per_unit": "precio de venta unitario",
+    })
+    record_audit(
+        db, current_user, "update", "batch", batch_id,
+        f"Editó el lote #{batch_id} — {changes}",
+    )
+    return result
 
 
 # ==========================================
@@ -287,7 +318,7 @@ def create_new_movement(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
-    return create_inventory_movement(
+    result = create_inventory_movement(
         db=db,
         product_id=payload.product_id,
         batch_id=payload.batch_id,
@@ -296,6 +327,12 @@ def create_new_movement(
         quantity=payload.quantity,
         note=payload.note,
     )
+    record_audit(
+        db, current_user, "update", "inventory_movement", result.id,
+        f"Movimiento de inventario ({payload.movement_type}, cant. {payload.quantity}) en producto #{payload.product_id}",
+        branch_id=payload.branch_id,
+    )
+    return result
 
 
 # ==========================================
@@ -324,7 +361,7 @@ def create_stock_transfer(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
-    return transfer_stock_between_branches(
+    result = transfer_stock_between_branches(
         db=db,
         product_id=payload.product_id,
         from_branch_id=payload.from_branch_id,
@@ -332,3 +369,10 @@ def create_stock_transfer(
         quantity=payload.quantity,
         note=payload.note,
     )
+    record_audit(
+        db, current_user, "update", "stock_transfer", None,
+        f"Transferencia de stock: producto #{payload.product_id}, cant. {payload.quantity}, "
+        f"de sucursal #{payload.from_branch_id} a #{payload.to_branch_id}",
+        branch_id=payload.to_branch_id,
+    )
+    return result
