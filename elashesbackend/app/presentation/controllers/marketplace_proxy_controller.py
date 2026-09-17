@@ -14,7 +14,11 @@ from app.config.settings import settings
 
 router = APIRouter(prefix="/marketplace-proxy", tags=["Marketplace Proxy"])
 
-TIMEOUT = httpx.Timeout(30.0)
+# 480s (no 300s): en el VPS de producción, más lento que una PC de
+# desarrollo, la conversión a veces pasaba los 5 minutos — el video se
+# terminaba de crear igual del lado de marketplaceapi, pero acá ya se había
+# cortado con 504 antes de que llegara la respuesta.
+TIMEOUT = httpx.Timeout(480.0)
 
 
 @router.api_route(

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
-  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown,
+  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown, Download,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -12,6 +12,7 @@ import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { useUploadQueue } from "@/core/context/uploadQueue.context";
 
 import {
   fetchAdminReels,
@@ -53,7 +54,7 @@ export default function ReelsPage() {
   const [reels, setReels] = useState<MarketplaceReel[]>([]);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { enqueue } = useUploadQueue();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -143,37 +144,42 @@ export default function ReelsPage() {
     setThumbPreview(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId === null && !videoFile && !form.video_url.trim()) {
       toast.error("Sube un video o pega un link directo (mp4, etc.)");
       return;
     }
-    setSaving(true);
-    try {
-      const payload = {
-        caption: form.caption.trim() || undefined,
-        video_url: form.video_url.trim() || undefined,
-        product_id: form.product_id ? Number(form.product_id) : undefined,
-        sort_order: Number(form.sort_order) || 0,
-        video: videoFile ?? undefined,
-        thumbnail: thumbFile ?? undefined,
-      };
-      if (editingId !== null) {
-        const updated = await updateReel(editingId, payload);
-        setReels((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
-        toast.success("Reel actualizado");
-      } else {
-        const created = await createReel(payload);
-        setReels((prev) => [...prev, created]);
-        toast.success("Reel creado");
-      }
-      closeForm();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar");
-    } finally {
-      setSaving(false);
-    }
+
+    const targetId = editingId;
+    const payload = {
+      caption: form.caption.trim() || undefined,
+      video_url: form.video_url.trim() || undefined,
+      product_id: form.product_id ? Number(form.product_id) : undefined,
+      sort_order: Number(form.sort_order) || 0,
+      video: videoFile ?? undefined,
+      thumbnail: thumbFile ?? undefined,
+    };
+    const label = form.caption.trim() || (targetId ? `Reel #${targetId}` : "Nuevo reel");
+
+    // El formulario se cierra al toque — la subida/proceso real queda a
+    // cargo de la cola global (tarjetita flotante abajo a la derecha), así
+    // el usuario puede seguir usando el admin mientras el video se procesa
+    // en el servidor en vez de quedar tildado mirando un spinner.
+    closeForm();
+
+    enqueue({
+      label,
+      run: (onProgress) =>
+        targetId !== null ? updateReel(targetId, payload, onProgress) : createReel(payload, onProgress),
+      onDone: (result) => {
+        setReels((prev) =>
+          targetId !== null
+            ? prev.map((r) => (r.id === targetId ? result : r))
+            : [...prev, result],
+        );
+      },
+    });
   };
 
   // ── toggle / delete / reorder ─────────────────────────────────────────────────
@@ -303,6 +309,17 @@ export default function ReelsPage() {
     },
   ];
 
+  // El video que reproduce la app es el HLS (varios archivos chiquitos) —
+  // esto abre el .mp4/.mov original de respaldo que el servidor guarda
+  // igual, por si hay que recuperar el archivo tal como se subió.
+  const handleDownload = (r: MarketplaceReel) => {
+    if (!r.video_download_url) {
+      toast.warning("Este reel no tiene un archivo original para descargar (es un link externo).");
+      return;
+    }
+    window.open(`${MARKETPLACE_MEDIA_BASE}${r.video_download_url}`, "_blank");
+  };
+
   const actions: DataTableAction<MarketplaceReel>[] = [
     {
       label: "Subir",
@@ -317,6 +334,7 @@ export default function ReelsPage() {
       show: (r) => sortedReels.findIndex((x) => x.id === r.id) < sortedReels.length - 1,
     },
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
+    { label: "Descargar video original", icon: <Download className="h-4 w-4" />, onClick: handleDownload, show: (r) => !!r.video_download_url },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
   ];
 
@@ -492,6 +510,15 @@ export default function ReelsPage() {
                       >
                         <Pencil className="h-3.5 w-3.5" /> Editar
                       </button>
+                      {r.video_download_url && (
+                        <button
+                          onClick={() => handleDownload(r)}
+                          className="flex items-center justify-center rounded-xl bg-slate-100 px-3 py-2 text-slate-600 hover:bg-slate-200 transition"
+                          title="Descargar video original"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => setDeleteTarget(r)}
                         className="flex items-center justify-center rounded-xl bg-rose-50 px-3 py-2 text-rose-500 hover:bg-rose-100 transition"
@@ -518,9 +545,7 @@ export default function ReelsPage() {
         footer={
           <>
             <Button type="button" variant="secondary" onClick={closeForm}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear reel"}
-            </Button>
+            <Button type="submit">{editingId ? "Guardar cambios" : "Crear reel"}</Button>
           </>
         }
       >

@@ -1,3 +1,4 @@
+import type { AxiosProgressEvent } from "axios";
 import api from "../api";
 import variables from "../../config/variables";
 
@@ -31,7 +32,7 @@ const marketplaceApi = {
  */
 export const MARKETPLACE_MEDIA_BASE = variables.apiUrl
   ? `${variables.apiUrl}/marketplace-proxy`
-  : "http://34.55.150.142/api/marketplace-proxy";
+  : "http://37.60.247.213/api/marketplace-proxy";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -462,6 +463,7 @@ export interface ReelProductSummary {
 export interface MarketplaceReel {
   id: number;
   video_url: string;
+  video_download_url: string | null;
   thumbnail_url: string | null;
   caption: string | null;
   product_id: number | null;
@@ -498,15 +500,30 @@ export async function fetchAdminReels(): Promise<MarketplaceReel[]> {
   return data;
 }
 
-export async function createReel(payload: CreateReelPayload): Promise<MarketplaceReel> {
+export async function createReel(
+  payload: CreateReelPayload,
+  onUploadProgress?: (percent: number) => void,
+): Promise<MarketplaceReel> {
   const fd = buildFormData(payload as Record<string, FormValue>);
-  const { data } = await marketplaceApi.post<MarketplaceReel>("/api/reels/admin", fd);
+  const { data } = await marketplaceApi.post<MarketplaceReel>("/api/reels/admin", fd, {
+    onUploadProgress: onUploadProgress
+      ? (e: AxiosProgressEvent) => onUploadProgress(e.total ? Math.round((e.loaded / e.total) * 100) : 0)
+      : undefined,
+  });
   return data;
 }
 
-export async function updateReel(id: number, payload: UpdateReelPayload): Promise<MarketplaceReel> {
+export async function updateReel(
+  id: number,
+  payload: UpdateReelPayload,
+  onUploadProgress?: (percent: number) => void,
+): Promise<MarketplaceReel> {
   const fd = buildFormData(payload as Record<string, FormValue>);
-  const { data } = await marketplaceApi.put<MarketplaceReel>(`/api/reels/admin/${id}`, fd);
+  const { data } = await marketplaceApi.put<MarketplaceReel>(`/api/reels/admin/${id}`, fd, {
+    onUploadProgress: onUploadProgress
+      ? (e: AxiosProgressEvent) => onUploadProgress(e.total ? Math.round((e.loaded / e.total) * 100) : 0)
+      : undefined,
+  });
   return data;
 }
 
