@@ -12,6 +12,7 @@ import { Button, StatCard } from "@/components/common/ui";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import DataTable, { type DataTableColumn, type DataTableAction } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import { useUploadQueue } from "@/core/context/uploadQueue.context";
 
 import {
   fetchAdminReels,
@@ -53,13 +54,7 @@ export default function ReelsPage() {
   const [reels, setReels] = useState<MarketplaceReel[]>([]);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  // Progreso real de la subida del archivo (0-100). Cuando llega a 100 el
-  // servidor sigue trabajando (convierte el video a HLS, sin barra posible
-  // ahí — no hay forma de medir eso con la arquitectura actual), por eso
-  // separamos "uploadProgress" de un estado de "procesando" aparte.
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const { enqueue } = useUploadQueue();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -147,55 +142,44 @@ export default function ReelsPage() {
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(null);
-    setUploadProgress(null);
-    setProcessing(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId === null && !videoFile && !form.video_url.trim()) {
       toast.error("Sube un video o pega un link directo (mp4, etc.)");
       return;
     }
-    setSaving(true);
-    setUploadProgress(videoFile ? 0 : null);
-    setProcessing(false);
-    try {
-      const payload = {
-        caption: form.caption.trim() || undefined,
-        video_url: form.video_url.trim() || undefined,
-        product_id: form.product_id ? Number(form.product_id) : undefined,
-        sort_order: Number(form.sort_order) || 0,
-        video: videoFile ?? undefined,
-        thumbnail: thumbFile ?? undefined,
-      };
-      // Al llegar a 100% la subida del archivo terminó, pero el servidor
-      // sigue trabajando (convierte el video a las dos calidades HLS) — no
-      // hay forma de medir esa parte, por eso pasamos a un estado aparte
-      // de "procesando" en vez de dejar la barra clavada en 100%.
-      const onProgress = videoFile
-        ? (percent: number) => {
-            setUploadProgress(percent);
-            if (percent >= 100) setProcessing(true);
-          }
-        : undefined;
-      if (editingId !== null) {
-        const updated = await updateReel(editingId, payload, onProgress);
-        setReels((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
-        toast.success("Reel actualizado");
-      } else {
-        const created = await createReel(payload, onProgress);
-        setReels((prev) => [...prev, created]);
-        toast.success("Reel creado");
-      }
-      closeForm();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar");
-    } finally {
-      setSaving(false);
-      setUploadProgress(null);
-      setProcessing(false);
-    }
+
+    const targetId = editingId;
+    const payload = {
+      caption: form.caption.trim() || undefined,
+      video_url: form.video_url.trim() || undefined,
+      product_id: form.product_id ? Number(form.product_id) : undefined,
+      sort_order: Number(form.sort_order) || 0,
+      video: videoFile ?? undefined,
+      thumbnail: thumbFile ?? undefined,
+    };
+    const label = form.caption.trim() || (targetId ? `Reel #${targetId}` : "Nuevo reel");
+
+    // El formulario se cierra al toque — la subida/proceso real queda a
+    // cargo de la cola global (tarjetita flotante abajo a la derecha), así
+    // el usuario puede seguir usando el admin mientras el video se procesa
+    // en el servidor en vez de quedar tildado mirando un spinner.
+    closeForm();
+
+    enqueue({
+      label,
+      run: (onProgress) =>
+        targetId !== null ? updateReel(targetId, payload, onProgress) : createReel(payload, onProgress),
+      onDone: (result) => {
+        setReels((prev) =>
+          targetId !== null
+            ? prev.map((r) => (r.id === targetId ? result : r))
+            : [...prev, result],
+        );
+      },
+    });
   };
 
   // ── toggle / delete / reorder ─────────────────────────────────────────────────
@@ -560,47 +544,12 @@ export default function ReelsPage() {
         onSubmit={handleSubmit}
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={closeForm} disabled={saving}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>
-              {processing
-                ? "Procesando video…"
-                : uploadProgress !== null
-                  ? `Subiendo… ${uploadProgress}%`
-                  : saving
-                    ? "Guardando…"
-                    : editingId ? "Guardar cambios" : "Crear reel"}
-            </Button>
+            <Button type="button" variant="secondary" onClick={closeForm}>Cancelar</Button>
+            <Button type="submit">{editingId ? "Guardar cambios" : "Crear reel"}</Button>
           </>
         }
       >
         <div className="space-y-4">
-          {/* Progreso de subida — barra real (0-100%) mientras sube el archivo;
-              al llegar a 100% pasa a "procesando" (el servidor convierte el
-              video a HLS, eso no se puede medir con una barra real). */}
-          {saving && videoFile && (
-            <div className="space-y-1.5 rounded-xl border border-brand/20 bg-brand/5 p-3">
-              <div className="flex items-center justify-between text-xs font-medium text-brand-tertiary">
-                <span>{processing ? "Procesando video en el servidor…" : "Subiendo…"}</span>
-                {!processing && <span>{uploadProgress ?? 0}%</span>}
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                {processing ? (
-                  <div className="h-full w-full animate-pulse bg-brand" />
-                ) : (
-                  <div
-                    className="h-full rounded-full bg-brand transition-all duration-200"
-                    style={{ width: `${uploadProgress ?? 0}%` }}
-                  />
-                )}
-              </div>
-              {processing && (
-                <p className="text-[11px] text-slate-400">
-                  Esto puede tardar un poco más si el video es grande — no cierres esta ventana.
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Video */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-brand-tertiary">

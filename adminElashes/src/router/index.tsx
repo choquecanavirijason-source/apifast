@@ -10,6 +10,8 @@ import type { AppDispatch, RootState } from "@/store";
 import LoaderScreen from "@/components/common/LoaderScreen";
 import { ToastContainer, toast } from "react-toastify";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
+import UploadQueuePanel from "@/components/common/UploadQueuePanel";
+import { UploadQueueProvider } from "@/core/context/uploadQueue.context";
 import Layout from '@/components/layout/Layout';
 import Login from '@/pages/auth/Login';
 import Dashboard from '@/pages/admin/dashboard/Dashboard';
@@ -141,7 +143,7 @@ export default function AppRouter() {
   }
 
   return (
-    <>
+    <UploadQueueProvider>
       <ToastContainer
         position="top-right"
         newestOnTop
@@ -155,6 +157,7 @@ export default function AppRouter() {
         style={{ zIndex: 2147483647, marginTop: "4.25rem" }}
         toastStyle={{ zIndex: 2147483647 }}
       />
+      <UploadQueuePanel />
       <ScrollToTop />
       <Routes>
         <Route element={<GuestRoute />}>
@@ -223,6 +226,6 @@ export default function AppRouter() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </>
+    </UploadQueueProvider>
   );
 }
