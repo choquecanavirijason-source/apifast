@@ -14,7 +14,11 @@ from app.config.settings import settings
 
 router = APIRouter(prefix="/marketplace-proxy", tags=["Marketplace Proxy"])
 
-TIMEOUT = httpx.Timeout(30.0)
+# 300s (no 30s): subir un video ahora lo transcodifica dos veces (HLS
+# low+high, con conversión HDR->SDR si aplica) antes de responder — con el
+# límite viejo, un video grande cortaba con 504 aunque la subida en sí
+# funcionara bien del lado de marketplaceapi.
+TIMEOUT = httpx.Timeout(300.0)
 
 
 @router.api_route(

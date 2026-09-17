@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
-  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown,
+  ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown, Download,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -54,6 +54,12 @@ export default function ReelsPage() {
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Progreso real de la subida del archivo (0-100). Cuando llega a 100 el
+  // servidor sigue trabajando (convierte el video a HLS, sin barra posible
+  // ahí — no hay forma de medir eso con la arquitectura actual), por eso
+  // separamos "uploadProgress" de un estado de "procesando" aparte.
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -141,6 +147,8 @@ export default function ReelsPage() {
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(null);
+    setUploadProgress(null);
+    setProcessing(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,6 +158,8 @@ export default function ReelsPage() {
       return;
     }
     setSaving(true);
+    setUploadProgress(videoFile ? 0 : null);
+    setProcessing(false);
     try {
       const payload = {
         caption: form.caption.trim() || undefined,
@@ -159,12 +169,22 @@ export default function ReelsPage() {
         video: videoFile ?? undefined,
         thumbnail: thumbFile ?? undefined,
       };
+      // Al llegar a 100% la subida del archivo terminó, pero el servidor
+      // sigue trabajando (convierte el video a las dos calidades HLS) — no
+      // hay forma de medir esa parte, por eso pasamos a un estado aparte
+      // de "procesando" en vez de dejar la barra clavada en 100%.
+      const onProgress = videoFile
+        ? (percent: number) => {
+            setUploadProgress(percent);
+            if (percent >= 100) setProcessing(true);
+          }
+        : undefined;
       if (editingId !== null) {
-        const updated = await updateReel(editingId, payload);
+        const updated = await updateReel(editingId, payload, onProgress);
         setReels((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
         toast.success("Reel actualizado");
       } else {
-        const created = await createReel(payload);
+        const created = await createReel(payload, onProgress);
         setReels((prev) => [...prev, created]);
         toast.success("Reel creado");
       }
@@ -173,6 +193,8 @@ export default function ReelsPage() {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {
       setSaving(false);
+      setUploadProgress(null);
+      setProcessing(false);
     }
   };
 
@@ -303,6 +325,17 @@ export default function ReelsPage() {
     },
   ];
 
+  // El video que reproduce la app es el HLS (varios archivos chiquitos) —
+  // esto abre el .mp4/.mov original de respaldo que el servidor guarda
+  // igual, por si hay que recuperar el archivo tal como se subió.
+  const handleDownload = (r: MarketplaceReel) => {
+    if (!r.video_download_url) {
+      toast.warning("Este reel no tiene un archivo original para descargar (es un link externo).");
+      return;
+    }
+    window.open(`${MARKETPLACE_MEDIA_BASE}${r.video_download_url}`, "_blank");
+  };
+
   const actions: DataTableAction<MarketplaceReel>[] = [
     {
       label: "Subir",
@@ -317,6 +350,7 @@ export default function ReelsPage() {
       show: (r) => sortedReels.findIndex((x) => x.id === r.id) < sortedReels.length - 1,
     },
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
+    { label: "Descargar video original", icon: <Download className="h-4 w-4" />, onClick: handleDownload, show: (r) => !!r.video_download_url },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
   ];
 
@@ -492,6 +526,15 @@ export default function ReelsPage() {
                       >
                         <Pencil className="h-3.5 w-3.5" /> Editar
                       </button>
+                      {r.video_download_url && (
+                        <button
+                          onClick={() => handleDownload(r)}
+                          className="flex items-center justify-center rounded-xl bg-slate-100 px-3 py-2 text-slate-600 hover:bg-slate-200 transition"
+                          title="Descargar video original"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => setDeleteTarget(r)}
                         className="flex items-center justify-center rounded-xl bg-rose-50 px-3 py-2 text-rose-500 hover:bg-rose-100 transition"
@@ -517,14 +560,47 @@ export default function ReelsPage() {
         onSubmit={handleSubmit}
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={closeForm}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={closeForm} disabled={saving}>Cancelar</Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear reel"}
+              {processing
+                ? "Procesando video…"
+                : uploadProgress !== null
+                  ? `Subiendo… ${uploadProgress}%`
+                  : saving
+                    ? "Guardando…"
+                    : editingId ? "Guardar cambios" : "Crear reel"}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
+          {/* Progreso de subida — barra real (0-100%) mientras sube el archivo;
+              al llegar a 100% pasa a "procesando" (el servidor convierte el
+              video a HLS, eso no se puede medir con una barra real). */}
+          {saving && videoFile && (
+            <div className="space-y-1.5 rounded-xl border border-brand/20 bg-brand/5 p-3">
+              <div className="flex items-center justify-between text-xs font-medium text-brand-tertiary">
+                <span>{processing ? "Procesando video en el servidor…" : "Subiendo…"}</span>
+                {!processing && <span>{uploadProgress ?? 0}%</span>}
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                {processing ? (
+                  <div className="h-full w-full animate-pulse bg-brand" />
+                ) : (
+                  <div
+                    className="h-full rounded-full bg-brand transition-all duration-200"
+                    style={{ width: `${uploadProgress ?? 0}%` }}
+                  />
+                )}
+              </div>
+              {processing && (
+                <p className="text-[11px] text-slate-400">
+                  Esto puede tardar un poco más si el video es grande — no cierres esta ventana.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Video */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-brand-tertiary">

@@ -3,6 +3,7 @@ mysql/
 
 # Ignorar archivos comunes de entorno
 *.log
+docker-compose.override.yml
 
 # Ignorar archivos del sistema
 .DS_Store
