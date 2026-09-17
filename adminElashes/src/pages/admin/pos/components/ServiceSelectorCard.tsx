@@ -138,13 +138,14 @@ export default function ServiceSelectorCard({
               ))}
             </select>
           </div>
-
+	{/*
           <button
             onClick={onOpenCategoryModal}
             className="h-9 px-4 border border-[#8a8886] text-sm font-semibold hover:bg-[#f3f2f1] transition-colors rounded-sm whitespace-nowrap"
           >
             Explorar Todo
           </button>
+	*/}
         </div>
       </div>
 
