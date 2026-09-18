@@ -154,6 +154,7 @@ export default function ProductFormModal({
           error={errors.minStock}
         />
 
+        {/*
         <div className="md:col-span-2 space-y-1.5">
           <label className="block text-sm font-medium text-slate-700" htmlFor="product-description">
             Descripcion
@@ -170,6 +171,7 @@ export default function ProductFormModal({
             <p className="text-xs text-slate-500">{form.description.length}/500</p>
           </div>
         </div>
+        */}
 
         <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-slate-700">
           <input
