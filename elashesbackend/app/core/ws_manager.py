@@ -36,3 +36,9 @@ ws_manager = WsManager()
 # clientas de esa sucursal a cualquiera conectado — acá sí importa que cada
 # quien reciba solo lo suyo.
 client_ws_manager = WsManager()
+
+# Canal público y único (clave REELS_CHANNEL) para la app marketplace: avisa
+# que cambiaron los reels para que la app muestre "Nuevos reels" sin esperar
+# a que el usuario refresque. No lleva datos privados, solo el evento.
+REELS_CHANNEL = 0
+reels_ws_manager = WsManager()

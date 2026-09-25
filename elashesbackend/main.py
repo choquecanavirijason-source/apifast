@@ -92,7 +92,7 @@ from app.presentation.controllers.audit_log_controller import router as audit_lo
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
-from app.core.ws_manager import ws_manager, client_ws_manager
+from app.core.ws_manager import REELS_CHANNEL, client_ws_manager, reels_ws_manager, ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
 from app.application.services.reminder_service import run_daily_reminder_check
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -313,6 +313,19 @@ def create_app() -> FastAPI:
                     await websocket.send_text("pong")
         except WebSocketDisconnect:
             client_ws_manager.disconnect(websocket, client_id)
+
+    @app.websocket("/ws/reels")
+    async def ws_reels(websocket: WebSocket):
+        # Público a propósito: los reels los ve cualquiera y el canal solo
+        # manda "reels_changed", sin datos.
+        await reels_ws_manager.connect(websocket, REELS_CHANNEL)
+        try:
+            while True:
+                text = await websocket.receive_text()
+                if text == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            reels_ws_manager.disconnect(websocket, REELS_CHANNEL)
 
     return app
 
