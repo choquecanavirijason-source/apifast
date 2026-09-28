@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     mobile_max_resolution: tuple = (1920, 1080)
 
     # URL interna del backend_marketplace (proxy transparente)
-    marketplace_backend_url: str = "http://localhost:8001"
+    marketplace_backend_url: str = "http://host.docker.internal:8001"
 
     # WhatsApp (validación de citas). Ver whatsapp_service.py
     whatsapp_enabled: bool = False

@@ -11,6 +11,7 @@ import httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
 from app.config.settings import settings
+from app.core.ws_manager import REELS_CHANNEL, reels_ws_manager
 
 router = APIRouter(prefix="/marketplace-proxy", tags=["Marketplace Proxy"])
 
@@ -58,6 +59,15 @@ async def proxy(path: str, request: Request) -> Response:
             status_code=504,
             media_type="application/json",
         )
+
+    # El admin crea/edita/borra reels siempre a través de este proxy, así que
+    # acá es donde nos enteramos de los cambios para avisarle a la app.
+    if (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        and path.startswith("api/reels/admin")
+        and upstream.is_success
+    ):
+        await reels_ws_manager.broadcast(REELS_CHANNEL, {"event": "reels_changed"})
 
     # Cabeceras de respuesta (excluye las que FastAPI maneja sola)
     skip_resp = {"content-encoding", "transfer-encoding", "content-length", "connection"}

@@ -6,7 +6,7 @@ RUN npm ci
 COPY . .
 
 # URL del API en el navegador (build-time). En Docker Desktop suele ser el host:8000.
-ARG VITE_API_URL=http://localhost:8000
+ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npx vite build --outDir dist

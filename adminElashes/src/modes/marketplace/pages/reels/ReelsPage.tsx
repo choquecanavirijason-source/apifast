@@ -60,6 +60,10 @@ export default function ReelsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  // Nombre del video ya subido (al editar) — antes el modal de edición no
+  // mostraba nada, así que no había forma de saber si el reel ya tenía un
+  // video sin abrir la lista o la vista previa.
+  const [existingVideoName, setExistingVideoName] = useState<string | null>(null);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +120,7 @@ export default function ReelsPage() {
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(null);
+    setExistingVideoName(null);
     setFormOpen(true);
   };
 
@@ -132,6 +137,12 @@ export default function ReelsPage() {
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(img(r.thumbnail_url));
+    // Solo tiene sentido mostrar un "nombre de archivo" para un video
+    // servido desde nuestro media (/media/...) — un link externo ya se ve
+    // completo en el campo "Link directo de video" de más abajo.
+    setExistingVideoName(
+      r.video_url.includes("/media/") ? r.video_url.split("/").pop() ?? null : null,
+    );
     setFormOpen(true);
   };
 
@@ -142,6 +153,7 @@ export default function ReelsPage() {
     setVideoFile(null);
     setThumbFile(null);
     setThumbPreview(null);
+    setExistingVideoName(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -555,6 +567,15 @@ export default function ReelsPage() {
             <label className="block text-sm font-medium text-brand-tertiary">
               Video (archivo mp4/mov/webm — máx. 80 MB)
             </label>
+            {!videoFile && existingVideoName && (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <Video className="h-4 w-4 text-slate-400 shrink-0" />
+                <span className="flex-1 min-w-0 truncate text-sm text-slate-600">
+                  Actual: {existingVideoName}
+                </span>
+                <span className="shrink-0 text-xs text-slate-400">Sube uno nuevo para reemplazarlo</span>
+              </div>
+            )}
             <input
               ref={videoInputRef}
               type="file"
