@@ -1,43 +1,69 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import useAuth from "../../core/hooks/useAuth";
 import { useLogo } from "../../core/hooks/useLogo";
 import {
   LayoutDashboard,
-  Users,
-  Settings,
-  ChevronDown,
-  Eye,
-  Layers,
-  Package,
-  Building2,
-  Briefcase,
-  Ticket,
   CalendarDays,
+  CalendarCheck,
+  Calendar,
+  Sparkles,
+  Users,
+  Ticket,
+  Clock,
   ReceiptText,
-  UserCheck,
-  Bot,
-  Wallet,
+  PlusCircle,
   History,
+  DoorOpen,
+  FileSpreadsheet,
+  UserCheck,
+  Percent,
+  Package,
+  SlidersHorizontal,
+  Briefcase,
+  Layers,
+  Cpu,
+  Wand2,
+  Eye,
+  Maximize2,
+  Palette,
+  ClipboardCheck,
+  ShieldCheck,
+  Building2,
+  Settings,
+  Bot,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
+
 type MenuSubItem = {
   name: string;
   path: string;
+  icon?: ReactNode;
+  exact?: boolean;
   permission?: PermissionRule;
 };
+
 type MenuItem = {
   name: string;
   icon: ReactNode;
   path?: string;
-  /** Coincidencia exacta de ruta (no por prefijo) — usar cuando otra sección
-   *  vive en una URL que empieza igual (ej. "/admin/salons" vs "/admin/salons/caja"). */
   exact?: boolean;
   permission?: PermissionRule;
   subItems?: MenuSubItem[];
 };
+
+interface AppSidebarProps {
+  collapsed: boolean;
+  setCollapsed?: (val?: boolean) => void;
+  mobileOpen?: boolean;
+  setMobileOpen?: (val: boolean) => void;
+}
 
 function uniq(arr: string[]) {
   return Array.from(new Set(arr.filter(Boolean)));
@@ -52,11 +78,16 @@ function submenuRegionId(menuName: string) {
   return `sidebar-submenu-${menuName.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
-/** Anillo de foco visible (el preflight suele quitar outline en botones). */
+/** Anillo de foco visible accesible */
 const navFocusRing =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#094732]";
 
-export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
+export default function AppSidebar({
+  collapsed,
+  setCollapsed,
+  mobileOpen = false,
+  setMobileOpen,
+}: AppSidebarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const { logoBase64 } = useLogo();
   const lastSyncedPathRef = useRef<string | null>(null);
@@ -92,10 +123,10 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   }, [user]);
 
   /**
-   * ✅ Permisos disponibles (3 fuentes):
-   * 1) user.role.permissions (si tu backend lo manda)
-   * 2) user.permissions (si tu hook lo guarda ahí)
-   * 3) Fallback por rol (para que Operaria/Secretaria/Almacén vean menú aunque no lleguen permisos)
+   * Permisos resueltos para el usuario:
+   * 1) user.permissions
+   * 2) user.role.permissions
+   * 3) Fallback por rol
    */
   const permissionNamesFromUser = useMemo(() => {
     if (!user) return [];
@@ -118,11 +149,36 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       for (const p of rolePerms) perms.push(normalizePerm(p?.name) ?? "");
     }
 
-    // c) fallback por rol (si no llegó nada)
+    // c) fallback por rol
     const roleName = (displayRole || "").toLowerCase();
 
     if (roleName === "superadmin" || roleName === "admin") {
-      perms.push("ai:view", "ai:manage", "settings:view", "users:manage", "branches:manage", "branches:view");
+      perms.push(
+        "dashboard:view",
+        "ai:view",
+        "ai:manage",
+        "settings:view",
+        "users:manage",
+        "branches:manage",
+        "branches:view",
+        "audit:view",
+        "inventory:view",
+        "inventory:manage",
+        "catalog:view",
+        "catalog:manage",
+        "services:view",
+        "services:manage",
+        "clients:view",
+        "clients:manage",
+        "appointments:view",
+        "appointments:manage",
+        "payments:view",
+        "payments:manage",
+        "forms:view",
+        "forms:manage",
+        "tracking:view",
+        "tracking:manage"
+      );
     }
 
     if (perms.length === 0) {
@@ -169,162 +225,277 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     const rules = Array.isArray(rule) ? rule : [rule];
 
     return rules.some((permission) => {
-      // 1) el hook (si funciona)
       if (hasPermissionByName(permission)) return true;
-      // 2) fallback local desde user
       return permissionNamesFromUser.includes(permission);
     });
   };
 
-  // ✅ Menú (estable para evitar re-renders que cierran el dropdown)
+  /**
+   * Estructura de navegación solicitada:
+   * 1. Visión general: resumen del negocio
+   * 2. Agenda: agenda diaria y vista semanal de citas
+   * 3. Atención: clientes, tickets y control de servicios
+   * 4. Ventas y caja: nueva venta, historial de ventas, apertura y cierre, corte de caja
+   * 5. Equipo: seguimiento por operaria y comisiones
+   * 6. Inventario
+   * 7. Configuración del servicio: catálogo, categorías, tecnología, efectos, tipo de ojo, volumen, diseños y cuestionarios
+   * 8. Administración: sucursales, usuarios, auditoría, ajustes y configuración de IA
+   */
   const menuItems = useMemo<MenuItem[]>(
     () => [
-      { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/" },
-
       {
-        name: "Clientes",
-        icon: <Users size={20} />,
-        permission: ["clients:view", "clients:manage"],
-        subItems: [{ name: "Lista de clientes", path: "/clients", permission: ["clients:view", "clients:manage"] }],
-      },
-
-      {
-        name: "Diseño Pestañas",
-        icon: <Eye size={20} />,
-        path: "/lash-designs",
-        permission: ["catalog:view", "catalog:manage"],
+        name: "Visión general",
+        icon: <LayoutDashboard size={19} />,
+        path: "/",
+        exact: true,
+        permission: "dashboard:view",
         subItems: [
-          { name: "Tecnología", path: "/lash-designs", permission: ["catalog:view", "catalog:manage"] },
-          { name: "Efectos", path: "/effects", permission: ["catalog:view", "catalog:manage"] },
-          { name: "Tipo de ojo", path: "/eye-types", permission: ["catalog:view", "catalog:manage"] },
-          { name: "Volumen", path: "/volumen", permission: ["catalog:view", "catalog:manage"] },
-          { name: "Diseños", path: "/designs", permission: ["catalog:view", "catalog:manage"] },
+          {
+            name: "Resumen del negocio",
+            path: "/",
+            exact: true,
+            icon: <LayoutDashboard size={15} />,
+            permission: "dashboard:view",
+          },
         ],
       },
 
       {
-        name: "Ventas",
-        icon: <ReceiptText size={20} />,
-        path: "/admin/pos",
+        name: "Agenda",
+        icon: <CalendarDays size={19} />,
+        path: "/admin/calendar",
+        permission: ["appointments:view", "appointments:manage"],
         subItems: [
-          { name: "Nueva venta", path: "/admin/pos", permission: ["payments:view", "payments:manage"] },
-          { name: "Historial de ventas", path: "/admin/pos/history", permission: ["payments:view", "payments:manage"] },
-          { name: "Caja y seguimiento", path: "/admin/pos-tracking", permission: ["payments:view", "payments:manage"] },
-          { name: "Reporte por comisiones", path: "/admin/cierre-de-caja", permission: ["payments:view", "payments:manage"] },
+          {
+            name: "Agenda diaria",
+            path: "/admin/calendar/agenda",
+            icon: <CalendarCheck size={15} />,
+            permission: ["appointments:view", "appointments:manage"],
+          },
+          {
+            name: "Vista semanal de citas",
+            path: "/admin/calendar/citas",
+            icon: <Calendar size={15} />,
+            permission: ["appointments:view", "appointments:manage"],
+          },
         ],
-        permission: ["payments:view", "payments:manage"],
       },
 
       {
-        name: "Caja",
-        icon: <Wallet size={20} />,
-        path: "/admin/salons/caja",
-        subItems: [
-          { name: "Caja", path: "/admin/salons/caja", permission: ["payments:view", "payments:manage"] },
-          { name: "Corte de Caja", path: "/admin/salons/corte-caja", permission: ["payments:view", "payments:manage"] },
+        name: "Atención",
+        icon: <Sparkles size={19} />,
+        path: "/clients",
+        permission: [
+          "clients:view",
+          "clients:manage",
+          "payments:view",
+          "payments:manage",
+          "services:view",
+          "services:manage",
+          "appointments:view",
         ],
-        permission: ["payments:view", "payments:manage"],
-      },
-
-      {
-        name: "Inventario",
-        icon: <Package size={20} />,
-        path: "/admin/products",
-        permission: ["inventory:view", "inventory:manage"],
-      },
-
-      {
-        name: "Servicios",
-        icon: <Briefcase size={20} />,
-        path: "/admin/services",
-        permission: ["services:view", "services:manage"],
         subItems: [
-          { name: "Catálogo", path: "/admin/services", permission: ["services:view", "services:manage"] },
-          { name: "Categorías de servicio", path: "/admin/services/categories", permission: ["services:view", "services:manage"] },
-          // si “queue” requiere citas, puedes añadir appointments:* también
+          {
+            name: "Clientes",
+            path: "/clients",
+            icon: <Users size={15} />,
+            permission: ["clients:view", "clients:manage"],
+          },
+          {
+            name: "Tickets",
+            path: "/admin/tickets",
+            icon: <Ticket size={15} />,
+            permission: ["payments:view", "payments:manage", "appointments:view", "appointments:manage"],
+          },
           {
             name: "Control de servicios",
             path: "/admin/services/queue",
+            icon: <Clock size={15} />,
             permission: ["services:view", "services:manage"],
           },
         ],
       },
 
       {
-        name: "Tickets",
-        icon: <Ticket size={20} />,
-        path: "/admin/tickets",
+        name: "Ventas y caja",
+        icon: <ReceiptText size={19} />,
+        path: "/admin/pos",
         permission: ["payments:view", "payments:manage"],
         subItems: [
-          { name: "Listado", path: "/admin/tickets", permission: ["payments:view", "payments:manage"] },
-          { name: "Finalizados", path: "/admin/tickets/finalizados", permission: ["payments:view", "payments:manage"] },
+          {
+            name: "Nueva venta",
+            path: "/admin/pos",
+            exact: true,
+            icon: <PlusCircle size={15} />,
+            permission: ["payments:view", "payments:manage"],
+          },
+          {
+            name: "Historial de ventas",
+            path: "/admin/pos/history",
+            icon: <History size={15} />,
+            permission: ["payments:view", "payments:manage"],
+          },
+          {
+            name: "Apertura y cierre",
+            path: "/admin/salons/caja",
+            exact: true,
+            icon: <DoorOpen size={15} />,
+            permission: ["payments:view", "payments:manage"],
+          },
+          {
+            name: "Corte de caja",
+            path: "/admin/salons/corte-caja",
+            icon: <FileSpreadsheet size={15} />,
+            permission: ["payments:view", "payments:manage"],
+          },
         ],
       },
 
       {
-        name: "Operarias",
-        icon: <UserCheck size={20} />,
-        path: "/admin/professionals/history",
-        permission: ["appointments:view", "appointments:manage"],
+        name: "Equipo",
+        icon: <UserCheck size={19} />,
+        path: "/admin/professionals",
+        permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
         subItems: [
-          { name: "Comisiones por operaria", path: "/admin/professionals/history", permission: ["appointments:view", "appointments:manage"] },
-          { name: "Seguimiento de servicios", path: "/admin/professionals/tickets", permission: ["appointments:view", "appointments:manage"] },
+          {
+            name: "Seguimiento por operaria",
+            path: "/admin/professionals/tickets",
+            icon: <Clock size={15} />,
+            permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
+          },
+          {
+            name: "Comisiones",
+            path: "/admin/professionals/history",
+            icon: <Percent size={15} />,
+            permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
+          },
         ],
       },
 
       {
-        name: "Calendario",
-        icon: <CalendarDays size={20} />,
-        path: "/admin/calendar",
-        permission: ["appointments:view", "appointments:manage"],
+        name: "Inventario",
+        icon: <Package size={19} />,
+        path: "/admin/products",
+        permission: ["inventory:view", "inventory:manage"],
+      },
+
+      {
+        name: "Configuración del servicio",
+        icon: <SlidersHorizontal size={19} />,
+        path: "/admin/services",
+        permission: [
+          "services:view",
+          "services:manage",
+          "catalog:view",
+          "catalog:manage",
+          "forms:view",
+          "forms:manage",
+        ],
         subItems: [
-          { name: "Agenda del día", path: "/admin/calendar/agenda", permission: ["appointments:view", "appointments:manage"] },
-          { name: "Citas", path: "/admin/calendar/citas", permission: ["appointments:view", "appointments:manage"] },
+          {
+            name: "Catálogo",
+            path: "/admin/services",
+            exact: true,
+            icon: <Briefcase size={15} />,
+            permission: ["services:view", "services:manage"],
+          },
+          {
+            name: "Categorías",
+            path: "/admin/services/categories",
+            icon: <Layers size={15} />,
+            permission: ["services:view", "services:manage"],
+          },
+          {
+            name: "Tecnología",
+            path: "/lash-designs",
+            icon: <Cpu size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Efectos",
+            path: "/effects",
+            icon: <Wand2 size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Tipo de ojo",
+            path: "/eye-types",
+            icon: <Eye size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Volumen",
+            path: "/volumen",
+            icon: <Maximize2 size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Diseños",
+            path: "/designs",
+            icon: <Palette size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Cuestionarios",
+            path: "/questionnaire",
+            icon: <ClipboardCheck size={15} />,
+            permission: ["forms:view", "forms:manage"],
+          },
         ],
       },
 
       {
-        name: "Sucursales",
-        icon: <Building2 size={20} />,
+        name: "Administración",
+        icon: <ShieldCheck size={19} />,
         path: "/admin/salons",
-        exact: true,
-        permission: "branches:manage",
+        permission: [
+          "branches:manage",
+          "branches:view",
+          "users:manage",
+          "audit:view",
+          "settings:view",
+          "ai:view",
+          "ai:manage",
+        ],
+        subItems: [
+          {
+            name: "Sucursales",
+            path: "/admin/salons",
+            exact: true,
+            icon: <Building2 size={15} />,
+            permission: ["branches:manage", "branches:view"],
+          },
+          {
+            name: "Usuarios",
+            path: "/users",
+            icon: <Users size={15} />,
+            permission: "users:manage",
+          },
+          {
+            name: "Auditoría",
+            path: "/admin/audit-log",
+            icon: <History size={15} />,
+            permission: "audit:view",
+          },
+          {
+            name: "Ajustes",
+            path: "/settings",
+            icon: <Settings size={15} />,
+            permission: "settings:view",
+          },
+          {
+            name: "Configuración de IA",
+            path: "/admin/ai",
+            icon: <Bot size={15} />,
+            permission: ["ai:view", "ai:manage"],
+          },
+        ],
       },
-
-      {
-        name: "Asistente IA",
-        icon: <Bot size={20} />,
-        path: "/admin/ai",
-        permission: ["ai:view", "ai:manage"],
-      },
-
-      {
-        name: "Cuestionario",
-        icon: <Layers size={20} />,
-        path: "/questionnaire",
-        permission: ["forms:view", "forms:manage"],
-      },
-
-      {
-        name: "Usuarios",
-        icon: <Users size={20} />,
-        path: "/users",
-        permission: "users:manage",
-      },
-
-      {
-        name: "Auditoría",
-        icon: <History size={20} />,
-        path: "/admin/audit-log",
-        permission: "audit:view",
-      },
-
-      { name: "Ajustes", icon: <Settings size={20} />, path: "/settings", permission: "settings:view" },
     ],
     []
   );
 
-  // ✅ menú autorizado
+  // Menú filtrado por permisos
   const authorizedMenu = useMemo(() => {
     return menuItems
       .map((item) => {
@@ -340,7 +511,23 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       .filter((item): item is MenuItem => Boolean(item));
   }, [menuItems, isAdmin, hasRole, hasPermissionByName, permissionNamesFromUser]);
 
-  // ✅ auto abrir menú cuando la ruta coincide (solo cuando no está colapsado)
+  // Determina si una subopción está activa
+  const isSubItemActive = (sub: MenuSubItem) => {
+    if (sub.exact) return location.pathname === sub.path;
+    return location.pathname === sub.path || (sub.path !== "/" && location.pathname.startsWith(sub.path));
+  };
+
+  // Determina si una sección principal está activa
+  const isItemActive = (item: MenuItem) => {
+    if (item.subItems && item.subItems.length > 0) {
+      return item.subItems.some((sub) => isSubItemActive(sub));
+    }
+    if (!item.path) return false;
+    if (item.exact) return location.pathname === item.path;
+    return location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
+  };
+
+  // Auto-abrir menú correspondiente al cambiar de ruta
   useEffect(() => {
     const becameExpanded = lastCollapsedRef.current && !collapsed;
     lastCollapsedRef.current = collapsed;
@@ -349,30 +536,32 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     if (!pathChanged && !becameExpanded) return;
     lastSyncedPathRef.current = location.pathname;
 
-    const match = authorizedMenu.find(
-      (item) =>
-        item.subItems?.some((sub) => location.pathname.startsWith(sub.path)) ||
-        (item.subItems && item.path && location.pathname.startsWith(item.path))
-    );
+    const match = authorizedMenu.find((item) => item.subItems && isItemActive(item));
 
-    if (match) setOpenMenu(match.name);
+    if (match) {
+      setOpenMenu(match.name);
+    }
   }, [location.pathname, collapsed, authorizedMenu]);
 
+  // Cerrar flyout al hacer clic fuera en modo colapsado
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
       if (!asideRef.current?.contains(event.target as Node)) {
-        setOpenMenu(null);
+        if (collapsed) {
+          setOpenMenu(null);
+        }
       }
     };
 
     document.addEventListener("mousedown", closeOnOutsideClick);
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
-  }, []);
+  }, [collapsed]);
 
   useEffect(() => {
-    if (!collapsed) return;
-    setOpenMenu(null);
-  }, [location.pathname, collapsed]);
+    if (collapsed) {
+      setOpenMenu(null);
+    }
+  }, [collapsed]);
 
   const getSubmenuLinks = (menuName: string) => {
     if (collapsed) {
@@ -402,7 +591,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     button?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
-  /** Ítems “raíz” del sidebar: botones de grupo y enlaces hoja (excluye enlaces dentro de submenús). */
   const getRootFocusables = (): HTMLElement[] => {
     const nav = navRef.current;
     if (!nav) return [];
@@ -410,7 +598,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     return all.filter((el) => !el.closest("[data-sidebar-submenu]"));
   };
 
-  /** Enfoca un enlace del submenú tras el commit de React (reintenta si el submenú aún no está en el DOM). */
   const focusSubmenuAfterPaint = (menuName: string, index: number) => {
     const tryFocus = (attempt: number) => {
       window.requestAnimationFrame(() => {
@@ -467,7 +654,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     const isOpen = openMenu === menuName;
     const hasSubmenu = menuHasVisibleSubitems(menuName);
 
-    // Flechas arriba/abajo: con submenú abierto, entran/salen de la subsección; si no, entre ítems raíz
     if (event.key === "ArrowDown") {
       event.preventDefault();
       event.stopPropagation();
@@ -492,7 +678,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       return;
     }
 
-    // Entrar a submenú con flecha derecha o Enter (no depende del DOM: el submenú aún no está montado si está cerrado)
     if ((event.key === "ArrowRight" || event.key === "Enter") && hasSubmenu) {
       event.preventDefault();
       event.stopPropagation();
@@ -500,7 +685,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       return;
     }
 
-    // Salir de submenú con flecha izquierda o Escape
     if ((event.key === "ArrowLeft" || event.key === "Escape") && isOpen) {
       event.preventDefault();
       event.stopPropagation();
@@ -521,7 +705,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     const idxFromDom = links.indexOf(event.currentTarget);
     const idx = idxFromDom >= 0 ? idxFromDom : Math.min(Math.max(0, linkIndex), links.length - 1);
 
-    // Navegación solo dentro de la subsección: arriba/abajo de extremo a extremo (da la vuelta)
     if (event.key === "ArrowDown") {
       event.preventDefault();
       event.stopPropagation();
@@ -541,7 +724,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       return;
     }
 
-    // Salir del submenú con flecha izquierda o Escape
     if (event.key === "ArrowLeft" || event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -550,7 +732,6 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
       return;
     }
 
-    // Home/End para ir al inicio/final
     if (event.key === "Home") {
       event.preventDefault();
       event.stopPropagation();
@@ -565,179 +746,330 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
     }
   };
 
+  const handleLinkClick = () => {
+    if (mobileOpen && setMobileOpen) {
+      setMobileOpen(false);
+    }
+  };
+
   return (
-    <aside
-      ref={asideRef}
-      className={`relative z-20 isolate h-screen flex flex-col transition-all duration-300 border-r border-emerald-900/30 shrink-0 [&_button]:cursor-pointer [&_a]:cursor-pointer ${
-        collapsed ? "w-20" : "w-64"
-      }`}
-      style={{ background: "linear-gradient(180deg, #094732 0%, #021a12 100%)" }}
-    >
-      {/* Logo */}
-      <div className="h-20 flex items-center justify-center px-4 border-b border-emerald-800/30 shrink-0">
-        {logoBase64 ? (
-          collapsed ? (
-            <img
-              src={logoBase64}
-              alt="Logo"
-              className="h-12 w-12 rounded-lg object-contain"
-            />
-          ) : (
-            <img
-              src={logoBase64}
-              alt="Logo"
-              className="h-16 max-w-48 object-contain"
-            />
-          )
-        ) : (
-          <>
-            {!collapsed && <span className="text-2xl font-black text-white tracking-tight">E-lashes</span>}
-            {collapsed && <span className="mx-auto text-base font-black text-emerald-400">A</span>}
-          </>
-        )}
-      </div>
+    <>
+      {/* Telón de fondo superpuesto en móvil (Overlay Backdrop - patrón Docufacil) */}
+      {mobileOpen && (
+        <div
+          role="presentation"
+          onClick={() => setMobileOpen?.(false)}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
+        />
+      )}
 
-      {/* Nav */}
-      <nav
-        ref={navRef}
-        aria-label="Menú principal"
+      {/* Contenedor del Sidebar: Desktop estático o Drawer móvil deslizante */}
+      <aside
+        ref={asideRef}
         className={`
-          flex-1 py-4 px-3 space-y-1 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
-          [&::-webkit-scrollbar]:w-1
-          [&::-webkit-scrollbar-track]:bg-transparent
-          [&::-webkit-scrollbar-thumb]:bg-emerald-700/40
-          [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb]:hover:bg-emerald-600/60
-          scrollbar-thin
-          scrollbar-track-transparent
-          scrollbar-thumb-emerald-700/40
+          isolate h-screen flex flex-col border-r border-emerald-900/40 select-none
+          transition-all duration-300 ease-in-out
+          [&_button]:cursor-pointer [&_a]:cursor-pointer
+          fixed inset-y-0 left-0 z-50 w-72 md:static md:translate-x-0
+          ${mobileOpen ? "translate-x-0 shadow-2xl shadow-black/70" : "-translate-x-full md:translate-x-0"}
+          ${collapsed ? "md:w-20" : "md:w-64"}
         `}
+        style={{
+          background: "linear-gradient(180deg, #094732 0%, #063324 50%, #021a12 100%)",
+        }}
       >
-        {authorizedMenu.map((item) => (
-          <div key={item.name} className="relative">
-            {item.subItems ? (
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setOpenMenu(openMenu === item.name ? null : item.name)}
-                  onKeyDown={(event) => handleMenuButtonKeyDown(event, item.name)}
-                  data-menu-name={item.name}
-                  title={item.name}
-                  aria-label={item.name}
-                  aria-expanded={openMenu === item.name}
-                  aria-haspopup="true"
-                  aria-controls={openMenu === item.name ? submenuRegionId(item.name) : undefined}
-                  className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all ${navFocusRing} ${
-                    (item.path && location.pathname.includes(item.path)) ||
-                    item.subItems?.some((sub) => location.pathname.startsWith(sub.path))
-                      ? "bg-emerald-800/40 text-white"
-                      : "text-emerald-100/70 hover:bg-emerald-900/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-emerald-400">{item.icon}</span>
-                    {!collapsed && <span className="text-sm font-semibold">{item.name}</span>}
-                  </div>
-                  {!collapsed && (
-                    <ChevronDown size={14} className={`${openMenu === item.name ? "rotate-180" : ""} transition-transform`} />
-                  )}
-                </button>
-
-                {openMenu === item.name && !collapsed && (
-                  <div
-                    ref={(node) => {
-                      expandedSubmenuRefs.current[item.name] = node;
-                    }}
-                    id={submenuRegionId(item.name)}
-                    data-sidebar-submenu
-                    role="group"
-                    aria-label={item.name}
-                    className="ml-4 pl-4 border-l border-emerald-800/50 space-y-1"
-                  >
-                    {item.subItems.map((sub, subIndex) => (
-                      <NavLink
-                        key={sub.path}
-                        to={sub.path}
-                        end
-                        onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
-                        title={sub.name}
-                        aria-label={sub.name}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-xs rounded-lg outline-none ${navFocusRing} ${
-                            isActive
-                              ? "text-white bg-emerald-800 ring-offset-[#094732]"
-                              : "text-emerald-100/80 hover:bg-emerald-900/40 hover:text-white"
-                          }`
-                        }
-                      >
-                        {sub.name}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-
-                {openMenu === item.name && collapsed && (
-                  <div
-                    ref={(node) => {
-                      flyoutRefs.current[item.name] = node;
-                    }}
-                    id={submenuRegionId(item.name)}
-                    data-sidebar-submenu
-                    role="group"
-                    aria-label={item.name}
-                    className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/40 bg-[#094732] shadow-2xl shadow-black/40"
-                  >
-                    <div className="border-b border-emerald-800/40 px-3 py-2">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/90">{item.name}</p>
-                    </div>
-                    <div className="p-2">
-                      {item.subItems.map((sub, subIndex) => (
-                        <NavLink
-                          key={sub.path}
-                          to={sub.path}
-                          end
-                          onClick={() => setOpenMenu(null)}
-                          onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
-                          title={sub.name}
-                          aria-label={sub.name}
-                          className={({ isActive }) =>
-                            `mb-1 block rounded-lg px-3 py-2 text-xs outline-none transition ${navFocusRing} ${
-                              isActive
-                                ? "bg-emerald-700/70 text-white ring-offset-[#094732]"
-                                : "text-emerald-100/80 hover:bg-emerald-800/50 hover:text-white"
-                            }`
-                          }
-                        >
-                          {sub.name}
-                        </NavLink>
-                      ))}
-                    </div>
+        {/* Cabecera del Sidebar */}
+        <div className="h-20 flex items-center justify-between px-4 border-b border-emerald-800/40 shrink-0">
+          <div className="flex items-center gap-3 overflow-hidden">
+            {logoBase64 ? (
+              <img
+                src={logoBase64}
+                alt="Logo"
+                className={`rounded-lg object-contain transition-all ${
+                  collapsed ? "h-10 w-10 mx-auto" : "h-12 max-w-36"
+                }`}
+              />
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-700 flex items-center justify-center text-white font-extrabold shadow-md shadow-emerald-950/40 shrink-0">
+                  E
+                </div>
+                {!collapsed && (
+                  <div className="min-w-0">
+                    <span className="block text-lg font-black text-white tracking-tight leading-none">
+                      E-lashes
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-300/80 uppercase tracking-widest">
+                      Salón Admin
+                    </span>
                   </div>
                 )}
               </div>
-            ) : (
-              <NavLink
-                to={item.path!}
-                end={item.exact}
-                onKeyDown={handleLeafLinkKeyDown}
-                title={item.name}
-                aria-label={item.name}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-3 rounded-xl outline-none transition-all ${navFocusRing} ${
-                    isActive
-                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40"
-                      : "text-emerald-100/70 hover:bg-emerald-900/30 hover:text-white"
-                  }`
-                }
-              >
-                <span className="shrink-0">{item.icon}</span>
-                {!collapsed && <span className="text-sm font-medium">{item.name}</span>}
-              </NavLink>
             )}
           </div>
-        ))}
-      </nav>
 
-    </aside>
+          {/* Botón de cierre en Móvil */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen?.(false)}
+            aria-label="Cerrar menú móvil"
+            className="p-1.5 rounded-lg text-emerald-200 hover:bg-white/10 hover:text-white transition md:hidden"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Botón de colapso rápido en Desktop (solo cuando está expandido) */}
+          {!collapsed && setCollapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              title="Colapsar menú lateral"
+              aria-label="Colapsar menú lateral"
+              className="hidden md:flex p-1.5 rounded-lg text-emerald-300/80 hover:bg-white/10 hover:text-white transition"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Lista de Navegación Principal */}
+        <nav
+          ref={navRef}
+          aria-label="Navegación del panel administrativo"
+          className={`
+            flex-1 py-3 px-2.5 space-y-1 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
+            [&::-webkit-scrollbar]:w-1.5
+            [&::-webkit-scrollbar-track]:bg-transparent
+            [&::-webkit-scrollbar-thumb]:bg-emerald-700/40
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb]:hover:bg-emerald-500/60
+          `}
+        >
+          {authorizedMenu.map((item) => {
+            const hasSub = Boolean(item.subItems && item.subItems.length > 0);
+            const isOpen = openMenu === item.name;
+            const itemActive = isItemActive(item);
+
+            return (
+              <div key={item.name} className="relative">
+                {hasSub ? (
+                  <div className="space-y-0.5">
+                    {/* Botón de Sección con Submenú */}
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenu(isOpen ? null : item.name)}
+                      onKeyDown={(event) => handleMenuButtonKeyDown(event, item.name)}
+                      data-menu-name={item.name}
+                      title={collapsed ? item.name : undefined}
+                      aria-label={item.name}
+                      aria-expanded={isOpen}
+                      aria-haspopup="true"
+                      aria-controls={isOpen ? submenuRegionId(item.name) : undefined}
+                      className={`
+                        w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-150 ${navFocusRing}
+                        ${
+                          itemActive
+                            ? "bg-emerald-800/45 text-white font-medium shadow-xs border border-emerald-700/40"
+                            : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
+                        }
+                        ${collapsed ? "justify-center px-0 py-3" : ""}
+                      `}
+                    >
+                      <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "justify-center" : ""}`}>
+                        <span
+                          className={`shrink-0 transition-colors ${
+                            itemActive ? "text-emerald-300" : "text-emerald-300/80"
+                          }`}
+                        >
+                          {item.icon}
+                        </span>
+                        {!collapsed && (
+                          <span className="text-sm font-medium truncate">{item.name}</span>
+                        )}
+                      </div>
+
+                      {!collapsed && (
+                        <ChevronDown
+                          size={15}
+                          className={`text-emerald-300/70 transition-transform duration-200 shrink-0 ${
+                            isOpen ? "rotate-180 text-emerald-200" : "rotate-0"
+                          }`}
+                        />
+                      )}
+                    </button>
+
+                    {/* Submenú en modo expandido */}
+                    {isOpen && !collapsed && (
+                      <div
+                        ref={(node) => {
+                          expandedSubmenuRefs.current[item.name] = node;
+                        }}
+                        id={submenuRegionId(item.name)}
+                        data-sidebar-submenu
+                        role="group"
+                        aria-label={item.name}
+                        className="ml-3.5 pl-3 border-l-2 border-emerald-700/40 space-y-1 py-1"
+                      >
+                        {item.subItems!.map((sub, subIndex) => {
+                          const subActive = isSubItemActive(sub);
+                          return (
+                            <NavLink
+                              key={sub.path}
+                              to={sub.path}
+                              end={sub.exact}
+                              onClick={handleLinkClick}
+                              onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
+                              title={sub.name}
+                              aria-label={sub.name}
+                              className={`
+                                flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg transition-all duration-150 outline-none ${navFocusRing}
+                                ${
+                                  subActive
+                                    ? "bg-emerald-500/25 text-white font-semibold shadow-xs border-l-2 border-emerald-400"
+                                    : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1"
+                                }
+                              `}
+                            >
+                              {sub.icon && (
+                                <span className={subActive ? "text-emerald-300" : "text-emerald-400/60"}>
+                                  {sub.icon}
+                                </span>
+                              )}
+                              <span className="truncate">{sub.name}</span>
+                            </NavLink>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Popover Flyout en modo colapsado (Desktop) */}
+                    {isOpen && collapsed && (
+                      <div
+                        ref={(node) => {
+                          flyoutRefs.current[item.name] = node;
+                        }}
+                        id={submenuRegionId(item.name)}
+                        data-sidebar-submenu
+                        role="group"
+                        aria-label={item.name}
+                        className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/50 bg-[#094732] shadow-2xl shadow-black/60 p-2"
+                      >
+                        <div className="border-b border-emerald-800/60 px-3 py-2 mb-1">
+                          <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                            {item.name}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          {item.subItems!.map((sub, subIndex) => {
+                            const subActive = isSubItemActive(sub);
+                            return (
+                              <NavLink
+                                key={sub.path}
+                                to={sub.path}
+                                end={sub.exact}
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  handleLinkClick();
+                                }}
+                                onKeyDown={(event) => handleSubmenuLinkKeyDown(event, item.name, subIndex)}
+                                title={sub.name}
+                                aria-label={sub.name}
+                                className={`
+                                  flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition duration-150 outline-none ${navFocusRing}
+                                  ${
+                                    subActive
+                                      ? "bg-emerald-500/30 text-white font-semibold"
+                                      : "text-emerald-100/80 hover:bg-emerald-800/50 hover:text-white"
+                                  }
+                                `}
+                              >
+                                {sub.icon && (
+                                  <span className={subActive ? "text-emerald-300" : "text-emerald-400/70"}>
+                                    {sub.icon}
+                                  </span>
+                                )}
+                                <span className="truncate">{sub.name}</span>
+                              </NavLink>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Enlace directo (sin submenú) */
+                  <NavLink
+                    to={item.path!}
+                    end={item.exact}
+                    onClick={handleLinkClick}
+                    onKeyDown={handleLeafLinkKeyDown}
+                    title={collapsed ? item.name : undefined}
+                    aria-label={item.name}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-xl outline-none transition-all duration-150 ${navFocusRing} ${
+                        isActive
+                          ? "bg-emerald-600/90 text-white font-semibold shadow-md shadow-emerald-950/40"
+                          : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
+                      } ${collapsed ? "justify-center px-0 py-3" : ""}`
+                    }
+                  >
+                    <span
+                      className={`shrink-0 transition-colors ${
+                        itemActive ? "text-white" : "text-emerald-300/80"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    {!collapsed && <span className="text-sm font-medium truncate">{item.name}</span>}
+                  </NavLink>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Pie de página del Sidebar (Inspirado en Docufacil: rol, estado, versión y botón colapsar) */}
+        <div className="border-t border-emerald-800/40 p-3 bg-emerald-950/20 shrink-0">
+          {!collapsed ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                {displayRole && (
+                  <span className="inline-block px-2 py-0.5 text-[10px] font-semibold bg-emerald-800/60 border border-emerald-700/60 text-emerald-200 rounded-md truncate max-w-36">
+                    {displayRole}
+                  </span>
+                )}
+                <p className="text-[10px] text-emerald-400/50 mt-1 font-mono">v1.2 · Salón E-lashes</p>
+              </div>
+
+              {setCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(true)}
+                  title="Colapsar menú lateral"
+                  aria-label="Colapsar menú lateral"
+                  className="hidden md:flex p-2 rounded-lg text-emerald-300/70 hover:bg-white/10 hover:text-white transition"
+                >
+                  <PanelLeftClose size={16} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              {setCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(false)}
+                  title="Expandir menú lateral"
+                  aria-label="Expandir menú lateral"
+                  className="hidden md:flex p-2 rounded-lg text-emerald-300/70 hover:bg-white/10 hover:text-white transition"
+                >
+                  <PanelLeftOpen size={18} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

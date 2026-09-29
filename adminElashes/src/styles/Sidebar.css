@@ -1,25 +1,24 @@
-/* Sidebar.css */
+/* Sidebar.css - Tokens y transiciones del menú lateral */
 
-/* Estilo base para los items */
 .nav-item, 
 .nav-item-btn {
   background: transparent;
-  color: #fff;
-  transition: background 0.2s, color 0.2s;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
-/* Efecto Hover */
+/* Efecto Hover refinado con acento esmeralda */
 .nav-item:hover, 
 .nav-item-btn:hover,
 .sublink:hover {
-  background-color: rgba(88, 230, 104, 0.526) !important;
-  color: #080808 !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
 }
 
-/* Estilo para el elemento Activo (seleccionado) */
+/* Estilo para el elemento Activo */
 .nav-item.active,
 .sublink.active {
-  background-color: rgba(123, 248, 169, 0.1);
-  color: #f8e5e9;
-  font-weight: 700;
+  background-color: rgba(16, 185, 129, 0.22) !important;
+  color: #6ee7b7 !important;
+  font-weight: 600;
 }
