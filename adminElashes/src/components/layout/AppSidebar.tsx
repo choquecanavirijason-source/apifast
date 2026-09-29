@@ -759,7 +759,7 @@ export default function AppSidebar({
         <div
           role="presentation"
           onClick={() => setMobileOpen?.(false)}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
+          className="fixed inset-x-0 bottom-0 top-11 z-40 bg-black/45 backdrop-blur-[1px] transition-opacity md:hidden"
         />
       )}
 
@@ -767,39 +767,39 @@ export default function AppSidebar({
       <aside
         ref={asideRef}
         className={`
-          isolate h-screen flex flex-col border-r border-emerald-900/40 select-none
-          transition-all duration-300 ease-in-out
+          isolate flex h-full flex-col border-r border-white/8 select-none
+          transition-[width,transform] duration-200 ease-out
           [&_button]:cursor-pointer [&_a]:cursor-pointer
-          fixed inset-y-0 left-0 z-50 w-72 md:static md:translate-x-0
-          ${mobileOpen ? "translate-x-0 shadow-2xl shadow-black/70" : "-translate-x-full md:translate-x-0"}
-          ${collapsed ? "md:w-20" : "md:w-64"}
+          fixed bottom-0 left-0 top-11 z-50 w-[260px] md:static md:translate-x-0
+          ${mobileOpen ? "translate-x-0 shadow-2xl shadow-black/45" : "-translate-x-full md:translate-x-0"}
+          ${collapsed ? "md:w-14" : "md:w-60"}
         `}
         style={{
-          background: "linear-gradient(180deg, #094732 0%, #063324 50%, #021a12 100%)",
+          background: "linear-gradient(180deg, #094732 0%, #063d2b 58%, #03291d 100%)",
         }}
       >
         {/* Cabecera del Sidebar */}
-        <div className="h-20 flex items-center justify-between px-4 border-b border-emerald-800/40 shrink-0">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/8 px-3">
+          <div className="flex items-center gap-2.5 overflow-hidden">
             {logoBase64 ? (
               <img
                 src={logoBase64}
-                alt="Logo"
+                alt="E-lashes"
                 className={`rounded-lg object-contain transition-all ${
-                  collapsed ? "h-10 w-10 mx-auto" : "h-12 max-w-36"
+                  collapsed ? "mx-auto h-8 w-8" : "h-9 max-w-32"
                 }`}
               />
             ) : (
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-700 flex items-center justify-center text-white font-extrabold shadow-md shadow-emerald-950/40 shrink-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/10 text-sm font-bold text-white">
                   E
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
-                    <span className="block text-lg font-black text-white tracking-tight leading-none">
+                    <span className="block text-sm font-semibold text-white tracking-tight leading-none">
                       E-lashes
                     </span>
-                    <span className="text-[10px] font-semibold text-emerald-300/80 uppercase tracking-widest">
+                    <span className="mt-0.5 block text-[9px] font-medium text-emerald-200/65 uppercase tracking-[0.14em]">
                       Salón Admin
                     </span>
                   </div>
@@ -813,7 +813,7 @@ export default function AppSidebar({
             type="button"
             onClick={() => setMobileOpen?.(false)}
             aria-label="Cerrar menú móvil"
-            className="p-1.5 rounded-lg text-emerald-200 hover:bg-white/10 hover:text-white transition md:hidden"
+            className="rounded-md p-1.5 text-emerald-100/70 hover:bg-white/10 hover:text-white transition md:hidden"
           >
             <X size={20} />
           </button>
@@ -825,7 +825,7 @@ export default function AppSidebar({
               onClick={() => setCollapsed(!collapsed)}
               title="Colapsar menú lateral"
               aria-label="Colapsar menú lateral"
-              className="hidden md:flex p-1.5 rounded-lg text-emerald-300/80 hover:bg-white/10 hover:text-white transition"
+              className="hidden rounded-md p-1.5 text-emerald-100/55 hover:bg-white/10 hover:text-white transition md:flex"
             >
               <PanelLeftClose size={18} />
             </button>
@@ -837,7 +837,7 @@ export default function AppSidebar({
           ref={navRef}
           aria-label="Navegación del panel administrativo"
           className={`
-            flex-1 py-3 px-2.5 space-y-1 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
+            flex-1 space-y-0.5 px-2 py-2 ${collapsed ? "overflow-visible" : "overflow-y-auto"}
             [&::-webkit-scrollbar]:w-1.5
             [&::-webkit-scrollbar-track]:bg-transparent
             [&::-webkit-scrollbar-thumb]:bg-emerald-700/40
@@ -866,25 +866,25 @@ export default function AppSidebar({
                       aria-haspopup="true"
                       aria-controls={isOpen ? submenuRegionId(item.name) : undefined}
                       className={`
-                        w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-150 ${navFocusRing}
+                        w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-all duration-150 ${navFocusRing}
                         ${
                           itemActive
-                            ? "bg-emerald-800/45 text-white font-medium shadow-xs border border-emerald-700/40"
-                            : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
+                            ? "bg-white/10 text-white font-medium ring-1 ring-inset ring-white/8"
+                            : "text-emerald-50/68 hover:bg-white/7 hover:text-white"
                         }
-                        ${collapsed ? "justify-center px-0 py-3" : ""}
+                        ${collapsed ? "justify-center px-0 py-2.5" : ""}
                       `}
                     >
                       <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "justify-center" : ""}`}>
                         <span
                           className={`shrink-0 transition-colors ${
-                            itemActive ? "text-emerald-300" : "text-emerald-300/80"
+                            itemActive ? "text-[#d8c49d]" : "text-emerald-100/58"
                           }`}
                         >
                           {item.icon}
                         </span>
                         {!collapsed && (
-                          <span className="text-sm font-medium truncate">{item.name}</span>
+                          <span className="truncate text-[12.5px] font-medium">{item.name}</span>
                         )}
                       </div>
 
@@ -908,7 +908,7 @@ export default function AppSidebar({
                         data-sidebar-submenu
                         role="group"
                         aria-label={item.name}
-                        className="ml-3.5 pl-3 border-l-2 border-emerald-700/40 space-y-1 py-1"
+                        className="ml-3.5 space-y-0.5 border-l border-white/10 py-1 pl-2.5"
                       >
                         {item.subItems!.map((sub, subIndex) => {
                           const subActive = isSubItemActive(sub);
@@ -922,16 +922,16 @@ export default function AppSidebar({
                               title={sub.name}
                               aria-label={sub.name}
                               className={`
-                                flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg transition-all duration-150 outline-none ${navFocusRing}
+                                flex items-center gap-2 px-2.5 py-1.5 text-[11.5px] rounded-md transition-all duration-150 outline-none ${navFocusRing}
                                 ${
                                   subActive
-                                    ? "bg-emerald-500/25 text-white font-semibold shadow-xs border-l-2 border-emerald-400"
-                                    : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1"
+                                    ? "bg-white/10 text-white font-medium"
+                                    : "text-emerald-50/62 hover:bg-white/7 hover:text-white"
                                 }
                               `}
                             >
                               {sub.icon && (
-                                <span className={subActive ? "text-emerald-300" : "text-emerald-400/60"}>
+                                  <span className={subActive ? "text-[#d8c49d]" : "text-emerald-100/45"}>
                                   {sub.icon}
                                 </span>
                               )}
@@ -952,7 +952,7 @@ export default function AppSidebar({
                         data-sidebar-submenu
                         role="group"
                         aria-label={item.name}
-                        className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-700/50 bg-[#094732] shadow-2xl shadow-black/60 p-2"
+                        className="absolute left-full top-0 z-50 ml-2 w-60 overflow-hidden rounded-xl border border-emerald-900/20 bg-[#094732] p-2 shadow-xl shadow-black/35"
                       >
                         <div className="border-b border-emerald-800/60 px-3 py-2 mb-1">
                           <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">
@@ -1006,21 +1006,21 @@ export default function AppSidebar({
                     title={collapsed ? item.name : undefined}
                     aria-label={item.name}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-xl outline-none transition-all duration-150 ${navFocusRing} ${
+                      `flex items-center gap-3 px-2.5 py-2 rounded-lg outline-none transition-all duration-150 ${navFocusRing} ${
                         isActive
-                          ? "bg-emerald-600/90 text-white font-semibold shadow-md shadow-emerald-950/40"
-                          : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
-                      } ${collapsed ? "justify-center px-0 py-3" : ""}`
+                          ? "bg-white/10 text-white font-medium ring-1 ring-inset ring-white/8"
+                          : "text-emerald-50/68 hover:bg-white/7 hover:text-white"
+                      } ${collapsed ? "justify-center px-0 py-2.5" : ""}`
                     }
                   >
                     <span
                       className={`shrink-0 transition-colors ${
-                        itemActive ? "text-white" : "text-emerald-300/80"
+                        itemActive ? "text-[#d8c49d]" : "text-emerald-100/58"
                       }`}
                     >
                       {item.icon}
                     </span>
-                    {!collapsed && <span className="text-sm font-medium truncate">{item.name}</span>}
+                    {!collapsed && <span className="truncate text-[12.5px] font-medium">{item.name}</span>}
                   </NavLink>
                 )}
               </div>
@@ -1029,7 +1029,7 @@ export default function AppSidebar({
         </nav>
 
         {/* Pie de página del Sidebar (Inspirado en Docufacil: rol, estado, versión y botón colapsar) */}
-        <div className="border-t border-emerald-800/40 p-3 bg-emerald-950/20 shrink-0">
+        <div className="shrink-0 border-t border-white/8 bg-black/5 p-2.5">
           {!collapsed ? (
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">

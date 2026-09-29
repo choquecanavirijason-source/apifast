@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Menu,
   Bell,
   Search,
   ChevronDown,
@@ -16,10 +15,16 @@ import {
   Users,
   Settings,
   Shield,
+  CalendarPlus,
+  ShoppingBag,
+  Activity,
 } from "lucide-react";
 import { useNavigate, NavLink } from "react-router-dom";
 import ModeSwitch from "./ModeSwitch";
+import HorizontalNavigation from "./HorizontalNavigation";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
+import useAuth from "@/core/hooks/useAuth";
+import { useLogo } from "@/core/hooks/useLogo";
 
 import {
   logout as logoutAction,
@@ -35,11 +40,6 @@ import {
   setSelectedBranchId,
 } from "@/core/utils/branch";
 import variables from "@/core/config/variables";
-
-interface HeaderProps {
-  collapsed: boolean;
-  setCollapsed: (v: boolean) => void;
-}
 
 type SearchResultType = "client" | "ticket" | "service" | "section";
 
@@ -112,6 +112,13 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
     label: "Caja & Seguimiento",
     href: "/admin/pos-tracking",
   },
+  { id: "section-pos", label: "Punto de venta", href: "/admin/pos" },
+  { id: "section-sucursales", label: "Sucursales", href: "/admin/salons" },
+  { id: "section-usuarios", label: "Usuarios", href: "/users" },
+  { id: "section-auditoria", label: "Auditoría", href: "/admin/audit-log" },
+  { id: "section-ajustes", label: "Ajustes", href: "/settings" },
+  { id: "section-ia", label: "Configuración IA", href: "/admin/ai" },
+  { id: "section-perfil", label: "Mi perfil", href: "/profile" },
 ];
 
 const STATUS_ES: Record<string, string> = {
@@ -132,13 +139,15 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   cancelled: "border-rose-500/40 bg-rose-500/15 text-rose-100",
 };
 
-export default function Header({ setCollapsed, collapsed }: HeaderProps) {
+export default function Header() {
   const idleDeadlineRef = useRef<number>(Date.now());
   const idleLogoutTriggeredRef = useRef(false);
   const idleTimeoutSeconds = 3 * 60 * 60;
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const { isAdmin, hasPermissionByName } = useAuth();
+  const { logoBase64 } = useLogo();
   const { user, sessionExpiresAt } = useSelector(
     (state: RootState) => state.auth,
   );
@@ -245,6 +254,25 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
     }
     return "Sesión activa";
   })();
+
+  const normalizedRole = displayRole.trim().toLowerCase().replace(/\s+/g, "_");
+  const canManageAppointments =
+    isAdmin() ||
+    hasPermissionByName("appointments:view") ||
+    hasPermissionByName("appointments:manage") ||
+    ["operaria", "secretaria"].includes(normalizedRole);
+
+  const canManagePayments =
+    isAdmin() ||
+    hasPermissionByName("payments:view") ||
+    hasPermissionByName("payments:manage") ||
+    normalizedRole === "secretaria";
+
+  const canOpenTracking =
+    isAdmin() ||
+    hasPermissionByName("tracking:view") ||
+    hasPermissionByName("tracking:manage") ||
+    canManagePayments;
 
   const avatarUrl = (user as { avatar?: string } | null)?.avatar;
 
@@ -397,6 +425,20 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    const closeTransientUi = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setShowMobileSearch(false);
+      setSearchDropdownOpen(false);
+      setNotificationsOpen(false);
+      setProfileDropdownOpen(false);
+      setOperariasOpen(false);
+    };
+
+    document.addEventListener("keydown", closeTransientUi);
+    return () => document.removeEventListener("keydown", closeTransientUi);
   }, []);
 
   useEffect(() => {
@@ -609,36 +651,48 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
   };
 
   return (
-    // CAMBIO PRINCIPAL: bg-[#094732] (Verde Esmeralda) y texto blanco
-    <header className="h-20 bg-linear-to-r from-[#094732] via-[#0d5c40] to-[#094732] border-b border-emerald-800/80 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-all duration-300 shadow-lg shadow-emerald-950/30 min-w-0 backdrop-blur-sm [&_button]:cursor-pointer [&_a]:cursor-pointer [&_select]:cursor-pointer">
-      {/* --- 1. SECCIÓN IZQUIERDA: Toggle & Título --- */}
+    <header className="relative z-[60] flex min-w-0 shrink-0 flex-col text-[#202522] [&_a]:cursor-pointer [&_button]:cursor-pointer [&_select]:cursor-pointer">
+      <div className="relative z-[80] flex h-13 min-w-0 items-center gap-2 border-b border-white/8 bg-[#094732] px-2.5 shadow-[0_1px_0_rgba(255,255,255,0.06)] sm:px-4">
       <div
-        className={`flex items-center gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? "opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto" : "opacity-100"}`}
+        className={`flex min-w-0 shrink-0 items-center gap-1 transition-opacity duration-150 ${showMobileSearch ? "pointer-events-none opacity-0 md:pointer-events-auto md:opacity-100" : "opacity-100"}`}
       >
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          // Botones con hover translúcido claro
-          className="p-2.5 rounded-xl text-emerald-100 hover:bg-white/10 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
-          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+        <NavLink
+          to="/"
+          className="flex h-9 items-center gap-2 rounded-lg px-1.5 text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35"
+          aria-label="Ir a Visión general"
         >
-          <Menu className="w-6 h-6" />
-        </button>
+          {logoBase64 ? (
+            <img
+              src={logoBase64}
+              alt="E-lashes"
+              className="h-7 w-auto max-w-28 rounded-md bg-white/94 px-1 object-contain"
+            />
+          ) : (
+            <>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-xs font-bold text-white shadow-sm">
+                E
+              </span>
+              <span className="hidden text-[14px] font-semibold tracking-tight sm:inline">
+                E-Lashes
+              </span>
+            </>
+          )}
+        </NavLink>
       </div>
 
-      {/* --- 2. SECCIÓN CENTRAL: Buscador (Estilo Dark) --- */}
-      <div className="flex-1 flex justify-center px-4 lg:px-10 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
         <div
-          className="relative w-full max-w-170 min-w-0 hidden md:block group"
+          className="group relative ml-auto hidden w-52 min-w-0 2xl:block"
           ref={searchPanelRef}
         >
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-emerald-300 group-focus-within:text-white transition-colors" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
+            <Search className="h-3.5 w-3.5 text-emerald-100/65 transition-colors group-focus-within:text-white" />
           </div>
           <input
             type="text"
-            placeholder="Buscar en el sistema..."
-            // Input oscuro semitransparente
-            className="w-full pl-11 pr-4 py-2.5 bg-emerald-900/45 border border-emerald-800/80 rounded-xl focus:bg-emerald-900/70 focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-500 transition-all duration-200 text-sm text-white placeholder:text-emerald-300/55 outline-none shadow-inner"
+            placeholder="Buscar..."
+            aria-label="Buscar en el sistema"
+            className="h-8 w-full rounded-md border border-white/14 bg-white/9 py-1 pl-8 pr-10 text-xs text-white outline-none transition focus:border-white/28 focus:bg-white/13 focus:ring-2 focus:ring-white/10 placeholder:text-emerald-100/50"
             value={searchQuery}
             onChange={(event) => {
               setSearchQuery(event.target.value);
@@ -646,13 +700,13 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
             }}
             onFocus={() => setSearchDropdownOpen(true)}
           />
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <kbd className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-emerald-300 bg-emerald-800/50 border border-emerald-700 rounded-md">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+            <kbd className="inline-flex items-center rounded border border-white/12 bg-black/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-100/65">
               ⌘ K
             </kbd>
           </div>
           {searchDropdownOpen && (
-            <div className="absolute left-0 top-12 w-full rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
+            <div className="absolute right-0 top-10 z-[100] w-96 rounded-xl border border-emerald-900/20 bg-[#094732]/98 p-3 shadow-2xl backdrop-blur-md">
               <div className="mb-2 flex items-center justify-between border-b border-emerald-900/70 pb-2">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white">Resultados</p>
@@ -722,8 +776,15 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
 
         {/* Mobile Search Overlay (Blanco para legibilidad al escribir) */}
         {showMobileSearch && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 md:hidden">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+          <div
+            className="fixed inset-0 z-[80] flex items-start justify-center bg-black/35 p-4 pt-16 backdrop-blur-sm 2xl:hidden"
+            onClick={() => setShowMobileSearch(false)}
+            role="presentation"
+          >
+            <div
+              className="w-full max-w-lg rounded-xl bg-white p-4 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="flex items-center gap-3">
                 <Search className="h-5 w-5 text-[#094732]" />
                 <input
@@ -735,8 +796,10 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
                 <button
+                  type="button"
                   onClick={() => setShowMobileSearch(false)}
                   className="p-2 rounded-full bg-slate-100 text-slate-600"
+                  aria-label="Cerrar búsqueda"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -781,17 +844,52 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
 
       {/* --- 3. SECCIÓN DERECHA: Acciones --- */}
       <div
-        className={`flex items-center gap-2 sm:gap-4 transition-opacity duration-200 min-w-0 ${showMobileSearch ? "opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto" : "opacity-100"}`}
+        className={`flex min-w-0 shrink-0 items-center gap-0.5 transition-opacity duration-150 ${showMobileSearch ? "pointer-events-none opacity-0 md:pointer-events-auto md:opacity-100" : "opacity-100"}`}
       >
-        <div className="hidden md:flex items-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900/40 px-3 py-2 text-emerald-100">
-          <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">
+        <div className="hidden items-center gap-0.5 lg:flex">
+          {canManageAppointments && (
+            <NavLink
+              to="/admin/calendar/agenda"
+              aria-label="Nueva cita"
+              title="Nueva cita"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            >
+              <CalendarPlus className="h-4 w-4" />
+            </NavLink>
+          )}
+          {canManagePayments && (
+            <NavLink
+              to="/admin/pos"
+              aria-label="Nueva venta"
+              title="Nueva venta"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            >
+              <ShoppingBag className="h-4 w-4" />
+            </NavLink>
+          )}
+          {canOpenTracking && (
+            <NavLink
+              to="/admin/pos-tracking"
+              aria-label="Control operativo"
+              title="Control operativo"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            >
+              <Activity className="h-4 w-4" />
+            </NavLink>
+          )}
+        </div>
+
+        <div className="mx-1 hidden h-4 w-px bg-white/12 lg:block" />
+
+        <div className="hidden h-8 items-center gap-1.5 rounded-md border border-white/12 bg-white/8 px-2 text-emerald-50/85 2xl:flex">
+          <span className="text-[9px] uppercase tracking-[0.12em] text-emerald-100/55">
             Sucursal
           </span>
           {canSelectBranch ? (
             <select
               value={selectedBranchId ?? ""}
               onChange={handleBranchChange}
-              className="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer"
+              className="max-w-28 cursor-pointer bg-transparent text-[11px] font-medium text-white outline-none"
             >
               <option value="" className="text-slate-900">
                 Todas
@@ -807,7 +905,7 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
               ))}
             </select>
           ) : (
-            <span className="text-xs font-semibold text-white">
+            <span className="max-w-28 truncate text-[11px] font-medium text-white">
               {branches.find((b) => b.id === selectedBranchId)?.name ??
                 "Sin sucursal"}
             </span>
@@ -815,14 +913,14 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
         </div>
 
         {/* Operarias del turno */}
-        <div className="relative hidden md:block" ref={operariasPanelRef}>
+        <div className="relative hidden 2xl:block" ref={operariasPanelRef}>
           <button
             type="button"
             onClick={() => setOperariasOpen((prev) => !prev)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+            className={`flex h-8 items-center gap-1.5 rounded-md border px-2 text-[11px] font-medium transition-all ${
               operariasOpen
-                ? "border-emerald-400 bg-emerald-700/60 text-white"
-                : "border-emerald-800 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-800/60"
+                ? "border-white/25 bg-white/16 text-white"
+                : "border-white/12 bg-white/8 text-emerald-50/78 hover:bg-white/14 hover:text-white"
             }`}
             title={
               selectedBranchId
@@ -830,12 +928,12 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
                 : "Ver todas las operarias"
             }
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-3.5 w-3.5" />
             <span>Operarias</span>
           </button>
 
           {operariasOpen && (
-            <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl z-50">
+            <div className="absolute right-0 z-[100] mt-3 w-72 rounded-2xl border border-emerald-800/80 bg-[#094732]/98 p-4 shadow-2xl backdrop-blur-md">
               <div className="flex items-center justify-between border-b border-emerald-900/70 pb-2">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-emerald-300" />
@@ -901,10 +999,13 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
         </div>
 
         <button
+          type="button"
           onClick={() => setShowMobileSearch(true)}
-          className="md:hidden p-2.5 rounded-xl text-emerald-100 hover:bg-white/10 transition-colors"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition-colors hover:bg-white/10 hover:text-white 2xl:hidden"
+          aria-label="Buscar"
+          title="Buscar"
         >
-          <Search className="w-5 h-5" />
+          <Search className="h-4 w-4" />
         </button>
 
         {/* Mode switch */}
@@ -915,19 +1016,20 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
           <button
             type="button"
             onClick={() => setNotificationsOpen((prev) => !prev)}
-            className="relative p-2.5 rounded-xl text-emerald-100 hover:bg-white/10 hover:text-white transition-all focus:outline-none active:scale-95"
+            className="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 active:scale-95"
             aria-label="Notificaciones"
+            title="Notificaciones"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="h-4 w-4" />
             {notificationCount > 0 && (
-              <span className="absolute top-2.5 right-2.5 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400 border-2 border-[#094732]"></span>
+              <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#9F8351] opacity-60"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full border border-[#f5f6f5] bg-[#9F8351]"></span>
               </span>
             )}
           </button>
           {notificationsOpen && (
-            <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-emerald-800/80 bg-[#094732]/95 backdrop-blur-md p-4 shadow-2xl">
+            <div className="absolute right-0 z-[100] mt-3 w-80 rounded-2xl border border-emerald-800/80 bg-[#094732]/98 p-4 shadow-2xl backdrop-blur-md">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-white">
                   Notificaciones
@@ -974,16 +1076,17 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
           )}
         </div>
 
-        <div className="h-8 w-px bg-emerald-800 hidden sm:block"></div>
+        <div className="mx-1 hidden h-4 w-px bg-white/12 sm:block"></div>
 
         {/* Perfil de Usuario */}
         <div className="relative" ref={profilePanelRef}>
           <button
             type="button"
             onClick={() => setProfileDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-full hover:bg-white/10 transition-all border border-transparent hover:border-emerald-700 group focus:outline-none"
+            className="group flex h-8 items-center gap-1.5 rounded-md px-1 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            aria-label="Abrir menú de usuario"
           >
-            <div className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#094732] font-bold shadow-md shadow-black/20 ring-2 ring-emerald-800 group-hover:scale-105 transition-transform">
+            <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/14 text-[10px] font-semibold text-white ring-1 ring-white/20 transition-transform group-hover:scale-105">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -991,27 +1094,27 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
-                <span className="text-sm">
+                <span>
                   {displayName.charAt(0).toUpperCase()}
                 </span>
               )}
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#094732] bg-emerald-400" />
+              <span className="absolute -bottom-px -right-px h-2 w-2 rounded-full border border-[#f5f6f5] bg-emerald-500" />
             </div>
-            <div className="hidden md:flex flex-col items-start text-left">
-              <p className="text-sm font-bold text-white leading-none">
+            <div className="hidden flex-col items-start text-left 2xl:flex">
+              <p className="max-w-28 truncate text-[11px] font-semibold leading-none text-white">
                 {displayName}
               </p>
-              <p className="text-[10px] font-medium text-emerald-300 uppercase tracking-wide mt-0.5">
+              <p className="mt-0.5 max-w-28 truncate text-[9px] font-medium text-emerald-100/60">
                 {displayRole}
               </p>
             </div>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-emerald-400 transition-transform hidden md:block ${profileDropdownOpen ? "rotate-180" : ""}`}
+              className={`hidden h-3 w-3 text-emerald-100/55 transition-transform 2xl:block ${profileDropdownOpen ? "rotate-180" : ""}`}
             />
           </button>
 
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 overflow-hidden z-50">
+            <div className="absolute right-0 z-[100] mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15">
               {/* Header del card */}
               <div className="flex items-center gap-3 px-4 py-4 bg-gradient-to-r from-[#094732] to-[#0d5c40]">
                 <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-bold text-base ring-2 ring-white/30 shrink-0">
@@ -1072,6 +1175,9 @@ export default function Header({ setCollapsed, collapsed }: HeaderProps) {
           )}
         </div>
       </div>
+      </div>
+
+      <HorizontalNavigation />
     </header>
   );
 }

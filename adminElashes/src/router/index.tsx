@@ -151,10 +151,8 @@ export default function AppRouter() {
         closeOnClick
         pauseOnHover
         draggable
-        // Con marginTop 0 el toast queda pegado a la esquina y tapa los
-        // botones de navegación del header (ej. "Control de servicios" en
-        // Caja POS) — se corre hacia abajo para no superponerse.
-        style={{ zIndex: 2147483647, marginTop: "4.25rem" }}
+        // Mantiene las notificaciones debajo de la cabecera y navegación.
+        style={{ zIndex: 2147483647, marginTop: "6.75rem" }}
         toastStyle={{ zIndex: 2147483647 }}
       />
       <UploadQueuePanel />

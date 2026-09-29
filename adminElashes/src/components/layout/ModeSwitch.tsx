@@ -61,35 +61,35 @@ export default function ModeSwitch() {
       )}
 
       <div
-        className="flex items-center gap-0.5 bg-black/20 rounded-xl p-1 border border-white/10 select-none"
+        className="hidden h-8 items-center gap-0.5 rounded-md border border-white/12 bg-white/8 p-0.5 select-none sm:flex"
         title="Cambiar modo del sistema"
       >
         <button
           type="button"
           onClick={() => handleSwitch("salon")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+          className={`flex h-7 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-all duration-150 sm:px-2 ${
             current === "salon"
-              ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/50"
-              : "text-white/50 hover:text-white/80 hover:bg-white/5"
+              ? "bg-white text-[#094732] shadow-sm"
+              : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
           }`}
           title="Modo Salón"
         >
-          <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline">Salón</span>
+          <Sparkles className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden 2xl:inline">Salón</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleSwitch("marketplace")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+          className={`flex h-7 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-all duration-150 sm:px-2 ${
             current === "marketplace"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-900/50"
-              : "text-white/50 hover:text-white/80 hover:bg-white/5"
+              ? "bg-white text-[#094732] shadow-sm"
+              : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
           }`}
           title="Modo Marketplace"
         >
-          <Store className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline">Market</span>
+          <Store className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden 2xl:inline">Market</span>
         </button>
       </div>
     </>
