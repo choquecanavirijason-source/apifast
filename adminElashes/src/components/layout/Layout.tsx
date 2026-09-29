@@ -6,11 +6,35 @@ import AppSidebar from './AppSidebar'
 
 export default function Layout(){
   const location = useLocation()
-  const [collapsed, setCollapsed] = React.useState<boolean>(false)
+  const [collapsed, setCollapsedState] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("admin_sidebar_collapsed");
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  })
+  const [mobileOpen, setMobileOpen] = React.useState<boolean>(false)
 
-  const toggleCollapsed = (value: boolean) => {
-    setCollapsed(value);
+  const toggleCollapsed = (value?: boolean) => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setMobileOpen((prev) => (typeof value === "boolean" ? value : !prev));
+    } else {
+      setCollapsedState((prev) => {
+        const next = typeof value === "boolean" ? value : !prev;
+        try {
+          localStorage.setItem("admin_sidebar_collapsed", String(next));
+        } catch {}
+        return next;
+      });
+    }
   }
+
+  // Cerrar el drawer móvil automáticamente en cada cambio de ruta
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   const isPosTrackingFullscreen = location.pathname.startsWith('/admin/pos-tracking')
 
   // Estado para el botón flotante
@@ -82,7 +106,12 @@ export default function Layout(){
 
   return (
     <div className="app-layout">
-      <AppSidebar collapsed={collapsed} />
+      <AppSidebar
+        collapsed={collapsed}
+        setCollapsed={toggleCollapsed}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+      />
       <div className="content">
         <Header setCollapsed={toggleCollapsed} collapsed={collapsed} />
         <main className="main"><Outlet /></main>
