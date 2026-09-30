@@ -30,7 +30,9 @@ export const themes: Record<string,Theme> = {
       '--ui-border-strong': '#cbd5e1',
       '--ui-text': '#1e293b',
       '--ui-text-muted': '#64748b',
-      '--ui-input': '#ffffff'
+      '--ui-input': '#ffffff',
+      '--ui-accent': '#094732',
+      '--ui-accent-soft': 'rgba(9, 71, 50, 0.08)'
     }
   },
   ocean: {
@@ -49,7 +51,9 @@ export const themes: Record<string,Theme> = {
       '--ui-border-strong': '#86efac',
       '--ui-text': '#052e21',
       '--ui-text-muted': '#4b635b',
-      '--ui-input': '#ffffff'
+      '--ui-input': '#ffffff',
+      '--ui-accent': '#094732',
+      '--ui-accent-soft': 'rgba(9, 71, 50, 0.08)'
     }
   },
   dark: {
@@ -68,7 +72,9 @@ export const themes: Record<string,Theme> = {
       '--ui-border-strong': '#4d7667',
       '--ui-text': '#f8fafc',
       '--ui-text-muted': '#b8c8c1',
-      '--ui-input': '#08271d'
+      '--ui-input': '#08271d',
+      '--ui-accent': '#b5a078',
+      '--ui-accent-soft': 'rgba(181, 160, 120, 0.14)'
     }
   }
 }

@@ -66,6 +66,8 @@
   --ui-text: #1e293b;
   --ui-text-muted: #64748b;
   --ui-input: #ffffff;
+  --ui-accent: #094732;
+  --ui-accent-soft: rgba(9, 71, 50, 0.08);
   --app-header-height: 108px;
 }
 .app-layout{display:flex;flex-direction:column;height:100vh;min-width:0;overflow:hidden;background:var(--ui-canvas)}
@@ -232,6 +234,8 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
   --ui-text: #1e293b;
   --ui-text-muted: #64748b;
   --ui-input: #ffffff;
+  --ui-accent: #094732;
+  --ui-accent-soft: rgba(9, 71, 50, 0.08);
 }
 
 .theme-ocean{
@@ -251,6 +255,8 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
   --ui-text: #052e21;
   --ui-text-muted: #4b635b;
   --ui-input: #ffffff;
+  --ui-accent: #094732;
+  --ui-accent-soft: rgba(9, 71, 50, 0.08);
 }
 
 .theme-dark{
@@ -270,6 +276,8 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
   --ui-text: #f8fafc;
   --ui-text-muted: #b8c8c1;
   --ui-input: #08271d;
+  --ui-accent: #b5a078;
+  --ui-accent-soft: rgba(181, 160, 120, 0.14);
 }
 
 /* Compatibilidad de tema para pantallas que aún usan utilidades Tailwind fijas.

@@ -18,10 +18,16 @@ import {
   CalendarPlus,
   ShoppingBag,
   Activity,
+  Menu,
+  PanelLeft,
+  PanelLeftClose,
 } from "lucide-react";
 import { useNavigate, NavLink } from "react-router-dom";
 import ModeSwitch from "./ModeSwitch";
 import HorizontalNavigation from "./HorizontalNavigation";
+import LayoutCustomizer from "./LayoutCustomizer";
+import { MobileNavigationSheet } from "./SidebarNavigation";
+import { useLayout } from "@/core/context/layout.context";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 import useAuth from "@/core/hooks/useAuth";
 import { useLogo } from "@/core/hooks/useLogo";
@@ -144,6 +150,10 @@ export default function Header() {
   const idleLogoutTriggeredRef = useRef(false);
   const idleTimeoutSeconds = 3 * 60 * 60;
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+  const { layoutMode, sidebarPinned, toggleSidebarPinned } = useLayout();
+  const isSidebarMode = layoutMode === "sidebar";
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { isAdmin, hasPermissionByName } = useAuth();
@@ -656,9 +666,33 @@ export default function Header() {
       <div
         className={`flex min-w-0 shrink-0 items-center gap-1 transition-opacity duration-150 ${showMobileSearch ? "pointer-events-none opacity-0 md:pointer-events-auto md:opacity-100" : "opacity-100"}`}
       >
+        {/* Celular: abre el menú lateral deslizable (en ambos modos) */}
+        <button
+          type="button"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label="Abrir menú"
+          title="Menú"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white md:hidden"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
+        {/* Modo sidebar (escritorio): fijar o colapsar la barra lateral */}
+        {isSidebarMode && (
+          <button
+            type="button"
+            onClick={toggleSidebarPinned}
+            aria-label={sidebarPinned ? "Colapsar menú lateral" : "Fijar menú lateral"}
+            title={sidebarPinned ? "Colapsar menú lateral" : "Fijar menú lateral"}
+            className="hidden h-8 w-8 items-center justify-center rounded-md text-emerald-50/72 transition hover:bg-white/10 hover:text-white md:inline-flex"
+          >
+            {sidebarPinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+          </button>
+        )}
+
         <NavLink
           to="/"
-          className="flex h-9 items-center gap-2 rounded-lg px-1.5 text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35"
+          className={`flex h-9 items-center gap-2 rounded-lg px-1.5 text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35 ${isSidebarMode ? "md:hidden" : ""}`}
           aria-label="Ir a Visión general"
         >
           {logoBase64 ? (
@@ -1008,6 +1042,9 @@ export default function Header() {
           <Search className="h-4 w-4" />
         </button>
 
+        {/* Posición del menú (sidebar / top) */}
+        <LayoutCustomizer />
+
         {/* Mode switch */}
         <ModeSwitch />
 
@@ -1177,7 +1214,13 @@ export default function Header() {
       </div>
       </div>
 
-      <HorizontalNavigation />
+      {!isSidebarMode && (
+        <div className="hidden md:block">
+          <HorizontalNavigation />
+        </div>
+      )}
+
+      <MobileNavigationSheet open={mobileNavOpen} onClose={closeMobileNav} />
     </header>
   );
 }
