@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { Banknote, DoorOpen, Download, Eye, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 import Layout from "@/components/common/layout";
-import { Button, SectionCard } from "@/components/common/ui";
+import { Button, SectionCard, SegmentedTabs } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -1266,44 +1266,15 @@ export default function Caja() {
 
   return (
     <Layout title="Caja" subtitle="Apertura/cierre y registro de gastos de la sucursal activa." variant="cards">
-      <div className="flex gap-1 rounded-xl border border-[#edebe9] bg-[#f3f2f1] p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveTab("apertura")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "apertura"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <ListChecks className="h-3.5 w-3.5" />
-          Apertura y Cierre
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("gastos")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "gastos"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <Banknote className="h-3.5 w-3.5" />
-          Nuevo Gasto
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("historial")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "historial"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <History className="h-3.5 w-3.5" />
-          Historial de Gastos
-        </button>
-      </div>
+      <SegmentedTabs
+        options={[
+          { id: "apertura", label: "Apertura y Cierre", icon: <ListChecks className="h-3.5 w-3.5" /> },
+          { id: "gastos", label: "Nuevo Gasto", icon: <Banknote className="h-3.5 w-3.5" /> },
+          { id: "historial", label: "Historial de Gastos", icon: <History className="h-3.5 w-3.5" /> },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === "apertura" && <AperturaCierreTab />}
       {activeTab === "gastos" && <NuevoGastoTab />}

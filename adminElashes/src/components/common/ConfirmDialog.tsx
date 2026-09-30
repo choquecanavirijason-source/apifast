@@ -34,14 +34,14 @@ export const ConfirmDialog = ({
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 w-full max-w-sm mx-4"
+        className="bg-[var(--ui-surface)] text-[var(--ui-text)] rounded-xl shadow-lg border border-[var(--ui-border)] p-6 w-full max-w-sm mx-4"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-brand-tertiary">{title}</h3>
         <div className="mt-2 mb-5 text-sm text-brand-tertiary-soft leading-relaxed">{message}</div>
         <div className="flex justify-end gap-2">
           <button
-            className="px-4 py-2 rounded-lg border border-brand-secondary/40 bg-white text-brand-tertiary text-sm font-medium hover:bg-brand-secondary/10 transition"
+            className="px-4 py-2 rounded-lg border border-brand-secondary/40 bg-[var(--ui-surface)] text-[var(--ui-text)] text-sm font-medium hover:bg-brand-secondary/10 transition"
             onClick={onCancel}
             disabled={isProcessing}
           >

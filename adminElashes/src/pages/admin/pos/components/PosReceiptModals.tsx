@@ -5,6 +5,7 @@ import { generateReceiptPdf } from "../utils/generateReceiptPdf";
 import { QRCodeCanvas } from "qrcode.react";
 
 import GenericModal from "../../../../components/common/modal/GenericModal";
+import { SegmentedTabs } from "../../../../components/common/ui";
 import { type PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import type { ReceiptTicketEdit } from "../pos.types";
@@ -439,30 +440,14 @@ export default function PosReceiptModals({
 
                 <div className="no-print border-b border-slate-100 px-5 pb-1 pt-3">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Formato de impresión</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPrintFormat("a4")}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                      printFormat === "a4"
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Hoja grande (A4)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPrintFormat("thermal")}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                      printFormat === "thermal"
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Impresora térmica
-                  </button>
-                </div>
+                <SegmentedTabs
+                  options={[
+                    { id: "a4", label: "Hoja grande (A4)" },
+                    { id: "thermal", label: "Impresora térmica" },
+                  ]}
+                  value={printFormat}
+                  onChange={setPrintFormat}
+                />
                 </div>
 
                 <div

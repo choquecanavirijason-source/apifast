@@ -4,12 +4,12 @@ import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/co
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import Layout from "@/components/common/layout";
-import { Button, SectionCard } from "@/components/common/ui";
+import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 const fieldClass =
-  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] placeholder:text-[#a19f9d] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
+  "h-8 w-full rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2.5 text-xs text-[var(--ui-text)] shadow-inner outline-none transition placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/25 disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -372,52 +372,37 @@ export default function TicketsHistoryPage() {
     <Layout
       title="Seguimiento de servicios"
       subtitle="Control de calidad: notas de diseño, cuestionarios y estado de cada ticket. Vista operativa sin comisiones."
-      variant="cards"
+      variant="table"
       topContent={
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-800">Seguimiento de servicios</h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleDownloadPdf}
-              disabled={filteredTickets.length === 0}
-              leftIcon={<Download className="h-3.5 w-3.5" />}
-            >
-              PDF
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
-            <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard label="Total tickets" value={filteredTickets.length} tone="emerald" />
+          <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="slate" />
         </div>
       }
       toolbar={
-        <div className="flex gap-1 rounded-xl border border-[#edebe9] bg-[#f3f2f1] p-1 w-fit">
-          <button
-            type="button"
-            onClick={() => setActiveTab("tickets")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-              activeTab === "tickets"
-                ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-                : "text-[#605e5c] hover:bg-white/50"
-            }`}
-          >
-            <List className="h-3.5 w-3.5" />
-            Historial de tickets
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("servicios")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-              activeTab === "servicios"
-                ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-                : "text-[#605e5c] hover:bg-white/50"
-            }`}
-          >
-            <BarChart2 className="h-3.5 w-3.5" />
-            Uso por servicio
-          </button>
-        </div>
+        <SegmentedTabs
+          options={[
+            { id: "tickets", label: "Historial de tickets", icon: <List className="h-3.5 w-3.5" /> },
+            { id: "servicios", label: "Uso por servicio", icon: <BarChart2 className="h-3.5 w-3.5" /> },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+          right={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDownloadPdf}
+                disabled={filteredTickets.length === 0}
+                leftIcon={<Download className="h-3.5 w-3.5" />}
+              >
+                PDF
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
+              <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
+            </div>
+          }
+        />
       }
     >
       {/* ── Sección: Uso por servicio ─────────────────────────────────────── */}
@@ -499,91 +484,8 @@ export default function TicketsHistoryPage() {
 
       {/* ── Filtros (solo en pestaña tickets) ────────────────────────────── */}
       {activeTab === "tickets" && <>
-      {/* ── Estados + ingresos: cajas clicables, todas en una sola fila ───── */}
-      <div className="mt-2 flex flex-nowrap items-stretch gap-2 overflow-x-auto py-1">
-        <button
-          type="button"
-          onClick={() => setStatusFilter("")}
-          className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition ${
-            !statusFilter
-              ? "border-[#0078d4] bg-[#deecf9]"
-              : "border-slate-200 bg-white hover:bg-slate-50"
-          }`}
-        >
-          <span className="text-xs font-medium text-slate-500">Total</span>
-          <span className="text-sm font-semibold tabular-nums text-slate-800">{tickets.length}</span>
-        </button>
-        {availableStatuses.map((s) => {
-          const count = tickets.filter((t) => t.status === s).length;
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition ${
-                statusFilter === s
-                  ? (STATUS_BADGE[s] ?? "bg-slate-100 border-slate-200") + " ring-1 ring-current"
-                  : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-            >
-              <span className="text-xs font-medium text-slate-500">{STATUS_LABELS[s] ?? s}</span>
-              <span className="text-sm font-semibold tabular-nums text-slate-800">{count}</span>
-            </button>
-          );
-        })}
-        <div className="flex shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-          <span className="text-xs font-medium text-emerald-700">Ingresos</span>
-          <span className="text-sm font-semibold tabular-nums text-emerald-700">{moneyFormatter.format(totalRevenue)}</span>
-        </div>
-      </div>
-
-      {/* ── Filtros ──────────────────────────────────────────────────────── */}
-      <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Búsqueda */}
-          <div className="sm:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Buscar</label>
-            <div className="relative mt-1">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cliente, código, servicio, operaria..."
-                className={`${fieldClass} pl-9`}
-              />
-            </div>
-          </div>
-
-          {/* Operaria */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
-            <select value={professionalFilter} onChange={(e) => setProfessionalFilter(e.target.value)} className={`${fieldClass} mt-1`}>
-              <option value="">Todas</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.username}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Desde */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
-          </div>
-
-          {/* Hasta */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
-          </div>
-        </div>
-      </SectionCard>
-
       {/* ── Tabla ────────────────────────────────────────────────────────── */}
-      <SectionCard bodyClassName="!p-0">
-        {error && <div className="border-b border-[#edebe9] p-4 text-sm text-rose-600">{error}</div>}
-
+      {error && <div className="mb-2 rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</div>}
         <DataTable
           data={filteredTickets}
           columns={columns}
@@ -592,8 +494,79 @@ export default function TicketsHistoryPage() {
           enableColumnFilters={false}
           defaultLimit={25}
           tableMinWidth="min-w-[1100px]"
+          renderTopToolbar={() => (
+            <div className="space-y-2">
+              <div className="flex max-w-full gap-1 overflow-x-auto pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("")}
+                  className={`shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
+                    !statusFilter
+                      ? "border-brand-secondary bg-brand-secondary/10 text-[var(--ui-text)]"
+                      : "border-[var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
+                  }`}
+                >
+                  Todos · {tickets.length}
+                </button>
+                {availableStatuses.map((status) => {
+                  const count = tickets.filter((ticket) => ticket.status === status).length;
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setStatusFilter(statusFilter === status ? "" : status)}
+                      className={`shrink-0 rounded border px-2.5 py-1 text-xs font-medium transition ${
+                        statusFilter === status
+                          ? "border-brand-secondary bg-brand-secondary/10 text-[var(--ui-text)]"
+                          : "border-[var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
+                      }`}
+                    >
+                      {STATUS_LABELS[status] ?? status} · {count}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="relative sm:col-span-2">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Cliente, código, servicio, operaria..."
+                    aria-label="Buscar tickets"
+                    className={`${fieldClass} pl-8`}
+                  />
+                </div>
+                <select
+                  value={professionalFilter}
+                  onChange={(event) => setProfessionalFilter(event.target.value)}
+                  className={fieldClass}
+                  aria-label="Filtrar por operaria"
+                >
+                  <option value="">Todas las operarias</option>
+                  {professionals.map((professional) => (
+                    <option key={professional.id} value={professional.id}>{professional.username}</option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                  className={fieldClass}
+                  aria-label="Fecha desde"
+                />
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                  className={fieldClass}
+                  aria-label="Fecha hasta"
+                />
+              </div>
+            </div>
+          )}
         />
-      </SectionCard>
       </>}
     </Layout>
   );

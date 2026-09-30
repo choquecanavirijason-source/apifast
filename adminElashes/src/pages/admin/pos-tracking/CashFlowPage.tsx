@@ -3,6 +3,7 @@ import { RefreshCw, TrendingUp } from "lucide-react";
 import { toast } from "react-toastify";
 import { DashboardService, type RevenueSeriesItem } from "../../../core/services/dashboard/dashboard.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
+import { SegmentedTabs } from "../../../components/common/ui";
 
 const moneyFormatter = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -180,22 +181,14 @@ export default function CashFlowPage() {
             Actualizar
           </button>
           {/* Day / Week toggle */}
-          <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
-            {(["day", "week"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setViewMode(mode)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
-                  viewMode === mode
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {mode === "day" ? "Por día" : "Por semana"}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs
+            options={[
+              { id: "day", label: "Por día" },
+              { id: "week", label: "Por semana" },
+            ]}
+            value={viewMode}
+            onChange={setViewMode}
+          />
         </div>
       </div>
 

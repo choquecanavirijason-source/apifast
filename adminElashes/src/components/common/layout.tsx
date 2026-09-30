@@ -17,8 +17,8 @@ interface LayoutProps {
 }
 
 const VARIANT_STYLES: Record<LayoutVariant, string> = {
-  table: "bg-white border border-slate-200",
-  cards: "bg-white border border-slate-200",
+  table: "bg-[var(--ui-surface)] border border-[var(--ui-border)]",
+  cards: "bg-[var(--ui-surface)] border border-[var(--ui-border)]",
 };
 
 export default function Layout({
@@ -39,8 +39,8 @@ export default function Layout({
     
 
       <section className={`rounded-lg shadow-sm ${variantClass} ${containerClassName}`}>
-        {topContent ? <div className="border-b border-slate-100 px-3 py-2">{topContent}</div> : null}
-        {toolbar ? <div className="border-b border-slate-100 px-3 py-2">{toolbar}</div> : null}
+        {topContent ? <div className="border-b border-[var(--ui-border)] px-3 py-2">{topContent}</div> : null}
+        {toolbar ? <div className="border-b border-[var(--ui-border)] px-3 py-2">{toolbar}</div> : null}
         <div className={contentClassName ?? "p-2 md:p-3"}>{children}</div>
       </section>
     </div>

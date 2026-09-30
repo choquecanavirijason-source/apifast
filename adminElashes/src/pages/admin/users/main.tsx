@@ -415,10 +415,10 @@ export default function UsersMain() {
   };
 
   const tabButtons: Array<{ id: SectionTab; label: string; icon: ReactElement }> = [
-    { id: "users", label: isSecretary ? "Operarias" : "Usuarios", icon: <UsersIcon className="h-4 w-4" /> },
+    { id: "users", label: isSecretary ? "Operarias" : "Usuarios", icon: <UsersIcon className="h-3.5 w-3.5" /> },
     ...(isSuperAdmin ? [
-      { id: "roles" as SectionTab, label: "Roles", icon: <Shield className="h-4 w-4" /> },
-      { id: "permissions" as SectionTab, label: "Permisos", icon: <KeyRound className="h-4 w-4" /> },
+      { id: "roles" as SectionTab, label: "Roles", icon: <Shield className="h-3.5 w-3.5" /> },
+      { id: "permissions" as SectionTab, label: "Permisos", icon: <KeyRound className="h-3.5 w-3.5" /> },
     ] : []),
   ];
 

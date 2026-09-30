@@ -74,7 +74,7 @@ export function ActionDropdownMenu<T>({ actions, item, anchorRect, onClose }: Pr
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-[2147483647] max-h-72 overflow-y-auto rounded-md border border-slate-300/90 bg-white py-0.5 shadow-lg ring-1 ring-slate-200/50"
+      className="fixed z-[2147483647] max-h-72 overflow-y-auto rounded-md border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] py-0.5 shadow-lg ring-1 ring-slate-200/50"
       style={{
         top: position.top,
         left: position.left,
@@ -86,7 +86,7 @@ export function ActionDropdownMenu<T>({ actions, item, anchorRect, onClose }: Pr
           key={idx}
           onClick={() => { action.onClick(item); onClose(); }}
           className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors hover:bg-sky-50 ${
-            action.variant === "danger" ? "text-red-600" : action.variant === "primary" ? "text-blue-600" : "text-slate-700"
+            action.variant === "danger" ? "text-red-600" : action.variant === "primary" ? "text-blue-600" : "text-[var(--ui-text)]"
           }`}
         >
           {action.icon} {action.label}

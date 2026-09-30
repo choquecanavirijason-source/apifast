@@ -481,7 +481,7 @@ export default function HorizontalNavigation() {
     <nav
       ref={navigationRef}
       aria-label="Navegación principal"
-      className="relative z-[70] h-14 shrink-0 border-t border-white/8 border-b border-black/15 bg-linear-to-r from-[#094732] via-[#0a5038] to-[#063d2b] px-2 shadow-[0_7px_22px_rgba(3,38,26,0.2)] sm:px-4"
+      className="relative z-[70] h-14 shrink-0 border-t border-white/8 border-b border-black/15 bg-[#094732] px-2 shadow-[0_7px_22px_rgba(3,38,26,0.2)] sm:px-4"
     >
       <div className="flex h-full items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] xl:overflow-visible [&::-webkit-scrollbar]:hidden">
         {groups.map((group) => {

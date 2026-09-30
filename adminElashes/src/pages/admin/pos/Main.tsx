@@ -3,7 +3,7 @@ import { Building2, CalendarDays, DoorOpen, HelpCircle, Lock, Package, ShoppingC
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
-import { Button } from "../../../components/common/ui";
+import { Button, SegmentedTabs } from "../../../components/common/ui";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
@@ -97,34 +97,29 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       contentClassName="flex-1 min-h-0 overflow-hidden"
       toolbar={
         <div className="mb-1 mt-1 flex w-full items-center justify-between">
-          <div data-tour="pos-tabs" className="inline-flex rounded-sm border border-[#edebe9] bg-[#faf9f8] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            {(["sale", "history", "lastticket"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  // Ojo: no llamar a resetSaleForm() acá — este botón solo
-                  // cambia de pestaña, y antes vaciaba el carrito en progreso
-                  // cada vez que volvías a "Nueva venta" desde Historial.
-                  pos.setActiveTab(tab);
-                  pos.setStep(1);
-                }}
-                className={`rounded-sm px-5 py-2 text-sm font-semibold transition-colors ${
-                  pos.activeTab === tab
-                    ? "border border-[#edebe9] bg-white text-[#323130] shadow-sm"
-                    : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
-                }`}
-              >
-                {tab === "sale" ? "Nueva venta" : tab === "history" ? "Historial" : (
-                  <span className="flex items-center gap-1.5">
-                    Último ticket
-                    {pos.receiptSale && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#107c10] px-1 text-[10px] font-bold text-white">✓</span>
-                    )}
-                  </span>
-                )}
-              </button>
-            ))}
+          <div data-tour="pos-tabs">
+            <SegmentedTabs
+              options={[
+                { id: "sale", label: "Nueva venta" },
+                { id: "history", label: "Historial" },
+                {
+                  id: "lastticket",
+                  label: (
+                    <span className="flex items-center gap-1.5">
+                      Último ticket
+                      {pos.receiptSale && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#107c10] px-1 text-[10px] font-bold text-white">✓</span>
+                      )}
+                    </span>
+                  ),
+                },
+              ]}
+              value={pos.activeTab}
+              onChange={(tab) => {
+                pos.setActiveTab(tab);
+                pos.setStep(1);
+              }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -391,28 +386,14 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         /* ── History tab ─────────────────────────────────────────────── */
         ) : pos.activeTab === "history" ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div className="inline-flex w-fit rounded-lg border border-slate-200 bg-white p-0.5 shadow-inner">
-              <button
-                type="button"
-                onClick={() => setHistoryView("servicios")}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  historyView === "servicios" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                <Wrench className="h-3.5 w-3.5" />
-                Servicios
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryView("productos")}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  historyView === "productos" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                <Package className="h-3.5 w-3.5" />
-                Productos
-              </button>
-            </div>
+            <SegmentedTabs
+              options={[
+                { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
+                { id: "productos", label: "Productos", icon: <Package className="h-3.5 w-3.5" /> },
+              ]}
+              value={historyView}
+              onChange={setHistoryView}
+            />
 
             {historyView === "servicios" ? (
               <SalesHistoryTable

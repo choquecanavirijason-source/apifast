@@ -33,15 +33,15 @@ export default function StatCard({
 }: StatCardProps) {
   const iconSize = compact ? "size-6" : "size-7";
   const labelClass = compact
-    ? "text-[11px] font-medium text-slate-500"
-    : "text-xs font-medium text-slate-500";
+    ? "text-[11px] font-medium text-[var(--ui-text-muted)]"
+    : "text-xs font-medium text-[var(--ui-text-muted)]";
   const valueClass = compact
-    ? "text-xs font-semibold tabular-nums tracking-tight text-brand-tertiary"
-    : "text-sm font-semibold tabular-nums tracking-tight text-brand-tertiary";
+    ? "text-xs font-semibold tabular-nums tracking-tight text-[var(--ui-text)]"
+    : "text-sm font-semibold tabular-nums tracking-tight text-[var(--ui-text)]";
 
   return (
     <article
-      className={`h-full rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm ${className}`}
+      className={`h-full rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 shadow-sm ${className}`}
     >
       <div className="flex min-w-0 items-center gap-2">
         {icon ? (

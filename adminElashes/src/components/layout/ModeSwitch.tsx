@@ -69,7 +69,7 @@ export default function ModeSwitch() {
           onClick={() => handleSwitch("salon")}
           className={`flex h-7 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-all duration-150 sm:px-2 ${
             current === "salon"
-              ? "bg-white text-[#094732] shadow-sm"
+              ? "bg-[#ffffff] text-[#094732] shadow-sm"
               : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
           }`}
           title="Modo Salón"
@@ -83,7 +83,7 @@ export default function ModeSwitch() {
           onClick={() => handleSwitch("marketplace")}
           className={`flex h-7 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-all duration-150 sm:px-2 ${
             current === "marketplace"
-              ? "bg-white text-[#094732] shadow-sm"
+              ? "bg-[#ffffff] text-[#094732] shadow-sm"
               : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
           }`}
           title="Modo Marketplace"

@@ -8,7 +8,7 @@ import { PosSaleService, type PosSaleItem } from "../../../core/services/pos-sal
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import DataTable, { type DataTableColumn } from "../../../components/common/table/DataTable";
-import { Button, SectionCard } from "../../../components/common/ui";
+import { Button, SectionCard, SegmentedTabs } from "../../../components/common/ui";
 import StatusBadge from "../pos/components/StatusBadge";
 import {
   formatDateTime,
@@ -504,21 +504,6 @@ export default function ClientSalesHistoryModal({
     </div>
   );
 
-  const tabBtn = (tab: HistoryTab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setActiveTab(tab)}
-      className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-        activeTab === tab
-          ? "bg-[#094732] text-white shadow-sm"
-          : "text-slate-600 hover:bg-slate-100"
-      }`}
-    >
-      {label}
-      {tab === "sales" ? ` (${sales.length})` : tab === "tickets" ? ` (${tickets.length})` : ` (${payments.length})`}
-    </button>
-  );
-
   return (
     <GenericModal
       isOpen={isOpen}
@@ -556,11 +541,15 @@ export default function ClientSalesHistoryModal({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-1.5">
-            {tabBtn("sales", "Tabla ventas")}
-            {tabBtn("tickets", "Tabla tickets")}
-            {tabBtn("payments", "Tabla pagos")}
-          </div>
+          <SegmentedTabs
+            options={[
+              { id: "sales", label: `Tabla ventas (${sales.length})` },
+              { id: "tickets", label: `Tabla tickets (${tickets.length})` },
+              { id: "payments", label: `Tabla pagos (${payments.length})` },
+            ]}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
 
           {activeTab === "sales" ? (
             <SectionCard className="!rounded-xl" bodyClassName="!p-4 space-y-4">

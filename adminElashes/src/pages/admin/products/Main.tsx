@@ -9,7 +9,7 @@ import Layout from "../../../components/common/layout.tsx";
 import FilterActionBar from "../../../components/common/FilterActionBar.tsx";
 import GenericModal from "../../../components/common/modal/GenericModal.tsx";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { Button, InputField, SectionCard, StatCard } from "../../../components/common/ui/index.ts";
+import { Button, InputField, SectionCard, SegmentedTabs, StatCard } from "../../../components/common/ui/index.ts";
 import { CategoryService, type CategoryItem } from "../../../core/services/category/category.service.ts";
 import { BranchService } from "../../../core/services/branch/branch.service.ts";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
@@ -719,85 +719,27 @@ export default function Main() {
     <FilterActionBar
       left={
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => changeSection("products")}
-              className={
-                currentSection === "products"
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-              }
-            >
-              Seccion productos
-            </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => changeSection("categories")}
-              className={
-                currentSection === "categories"
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-              }
-            >
-              Seccion categorias
-            </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => changeSection("movements")}
-              className={
-                currentSection === "movements"
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-              }
-            >
-              Historial de movimientos
-            </Button>
-          </div>
+          <SegmentedTabs
+            options={[
+              { id: "products", label: "Seccion productos" },
+              { id: "categories", label: "Seccion categorias" },
+              { id: "movements", label: "Historial de movimientos" },
+            ]}
+            value={currentSection}
+            onChange={changeSection}
+          />
 
 
           {currentSection === "products" ? (
-            <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => setViewMode("all")}
-                className={
-                  viewMode === "all"
-                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                    : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-                }
-              >
-                Todos ({products.length})
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => setViewMode("active")}
-                className={
-                  viewMode === "active"
-                    ? "bg-white text-[#094732] shadow-sm ring-1 ring-black/5"
-                    : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-                }
-              >
-                Activos
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => setViewMode("low-stock")}
-                className={
-                  viewMode === "low-stock"
-                    ? "bg-white text-amber-700 shadow-sm ring-1 ring-black/5"
-                    : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-                }
-              >
-                Bajo stock ({lowStockCount})
-              </Button>
-            </div>
+            <SegmentedTabs
+              options={[
+                { id: "all", label: `Todos (${products.length})` },
+                { id: "active", label: "Activos" },
+                { id: "low-stock", label: `Bajo stock (${lowStockCount})` },
+              ]}
+              value={viewMode}
+              onChange={setViewMode}
+            />
           ) : null}
         </div>
       }

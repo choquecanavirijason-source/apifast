@@ -9,7 +9,7 @@ import {
 } from "../../../../core/services/branch/branch.service";
 import { CatalogService, type QuestionnaireItem } from "../../../../core/services/catalog/catalog.service";
 import { getApiErrorMessage } from "../../../../core/utils/apiError";
-import { Button, InputField } from "../../../../components/common/ui";
+import { Button, InputField, SegmentedTabs } from "../../../../components/common/ui";
 
 type Props = {
   branchId: number | null;
@@ -162,29 +162,15 @@ export default function BranchIntegrationsPanel({
         </Button>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setForm((f) => ({ ...f, mode: "shared" }))}
-          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-            form.mode === "shared"
-              ? "border-[#0078d4] bg-[#deecf9] text-[#004578]"
-              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-          }`}
-        >
-          Perfil compartido
-        </button>
-        <button
-          type="button"
-          onClick={() => setForm((f) => ({ ...f, mode: "own" }))}
-          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-            form.mode === "own"
-              ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-          }`}
-        >
-          Solo esta sucursal
-        </button>
+      <div className="mb-4">
+        <SegmentedTabs
+          options={[
+            { id: "shared", label: "Perfil compartido" },
+            { id: "own", label: "Solo esta sucursal" },
+          ]}
+          value={form.mode}
+          onChange={(mode) => setForm((current) => ({ ...current, mode }))}
+        />
       </div>
 
       {loading ? (

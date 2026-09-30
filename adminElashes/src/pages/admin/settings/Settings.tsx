@@ -63,7 +63,7 @@ export default function Settings() {
         {label.replace(/([a-z])([A-Z])/g, '$1 $2')}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="color" value={normalized || '#ffffff'} onChange={e => onChange(normalizeHex(e.target.value))} />
-          <input type="text" placeholder="#rrggbb" value={value || normalized} onChange={e => onChange(e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: valid ? '1px solid #e6eef2' : '1px solid #f5c6cb', minWidth: 110 }} />
+          <input type="text" placeholder="#rrggbb" value={value || normalized} onChange={e => onChange(e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: valid ? '1px solid var(--ui-border)' : '1px solid #f5c6cb', background: 'var(--ui-input)', color: 'var(--ui-text)', minWidth: 110 }} />
           <div style={{ width: 28, height: 28, borderRadius: 6, background: valid ? normalized : '#fff', border: '1px solid rgba(0,0,0,0.06)' }} />
           {!valid && <span style={{ color: 'crimson', fontSize: 12 }}>Invalid hex</span>}
         </div>
@@ -179,7 +179,7 @@ export default function Settings() {
       {isSuperAdmin && (
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ marginTop: 0 }}>Logo de la aplicación</h3>
-          <p style={{ color: '#8a8a8a', fontSize: 13, marginBottom: 16 }}>
+          <p style={{ color: 'var(--ui-text-muted)', fontSize: 13, marginBottom: 16 }}>
             Este logo aparece en el menú lateral y en los comprobantes de pago PDF para todos los usuarios. Formato recomendado: PNG con fondo transparente. Máx. 500 KB.
           </p>
 
@@ -188,12 +188,12 @@ export default function Settings() {
             {/* Preview del logo actual */}
             <div style={{
               width: 200, height: 130,
-              border: '2px dashed #d1d5db',
+              border: '2px dashed var(--ui-border-strong)',
               borderRadius: 12,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: '#f9fafb',
+              background: 'var(--ui-surface-muted)',
               overflow: 'hidden',
               flexShrink: 0,
             }}>
@@ -204,7 +204,7 @@ export default function Settings() {
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: 8 }}
                 />
               ) : (
-                <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+                <div style={{ textAlign: 'center', color: 'var(--ui-text-muted)' }}>
                   <ImagePlus style={{ width: 28, height: 28, margin: '0 auto 4px' }} />
                   <span style={{ fontSize: 11 }}>Sin logo</span>
                 </div>
@@ -218,33 +218,33 @@ export default function Settings() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  border: '2px dashed #d1d5db',
+                  border: '2px dashed var(--ui-border-strong)',
                   borderRadius: 10,
                   padding: '20px 16px',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  background: '#f9fafb',
+                  background: 'var(--ui-surface-muted)',
                   transition: 'border-color .15s, background .15s',
                   marginBottom: 10,
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLDivElement).style.borderColor = '#6ee7b7'
-                  ;(e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'
+                  ;(e.currentTarget as HTMLDivElement).style.background = 'var(--ui-surface-hover)'
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'
-                  ;(e.currentTarget as HTMLDivElement).style.background = '#f9fafb'
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--ui-border-strong)'
+                  ;(e.currentTarget as HTMLDivElement).style.background = 'var(--ui-surface-muted)'
                 }}
               >
                 <ImagePlus style={{ width: 22, height: 22, margin: '0 auto 6px', color: '#6ee7b7' }} />
-                <p style={{ fontSize: 13, color: '#4b5563', margin: 0 }}>
+                <p style={{ fontSize: 13, color: 'var(--ui-text)', margin: 0 }}>
                   {pendingLogoFile ? (
                     <strong>Cambiar imagen seleccionada</strong>
                   ) : (
                     <><strong>Clic para subir</strong> o arrastra aquí</>
                   )}
                 </p>
-                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PNG, JPG, WebP — máx. 500 KB</p>
+                <p style={{ fontSize: 11, color: 'var(--ui-text-muted)', marginTop: 4 }}>PNG, JPG, WebP — máx. 500 KB</p>
               </div>
 
               <input
@@ -259,7 +259,7 @@ export default function Settings() {
               {/* Selección pendiente de guardar */}
               {pendingLogoFile && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--ui-text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {pendingLogoFile.name} <em style={{ color: '#d97706' }}>(sin guardar)</em>
                   </span>
                 </div>
@@ -297,7 +297,7 @@ export default function Settings() {
                     disabled={isUploadingLogo}
                     style={{
                       padding: '6px 14px', borderRadius: 6, border: '1px solid #d1d5db',
-                      background: '#fff', color: '#4b5563', fontSize: 12,
+                      background: 'var(--ui-surface)', color: 'var(--ui-text)', fontSize: 12,
                       cursor: isUploadingLogo ? 'default' : 'pointer',
                       opacity: isUploadingLogo ? 0.6 : 1,
                     }}
@@ -309,7 +309,7 @@ export default function Settings() {
                 /* Nombre del archivo guardado + botón eliminar */
                 logoBase64 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 12, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, color: 'var(--ui-text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {logoName ?? 'logo.png'}
                     </span>
                     <button
@@ -342,7 +342,7 @@ export default function Settings() {
             <button
               key={key}
               onClick={() => handleSelectTheme(key)}
-              style={{ padding: '10px 14px', borderRadius: 10, border: theme === key ? '2px solid var(--accent)' : '1px solid #e6eef2', background: '#fff', cursor: 'pointer' }}
+              style={{ padding: '10px 14px', borderRadius: 10, border: theme === key ? '2px solid var(--accent)' : '1px solid var(--ui-border)', background: 'var(--ui-surface-muted)', color: 'var(--ui-text)', fontWeight: theme === key ? 600 : 500, cursor: 'pointer' }}
             >
               {key}
             </button>

@@ -1,8 +1,9 @@
-import { useEffect, useState, type ElementType } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Printer, X, List, Columns3 } from "lucide-react";
 import { toast } from "react-toastify";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
+import { SegmentedTabs } from "../../../../components/common/ui";
 
 const PRINT_WINDOW_SCRIPT = `<script>
 window.addEventListener("load", function () { window.print(); });
@@ -372,19 +373,6 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
     onClose();
   };
 
-  const tabBtn = (m: PrintMode, label: string, Icon: ElementType) => (
-    <button
-      type="button"
-      onClick={() => setMode(m)}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-        mode === m ? "bg-[#094732] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
-      }`}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </button>
-  );
-
   if (!mounted) return null;
 
   return createPortal(
@@ -411,10 +399,14 @@ export default function PrintAgendaModal({ tickets, professionals, selectedDate,
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-              {tabBtn("planner", "Planilla horaria", List)}
-              {tabBtn("stations", "Puestos 1–8", Columns3)}
-            </div>
+            <SegmentedTabs
+              options={[
+                { id: "planner", label: "Planilla horaria", icon: <List className="h-3.5 w-3.5" /> },
+                { id: "stations", label: "Puestos 1–8", icon: <Columns3 className="h-3.5 w-3.5" /> },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
             <button
               type="button"
               onClick={handlePrint}

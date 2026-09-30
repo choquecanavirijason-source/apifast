@@ -233,12 +233,12 @@ function DataTable<T extends { id: number | string }>({
 
   const cellBorder = "border-b border-slate-100 last:border-r-0";
   const headerCell =
-    "align-top border-b border-slate-200 bg-slate-50 px-2 py-2.5 text-left text-[11px] font-semibold tracking-wide text-slate-500 uppercase last:border-r-0";
+    "align-top border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-2.5 text-left text-[11px] font-semibold tracking-wide text-[var(--ui-text-muted)] uppercase last:border-r-0";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white font-sans shadow-sm">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] font-sans text-[var(--ui-text)] shadow-sm">
       {/* Toolbar superior */}
-      <div className="shrink-0 border-b border-slate-100 bg-white px-3 py-2.5">
+      <div className="shrink-0 border-b border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5">
         {renderTopToolbar && <div className="mb-2 border-b border-slate-200/80 pb-2">{renderTopToolbar()}</div>}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {enableGlobalSearch && (
@@ -250,7 +250,7 @@ function DataTable<T extends { id: number | string }>({
                 onChange={(e) => handleGlobalSearchChange(e.target.value)}
                 placeholder={globalSearchPlaceholder}
                 aria-label="Buscar en la tabla"
-                className="h-8 w-full rounded border border-slate-300/90 bg-white pl-8 pr-8 text-xs text-slate-800 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/25"
+                className="h-8 w-full rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-8 pr-8 text-xs text-[var(--ui-text)] shadow-inner outline-none transition placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/25"
               />
               {globalSearch ? (
                 <button
@@ -275,7 +275,7 @@ function DataTable<T extends { id: number | string }>({
               onChange={(e) => handleLimitChange(Number(e.target.value))}
               aria-label="Filas por página"
               title="Filas por página"
-              className="h-8 cursor-pointer rounded border border-slate-300/90 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm outline-none transition hover:border-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              className="h-8 cursor-pointer rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2.5 text-xs font-medium text-[var(--ui-text)] shadow-sm outline-none transition hover:border-brand-secondary focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
             >
               {availableLimits.map((limit) => (
                 <option key={limit} value={limit}>
@@ -426,12 +426,12 @@ function DataTable<T extends { id: number | string }>({
               </tr>
             ) : (
               visibleData.map((item, index) => {
-                const stripe = index % 2 === 0 ? "bg-white" : "bg-slate-50/40";
-                const stickyStripe = index % 2 === 0 ? "bg-white" : "bg-slate-50";
+                const stripe = index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]";
+                const stickyStripe = index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]";
                 return (
                   <tr
                     key={item.id}
-                    className={`group transition-colors duration-75 hover:bg-emerald-50/40 ${stripe}`}
+                    className={`group transition-colors duration-75 hover:bg-[var(--ui-surface-hover)] ${stripe}`}
                   >
                     <td
                       className={`${cellBorder} px-2 py-2 text-center text-[11px] font-medium tabular-nums text-slate-500`}
@@ -441,7 +441,7 @@ function DataTable<T extends { id: number | string }>({
                     {columns.map((col) => (
                       <td
                         key={col.key}
-                        className={`${cellBorder} px-2.5 py-2 align-middle text-slate-800`}
+                        className={`${cellBorder} px-2.5 py-2 align-middle text-[var(--ui-text)]`}
                       >
                         {renderCellContent(item, col)}
                       </td>

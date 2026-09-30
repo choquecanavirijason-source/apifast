@@ -7,7 +7,7 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import useAuth from "@/core/hooks/useAuth";
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
-import { Button, SectionCard, StatCard } from "@/components/common/ui";
+import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 import {
@@ -526,32 +526,14 @@ export default function ProfessionalServiceHistory() {
       toolbar={renderToolbar()}
     >
       {/* ── Tabs: Historial de tickets | Comisiones ───────────────────────── */}
-      <div className="flex gap-1 rounded-xl border border-[#edebe9] bg-[#f3f2f1] p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveTab("tickets")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "tickets"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <List className="h-3.5 w-3.5" />
-          Historial de tickets
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("comisiones")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-            activeTab === "comisiones"
-              ? "bg-white text-[#323130] shadow-sm ring-1 ring-black/5"
-              : "text-[#605e5c] hover:bg-white/50"
-          }`}
-        >
-          <Banknote className="h-3.5 w-3.5" />
-          Comisiones y pagos
-        </button>
-      </div>
+      <SegmentedTabs
+        options={[
+          { id: "tickets", label: "Historial de tickets", icon: <List className="h-3.5 w-3.5" /> },
+          { id: "comisiones", label: "Comisiones y pagos", icon: <Banknote className="h-3.5 w-3.5" /> },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* ── Filtros (compartidos entre las dos pestañas: operaria, estado,
            rango de fechas) ─────────────────────────────────────────────── */}

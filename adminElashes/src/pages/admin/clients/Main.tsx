@@ -8,7 +8,7 @@ import DataTable, { type DataTableAction, type DataTableColumn } from "../../../
 import Layout from "../../../components/common/layout";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import FilterActionBar from "../../../components/common/FilterActionBar";
-import { Button, SectionCard, StatCard } from "../../../components/common/ui";
+import { Button, SectionCard, SegmentedTabs, StatCard } from "../../../components/common/ui";
 import RegisterClientModal from "./RegisterClientModal";
 import ClientSalesHistoryModal from "./ClientSalesHistoryModal";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
@@ -517,42 +517,22 @@ export default function ClientListPage() {
   const renderToolbar = () => (
     <FilterActionBar
       left={
-        <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-100/80 p-1">
-          <Button
-            variant="ghost"
-            size="md"
-            leftIcon={<Users className="h-4 w-4" />}
-            onClick={() => setViewMode("all")}
-            className={
-              viewMode === "all"
-                ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
-                : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-            }
-          >
-            Lista General
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="md"
-            leftIcon={<Star className={`h-4 w-4 ${viewMode === "frequent" ? "fill-[#094732]" : ""}`} />}
-            onClick={() => setViewMode("frequent")}
-            className={
-              viewMode === "frequent"
-                ? "bg-white text-[#094732] shadow-sm ring-1 ring-black/5"
-                : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-            }
-          >
-            Clientes Frecuentes
-          </Button>
-        </div>
+        <SegmentedTabs
+          options={[
+            { id: "all", label: "Lista General", icon: <Users className="h-3.5 w-3.5" /> },
+            { id: "frequent", label: "Clientes Frecuentes", icon: <Star className="h-3.5 w-3.5" /> },
+          ]}
+          value={viewMode}
+          onChange={setViewMode}
+        />
       }
       right={
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => void handleManualRefresh()}
-            leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />}
+            leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />}
             title="Actualizar estados"
             disabled={isRefreshing}
             className="whitespace-nowrap"
@@ -561,14 +541,21 @@ export default function ClientListPage() {
           </Button>
           <Button
             variant="secondary"
+            size="sm"
             onClick={handleExportClientsPdf}
-            leftIcon={<FileDown className="h-4 w-4" />}
+            leftIcon={<FileDown className="h-3.5 w-3.5" />}
             title="Descargar reporte PDF"
             className="whitespace-nowrap"
           >
             PDF
           </Button>
-          <Button onClick={handleCreate} leftIcon={<Plus className="h-5 w-5" />} className="whitespace-nowrap">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCreate}
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
+            className="whitespace-nowrap"
+          >
             Agregar Cliente
           </Button>
         </div>

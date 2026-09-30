@@ -18,7 +18,7 @@ import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
 import { toast } from "react-toastify";
 import Layout from "../../../components/common/layout";
-import { SectionCard } from "../../../components/common/ui";
+import { SectionCard, SegmentedTabs } from "../../../components/common/ui";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import { ClientService } from "../../../core/services/client/client.service";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
@@ -58,11 +58,6 @@ const AGENDA_POLL_MS = 20_000;
  * Barra de herramientas de la agenda: paleta neutra (blanco + grises Fluent).
  * El verde de marca queda solo para el estado activo y la acción principal.
  */
-const TB_SEGMENT =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors";
-const TB_SEGMENT_ON = "bg-white text-[#201f1e] shadow-sm ring-1 ring-black/5";
-const TB_SEGMENT_OFF = "text-[#605e5c] hover:text-[#201f1e]";
-const TB_SEGMENT_GROUP = "inline-flex shrink-0 rounded-md bg-[#f3f2f1] p-0.5";
 const TB_BTN =
   "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#d2d0ce] bg-white px-2.5 text-xs font-semibold text-[#323130] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]";
 const TB_ICON_BTN =
@@ -644,38 +639,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {/* Grupo 1 — vista principal */}
-            <div
-              data-tour="agenda-view-toggle"
-              className={TB_SEGMENT_GROUP}
-              role="group"
-              aria-label="Tipo de vista"
-            >
-              <button
-                type="button"
-                onClick={() => setMainViewMode("calendar")}
-                title="Calendario"
-                aria-pressed={mainView === "calendar"}
-                className={`${TB_SEGMENT} ${mainView === "calendar" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
-              >
-                <CalendarClock
-                  className={`h-3.5 w-3.5 shrink-0 ${mainView === "calendar" ? "text-brand" : ""}`}
-                  aria-hidden
-                />
-                Calendario
-              </button>
-              <button
-                type="button"
-                onClick={() => setMainViewMode("whatsapp")}
-                title="Validar WhatsApp"
-                aria-pressed={mainView === "whatsapp"}
-                className={`${TB_SEGMENT} ${mainView === "whatsapp" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
-              >
-                <MessageCircle
-                  className={`h-3.5 w-3.5 shrink-0 ${mainView === "whatsapp" ? "text-emerald-500" : ""}`}
-                  aria-hidden
-                />
-                WhatsApp
-              </button>
+            <div data-tour="agenda-view-toggle" role="group" aria-label="Tipo de vista">
+              <SegmentedTabs
+                options={[
+                  { id: "calendar", label: "Calendario", icon: <CalendarClock className="h-3.5 w-3.5" aria-hidden /> },
+                  { id: "whatsapp", label: "WhatsApp", icon: <MessageCircle className="h-3.5 w-3.5" aria-hidden /> },
+                ]}
+                value={mainView}
+                onChange={setMainViewMode}
+              />
             </div>
 
             {/* Grupo 2 — modo de calendario */}
@@ -683,33 +655,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               <>
                 <span aria-hidden className={TB_DIVIDER} />
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <div className={TB_SEGMENT_GROUP} role="group" aria-label="Vista de agenda">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("planner")}
-                      title="Planilla horaria"
-                      aria-pressed={agendaView === "planner"}
-                      className={`${TB_SEGMENT} ${agendaView === "planner" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
-                    >
-                      <List
-                        className={`h-3.5 w-3.5 shrink-0 ${agendaView === "planner" ? "text-brand" : ""}`}
-                        aria-hidden
-                      />
-                      Planilla
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("stations")}
-                      title="Puestos por sección"
-                      aria-pressed={agendaView === "stations"}
-                      className={`${TB_SEGMENT} ${agendaView === "stations" ? TB_SEGMENT_ON : TB_SEGMENT_OFF}`}
-                    >
-                      <Columns3
-                        className={`h-3.5 w-3.5 shrink-0 ${agendaView === "stations" ? "text-brand" : ""}`}
-                        aria-hidden
-                      />
-                      Puestos
-                    </button>
+                  <div role="group" aria-label="Vista de agenda">
+                    <SegmentedTabs
+                      options={[
+                        { id: "planner", label: "Planilla", icon: <List className="h-3.5 w-3.5" aria-hidden /> },
+                        { id: "stations", label: "Puestos", icon: <Columns3 className="h-3.5 w-3.5" aria-hidden /> },
+                      ]}
+                      value={agendaView}
+                      onChange={setViewMode}
+                    />
                   </div>
                   {agendaView === "stations" && canConfigureSections && (
                     <button

@@ -110,26 +110,26 @@ export default function GenericModal({
   if (!isOpen) return null;
 
   const shellFormClass = fullScreen
-    ? `h-[100dvh] w-full max-w-none max-h-none rounded-none border-0 border-[#edebe9] bg-[#f3f2f1] p-0 shadow-none flex flex-col min-h-0 ${contentClassName}`
-    : `w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-0 shadow-[0_10px_30px_rgba(0,0,0,0.18)] animate-in fade-in duration-150 flex flex-col ${contentClassName}`;
+    ? `h-[100dvh] w-full max-w-none max-h-none rounded-none border-0 border-[var(--ui-border)] bg-[var(--ui-canvas)] p-0 shadow-none flex flex-col min-h-0 ${contentClassName}`
+    : `w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-sm border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-0 shadow-[0_10px_30px_rgba(0,0,0,0.18)] animate-in fade-in duration-150 flex flex-col ${contentClassName}`;
 
   const shellDivClass = shellFormClass;
 
   const headerRowClass = fullScreen
-    ? "mb-0 flex shrink-0 items-center justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
-    : "mb-0 flex shrink-0 items-center justify-between gap-3 border-b border-[#edebe9] bg-[#f3f2f1] px-4 py-3";
+    ? "mb-0 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3"
+    : "mb-0 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ui-border)] bg-[var(--ui-canvas)] px-4 py-3";
 
   const titleClass = fullScreen
-    ? "min-w-0 truncate text-lg font-semibold text-[#323130]"
-    : "min-w-0 truncate text-base font-semibold text-[#323130]";
+    ? "min-w-0 truncate text-lg font-semibold text-[var(--ui-text)]"
+    : "min-w-0 truncate text-base font-semibold text-[var(--ui-text)]";
 
   const closeBtnClass = fullScreen
-    ? "rounded-sm p-2 text-[#605e5c] transition-colors hover:bg-[#edebe9] hover:text-[#323130]"
-    : "rounded-sm p-2 text-[#605e5c] transition-colors hover:bg-[#edebe9] hover:text-[#323130]";
+    ? "rounded-sm p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+    : "rounded-sm p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]";
 
   const bodyWrapClass = fullScreen
     ? `flex-1 min-h-0 overflow-hidden flex flex-col ${bodyClassName}`
-    : `flex-1 min-h-0 overflow-y-auto bg-white px-4 py-3 ${bodyClassName}`;
+    : `flex-1 min-h-0 overflow-y-auto bg-[var(--ui-surface)] px-4 py-3 ${bodyClassName}`;
 
   const backdropClass = fullScreen
     ? "fixed inset-0 z-50 flex items-stretch justify-stretch bg-[#323130]/45 p-0 backdrop-blur-[1px]"
@@ -166,8 +166,8 @@ export default function GenericModal({
             <div
               className={`flex items-center justify-end gap-2 ${
                 fullScreen
-                  ? "shrink-0 border-t border-[#edebe9] bg-white px-4 py-3"
-                  : "shrink-0 border-t border-[#edebe9] bg-[#faf9f8] px-4 py-3"
+                  ? "shrink-0 border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-3"
+                  : "shrink-0 border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3"
               }`}
             >
               {footer}
@@ -198,8 +198,8 @@ export default function GenericModal({
             <div
               className={`flex items-center justify-end gap-2 ${
                 fullScreen
-                  ? "shrink-0 border-t border-[#edebe9] bg-white px-4 py-3"
-                  : "shrink-0 border-t border-[#edebe9] bg-[#faf9f8] px-4 py-3"
+                  ? "shrink-0 border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-3"
+                  : "shrink-0 border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3"
               }`}
             >
               {footer}

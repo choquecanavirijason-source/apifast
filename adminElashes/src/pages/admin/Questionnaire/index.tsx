@@ -6,7 +6,7 @@ import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { Button } from "@/components/common/ui";
+import { Button, SegmentedTabs } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 import {
   CatalogService,
@@ -271,22 +271,14 @@ export default function QuestionnairePage() {
   const renderToolbar = () => (
     <FilterActionBar
       left={
-        <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          {(["ADULTOS", "MENORES"] as TargetAudience[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
-                activeTab === tab
-                  ? "bg-[#094732] text-white shadow-md"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              }`}
-            >
-              {tab === "ADULTOS" ? "Publico General" : "Menores de Edad"}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          options={[
+            { id: "ADULTOS", label: "Publico General" },
+            { id: "MENORES", label: "Menores de Edad" },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       }
       right={
         <Button onClick={() => void handleOpenCreate()} disabled={isSaving} leftIcon={<Plus className="h-4 w-4" />}>
