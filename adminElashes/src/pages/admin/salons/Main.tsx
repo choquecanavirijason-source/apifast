@@ -423,7 +423,7 @@ export default function SalonsPage() {
 
               <div className="grid gap-4 lg:grid-cols-[minmax(220px,280px)_1fr]">
                 <div className="rounded-xl border border-slate-200 bg-white p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="mb-2 text-xs font-semibold text-slate-500">
                     Seleccionar sucursal
                   </p>
                   <div className="max-h-[min(50vh,480px)] space-y-1 overflow-y-auto">

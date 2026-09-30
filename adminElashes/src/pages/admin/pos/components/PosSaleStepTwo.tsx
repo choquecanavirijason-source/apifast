@@ -531,7 +531,7 @@ export default function PosSaleStepTwo({
                 }`}
               >
                 <div className="min-h-0 overflow-y-auto">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+                <p className="mb-2 text-xs font-semibold text-[#605e5c]">
                   Tickets (arrastra al calendario)
                 </p>
                 <div className="space-y-2">
@@ -824,7 +824,7 @@ export default function PosSaleStepTwo({
                     gridTemplateColumns: `88px repeat(${Math.max(1, weekDays.length)}, minmax(170px, 1fr))`,
                   }}
                 >
-                  <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#faf9f8] px-2 py-2 text-[11px] font-semibold uppercase text-[#605e5c]">
+                  <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#faf9f8] px-2 py-2 text-[11px] font-semibold text-[#605e5c]">
                     Hora
                   </div>
                   {weekDays.map((day) => (
@@ -834,7 +834,7 @@ export default function PosSaleStepTwo({
                         day.isoDate === todayIso ? "bg-[#ecfdf5]" : "bg-[#faf9f8]"
                       }`}
                     >
-                      <p className="uppercase">{day.label}</p>
+                      <p className="capitalize">{day.label}</p>
                       <p className="text-[10px] font-medium text-[#605e5c]">{day.isoDate}</p>
                     </div>
                   ))}

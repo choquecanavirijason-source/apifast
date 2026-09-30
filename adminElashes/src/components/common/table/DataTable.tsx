@@ -231,26 +231,26 @@ function DataTable<T extends { id: number | string }>({
       }
     };
 
-  const cellBorder = "border-b border-slate-100 last:border-r-0";
+  const cellBorder = "border-b border-[var(--ui-border)] last:border-r-0";
   const headerCell =
-    "align-top border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-2.5 text-left text-[11px] font-semibold tracking-wide text-[var(--ui-text-muted)] uppercase last:border-r-0";
+    "align-top border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-2 text-left text-xs font-medium text-[var(--ui-text-muted)] last:border-r-0";
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] font-sans text-[var(--ui-text)] shadow-sm">
+    <div className="ui-data-table flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] font-sans text-[var(--ui-text)] shadow-sm">
       {/* Toolbar superior */}
       <div className="shrink-0 border-b border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5">
-        {renderTopToolbar && <div className="mb-2 border-b border-slate-200/80 pb-2">{renderTopToolbar()}</div>}
+        {renderTopToolbar && <div className="mb-2 border-b border-[var(--ui-border)] pb-2">{renderTopToolbar()}</div>}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {enableGlobalSearch && (
             <div className="relative min-w-0 flex-1 sm:max-w-md">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ui-text-muted)]" />
               <input
                 type="text"
                 value={globalSearch}
                 onChange={(e) => handleGlobalSearchChange(e.target.value)}
                 placeholder={globalSearchPlaceholder}
                 aria-label="Buscar en la tabla"
-                className="h-8 w-full rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-8 pr-8 text-xs text-[var(--ui-text)] shadow-inner outline-none transition placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/25"
+                className="h-8 w-full rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-8 pr-8 text-xs text-[var(--ui-text)] outline-none transition placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/25"
               />
               {globalSearch ? (
                 <button
@@ -258,7 +258,7 @@ function DataTable<T extends { id: number | string }>({
                   aria-label="Limpiar búsqueda"
                   title="Limpiar"
                   onClick={() => handleGlobalSearchChange("")}
-                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -266,7 +266,7 @@ function DataTable<T extends { id: number | string }>({
             </div>
           )}
           <div className="flex shrink-0 items-center gap-2">
-            <label className="hidden text-[11px] font-medium text-slate-500 sm:inline" htmlFor="datatable-page-size">
+            <label className="hidden text-xs font-medium text-[var(--ui-text-muted)] sm:inline" htmlFor="datatable-page-size">
               Filas
             </label>
             <select
@@ -275,7 +275,7 @@ function DataTable<T extends { id: number | string }>({
               onChange={(e) => handleLimitChange(Number(e.target.value))}
               aria-label="Filas por página"
               title="Filas por página"
-              className="h-8 cursor-pointer rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2.5 text-xs font-medium text-[var(--ui-text)] shadow-sm outline-none transition hover:border-brand-secondary focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
+              className="h-8 cursor-pointer rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2.5 text-xs font-medium text-[var(--ui-text)] outline-none transition hover:border-brand-secondary focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
             >
               {availableLimits.map((limit) => (
                 <option key={limit} value={limit}>
@@ -288,10 +288,10 @@ function DataTable<T extends { id: number | string }>({
       </div>
 
       <div className="relative z-0 min-h-0 flex-1 overflow-x-auto">
-        <table className={`w-full ${tableMinWidth} border-collapse text-left text-[12px] leading-snug`}>
-          <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_rgb(203_213_225)]">
+        <table className={`w-full ${tableMinWidth} border-collapse text-left text-xs leading-snug`}>
+          <thead className="sticky top-0 z-10 shadow-[0_1px_0_0_var(--ui-border)]">
             <tr>
-              <th scope="col" className={`${headerCell} w-11 text-center text-slate-500`}>
+              <th scope="col" className={`${headerCell} w-11 text-center`}>
                 <span className="inline-block pt-0.5">#</span>
               </th>
               {columns.map((col) => {
@@ -317,8 +317,8 @@ function DataTable<T extends { id: number | string }>({
                       {showColFilter ? (
                         <button
                           type="button"
-                          className={`min-w-0 flex-1 rounded-sm px-0.5 py-0.5 text-left leading-snug transition-colors hover:bg-slate-200/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-500 ${
-                            isSorted ? "text-sky-800" : "text-slate-700"
+                          className={`min-w-0 flex-1 rounded-md px-0.5 py-0.5 text-left leading-snug transition-colors hover:bg-[var(--ui-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-secondary ${
+                            isSorted ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
                           }`}
                           aria-expanded={filterPanelOpen}
                           aria-controls={`column-filter-${col.key}`}
@@ -326,16 +326,16 @@ function DataTable<T extends { id: number | string }>({
                           onClick={() => setOpenColumnFilterKey((k) => (k === col.key ? null : col.key))}
                         >
                           <span className="flex items-start gap-1">
-                            <span className="min-w-0 flex-1 font-semibold">{col.header}</span>
+                            <span className="min-w-0 flex-1 font-medium">{col.header}</span>
                             {!filterPanelOpen ? (
-                              <Search className="mt-0.5 h-3 w-3 shrink-0 text-slate-400 opacity-70" aria-hidden />
+                              <Search className="mt-0.5 h-3 w-3 shrink-0 opacity-50" aria-hidden />
                             ) : null}
                           </span>
                         </button>
                       ) : (
                         <span
-                          className={`min-w-0 flex-1 px-0.5 py-0.5 font-semibold leading-snug ${
-                            isSorted ? "text-sky-800" : "text-slate-700"
+                          className={`min-w-0 flex-1 px-0.5 py-0.5 font-medium leading-snug ${
+                            isSorted ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
                           }`}
                         >
                           {col.header}
@@ -352,16 +352,16 @@ function DataTable<T extends { id: number | string }>({
                             handleHeaderClick(col);
                           }}
                           onKeyDown={sortButtonKeyHandler(col)}
-                          className="flex shrink-0 flex-col items-center justify-center rounded-sm border border-transparent p-0.5 leading-none text-slate-400 hover:border-slate-300/80 hover:bg-white hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-500"
+                          className="flex shrink-0 flex-col items-center justify-center rounded-md border border-transparent p-0.5 leading-none text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-secondary"
                         >
                           {isSorted ? (
                             activeSort!.direction === "asc" ? (
-                              <ChevronUp className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+                              <ChevronUp className="h-3.5 w-3.5 text-brand-secondary" aria-hidden />
                             ) : (
-                              <ChevronDown className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+                              <ChevronDown className="h-3.5 w-3.5 text-brand-secondary" aria-hidden />
                             )
                           ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-70" aria-hidden />
+                            <ArrowUpDown className="h-3 w-3 opacity-50" aria-hidden />
                           )}
                         </button>
                       ) : null}
@@ -369,13 +369,13 @@ function DataTable<T extends { id: number | string }>({
                     {filterPanelOpen ? (
                       <div
                         id={`column-filter-${col.key}`}
-                        className="mt-1.5 border-t border-slate-300/60 pt-1.5"
+                        className="mt-1.5 border-t border-[var(--ui-border)] pt-1.5"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                       >
                         <div className="relative">
                           <Search
-                            className="pointer-events-none absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-slate-400"
+                            className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--ui-text-muted)]"
                             aria-hidden
                           />
                           <input
@@ -396,7 +396,7 @@ function DataTable<T extends { id: number | string }>({
                             aria-label={`Filtrar ${col.header}`}
                             placeholder="Filtrar…"
                             title={`Filtrar ${col.header}`}
-                            className="h-6 w-full min-w-0 rounded border border-slate-300/80 bg-white py-0 pl-5 pr-1 text-[10px] font-normal text-slate-800 shadow-sm outline-none placeholder:text-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30"
+                            className="h-7 w-full min-w-0 rounded-md border border-[var(--ui-border-strong)] bg-[var(--ui-input)] py-0 pl-6 pr-1 text-xs font-normal text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/25"
                           />
                         </div>
                       </div>
@@ -407,7 +407,7 @@ function DataTable<T extends { id: number | string }>({
               {actions && actions.length > 0 ? (
                 <th
                   scope="col"
-                  className={`${headerCell} sticky right-0 z-20 w-14 text-right text-slate-500 shadow-[-6px_0_6px_-4px_rgba(15,23,42,0.12)]`}
+                  className={`${headerCell} sticky right-0 z-20 w-14 text-right shadow-[-6px_0_6px_-4px_rgba(15,23,42,0.12)]`}
                 >
                   <span className="inline-block pt-0.5">···</span>
                 </th>
@@ -420,7 +420,7 @@ function DataTable<T extends { id: number | string }>({
               <TableSkeleton rows={5} columns={columns.length + 1} showActions={Boolean(actions?.length)} />
             ) : visibleData.length === 0 ? (
               <tr>
-                <td colSpan={tableColSpan} className="border-b border-slate-200 p-0">
+                <td colSpan={tableColSpan} className="border-b border-[var(--ui-border)] p-0">
                   <EmptyState title="No hay datos" description="Intenta cambiar los filtros o la búsqueda." />
                 </td>
               </tr>
@@ -434,7 +434,7 @@ function DataTable<T extends { id: number | string }>({
                     className={`group transition-colors duration-75 hover:bg-[var(--ui-surface-hover)] ${stripe}`}
                   >
                     <td
-                      className={`${cellBorder} px-2 py-2 text-center text-[11px] font-medium tabular-nums text-slate-500`}
+                      className={`${cellBorder} px-2 py-2 text-center text-xs tabular-nums text-[var(--ui-text-muted)]`}
                     >
                       {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
@@ -468,9 +468,9 @@ function DataTable<T extends { id: number | string }>({
                                   setOpenActionRowId(item.id);
                                   setActionAnchorRect(event.currentTarget.getBoundingClientRect());
                                 }}
-                                className="rounded border border-transparent p-1.5 text-slate-500 opacity-70 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:opacity-100 group-hover:opacity-100"
+                                className="rounded-md border border-transparent p-1.5 text-[var(--ui-text-muted)] opacity-70 transition hover:border-[var(--ui-border)] hover:bg-[var(--ui-surface)] hover:text-[var(--ui-text)] hover:opacity-100 group-hover:opacity-100"
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                               </button>
                               {openActionRowId === item.id ? (
                                 <ActionDropdownMenu
@@ -496,21 +496,21 @@ function DataTable<T extends { id: number | string }>({
         </table>
       </div>
 
-      <div className="flex shrink-0 flex-col items-stretch justify-between gap-2 border-t border-slate-100 bg-white px-3 py-2.5 sm:flex-row sm:items-center">
-        <p className="text-center text-[11px] text-slate-600 sm:text-left">
-          <span className="tabular-nums font-medium text-slate-800">
+      <div className="flex shrink-0 flex-col items-stretch justify-between gap-2 border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5 sm:flex-row sm:items-center">
+        <p className="text-center text-xs text-[var(--ui-text-muted)] sm:text-left">
+          <span className="tabular-nums font-medium text-[var(--ui-text)]">
             {fromItem} – {toItem}
           </span>
-          <span className="mx-1 text-slate-400">de</span>
-          <span className="tabular-nums font-semibold text-slate-800">{totalItems}</span>
-          <span className="ml-1.5 text-slate-500">registros</span>
+          <span className="mx-1">de</span>
+          <span className="tabular-nums font-semibold text-[var(--ui-text)]">{totalItems}</span>
+          <span className="ml-1.5">registros</span>
         </p>
         <div className="flex items-center justify-center gap-1.5 sm:justify-end">
           <button
             type="button"
             onClick={() => handlePageChange(1)}
             disabled={currentPage <= 1 || loading}
-            className="hidden h-8 rounded border border-slate-300/90 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
+            className="hidden h-8 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-2.5 text-xs font-medium text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
           >
             Primera
           </button>
@@ -519,30 +519,30 @@ function DataTable<T extends { id: number | string }>({
             aria-label="Página anterior"
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage <= 1 || loading}
-            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <div className="flex min-w-[7rem] items-center justify-center gap-1 rounded border border-slate-200/90 bg-white px-2 py-1 text-xs shadow-inner">
-            <span className="text-slate-500">Pág.</span>
-            <span className="font-semibold tabular-nums text-sky-800">{currentPage}</span>
-            <span className="text-slate-400">/</span>
-            <span className="tabular-nums text-slate-700">{totalPages}</span>
+          <div className="flex min-w-[7rem] items-center justify-center gap-1 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-1 text-xs">
+            <span className="text-[var(--ui-text-muted)]">Pág.</span>
+            <span className="font-semibold tabular-nums text-[var(--ui-text)]">{currentPage}</span>
+            <span className="text-[var(--ui-text-muted)]">/</span>
+            <span className="tabular-nums text-[var(--ui-text-muted)]">{totalPages}</span>
           </div>
           <button
             type="button"
             aria-label="Página siguiente"
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage >= totalPages || loading}
-            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
             onClick={() => handlePageChange(totalPages)}
             disabled={currentPage >= totalPages || loading}
-            className="hidden h-8 rounded border border-slate-300/90 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
+            className="hidden h-8 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-2.5 text-xs font-medium text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-40 sm:inline"
           >
             Última
           </button>

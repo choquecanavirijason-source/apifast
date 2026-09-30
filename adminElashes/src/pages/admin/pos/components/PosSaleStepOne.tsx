@@ -3,6 +3,7 @@ import { Package, ShoppingCart, Wrench } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
 import ProductSelectorCard from "./ProductSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
+import { SegmentedTabs } from "../../../../components/common/ui";
 import type { PosSaleStepOneProps } from "../pos.types";
 
 export default function PosSaleStepOne({
@@ -136,7 +137,7 @@ export default function PosSaleStepOne({
 
   return (
     <div
-      className={`relative flex h-full min-h-0 w-full flex-col bg-[#f3f2f1] text-[#323130] transition-[padding] duration-200 ${
+      className={`relative flex h-full min-h-0 w-full flex-col gap-3 p-3 text-[var(--ui-text)] transition-[padding] duration-200 ${
         isLoading ? "pointer-events-none opacity-60" : ""
       } ${isCartOpen ? "pr-112 sm:pr-128" : ""}`}
     >
@@ -149,34 +150,28 @@ export default function PosSaleStepOne({
       )}
 
       {/* Servicios | Productos */}
-      <div className="shrink-0 px-4 pt-3 sm:px-5">
-        <div className="inline-flex rounded-lg border border-[#c8c6c4] bg-white p-0.5 shadow-inner">
-          <button
-            type="button"
-            onClick={() => setCatalogView("servicios")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-              catalogView === "servicios" ? "bg-[#094732] text-white shadow-sm" : "text-[#605e5c] hover:bg-[#f3f2f1]"
-            }`}
-          >
-            <Wrench className="h-3.5 w-3.5" />
-            Servicios
-          </button>
-          <button
-            type="button"
-            onClick={() => setCatalogView("productos")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-              catalogView === "productos" ? "bg-[#094732] text-white shadow-sm" : "text-[#605e5c] hover:bg-[#f3f2f1]"
-            }`}
-          >
-            <Package className="h-3.5 w-3.5" />
-            Productos
-            {productLines.length > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
-                {productLines.length}
-              </span>
-            )}
-          </button>
-        </div>
+      <div className="shrink-0">
+        <SegmentedTabs
+          options={[
+            { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
+            {
+              id: "productos",
+              label: (
+                <span className="flex items-center gap-1.5">
+                  Productos
+                  {productLines.length > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                      {productLines.length}
+                    </span>
+                  )}
+                </span>
+              ),
+              icon: <Package className="h-3.5 w-3.5" />,
+            },
+          ]}
+          value={catalogView}
+          onChange={setCatalogView}
+        />
       </div>
 
       {/* Catálogo — ocupa todo el espacio */}

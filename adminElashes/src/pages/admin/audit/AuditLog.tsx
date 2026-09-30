@@ -59,13 +59,13 @@ function AuditLogDetailModal({ log, onClose }: { log: AuditLogOut; onClose: () =
         <div className="grid grid-cols-2 gap-3">
           {rows.map((r) => (
             <div key={r.label}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">{r.label}</p>
+              <p className="text-[11px] font-semibold text-[#605e5c]">{r.label}</p>
               <p className="text-sm font-medium text-[#323130]">{r.value}</p>
             </div>
           ))}
         </div>
         <div className="border-t border-[#edebe9] pt-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Descripción</p>
+          <p className="text-[11px] font-semibold text-[#605e5c]">Descripción</p>
           <p className="mt-1 text-sm text-[#323130]">{log.description}</p>
         </div>
       </div>
@@ -185,15 +185,15 @@ export default function AuditLog() {
       <SectionCard bodyClassName="!p-4">
         <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-5">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Acción</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Acción</label>
             <select value={action} onChange={(e) => setAction(e.target.value)} className={`${fieldClass} mt-1`}>
               <option value="">Todas</option>
               {Object.entries(ACTION_LABELS).map(([value, label]) => (
@@ -202,7 +202,7 @@ export default function AuditLog() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Módulo</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Módulo</label>
             <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className={`${fieldClass} mt-1`}>
               <option value="">Todos</option>
               {Object.entries(ENTITY_LABELS).map(([value, label]) => (

@@ -28,7 +28,7 @@ export default function StationsAgendaView({
           className="grid w-full min-w-[min(100%,920px)]"
           style={{ gridTemplateColumns: `72px repeat(${STATION_COUNT}, minmax(88px, 1fr))` }}
         >
-          <div className="sticky left-0 z-10 rounded-tl-lg border border-slate-200 bg-slate-100 px-1 py-2 text-[10px] font-semibold uppercase text-slate-500">
+          <div className="sticky left-0 z-10 rounded-tl-lg border border-slate-200 bg-slate-100 px-1 py-2 text-[11px] font-semibold text-slate-500">
             Hora
           </div>
           {stationLabels.map((label) => (

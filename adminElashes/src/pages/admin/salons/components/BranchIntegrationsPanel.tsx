@@ -299,7 +299,7 @@ export default function BranchIntegrationsPanel({
                   ⚠️ Activa WhatsApp API arriba y guarda las llaves para enviar estas preguntas automáticamente.
                 </div>
               )}
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+              <p className="mb-2 text-[11px] font-semibold text-[#605e5c]">
                 Vista previa del mensaje al cliente:
               </p>
               <div className="rounded-xl bg-white border border-[#edebe9] p-3 text-xs text-[#323130] space-y-1.5 font-mono shadow-sm">

@@ -68,7 +68,7 @@ interface EditUserModalProps {
 const fieldClass =
   "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30";
 const labelClass =
-  "mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600";
+  "mb-2 block text-xs font-semibold text-emerald-600";
 
 export default function EditUserModal({
   isOpen,
@@ -246,7 +246,7 @@ export default function EditUserModal({
             >
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+                <span className="text-xs font-semibold text-emerald-600">
                   Permisos adicionales
                 </span>
                 {directCount > 0 && (
@@ -271,7 +271,7 @@ export default function EditUserModal({
                   return (
                     <div key={module}>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</span>
+                        <span className="text-[11px] font-semibold text-slate-500">{label}</span>
                         {toggleable.length > 0 && (
                           <button
                             type="button"

@@ -25,7 +25,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
 
   const CheckboxGroup = ({ label, options, field, color = "blue" }: { label: string; options: string[]; field: keyof FollowUpFormState; color?: string }) => (
     <div className="mb-4">
-      <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">{label}</h4>
+      <h4 className="text-xs font-semibold text-slate-500 mb-2">{label}</h4>
       <div className="flex flex-wrap gap-2">
         {options.map((opt: string) => {
           const isSelected = (form[field] as any).includes(opt);
@@ -48,7 +48,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
         <div className="bg-[#094732] p-6 flex justify-between items-center">
             <div>
                 <h2 className="text-white text-xl font-bold flex items-center gap-2"><Eye className="w-5 h-5 opacity-80"/> SEGUIMIENTO DE CLIENTE</h2>
-                <p className="text-emerald-100/60 text-xs mt-1 uppercase tracking-widest">Extensión de Pestañas</p>
+                <p className="text-emerald-100/60 text-xs mt-1">Extensión de Pestañas</p>
             </div>
             <button type="button" onClick={onClose} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
@@ -82,7 +82,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
                 <div className="md:col-span-5 bg-white p-6 rounded-2xl border-2 border-slate-200 shadow-sm relative">
-                    <div className="absolute -top-3 left-4 bg-slate-50 px-3 text-xs font-black text-slate-400 uppercase tracking-widest border border-slate-200 rounded-full">Detalles del Tratamiento</div>
+                    <div className="absolute -top-3 left-4 bg-slate-50 px-3 text-xs font-semibold text-slate-400 border border-slate-200 rounded-full">Detalles del Tratamiento</div>
                     <CheckboxGroup label="Curva" options={CURVAS} field="curva" color="pink" />
                     <CheckboxGroup label="Tamaño (mm)" options={TAMANOS} field="tamano" color="pink" />
                     <CheckboxGroup label="Grosor (mm)" options={GROSORES} field="grosor" color="pink" />
@@ -90,7 +90,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
 
                 <div className="md:col-span-7 space-y-6">
                     <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
-                        <h3 className="text-xs font-black text-blue-900 uppercase mb-3 flex items-center gap-2"><PenTool className="w-3 h-3"/> Efecto / Material</h3>
+                        <h3 className="text-xs font-semibold text-blue-900 mb-3 flex items-center gap-2"><PenTool className="w-3 h-3"/> Efecto / Material</h3>
                         <input value={form.efectoMaterial} onChange={(e) => onChange("efectoMaterial", e.target.value)} className="w-full mb-4 px-3 py-2 bg-white rounded-lg border border-blue-200 text-sm focus:outline-none" placeholder="Descripción del material..." />
                         <div className="flex gap-2">
                             {DENSIDADES.map(d => (
@@ -99,7 +99,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
                         </div>
                     </div>
                     <div>
-                        <h3 className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2"><Ruler className="w-3 h-3"/> Diseños (Mapping)</h3>
+                        <h3 className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2"><Ruler className="w-3 h-3"/> Diseños (Mapping)</h3>
                         <div className="grid grid-cols-2 gap-3">
                             {DISENOS.map(d => (
                                 <button key={d} type="button" onClick={() => onChange("diseno", d)} className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${form.diseno === d ? "bg-emerald-50 border-[#094732] text-[#094732]" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-500"}`}>
@@ -109,7 +109,7 @@ export const FollowUpForm = ({ isOpen, form, saving, onClose, onSave, onChange, 
                         </div>
                     </div>
                     <div>
-                        <h3 className="text-xs font-black text-slate-400 uppercase mb-3">Forma de los Ojos</h3>
+                        <h3 className="text-xs font-semibold text-slate-400 mb-3">Forma de los Ojos</h3>
                         <div className="flex flex-wrap gap-2">
                              {FORMAS.map(f => {
                                  const isSelected = form.formaOjos.includes(f);

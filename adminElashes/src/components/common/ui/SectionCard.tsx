@@ -22,7 +22,7 @@ const shellClass: Record<SectionCardVariant, string> = {
 };
 
 const headerClass: Record<SectionCardVariant, string> = {
-  default: "flex items-center justify-between gap-3 border-b border-[var(--ui-border)] px-5 py-3.5",
+  default: "flex items-center justify-between gap-3 border-b border-[var(--ui-border)] px-3 py-2.5",
   business:
     "flex items-start justify-between gap-3 border-b border-brand-secondary/25 border-t-2 border-t-brand-secondary bg-[var(--ui-surface-muted)] px-4 py-3",
 };
@@ -38,7 +38,7 @@ const subtitleClass: Record<SectionCardVariant, string> = {
 };
 
 const bodyPad: Record<SectionCardVariant, string> = {
-  default: "p-4",
+  default: "p-3",
   business: "p-4",
 };
 

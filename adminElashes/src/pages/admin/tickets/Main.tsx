@@ -461,15 +461,15 @@ export default function TicketsPage() {
             </div>
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 sm:grid-cols-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Precio ticket</p>
+                <p className="text-[11px] text-slate-500">Precio ticket</p>
                 <p className="text-sm font-bold text-slate-800">Bs {selectedTicketTotal.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Pagado</p>
+                <p className="text-[11px] text-slate-500">Pagado</p>
                 <p className="text-sm font-bold text-emerald-700">Bs {selectedTicketPaid.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Saldo</p>
+                <p className="text-[11px] text-slate-500">Saldo</p>
                 <p className="text-sm font-bold text-amber-700">Bs {selectedTicketRemaining.toFixed(2)}</p>
               </div>
             </div>

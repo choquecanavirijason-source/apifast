@@ -453,7 +453,7 @@ export default function Dashboard() {
             </button>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-medium text-slate-400">
                 Descargar CSV
               </span>
               <button
@@ -678,7 +678,7 @@ export default function Dashboard() {
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Estados de ticket</p>
+              <p className="text-[11px] font-semibold text-[#605e5c]">Estados de ticket</p>
               <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
                 <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
                   <span className="text-[#605e5c]">Pendientes</span>
@@ -699,7 +699,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Caja y ventas</p>
+              <p className="text-[11px] font-semibold text-[#605e5c]">Caja y ventas</p>
               <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
                 <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
                   <span className="text-[#605e5c]">Pagos registrados</span>

@@ -541,7 +541,7 @@ export default function ProfessionalServiceHistory() {
         <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
           {/* Operaria */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Operaria</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Operaria</label>
             {canSeeCards ? (
               <div className="mt-1 flex items-center gap-1.5">
                 <select
@@ -586,13 +586,13 @@ export default function ProfessionalServiceHistory() {
 
           {/* Desde */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
 
           {/* Hasta */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
         </div>

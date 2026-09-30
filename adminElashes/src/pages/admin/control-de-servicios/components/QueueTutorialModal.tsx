@@ -139,7 +139,7 @@ function MockTicketCard({ highlight }: { highlight: Illustration }) {
 
       {highlight === "cliente" ? (
         <div className="border-t border-[#f0efed] p-3">
-          <label className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+          <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
             <User size={8} /> Clienta
           </label>
           <div className="flex gap-1.5">

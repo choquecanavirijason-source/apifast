@@ -657,7 +657,7 @@ export default function CierreDeCaja() {
       {/* Filtros */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[#605e5c]">
             Desde
           </label>
           <input
@@ -672,7 +672,7 @@ export default function CierreDeCaja() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[#605e5c]">
             Hasta
           </label>
           <input
@@ -684,7 +684,7 @@ export default function CierreDeCaja() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[#605e5c]">
             Operaria
           </label>
           <select
@@ -770,7 +770,7 @@ export default function CierreDeCaja() {
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#605e5c]"
+                    className="px-3 py-2 text-left text-[11px] font-semibold text-[#605e5c]"
                   >
                     {h}
                   </th>

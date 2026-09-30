@@ -428,7 +428,7 @@ export default function DesignsPage() {
       >
         <div className="grid gap-4">
           <div>
-            <label className="text-xs font-semibold uppercase text-slate-500">Nombre</label>
+            <label className="text-xs font-semibold text-slate-500">Nombre</label>
             <input
               value={form.name}
               onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -439,7 +439,7 @@ export default function DesignsPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold uppercase text-slate-500">Efecto</label>
+              <label className="text-xs font-semibold text-slate-500">Efecto</label>
               <select
                 value={form.effect}
                 onChange={(event) => setForm((prev) => ({ ...prev, effect: event.target.value }))}
@@ -452,7 +452,7 @@ export default function DesignsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase text-slate-500">Tipo de ojo</label>
+              <label className="text-xs font-semibold text-slate-500">Tipo de ojo</label>
               <select
                 value={form.eyeType}
                 onChange={(event) => setForm((prev) => ({ ...prev, eyeType: event.target.value }))}
@@ -465,7 +465,7 @@ export default function DesignsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase text-slate-500">Tecnología</label>
+              <label className="text-xs font-semibold text-slate-500">Tecnología</label>
               <select
                 value={form.design}
                 onChange={(event) => setForm((prev) => ({ ...prev, design: event.target.value }))}
@@ -478,7 +478,7 @@ export default function DesignsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase text-slate-500">Volumen</label>
+              <label className="text-xs font-semibold text-slate-500">Volumen</label>
               <select
                 value={form.volume}
                 onChange={(event) => setForm((prev) => ({ ...prev, volume: event.target.value }))}
@@ -492,7 +492,7 @@ export default function DesignsPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase text-slate-500">Nota</label>
+            <label className="text-xs font-semibold text-slate-500">Nota</label>
             <textarea
               value={form.note}
               onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
@@ -502,7 +502,7 @@ export default function DesignsPage() {
           </div>
 
           <div className="border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Archivos de pestañas</p>
+            <p className="text-xs font-semibold text-slate-500">Archivos de pestañas</p>
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-slate-500">Imagen PNG</label>
@@ -578,34 +578,34 @@ export default function DesignsPage() {
         {activeRow && (
           <div className="grid gap-4 text-sm text-slate-600">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400">Nombre</p>
+              <p className="text-xs font-semibold text-slate-400">Nombre</p>
               <p className="text-base font-semibold text-slate-800">{activeRow.name}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Efecto</p>
+                <p className="text-xs font-semibold text-slate-400">Efecto</p>
                 <p>{activeRow.effect || "—"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Tipo de ojo</p>
+                <p className="text-xs font-semibold text-slate-400">Tipo de ojo</p>
                 <p>{activeRow.eyeType || "—"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Tecnología</p>
+                <p className="text-xs font-semibold text-slate-400">Tecnología</p>
                 <p>{activeRow.design || "—"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Volumen</p>
+                <p className="text-xs font-semibold text-slate-400">Volumen</p>
                 <p>{activeRow.volume || "—"}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400">Nota</p>
+              <p className="text-xs font-semibold text-slate-400">Nota</p>
               <p>{activeRow.note || "Sin nota"}</p>
             </div>
             <div className="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-2">
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Imagen PNG</p>
+                <p className="text-xs font-semibold text-slate-400">Imagen PNG</p>
                 {activeRow.pngPreview ? (
                   <img src={activeRow.pngPreview} alt={activeRow.name} className="mt-2 h-24 rounded-lg border border-slate-100 object-contain" />
                 ) : (
@@ -613,7 +613,7 @@ export default function DesignsPage() {
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Modelo 3D</p>
+                <p className="text-xs font-semibold text-slate-400">Modelo 3D</p>
                 {activeRow.modelFileName ? (
                   <a
                     href={resolveMediaUrl(activeRow.modelFileUrl)}

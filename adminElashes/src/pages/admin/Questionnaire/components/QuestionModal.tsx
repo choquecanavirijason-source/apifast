@@ -67,7 +67,7 @@ export const QuestionModal: React.FC<Props> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-500 uppercase">Pregunta</label>
+            <label className="text-xs font-semibold text-gray-500">Pregunta</label>
             <textarea
               value={form.text}
               onChange={(e) => setForm(prev => ({ ...prev, text: e.target.value }))}
@@ -79,7 +79,7 @@ export const QuestionModal: React.FC<Props> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-500 uppercase">Tipo</label>
+              <label className="text-xs font-semibold text-gray-500">Tipo</label>
               <select
                 value={form.type}
                 onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value as QuestionType }))}
@@ -92,7 +92,7 @@ export const QuestionModal: React.FC<Props> = ({
             </div>
             
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-500 uppercase">Configuración</label>
+              <label className="text-xs font-semibold text-gray-500">Configuración</label>
               <div 
                 onClick={() => setForm(prev => ({ ...prev, required: !prev.required }))}
                 className={`cursor-pointer w-full rounded-lg border px-3 py-2 flex items-center justify-between transition-colors h-[38px] ${

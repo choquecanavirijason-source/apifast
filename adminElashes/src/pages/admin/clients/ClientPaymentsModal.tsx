@@ -166,7 +166,7 @@ export default function ClientPaymentsModal({
 
           <div className="max-h-[560px] overflow-auto rounded-b-xl">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-slate-50 text-slate-500 uppercase">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Fecha</th>
                   <th className="px-3 py-2 text-left">Monto</th>

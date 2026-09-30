@@ -533,7 +533,7 @@ export default function ReservationDrawer({
                         key={line.localId}
                         className="rounded-xl border border-slate-200 bg-white p-2"
                       >
-                        <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#094732]">
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] font-semibold text-[#094732]">
                           <span>Ticket {index + 1}</span>
                           <span className="font-mono normal-case text-slate-600">{timeLabel}</span>
                         </div>

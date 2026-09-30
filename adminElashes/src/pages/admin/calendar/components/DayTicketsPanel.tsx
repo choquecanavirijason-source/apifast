@@ -132,7 +132,7 @@ export default function DayTicketsPanel({
 
       <div className="mt-4 space-y-3">
         <div className="rounded-2xl border border-[#edebe9] bg-[#faf9f8] p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+          <p className="text-xs font-semibold text-[#605e5c]">
             Tickets pendientes (sin hora / sin operaria)
           </p>
           <p className="mt-1 text-[11px] text-[#605e5c]">Arrastra un ticket al calendario para programarlo.</p>

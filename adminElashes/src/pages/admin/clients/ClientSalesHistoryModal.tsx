@@ -524,19 +524,19 @@ export default function ClientSalesHistoryModal({
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ventas (filtro)</p>
+              <p className="text-[11px] font-semibold text-slate-500">Ventas (filtro)</p>
               <p className="mt-1 text-lg font-bold text-slate-900">{summary.salesCount}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tickets (filtro)</p>
+              <p className="text-[11px] font-semibold text-slate-500">Tickets (filtro)</p>
               <p className="mt-1 text-lg font-bold text-slate-900">{summary.ticketsCount}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pagos (filtro)</p>
+              <p className="text-[11px] font-semibold text-slate-500">Pagos (filtro)</p>
               <p className="mt-1 text-lg font-bold text-slate-900">{summary.paymentsCount}</p>
             </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Total pagado</p>
+              <p className="text-[11px] font-semibold text-emerald-700">Total pagado</p>
               <p className="mt-1 text-lg font-bold text-emerald-900">{formatMoney(summary.paidTotal)}</p>
             </div>
           </div>

@@ -745,7 +745,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#201f1e]"
                       }`}
                     >
-                      <span className="uppercase leading-none">{short.replace(/\.$/, "")}</span>
+                      <span className="capitalize leading-none">{short.replace(/\.$/, "")}</span>
                       <span className="text-sm font-bold tabular-nums leading-tight">{num}</span>
                       <span
                         aria-hidden
@@ -842,7 +842,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         >
         {agendaView === "planner" ? (
         <section data-tour="agenda-grid" className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
-          <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold uppercase tracking-wide text-[#201f1e] print:bg-[#f3f2f1]">
+          <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold text-[#201f1e] print:bg-[#f3f2f1]">
             {headerTitle}
           </div>
           <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1">
@@ -878,7 +878,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                     >
                       <span className={closed ? "opacity-60" : ""}>{slot.label}</span>
                       {closed && (
-                        <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-[#bebbb8]">cerrado</span>
+                        <span className="ml-1 text-[11px] font-semibold text-[#bebbb8]">cerrado</span>
                       )}
                     </div>
                     <AgendaDropCell
@@ -943,7 +943,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       <span
                         key={sec.id}
                         style={{ background: sec.headerBg, color: sec.headerText }}
-                        className="rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                        className="rounded-sm px-2 py-0.5 text-[11px] font-semibold"
                       >
                         {from}–{to} · {sec.label}
                       </span>
@@ -974,7 +974,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               }}
             >
               {/* ── Fila 1: encabezados de sección ─────────────────────────── */}
-              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#d0d0d0] px-1 py-2 text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">
+              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#d0d0d0] px-1 py-2 text-[11px] font-semibold text-[#605e5c]">
                 Sección
               </div>
               {(() => {
@@ -991,7 +991,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         background: section.headerBg,
                         color: section.headerText,
                       }}
-                      className="border border-[#edebe9] py-2 text-center text-[11px] font-bold uppercase tracking-wide"
+                      className="border border-[#edebe9] py-2 text-center text-[11px] font-semibold"
                     >
                       {section.label}
                       <span className="ml-1.5 rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-semibold">
@@ -1003,7 +1003,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               })()}
 
               {/* ── Fila 2: etiquetas de puesto (hora + operarias) ─────────── */}
-              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#e8e8e8] px-1 py-2 text-[10px] font-semibold uppercase text-[#605e5c]">
+              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#e8e8e8] px-1 py-2 text-[11px] font-semibold text-[#605e5c]">
                 Hora
               </div>
               {stationLabels.map((label, idx) => {

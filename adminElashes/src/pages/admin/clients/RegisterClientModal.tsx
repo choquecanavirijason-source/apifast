@@ -161,7 +161,7 @@ export default function RegisterClientModal({
     email: "",
     branch_id: "",
   });
-  const bcLabelClass = "block text-xs font-semibold uppercase tracking-wide text-[#605e5c]";
+  const bcLabelClass = "block text-xs font-semibold text-[#605e5c]";
   const bcSelectClass =
     "h-10 w-full rounded-md border border-[#d2d0ce] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20";
   const bcInputClass =

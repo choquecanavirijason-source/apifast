@@ -45,7 +45,7 @@ export default function MonthCalendar({
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+      <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs font-semibold text-[#605e5c]">
         {["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map((label) => (
           <div key={label}>{label}</div>
         ))}

@@ -69,10 +69,10 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
           </colgroup>
           <thead>
             <tr className="bg-slate-100 text-slate-600">
-              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide">Cliente</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold uppercase tracking-wide text-[10px]">Servicio</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Comisión</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold uppercase tracking-wide">Caja</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">Cliente</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[11px]">Servicio</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold">Comisión</th>
+              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold">Caja</th>
             </tr>
           </thead>
         <tbody>
@@ -142,7 +142,7 @@ function RegisterPaymentForm({
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4">
-      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#094732]">
+      <p className="mb-3 text-xs font-semibold text-[#094732]">
         Registrar pago — {professional.username}
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -326,19 +326,19 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
       {/* Resumen global */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Comisiones ganadas</p>
+          <p className="text-xs font-semibold text-slate-500">Comisiones ganadas</p>
           <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalEarned)}</p>
           <p className="text-[11px] text-slate-400">{formatCommissionRatePercent()} de tickets completados</p>
         </div>
         <div className="rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#094732]">Total pagado</p>
+          <p className="text-xs font-semibold text-[#094732]">Total pagado</p>
           <p className="mt-1 text-xl font-bold text-[#094732]">{moneyFmt.format(totalPaid)}</p>
           <p className="text-[11px] text-[#094732]/80">
             {loadingPayments ? "…" : `${payments.length} registro${payments.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendiente</p>
+          <p className="text-xs font-semibold text-slate-500">Pendiente</p>
           <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalPending)}</p>
           <p className="text-[11px] text-slate-500">
             {proStats.filter((s) => s.pending > 0).length} operaria{proStats.filter((s) => s.pending > 0).length !== 1 ? "s" : ""}
@@ -462,7 +462,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                 <TicketLedger tickets={sortedTickets} proName={pro.username} />
 
                 <div className="mt-4">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <p className="mb-2 text-xs font-semibold text-slate-500">
                     Historial de pagos registrados
                   </p>
                   {loadingPayments ? (

@@ -52,8 +52,8 @@ export default function ServiceSelectorCard({
 }: ServiceSelectorCardProps) {
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-sm border border-[#edebe9] bg-white shadow-sm">
-      <div className="shrink-0 p-4 sm:p-5">
+    <div className="flex h-full min-h-0 flex-col rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-sm">
+      <div className="shrink-0 p-3">
         <div className="flex flex-col md:flex-row gap-4 items-end">
           {/* Input de Búsqueda */}
           <div className="flex-1 w-full" ref={serviceComboboxRef} data-tour="pos-search">
@@ -154,8 +154,8 @@ export default function ServiceSelectorCard({
         // sección absorbe el sobrante con scroll vertical.
         // `flex-1` lo dimensiona cuando la cadena flex tiene altura definida;
         // el `max-h` por viewport garantiza scroll aunque esa cadena falle.
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-[#f3f2f1] px-4 pb-4 pt-3 sm:px-5 max-h-[calc(100dvh-15rem)]">
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#605e5c]">Sugerencias rápidas</p>
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ui-border)] p-3 max-h-[calc(100dvh-15rem)]">
+          <p className="mb-3 text-[11px] font-semibold text-[#605e5c]">Sugerencias rápidas</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {quickServices.map((service) => {
               const cartCount = cartCountByServiceId[String(service.id)] ?? 0;

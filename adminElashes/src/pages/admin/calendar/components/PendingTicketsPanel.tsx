@@ -84,7 +84,7 @@ export default function PendingTicketsPanel({
           ))}
         </select>
       </div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Tickets</p>
+      <p className="mb-2 text-xs font-semibold text-[#605e5c]">Tickets</p>
       <div className="space-y-2">
         {isLoading ? <p className="text-xs text-[#605e5c]">Cargando tickets...</p> : null}
         {pendingTickets.map((ticket) => {

@@ -90,7 +90,7 @@ export default function AgendaToolbar({
                         : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
                     }`}
                   >
-                    <span className="uppercase leading-none">{short.replace(/\.$/, "")}</span>
+                    <span className="capitalize leading-none">{short.replace(/\.$/, "")}</span>
                     <span className="text-sm font-bold tabular-nums leading-tight">{num}</span>
                   </button>
                 );

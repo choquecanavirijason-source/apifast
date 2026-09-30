@@ -30,7 +30,7 @@ export default function CreateRoleSection({
     >
       <div className="space-y-5">
         <div>
-          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+          <label className="mb-2 block text-xs font-semibold text-emerald-600">
             Nombre del rol
           </label>
           <input
@@ -89,7 +89,7 @@ export default function CreateRoleSection({
         <Button
           onClick={onSubmit}
           disabled={creatingRole}
-          className="w-full justify-center rounded-2xl py-4 text-sm font-extrabold uppercase tracking-wide"
+          className="w-full justify-center rounded-2xl py-4 text-sm font-semibold"
           leftIcon={creatingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
         >
           {creatingRole ? "Creando..." : "Crear Rol"}

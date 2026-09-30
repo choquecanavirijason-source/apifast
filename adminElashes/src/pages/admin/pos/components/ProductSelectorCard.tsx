@@ -47,8 +47,8 @@ export default function ProductSelectorCard({
   }, [products, search, categoryFilter]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-sm border border-[#edebe9] bg-white shadow-sm">
-      <div className="shrink-0 p-4 sm:p-5">
+    <div className="flex h-full min-h-0 flex-col rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-sm">
+      <div className="shrink-0 p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className={labelClass}>Buscar producto</label>
@@ -78,7 +78,7 @@ export default function ProductSelectorCard({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto border-t border-[#f3f2f1] px-4 pb-4 pt-3 sm:px-5 max-h-[calc(100dvh-15rem)]">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ui-border)] p-3 max-h-[calc(100dvh-15rem)]">
         {filteredProducts.length === 0 ? (
           <p className="py-6 text-center text-xs text-[#605e5c]">
             {products.length === 0 ? "Esta sucursal no tiene productos con stock." : "Sin resultados para el filtro/búsqueda."}

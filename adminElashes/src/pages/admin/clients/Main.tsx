@@ -349,13 +349,13 @@ export default function ClientListPage() {
       key: "nombre",
       header: "Nombre",
       sortable: true,
-      render: (item: IClient) => <span className="font-bold text-slate-800">{item.nombre}</span>
+      render: (item: IClient) => <span className="font-medium text-[var(--ui-text)]">{item.nombre}</span>
     },
     {
       key: "apellido",
       header: "Apellido",
       sortable: true,
-      render: (item: IClient) => <span className="font-semibold text-slate-700">{item.apellido}</span>
+      render: (item: IClient) => <span className="font-medium text-[var(--ui-text)]">{item.apellido}</span>
     },
     {
       key: "visitas",
@@ -363,11 +363,11 @@ export default function ClientListPage() {
       sortable: true,
       render: (item: IClient) => (
         <div className="flex items-center gap-1.5">
-           {item.visitas > 5 && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500"/>}
-           <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
-               item.visitas > 5 
-               ? 'bg-amber-50 text-amber-700 border-amber-100' 
-               : 'bg-slate-100 text-slate-600 border-slate-200'
+           {item.visitas > 5 && <Star className="h-3 w-3 fill-brand-secondary text-brand-secondary"/>}
+           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${
+               item.visitas > 5
+               ? 'bg-brand-secondary/15 text-brand-secondary-hover'
+               : 'bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]'
            }`}>
                {item.visitas} visitas
            </span>
@@ -378,21 +378,21 @@ export default function ClientListPage() {
       key: "edad",
       header: "Edad",
       sortable: true,
-      render: (item: IClient) => <span className="text-slate-600 text-sm font-medium">{item.edad} años</span>
+      render: (item: IClient) => <span className="tabular-nums text-[var(--ui-text-muted)]">{item.edad} años</span>
     },
     {
       key: "tipoOjos",
       header: "Tipo de Ojos",
       sortable: true,
       getValue: (item: IClient) => getEyeTypeLabel(item.tipoOjos),
-      render: (item: IClient) => <span className="text-sm text-slate-500 italic">{getEyeTypeLabel(item.tipoOjos)}</span>
+      render: (item: IClient) => <span className="text-[var(--ui-text-muted)]">{getEyeTypeLabel(item.tipoOjos)}</span>
     },
     {
       key: "ci",
       header: "CI",
       sortable: true,
       render: (item: IClient) => (
-        <span className="text-xs font-mono text-slate-600">{item.ci || <span className="text-slate-300">—</span>}</span>
+        <span className="font-mono tabular-nums text-[var(--ui-text-muted)]">{item.ci || <span className="opacity-50">—</span>}</span>
       ),
       getValue: (item: IClient) => item.ci ?? "",
     },
@@ -405,10 +405,10 @@ export default function ClientListPage() {
           type="button"
           onClick={() => void handleToggleMarketplace(item)}
           title={item.marketplaceEnabled ? "Deshabilitar acceso marketplace" : "Habilitar acceso marketplace"}
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
             item.marketplaceEnabled
-              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              ? "bg-brand/10 text-brand hover:bg-brand/15"
+              : "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
           }`}
         >
           <ShoppingBag className="h-3 w-3" />
@@ -442,13 +442,13 @@ export default function ClientListPage() {
         const isStale = currentStatus !== "sin_estado";
         return (
           <div className="flex items-center gap-1">
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${color}`}>{label}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${color}`}>{label}</span>
             {isStale && (
               <button
                 type="button"
                 onClick={() => void handleClearClientStatus(item)}
                 title="Limpiar estado"
-                className="rounded-full p-0.5 text-slate-300 hover:bg-slate-100 hover:text-rose-500 transition-colors"
+                className="rounded-full p-0.5 text-[var(--ui-text-muted)] opacity-60 transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-rose-500 hover:opacity-100"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -466,17 +466,17 @@ export default function ClientListPage() {
   const actions: DataTableAction<IClient>[] = [
     {
       label: "Historial",
-      icon: <History className="w-4 h-4" />,
+      icon: <History className="h-3.5 w-3.5" />,
       onClick: (item: IClient) => handleViewHistory(item),
     },
     {
       label: "Editar",
-      icon: <Edit className="w-4 h-4" />,
+      icon: <Edit className="h-3.5 w-3.5" />,
       onClick: (item: IClient) => handleEdit(item),
     },
     {
       label: "Eliminar",
-      icon: <Trash2 className="w-4 h-4" />,
+      icon: <Trash2 className="h-3.5 w-3.5" />,
       onClick: (item: IClient) => handleDelete(item),
       variant: "danger",
     },

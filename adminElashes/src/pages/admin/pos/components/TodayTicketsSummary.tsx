@@ -206,7 +206,7 @@ export default function TodayTicketsSummary({
   };
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden px-4 py-4">
+    <div className="flex h-full flex-col gap-3 overflow-hidden p-3">
       {/* KPIs */}
       <div className="grid shrink-0 grid-cols-3 gap-2">
         <StatCard label="Ventas hoy" value={todaySales.length} icon={<Receipt className="h-4 w-4" />} tone="emerald" compact />
@@ -215,9 +215,9 @@ export default function TodayTicketsSummary({
       </div>
 
       {todayTotal > 0 && (
-        <div className="shrink-0 rounded-sm border border-[#edebe9] bg-white px-4 py-2 text-right">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">Total cobrado hoy</p>
-          <p className="text-lg font-bold text-[#107c10]">Bs {todayTotal.toFixed(2)}</p>
+        <div className="flex shrink-0 items-center justify-between rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 shadow-sm">
+          <p className="text-xs font-medium text-[var(--ui-text-muted)]">Total cobrado hoy</p>
+          <p className="text-sm font-semibold tabular-nums text-brand">Bs {todayTotal.toFixed(2)}</p>
         </div>
       )}
 
@@ -232,25 +232,25 @@ export default function TodayTicketsSummary({
           globalSearchPlaceholder="Buscar cliente, código, servicio…"
           renderTopToolbar={() => (
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+              <span className="text-xs font-semibold text-[var(--ui-text)]">
                 Servicios de hoy
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onNavigateToNewSale}
-                  className="flex items-center gap-1.5 rounded border border-[#edebe9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#323130] transition-colors hover:bg-[#f3f2f1]"
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-3 text-xs font-medium text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-hover)]"
                 >
-                  <PlusCircle size={13} />
+                  <PlusCircle className="h-3.5 w-3.5" />
                   Nueva venta
                 </button>
                 <button
                   type="button"
                   onClick={handleExportPdf}
                   disabled={rows.length === 0}
-                  className="flex items-center gap-1.5 rounded border border-[#094732] bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#063324] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <FileDown size={13} />
+                  <FileDown className="h-3.5 w-3.5" />
                   Exportar PDF
                 </button>
               </div>

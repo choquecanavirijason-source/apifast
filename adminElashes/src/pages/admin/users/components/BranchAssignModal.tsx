@@ -143,7 +143,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
 
           {/* Sucursal destino */}
           <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+            <label className="mb-1 block text-[11px] font-semibold text-[#605e5c]">
               <Building2 className="mr-1 inline h-3 w-3" />
               Sucursal destino
             </label>
@@ -165,7 +165,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
           {/* Fecha de retorno (solo temporal) */}
           {mode === "temp" && (
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+              <label className="mb-1 block text-[11px] font-semibold text-[#605e5c]">
                 Fecha de retorno
               </label>
               <input

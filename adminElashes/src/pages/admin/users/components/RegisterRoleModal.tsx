@@ -169,7 +169,7 @@ export default function RegisterRoleModal({
                         ) : (
                           <Square className="h-4 w-4 text-slate-400" />
                         )}
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                        <span className="text-xs font-semibold text-slate-600">
                           {translateModule(module)}
                         </span>
                       </div>

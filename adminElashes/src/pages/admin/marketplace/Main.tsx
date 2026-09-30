@@ -333,7 +333,7 @@ export default function MarketplacePage() {
 
               {/* Info */}
               <div className="p-3 flex-1 flex flex-col gap-1">
-                {p.brand && <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide">{p.brand}</p>}
+                {p.brand && <p className="text-xs text-emerald-600 font-medium">{p.brand}</p>}
                 <h3 className="text-sm font-semibold text-gray-800 line-clamp-2">{p.name}</h3>
                 {p.category && (
                   <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full w-fit">{p.category}</span>

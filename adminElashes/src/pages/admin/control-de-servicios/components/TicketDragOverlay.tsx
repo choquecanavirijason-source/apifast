@@ -56,7 +56,7 @@ export default function TicketDragOverlay({ ticket }: { ticket: TicketItem }) {
 
         </span>
 
-        <span className="border border-[#94c4a9] bg-[#f0f7f4] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#094732]">
+        <span className="border border-[#94c4a9] bg-[#f0f7f4] px-1.5 py-0.5 text-[11px] font-semibold text-[#094732]">
 
           {STATUS_LABELS[ticket.status] ?? ticket.status}
 

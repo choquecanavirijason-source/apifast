@@ -196,7 +196,7 @@ export default function DraggableTicketCard({
             {/* Selector operaria */}
             {canEditOperaria && (
               <div className="p-3 border-b border-[#f0efed]">
-                <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
                   <User size={8} /> Asignar operaria
                 </label>
                 <select value={quickProId} onPointerDown={stopPtr}
@@ -223,7 +223,7 @@ export default function DraggableTicketCard({
             {/* Selector clienta — corregir "Cliente Mostrador" o cambiar de clienta */}
             {canEditClient && (
               <div className="p-3">
-                <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#8a8886]">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
                   <User size={8} /> Clienta
                 </label>
                 <div className="flex gap-1.5">

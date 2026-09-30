@@ -195,15 +195,15 @@ export default function CashFlowPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">Total ingresos</p>
+          <p className="text-[11px] font-semibold text-emerald-600">Total ingresos</p>
           <p className="mt-0.5 text-xl font-bold text-emerald-900">{moneyFormatter.format(totalAmount)}</p>
         </div>
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">Total cobros</p>
+          <p className="text-[11px] font-semibold text-blue-600">Total cobros</p>
           <p className="mt-0.5 text-xl font-bold text-blue-900">{totalCount}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold text-slate-500">
             Promedio por {viewMode === "day" ? "día" : "semana"}
           </p>
           <p className="mt-0.5 text-xl font-bold text-slate-800">
@@ -227,7 +227,7 @@ export default function CashFlowPage() {
         ) : (
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500">
                 <th className="px-4 py-3">{viewMode === "day" ? "Fecha" : "Semana"}</th>
                 <th className="px-4 py-3 text-right">Ingresos</th>
                 <th className="px-4 py-3 text-right">Cobros</th>

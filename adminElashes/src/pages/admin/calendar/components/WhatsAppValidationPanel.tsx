@@ -86,7 +86,7 @@ function ValidationTicketRow({
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${statusBadge(ticket.status)}`}
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadge(ticket.status)}`}
         >
           {ticket.status === "confirmed"
             ? "Aprobado"

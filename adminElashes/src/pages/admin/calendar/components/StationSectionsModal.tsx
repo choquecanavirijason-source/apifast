@@ -136,7 +136,7 @@ export default function StationSectionsModal({ isOpen, onClose, sections, onSave
                 <div className="grid gap-3 sm:grid-cols-2">
                   {/* Nombre */}
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">
                       Nombre
                     </label>
                     <input
@@ -150,7 +150,7 @@ export default function StationSectionsModal({ isOpen, onClose, sections, onSave
 
                   {/* Número de puestos */}
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">
                       Nº de puestos
                     </label>
                     <input
@@ -169,7 +169,7 @@ export default function StationSectionsModal({ isOpen, onClose, sections, onSave
 
                 {/* Paleta de colores */}
                 <div className="mt-2">
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">
                     Color
                   </label>
                   <div className="flex flex-wrap gap-1.5">

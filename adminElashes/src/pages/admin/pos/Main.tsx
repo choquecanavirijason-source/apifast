@@ -19,10 +19,10 @@ import { usePosPage } from "./usePosPage";
 import useAuth from "../../../core/hooks/useAuth";
 
 const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
-const labelClass = "block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5";
+const labelClass = "block text-[11px] font-semibold text-slate-400 mb-1.5";
 // Modales de Caja (Abrir/Cerrar): texto en negro, sin colores decorativos —
 // solo negrita para resaltar lo importante.
-const cashLabelClass = "block text-[11px] font-bold uppercase tracking-widest text-[#201f1e] mb-1.5";
+const cashLabelClass = "block text-[11px] font-semibold text-[#201f1e] mb-1.5";
 // Borde bien visible siempre (no solo al hacer foco) — con border-slate-200
 // el recuadro donde escribir casi no se notaba.
 const cashFieldClass = "w-full rounded-xl border-2 border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/15";
@@ -87,16 +87,16 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       pageClassName={
         embedded
           ? "!min-h-0 flex h-full flex-1 flex-col !bg-transparent !p-0 overflow-hidden"
-          : "flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f2f1] !px-0 md:!px-0"
+          : "flex h-full min-h-0 flex-col overflow-hidden"
       }
       containerClassName={
         embedded
           ? "!border-0 !shadow-none !rounded-none flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent !p-0 max-w-none"
-          : "border-0 bg-transparent shadow-none w-full max-w-none !rounded-none !p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          : "flex min-h-0 flex-1 flex-col overflow-hidden"
       }
       contentClassName="flex-1 min-h-0 overflow-hidden"
       toolbar={
-        <div className="mb-1 mt-1 flex w-full items-center justify-between">
+        <div className="flex w-full items-center justify-between gap-3">
           <div data-tour="pos-tabs">
             <SegmentedTabs
               options={[
@@ -126,7 +126,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               type="button"
               onClick={() => setShowTutorial(true)}
               title="Ver guía rápida del POS"
-              className="flex items-center gap-1.5 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-xs font-medium text-[#605e5c] transition-colors hover:bg-[#f3f2f1]"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </button>
@@ -135,7 +135,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 type="button"
                 onClick={() => void pos.openCloseCashSessionModal()}
                 title="Cerrar caja (arqueo)"
-                className="flex items-center gap-1.5 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-xs font-medium text-[#605e5c] transition-colors hover:bg-[#fde7e9] hover:border-[#d13438] hover:text-[#d13438]"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-3 text-xs font-medium text-[var(--ui-text-muted)] transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
               >
                 <DoorOpen className="h-3.5 w-3.5" />
                 Cerrar caja
@@ -147,10 +147,10 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 data-tour="pos-cart-btn"
                 onClick={() => pos.setIsCartOpen((prev) => !prev)}
                 title={pos.isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
-                className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`relative flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors ${
                   pos.isCartOpen
-                    ? "border-[#094732] bg-[#ecfdf5] text-[#094732]"
-                    : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+                    ? "border-brand bg-brand/10 text-brand"
+                    : "border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 }`}
               >
                 <ShoppingCart className="h-3.5 w-3.5" />
@@ -164,10 +164,10 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             )}
             {pos.editingSale && (
               <>
-                <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
+                <span className="flex h-8 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-800">
                   Editando venta: {pos.editingSale.sale_code}
                 </span>
-                <button type="button" onClick={pos.resetSaleForm} className="rounded-sm border border-[#edebe9] bg-white px-3 py-1 text-xs font-semibold text-[#605e5c] hover:bg-[#f3f2f1]">
+                <button type="button" onClick={pos.resetSaleForm} className="flex h-8 items-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-3 text-xs font-medium text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]">
                   Salir edicion
                 </button>
               </>
@@ -176,7 +176,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         </div>
       }
     >
-      <div className="flex h-full min-h-0 flex-col overflow-hidden pb-2 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
 
         {/* ── No branch selected ───────────────────────────────────────── */}
         {pos.activeTab === "sale" && !pos.activeBranchId ? (
@@ -385,7 +385,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
         /* ── History tab ─────────────────────────────────────────────── */
         ) : pos.activeTab === "history" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
             <SegmentedTabs
               options={[
                 { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
@@ -627,7 +627,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         >
           <div className="grid gap-3">
             <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2.5 text-xs">
-              <p className="font-bold uppercase tracking-wide text-[#201f1e]">Esperado en caja (solo efectivo)</p>
+              <p className="font-semibold text-[#201f1e]">Esperado en caja (solo efectivo)</p>
               <p className="mt-0.5 text-base font-bold tabular-nums text-[#201f1e]">
                 {pos.isLoadingCloseCashDetail ? "…" : `Bs ${(pos.closeCashLiveDetail?.expected_cash ?? 0).toFixed(2)}`}
               </p>

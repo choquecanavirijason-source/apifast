@@ -44,7 +44,7 @@ export default function QueueFilters({
     <SectionCard className="border-[#d2d0ce] bg-[#faf9f8]" bodyClassName="!p-4 sm:!p-5">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-7">
         <div className="lg:col-span-2">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Servicio</label>
+          <label className="text-[11px] font-semibold text-[#605e5c]">Servicio</label>
           <div className="flex gap-2 mt-1">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -94,7 +94,7 @@ export default function QueueFilters({
           </div>
         </div>
         <div className="lg:col-span-2">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Cliente</label>
+          <label className="text-[11px] font-semibold text-[#605e5c]">Cliente</label>
           <div className="relative mt-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -107,7 +107,7 @@ export default function QueueFilters({
           </div>
         </div>
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
+          <label className="text-[11px] font-semibold text-[#605e5c]">Fecha</label>
           <input
             type="date"
             value={filterDate}
@@ -116,7 +116,7 @@ export default function QueueFilters({
           />
         </div>
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Hora</label>
+          <label className="text-[11px] font-semibold text-[#605e5c]">Hora</label>
           <input
             type="time"
             value={filterTime}
@@ -125,7 +125,7 @@ export default function QueueFilters({
           />
         </div>
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">Atendiendo</label>
+          <label className="text-[11px] font-semibold text-[#605e5c]">Atendiendo</label>
           <select
             value={filterProfessionalId}
             onChange={(event) => setFilterProfessionalId(event.target.value)}

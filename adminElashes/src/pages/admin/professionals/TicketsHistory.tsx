@@ -453,7 +453,7 @@ export default function TicketsHistoryPage() {
                       <div className="border-t border-[#edebe9] pt-2 mt-1">
                         <div className="flex items-center gap-1 mb-1.5">
                           <Package className="h-3 w-3 text-[#a19f9d]" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#a19f9d]">Estimado por sesión</span>
+                          <span className="text-[11px] font-semibold text-[#a19f9d]">Estimado por sesión</span>
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {inv.adhesivo !== "—" && (

@@ -98,7 +98,7 @@ const SimpleDataTable = ({ data, columns, actions }: any) => {
       <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 {columns.map((col: any) => (
                   <th key={col.key} className="px-6 py-4 font-bold tracking-wider">

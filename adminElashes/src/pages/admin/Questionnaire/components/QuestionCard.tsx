@@ -45,7 +45,7 @@ export const QuestionCard: React.FC<Props> = ({ question, onEdit, onDelete }) =>
       <div className="flex items-center gap-2 pt-4 border-t border-gray-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button 
           onClick={() => onEdit(question)}
-          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-wide transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold transition-colors"
         >
           <Edit className="w-3.5 h-3.5" /> Editar
         </button>

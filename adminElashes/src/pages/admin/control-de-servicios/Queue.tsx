@@ -1097,7 +1097,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         type="button"
         onClick={() => setOperariasOpen((v) => !v)}
         title={operariasOpen ? "Ocultar operarias" : "Mostrar operarias"}
-        className="flex items-center gap-1 border-r border-[#edebe9] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-[#a19f9d] hover:bg-[#edebe9] hover:text-[#605e5c] transition-colors"
+        className="flex items-center gap-1 border-r border-[#edebe9] px-2 py-1 text-[11px] font-semibold text-[#a19f9d] hover:bg-[#edebe9] hover:text-[#605e5c] transition-colors"
       >
         <Users className="h-3 w-3" />
         <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-300 ${operariasOpen ? "rotate-0" : "-rotate-90"}`} />
@@ -1112,7 +1112,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         ].map((s) => (
           <div key={s.label} className="flex flex-col items-center">
             <p className="text-sm font-semibold tabular-nums text-[#201f1e]">{s.count}</p>
-            <p className="text-[8px] font-semibold uppercase tracking-wide text-[#605e5c]">{s.label}</p>
+            <p className="text-[11px] font-semibold text-[#605e5c]">{s.label}</p>
           </div>
         ))}
       </div>

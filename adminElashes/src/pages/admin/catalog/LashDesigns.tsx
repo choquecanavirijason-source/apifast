@@ -257,7 +257,7 @@ export default function LashDesignsPage() {
             />
           </div>
           <div className="border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold uppercase text-slate-500">Archivos de pestañas</p>
+            <p className="text-xs font-semibold text-slate-500">Archivos de pestañas</p>
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-slate-500">Imagen del esquema</label>

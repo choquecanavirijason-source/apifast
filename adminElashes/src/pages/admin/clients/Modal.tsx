@@ -92,7 +92,7 @@ export const ClientFileModal = ({ isOpen, client, onClose, onSave, saving }: Pro
         <div className="p-6 overflow-y-auto bg-slate-50/50 flex-1">
           
           <div className="space-y-1">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1">Evaluación Clínica</h3>
+              <h3 className="text-xs font-semibold text-slate-400 mb-3 ml-1">Evaluación Clínica</h3>
               
               <ToggleRow label="Trastorno Párpados" field="trastornoParpados" />
               <ToggleRow label="Sensibilidad a la luz" field="sensibilidadLuz" />
@@ -106,7 +106,7 @@ export const ClientFileModal = ({ isOpen, client, onClose, onSave, saving }: Pro
           </div>
 
           <div className="mt-6">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">Observaciones</label>
+            <label className="text-xs font-semibold text-slate-400 mb-2 block ml-1">Observaciones</label>
             <textarea 
               value={form.observaciones || ""}
               onChange={(e) => {

@@ -367,33 +367,45 @@ body.pos-hub-clean-fullscreen .main{height:100vh;padding:0;overflow:hidden}
   .app-layout{flex-direction:column}
   .header input[type="search"], .header .search{min-width:120px}
 }
-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Estilos base de tablas. Van en @layer base para que las clases Tailwind de
+   cada tabla (tamaño, padding, color) tengan prioridad sobre estos valores. */
+@layer base {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  td {
+    padding: 8px 12px;
+    color: var(--ui-text);
+    border-bottom: 1px solid var(--ui-border);
+    font-size: 12px;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr:hover td {
+    background: rgba(0,0,0,0.02); /* Sutil hover */
+  }
 }
 
-th {
-  text-align: left;
-  padding: 12px 16px;
-  color: var(--muted);
-  font-size: 13px;
+/* Escala tipográfica de la tabla común (DataTable): celdas en 12px y máximo
+   seminegrita, aunque la columna de una página use text-sm/text-base o bold. */
+.ui-data-table td :is(.text-sm, .text-base, .text-lg) {
+  font-size: 12px;
+  line-height: 1.375;
+}
+.ui-data-table td :is(.font-bold, .font-extrabold, .font-black) {
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-td {
-  padding: 14px 16px;
-  color: var(--text);
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-  font-size: 14px;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-tr:hover td {
-  background: rgba(0,0,0,0.02); /* Sutil hover */
 }

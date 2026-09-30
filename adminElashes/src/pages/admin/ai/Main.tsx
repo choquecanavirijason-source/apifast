@@ -229,7 +229,7 @@ export default function AdminAiPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Alcance de datos</h3>
+            <h3 className="text-xs font-semibold text-slate-500">Alcance de datos</h3>
             <select
               className="mt-2 w-full rounded-md border border-slate-200 px-2 py-2 text-sm"
               value={branchFilter}
@@ -260,7 +260,7 @@ export default function AdminAiPage() {
                     key={card.label}
                     className="rounded-lg border border-[#deecf9] bg-[#f3f9fd] px-2 py-2 text-center"
                   >
-                    <p className="text-[10px] font-semibold uppercase text-[#605e5c]">{card.label}</p>
+                    <p className="text-[11px] font-semibold text-[#605e5c]">{card.label}</p>
                     <p className="text-sm font-bold text-[#004578]">{card.value}</p>
                   </div>
                 ))}

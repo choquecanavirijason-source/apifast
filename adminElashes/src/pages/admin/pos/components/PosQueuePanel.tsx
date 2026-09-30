@@ -75,7 +75,7 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
       <div className="max-h-52 overflow-y-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="bg-[#faf9f8] text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+            <tr className="bg-[#faf9f8] text-[11px] font-semibold text-[#605e5c]">
               <th className="px-3 py-1.5">Clienta</th>
               <th className="px-3 py-1.5">Servicio</th>
               <th className="px-3 py-1.5">Operaria</th>

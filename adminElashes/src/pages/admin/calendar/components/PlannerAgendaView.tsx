@@ -18,7 +18,7 @@ export default function PlannerAgendaView({
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300">
       <div className="border-b border-slate-100 bg-emerald-50 px-4 py-3 text-center">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-[#094732]">{headerTitle}</h2>
+        <h2 className="text-sm font-semibold text-[#094732]">{headerTitle}</h2>
         <p className="mt-0.5 text-[11px] text-slate-500">Fecha de inicio ({weekdayUpper})</p>
       </div>
       <div className="max-h-[min(72vh,900px)] overflow-auto">

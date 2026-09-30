@@ -30,7 +30,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
             {title}
           </h1>
           {subtitle && (
-            <span className="text-xs font-medium text-brand-secondary uppercase tracking-wider">
+            <span className="text-xs font-medium text-brand-secondary">
               {subtitle}
             </span>
           )}

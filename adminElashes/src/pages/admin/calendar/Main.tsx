@@ -519,7 +519,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
               className="grid min-w-265 bg-white"
               style={{ gridTemplateColumns: `88px repeat(${Math.max(1, weekDays.length)}, minmax(180px, 1fr))` }}
             >
-              <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#f3f2f1] px-2 py-2 text-[11px] font-semibold uppercase text-[#605e5c]">
+              <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#f3f2f1] px-2 py-2 text-[11px] font-semibold text-[#605e5c]">
                 Hora
               </div>
               {weekDays.map((day) => (
@@ -529,7 +529,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                     day.isoDate === todayKey ? "bg-[#deecf9] text-[#004578]" : "bg-[#f3f2f1]"
                   }`}
                 >
-                  <p className="uppercase">{day.label}</p>
+                  <p className="capitalize">{day.label}</p>
                   <p className="text-[10px] font-medium text-[#605e5c]">{day.isoDate}</p>
                 </div>
               ))}
@@ -670,7 +670,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
 
               {/* ── Daily revenue summary row ──────────────────────────── */}
               <div className="contents">
-                <div className="border-t-2 border-[#0078d4]/30 bg-[#deecf9] px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-[#004578]">
+                <div className="border-t-2 border-[#0078d4]/30 bg-[#deecf9] px-2 py-2 text-[11px] font-semibold text-[#004578]">
                   Total día
                 </div>
                 {weekDays.map((day) => {

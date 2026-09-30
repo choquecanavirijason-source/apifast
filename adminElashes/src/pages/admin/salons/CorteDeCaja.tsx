@@ -127,11 +127,11 @@ export default function CorteDeCaja() {
       <SectionCard bodyClassName="!p-4">
         <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fecha inicio</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Fecha inicio</label>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fecha fin</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Fecha fin</label>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div className="flex items-end">

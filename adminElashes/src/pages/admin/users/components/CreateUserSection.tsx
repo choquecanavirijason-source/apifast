@@ -43,7 +43,7 @@ export default function CreateUserSection({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div>
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <label className="mb-2 block text-xs font-semibold text-emerald-600">
               Nombre de usuario
             </label>
             <input
@@ -55,7 +55,7 @@ export default function CreateUserSection({
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <label className="mb-2 block text-xs font-semibold text-emerald-600">
               Correo
             </label>
             <input
@@ -68,7 +68,7 @@ export default function CreateUserSection({
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <label className="mb-2 block text-xs font-semibold text-emerald-600">
               Contraseña
             </label>
             <input
@@ -81,7 +81,7 @@ export default function CreateUserSection({
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <label className="mb-2 block text-xs font-semibold text-emerald-600">
               Teléfono (opcional)
             </label>
             <input
@@ -93,7 +93,7 @@ export default function CreateUserSection({
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <label className="mb-2 block text-xs font-semibold text-emerald-600">
               Rol
             </label>
             <select
@@ -113,7 +113,7 @@ export default function CreateUserSection({
           <Button
             onClick={onSubmit}
             disabled={creatingUser}
-            className="w-full justify-center rounded-2xl py-4 text-sm font-extrabold uppercase tracking-wide"
+            className="w-full justify-center rounded-2xl py-4 text-sm font-semibold"
             leftIcon={creatingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           >
             {creatingUser ? "Creando..." : "Crear Usuario"}

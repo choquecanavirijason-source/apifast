@@ -79,7 +79,7 @@ export default function CategorySelectionModal({
         <div className="shrink-0 border-b border-[#edebe9] bg-white px-4 py-3 shadow-[0_1px_0_#edebe9] sm:px-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">Total estimado</p>
+              <p className="text-[11px] font-semibold text-[#605e5c]">Total estimado</p>
               <p className="mt-0.5 text-2xl font-semibold tabular-nums text-[#094732] sm:text-3xl">Bs {totalBs.toFixed(2)}</p>
               <p className="mt-1 text-xs text-[#605e5c]">
                 <span className="font-semibold text-[#323130]">{totalQty}</span> unidades en esta venta
@@ -143,7 +143,7 @@ export default function CategorySelectionModal({
         {/* Cinta de seleccionados */}
         {cartLines.length > 0 ? (
           <div className="shrink-0 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-2 sm:px-5">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">Seleccionados</p>
+            <p className="mb-2 text-[11px] font-semibold text-[#605e5c]">Seleccionados</p>
             <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
               {cartLines.map(({ service, count }) => (
                 <div
@@ -241,7 +241,7 @@ export default function CategorySelectionModal({
           >
             <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">Carrito</p>
+                <p className="text-[11px] font-semibold text-[#605e5c]">Carrito</p>
                 <p className="text-base font-semibold text-[#323130]">
                   {totalQty} {totalQty === 1 ? "unidad" : "unidades"}
                 </p>

@@ -27,7 +27,7 @@ export default function DroppableColumn({
     <div data-tour={dataTour} className="flex min-h-0 h-full flex-col border border-[#c8c6c4] bg-white">
       {/* Column header — compacto */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#c8c6c4] bg-[#f3f2f1] px-2 py-1.5">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#201f1e]">{title}</h3>
+        <h3 className="text-[11px] font-semibold text-[#201f1e]">{title}</h3>
         <span className="inline-flex min-w-[20px] items-center justify-center border border-[#8a8886] bg-white px-1 py-0 text-[10px] font-semibold text-[#201f1e]">
           {tickets.length}
         </span>
@@ -56,7 +56,7 @@ export default function DroppableColumn({
               }
             >
               {highlightTicket?.(ticket) ? (
-                <span className="absolute right-2 top-2 z-10 border border-[#201f1e] bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#201f1e]">
+                <span className="absolute right-2 top-2 z-10 border border-[#201f1e] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#201f1e]">
                   Nuevo
                 </span>
               ) : null}

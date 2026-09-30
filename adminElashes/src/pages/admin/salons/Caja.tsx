@@ -61,33 +61,33 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
       ) : (
         <div className="space-y-5">
           <div>
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#605e5c]">Ingresos por método</h4>
+            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">Ingresos por método</h4>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[10px] uppercase text-[#605e5c]">Efectivo</p>
+                <p className="text-[11px] text-[#605e5c]">Efectivo</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.efectivo)}</p>
               </div>
               <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[10px] uppercase text-[#605e5c]">Tarjeta</p>
+                <p className="text-[11px] text-[#605e5c]">Tarjeta</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.tarjeta)}</p>
               </div>
               <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[10px] uppercase text-[#605e5c]">Transferencia</p>
+                <p className="text-[11px] text-[#605e5c]">Transferencia</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.transferencia)}</p>
               </div>
               <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[10px] uppercase text-[#605e5c]">QR</p>
+                <p className="text-[11px] text-[#605e5c]">QR</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.qr)}</p>
               </div>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-center">
-                <p className="text-[10px] uppercase text-emerald-700">Total</p>
+                <p className="text-[11px] text-emerald-700">Total</p>
                 <p className="text-sm font-bold tabular-nums text-emerald-800">{moneyFormatter.format(detail.income_by_method.total)}</p>
               </div>
             </div>
           </div>
 
           <div>
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#605e5c]">
+            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">
               Pagos ({detail.payments.length})
             </h4>
             {detail.payments.length === 0 ? (
@@ -119,7 +119,7 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
           </div>
 
           <div>
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#605e5c]">
+            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">
               Gastos ({detail.expenses.length})
             </h4>
             {detail.expenses.length === 0 ? (
@@ -485,7 +485,7 @@ function AperturaCierreTab() {
     <SectionCard title="Historial de apertura y cierre" bodyClassName="!p-0">
       <div className="grid gap-3 border-b border-[#edebe9] p-3 sm:grid-cols-4">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
           <input
             type="date"
             value={historyFromDate}
@@ -494,7 +494,7 @@ function AperturaCierreTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
           <input
             type="date"
             value={historyToDate}
@@ -565,15 +565,15 @@ function AperturaCierreTab() {
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Abierta por</p>
+            <p className="text-xs font-semibold text-[#605e5c]">Abierta por</p>
             <p className="text-sm font-medium text-[#323130]">{session.opened_by_name ?? "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fecha y hora</p>
+            <p className="text-xs font-semibold text-[#605e5c]">Fecha y hora</p>
             <p className="text-sm font-medium text-[#323130]">{dateTimeFmt(session.opened_at)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Monto inicial</p>
+            <p className="text-xs font-semibold text-[#605e5c]">Monto inicial</p>
             <p className="text-sm font-semibold tabular-nums text-emerald-700">
               {moneyFormatter.format(session.opening_amount ?? 0)}
             </p>
@@ -584,7 +584,7 @@ function AperturaCierreTab() {
         <div className="mt-4 rounded-lg border border-[#d2d0ce] bg-[#faf9f8] px-4 py-3">
           <div className="flex flex-wrap items-start gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#323130]">Esperado en caja (solo efectivo)</p>
+              <p className="text-xs font-semibold text-[#323130]">Esperado en caja (solo efectivo)</p>
               <p className="text-lg font-bold tabular-nums text-[#201f1e]">
                 {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
               </p>
@@ -595,7 +595,7 @@ function AperturaCierreTab() {
               )}
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total vendido (todos los métodos)</p>
+              <p className="text-xs font-semibold text-emerald-700">Total vendido (todos los métodos)</p>
               <p className="text-lg font-bold tabular-nums text-emerald-800">
                 {liveDetail ? moneyFormatter.format(liveDetail.income_by_method.total) : "…"}
               </p>
@@ -623,7 +623,7 @@ function AperturaCierreTab() {
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+              <label className="text-xs font-semibold text-[#605e5c]">
                 Monto contado <span className="text-rose-600">*</span>
               </label>
               <input
@@ -638,7 +638,7 @@ function AperturaCierreTab() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+              <label className="text-xs font-semibold text-[#605e5c]">
                 Fondo para el siguiente turno <span className="text-rose-600">*</span>
               </label>
               <input
@@ -657,7 +657,7 @@ function AperturaCierreTab() {
               </p>
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Nota de cierre (opcional)</label>
+              <label className="text-xs font-semibold text-[#605e5c]">Nota de cierre (opcional)</label>
               <input
                 type="text"
                 value={closeNotes}
@@ -697,20 +697,20 @@ function AperturaCierreTab() {
       <SectionCard title="Arqueo del último cierre">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Esperado en caja</p>
+            <p className="text-xs font-semibold text-[#605e5c]">Esperado en caja</p>
             <p className="text-sm font-semibold tabular-nums text-[#323130]">
               {moneyFormatter.format(lastClosed.expected_cash ?? 0)}
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Contado</p>
+            <p className="text-xs font-semibold text-[#605e5c]">Contado</p>
             <p className="text-sm font-semibold tabular-nums text-[#323130]">
               {lastClosed.counted_amount !== null ? moneyFormatter.format(lastClosed.counted_amount) : "— no se contó —"}
             </p>
           </div>
           {lastClosed.difference !== null && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">
+              <p className="text-xs font-semibold text-[#605e5c]">
                 {lastClosed.difference === 0 ? "Diferencia" : lastClosed.difference > 0 ? "Sobra" : "Falta"}
               </p>
               <p
@@ -728,7 +728,7 @@ function AperturaCierreTab() {
           )}
           {lastClosed.next_fund_amount != null && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fondo dejado para el siguiente turno</p>
+              <p className="text-xs font-semibold text-[#605e5c]">Fondo dejado para el siguiente turno</p>
               <p className="text-sm font-bold tabular-nums text-emerald-700">
                 {moneyFormatter.format(lastClosed.next_fund_amount)}
               </p>
@@ -782,7 +782,7 @@ function AperturaCierreTab() {
     >
       <div className="grid gap-3">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Monto inicial</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Monto inicial</label>
           <input
             type="number"
             min="0"
@@ -801,7 +801,7 @@ function AperturaCierreTab() {
           )}
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Nota (opcional)</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Nota (opcional)</label>
           <input
             type="text"
             value={openNotes}
@@ -975,11 +975,11 @@ function NuevoGastoTab() {
     <SectionCard title="Registro de gastos">
       <div className="grid gap-3 sm:grid-cols-4">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Fecha</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Fecha</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${fieldClass} mt-1`} />
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Monto</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Monto</label>
           <input
             type="number"
             min="0"
@@ -991,7 +991,7 @@ function NuevoGastoTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Foto (opcional)</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Foto (opcional)</label>
           <input
             type="file"
             accept="image/*"
@@ -1000,7 +1000,7 @@ function NuevoGastoTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Descripción</label>
+          <label className="text-xs font-semibold text-[#605e5c]">Descripción</label>
           <input
             type="text"
             value={description}
@@ -1204,11 +1204,11 @@ function HistorialGastosTab() {
       <SectionCard bodyClassName="!p-4">
         <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div className="flex items-end gap-2">

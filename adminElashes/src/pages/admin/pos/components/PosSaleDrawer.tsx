@@ -409,7 +409,7 @@ export default function PosSaleDrawer({
               {cartLines.length > 0 && (
                 <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-[#edebe9] bg-[#faf9f8] text-[11px] font-semibold uppercase text-[#605e5c]">
+                    <tr className="border-b border-[#edebe9] bg-[#faf9f8] text-[11px] font-semibold text-[#605e5c]">
                       <th className="px-4 py-2">Servicio</th>
                       <th className="px-4 py-2 text-right">Precio</th>
                       <th className="w-10 px-4 py-2" />
@@ -469,7 +469,7 @@ export default function PosSaleDrawer({
               {productLines.length > 0 && (
                 <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-[#edebe9] bg-[#faf9f8] text-[11px] font-semibold uppercase text-[#605e5c]">
+                    <tr className="border-b border-[#edebe9] bg-[#faf9f8] text-[11px] font-semibold text-[#605e5c]">
                       <th className="px-4 py-2">Producto</th>
                       <th className="w-24 px-4 py-2 text-center">Cant.</th>
                       <th className="px-4 py-2 text-right">Subtotal</th>
@@ -648,7 +648,7 @@ export default function PosSaleDrawer({
           {/* Historial reciente de la clienta */}
           {selectedClient && clientHistory.length > 0 && (
             <div className="mt-3 rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#605e5c]">
+              <p className="mb-1.5 text-[11px] font-semibold text-[#605e5c]">
                 Últimas visitas
               </p>
               <ul className="space-y-1.5">
@@ -698,7 +698,7 @@ export default function PosSaleDrawer({
             </p>
             <div className="space-y-2">
               <div>
-                <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                <label className="mb-0.5 block text-[11px] font-semibold text-[#605e5c]">
                   Nombre del tutor <span className="text-[#d13438]">*</span>
                 </label>
                 <input
@@ -711,7 +711,7 @@ export default function PosSaleDrawer({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                  <label className="mb-0.5 block text-[11px] font-semibold text-[#605e5c]">
                     CI / DNI <span className="text-[#d13438]">*</span>
                   </label>
                   <input
@@ -723,7 +723,7 @@ export default function PosSaleDrawer({
                   />
                 </div>
                 <div>
-                  <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-[#605e5c]">
+                  <label className="mb-0.5 block text-[11px] font-semibold text-[#605e5c]">
                     Teléfono
                   </label>
                   <input
@@ -779,7 +779,7 @@ export default function PosSaleDrawer({
         {/* Toggle ticket Individual / Grupal */}
         {cartLines.length > 1 && !linkAppointmentId && setTicketMode && (
           <div className="border-b border-[#edebe9] px-4 py-3">
-            <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Modo de ticket</p>
+            <p className="mb-2 text-[13px] font-semibold text-[#201f1e]">Modo de ticket</p>
             <div className="flex overflow-hidden rounded-sm border border-[#edebe9]">
               <button
                 type="button"
@@ -808,7 +808,7 @@ export default function PosSaleDrawer({
           const hasActiveToday = (selectedPro?.active_count_today ?? 0) > 0;
           return (
             <div data-tour="pos-drawer-operaria" className={`border-b border-[#edebe9] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
-              <label className="mb-2 block text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Operaria</label>
+              <label className="mb-2 block text-[13px] font-semibold text-[#201f1e]">Operaria</label>
               <div className="relative" ref={sellerDropdownRef}>
                 <button
                   type="button"
@@ -928,7 +928,7 @@ export default function PosSaleDrawer({
               <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#8a6a1f] text-white"}`}>
                 {step3Done ? "✓" : "3"}
               </span>
-              <p className="text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Método de pago <span className="text-[#d13438]">*</span></p>
+              <p className="text-[13px] font-semibold text-[#201f1e]">Método de pago <span className="text-[#d13438]">*</span></p>
               {!step3Done && step1Done && (
                 <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>
               )}
@@ -1208,7 +1208,7 @@ export default function PosSaleDrawer({
       <div className="px-3 py-2">
       {/* Total */}
       <div className="mb-1.5 flex items-center justify-between rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2.5 py-1.5">
-        <span className="text-[13px] font-bold uppercase tracking-wide text-[#201f1e]">Total a cobrar</span>
+        <span className="text-[13px] font-semibold text-[#201f1e]">Total a cobrar</span>
         <span className="text-base font-bold text-[#094732]">Bs {total.toFixed(2)}</span>
       </div>
 
@@ -1421,7 +1421,7 @@ export default function PosSaleDrawer({
 
         {/* Total prominente */}
         <div className="w-full rounded-xl border-2 border-[#094732] bg-[#ecfdf5] py-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#605e5c]">Total a cobrar</p>
+          <p className="text-xs font-semibold text-[#605e5c]">Total a cobrar</p>
           <p className="mt-0.5 text-3xl font-black text-[#094732]">Bs {total.toFixed(2)}</p>
         </div>
 

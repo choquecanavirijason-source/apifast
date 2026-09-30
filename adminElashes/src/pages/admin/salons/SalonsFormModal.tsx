@@ -197,7 +197,7 @@ export default function SalonsFormModal({
             {form.opening_hours.map((dayItem, dayIndex) => (
               <div key={dayItem.day} className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2">
                 <div className="mb-1 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase text-[#605e5c]">{dayItem.day}</p>
+                  <p className="text-xs font-semibold text-[#605e5c] capitalize">{dayItem.day}</p>
                   <button
                     type="button"
                     onClick={() => onAddScheduleRange(dayIndex)}
