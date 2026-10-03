@@ -661,7 +661,7 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-[60] flex min-w-0 shrink-0 flex-col text-[#202522] [&_a]:cursor-pointer [&_button]:cursor-pointer [&_select]:cursor-pointer">
+    <header className="relative z-[45] flex min-w-0 shrink-0 flex-col text-[#202522] [&_a]:cursor-pointer [&_button]:cursor-pointer [&_select]:cursor-pointer">
       <div className="relative z-[80] flex h-13 min-w-0 items-center gap-2 border-b border-white/8 bg-[#094732] px-2.5 shadow-[0_1px_0_rgba(255,255,255,0.06)] sm:px-4">
       <div
         className={`flex min-w-0 shrink-0 items-center gap-1 transition-opacity duration-150 ${showMobileSearch ? "pointer-events-none opacity-0 md:pointer-events-auto md:opacity-100" : "opacity-100"}`}
@@ -915,8 +915,8 @@ export default function Header() {
 
         <div className="mx-1 hidden h-4 w-px bg-white/12 lg:block" />
 
-        <div className="hidden h-8 items-center gap-1.5 rounded-md border border-white/12 bg-white/8 px-2 text-emerald-50/85 2xl:flex">
-          <span className="text-[9px] uppercase tracking-[0.12em] text-emerald-100/55">
+        <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/12 bg-white/8 px-2 text-emerald-50/85">
+          <span className="hidden text-[9px] uppercase tracking-[0.12em] text-emerald-100/55 xl:inline">
             Sucursal
           </span>
           {canSelectBranch ? (

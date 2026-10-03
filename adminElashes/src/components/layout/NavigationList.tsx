@@ -47,14 +47,24 @@ export default function NavigationList({ onNavigate, rail = false, railExpanded 
     else acc.push({ name: group.section, groups: [group] });
     return acc;
   }, []);
+  const collapsed = rail && !railExpanded;
 
   return (
-    <nav aria-label="Navegación principal" className="flex flex-col gap-5">
-      {sections.map((section) => (
+    <nav
+      aria-label="Navegación principal"
+      className={`flex flex-col ${collapsed ? "gap-2 group-hover/rail:gap-5" : "gap-5"}`}
+    >
+      {sections.map((section, index) => (
         <div key={section.name} className="flex flex-col gap-1">
+          {/* Colapsado: línea divisoria en lugar del título (el título vuelve al pasar el mouse) */}
+          {collapsed && index > 0 && (
+            <div className="mx-auto mb-1 h-px w-6 bg-white/12 group-hover/rail:hidden" aria-hidden />
+          )}
           <p
-            className={`truncate px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#c4b08a]/80 ${
-              rail && !railExpanded ? "opacity-0 transition-opacity duration-200 group-hover/rail:opacity-100" : ""
+            className={`truncate px-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#c4b08a]/80 ${
+              collapsed
+                ? "hidden group-hover/rail:block group-hover/rail:py-1"
+                : "py-1"
             }`}
           >
             {section.name}

@@ -36,7 +36,7 @@ export default function SidebarNavigation() {
 
   return (
     <aside
-      className={`group/rail relative z-[65] hidden h-full shrink-0 flex-col overflow-hidden border-r border-black/15 bg-[#094732] shadow-[4px_0_18px_rgba(3,38,26,0.14)] transition-[width] duration-300 ease-in-out md:flex ${
+      className={`group/rail relative z-[45] hidden h-full shrink-0 flex-col overflow-hidden border-r border-black/15 bg-[#094732] shadow-[4px_0_18px_rgba(3,38,26,0.14)] transition-[width] duration-300 ease-in-out md:flex ${
         sidebarPinned ? "w-64" : "w-16 hover:w-64"
       }`}
     >

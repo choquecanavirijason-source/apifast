@@ -17,10 +17,12 @@ const STORAGE_KEY_PINNED = "elashes_sidebar_pinned";
 
 const LayoutContext = createContext<LayoutContextValue | null>(null);
 
+// La posición se guarda solo durante la sesión de la pestaña (sessionStorage):
+// al entrar de nuevo al panel siempre empieza en barra superior, como pidió el cliente.
 // Se lee en el estado inicial para que al recargar no parpadee el modo por defecto.
 const readMode = (): LayoutMode => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY_MODE);
+    const saved = sessionStorage.getItem(STORAGE_KEY_MODE);
     return saved === "sidebar" || saved === "top" ? saved : "top";
   } catch {
     return "top";
@@ -43,9 +45,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const setLayoutMode = useCallback((mode: LayoutMode) => {
     setLayoutModeState(mode);
     try {
-      localStorage.setItem(STORAGE_KEY_MODE, mode);
+      sessionStorage.setItem(STORAGE_KEY_MODE, mode);
     } catch {
-      // localStorage puede fallar en modo privado — simplemente no se recuerda.
+      // sessionStorage puede fallar en modo privado — simplemente no se recuerda.
     }
   }, []);
 
