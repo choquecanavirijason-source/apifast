@@ -4,6 +4,69 @@ import { theme as defaultColors } from '../../../styles/colors'
 import { useLogo } from '../../../core/hooks/useLogo'
 import useAuth from '../../../core/hooks/useAuth'
 import { ImagePlus, Trash2, CheckCircle2 } from 'lucide-react'
+import { SectionCard } from '../../../components/common/ui'
+
+const THEME_LABELS: Record<string, string> = { light: 'Claro', ocean: 'Océano', dark: 'Oscuro' }
+const THEME_SWATCH: Record<string, string> = { light: 'bg-[#f4f8f6]', ocean: 'bg-[#dcfce7]', dark: 'bg-[#021a12]' }
+const BTN_PRIMARY =
+  'inline-flex h-8 items-center rounded-lg bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50'
+const BTN_SECONDARY =
+  'inline-flex h-8 items-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-3 text-xs font-medium text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-hover)]'
+
+// Fuera del componente: si se definiera adentro, se recrearía en cada tecla y el campo perdería el foco.
+const isHex = (v: string) => /^#([0-9A-F]{6}|[0-9A-F]{3})$/i.test(v)
+const normalizeHex = (v: string) => {
+  if (!v) return ''
+  let s = v.trim()
+  if (!s.startsWith('#')) s = '#' + s
+  // expand #abc -> #aabbcc
+  if (/^#([0-9A-F]{3})$/i.test(s)) {
+    const m = s.slice(1)
+    s = '#' + m.split('').map(c => c + c).join('')
+  }
+  return s
+}
+
+const HexRow = ({ label, displayLabel, value, onChange, fallback }: { label: string; displayLabel: string; value: string; onChange: (v: string) => void; fallback: string }) => {
+  const kebab = label.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
+  const cssVar = `--${kebab}`
+  const computed = getComputedStyle(document.documentElement).getPropertyValue(cssVar)?.trim()
+  const current = value || computed || fallback
+  const normalized = normalizeHex(value || current)
+  const valid = isHex(normalized)
+
+  return (
+    <label className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-xs font-medium text-[var(--ui-text-muted)]">{displayLabel}</span>
+      <div className="flex items-center gap-2">
+        <span
+          className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-[var(--ui-border-strong)]"
+          style={{ background: valid ? normalized : 'transparent' }}
+        >
+          {/* Selector nativo invisible encima de la muestra */}
+          <input
+            type="color"
+            value={valid ? normalized : '#ffffff'}
+            onChange={e => onChange(normalizeHex(e.target.value))}
+            aria-label={`Elegir ${displayLabel}`}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </span>
+        <input
+          type="text"
+          placeholder="#rrggbb"
+          value={value || normalized}
+          onChange={e => onChange(e.target.value)}
+          className={`h-8 w-full min-w-0 rounded-lg border bg-[var(--ui-input)] px-2.5 font-mono text-xs uppercase text-[var(--ui-text)] outline-none transition focus:ring-2 ${
+            valid ? 'border-[var(--ui-border-strong)] focus:border-brand-secondary focus:ring-brand-secondary/20' : 'border-rose-300 focus:ring-rose-200'
+          }`}
+        />
+      </div>
+      {!valid && <span className="text-[11px] text-rose-600">Código de color inválido</span>}
+    </label>
+  )
+}
+
 
 export default function Settings() {
   const { hasRole } = useAuth()
@@ -37,40 +100,6 @@ export default function Settings() {
   }, [theme])
 
   // Helper for validating hex codes and normalizing
-  const isHex = (v: string) => /^#([0-9A-F]{6}|[0-9A-F]{3})$/i.test(v)
-  const normalizeHex = (v: string) => {
-    if (!v) return ''
-    let s = v.trim()
-    if (!s.startsWith('#')) s = '#' + s
-    // expand #abc -> #aabbcc
-    if (/^#([0-9A-F]{3})$/i.test(s)) {
-      const m = s.slice(1)
-      s = '#' + m.split('').map(c => c + c).join('')
-    }
-    return s
-  }
-
-  const HexRow = ({ label, value, onChange, fallback }: { label: string; value: string; onChange: (v: string) => void; fallback: string }) => {
-    const kebab = label.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-    const cssVar = `--${kebab}`
-    const computed = getComputedStyle(document.documentElement).getPropertyValue(cssVar)?.trim()
-    const current = value || computed || fallback
-    const normalized = normalizeHex(value || current)
-    const valid = isHex(normalized)
-
-    return (
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }}>
-        {label.replace(/([a-z])([A-Z])/g, '$1 $2')}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input type="color" value={normalized || '#ffffff'} onChange={e => onChange(normalizeHex(e.target.value))} />
-          <input type="text" placeholder="#rrggbb" value={value || normalized} onChange={e => onChange(e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: valid ? '1px solid var(--ui-border)' : '1px solid #f5c6cb', background: 'var(--ui-input)', color: 'var(--ui-text)', minWidth: 110 }} />
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: valid ? normalized : '#fff', border: '1px solid rgba(0,0,0,0.06)' }} />
-          {!valid && <span style={{ color: 'crimson', fontSize: 12 }}>Invalid hex</span>}
-        </div>
-      </label>
-    )
-  }
-
   const handleApplyCustom = () => {
     const root = document.documentElement
     if (primary) { const v = normalizeHex(primary); if (isHex(v)) root.style.setProperty('--primary', v) }
@@ -335,77 +364,88 @@ export default function Settings() {
       )}
 
       {/* ── TEMAS ───────────────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Temas</h3>
-        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-          {Object.keys(themes).map(key => (
-            <button
-              key={key}
-              onClick={() => handleSelectTheme(key)}
-              style={{ padding: '10px 14px', borderRadius: 10, border: theme === key ? '2px solid var(--accent)' : '1px solid var(--ui-border)', background: 'var(--ui-surface-muted)', color: 'var(--ui-text)', fontWeight: theme === key ? 600 : 500, cursor: 'pointer' }}
-            >
-              {key}
-            </button>
-          ))}
+      <SectionCard title="Tema" subtitle="Apariencia del panel en este navegador." className="mb-3">
+        <div className="flex flex-wrap gap-2">
+          {Object.keys(themes).map(key => {
+            const active = theme === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleSelectTheme(key)}
+                aria-pressed={active}
+                className={`inline-flex h-8 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
+                  active
+                    ? 'border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] font-semibold text-[var(--ui-accent)]'
+                    : 'border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]'
+                }`}
+              >
+                <span className={`h-3 w-3 rounded-full border border-black/10 ${THEME_SWATCH[key] ?? 'bg-[var(--ui-surface-muted)]'}`} aria-hidden />
+                {THEME_LABELS[key] ?? key}
+              </button>
+            )
+          })}
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Colores personalizados (Escritorio)</h3>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12, flexWrap: 'wrap' }}>
-          <HexRow label="Primary" value={primary} onChange={setPrimary} fallback={defaultColors.primary} />
-          <HexRow label="Secondary" value={secondary} onChange={setSecondary} fallback={defaultColors.secondary} />
-          <HexRow label="Accent" value={accent} onChange={setAccent} fallback={defaultColors.accent} />
-          <HexRow label="Bg" value={bg} onChange={setBg} fallback={defaultColors.bg} />
-          <HexRow label="Text" value={text} onChange={setText} fallback={defaultColors.text} />
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', marginTop: 8 }}>
-            <button onClick={handleApplyCustom} className="card" style={{ padding: '8px 12px', cursor: 'pointer' }} disabled={!(isHex(normalizeHex(primary || defaultColors.primary)) && isHex(normalizeHex(secondary || defaultColors.secondary)) && isHex(normalizeHex(accent || defaultColors.accent)) && isHex(normalizeHex(bg || defaultColors.bg)) && isHex(normalizeHex(text || defaultColors.text)))}>Apply</button>
-            <button onClick={() => {
-              setPrimary(''); setSecondary(''); setAccent(''); setBg(''); setText('')
-              localStorage.removeItem('ui:primary'); localStorage.removeItem('ui:secondary'); localStorage.removeItem('ui:accent'); localStorage.removeItem('ui:bg'); localStorage.removeItem('ui:text')
-              applyTheme(theme);
-            }} style={{ padding: '8px 12px', cursor: 'pointer' }}>Reset</button>
-          </div>
+      <SectionCard
+        title="Colores de la marca (escritorio)"
+        subtitle="Colores oficiales de E-Lashes. Son la referencia de la identidad visual; cambiarlos solo afecta a este navegador."
+        className="mb-3"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <HexRow label="Primary" displayLabel="Color principal" value={primary} onChange={setPrimary} fallback={defaultColors.primary} />
+          <HexRow label="Secondary" displayLabel="Color secundario" value={secondary} onChange={setSecondary} fallback={defaultColors.secondary} />
+          <HexRow label="Accent" displayLabel="Color de acento" value={accent} onChange={setAccent} fallback={defaultColors.accent} />
+          <HexRow label="Bg" displayLabel="Fondo" value={bg} onChange={setBg} fallback={defaultColors.bg} />
+          <HexRow label="Text" displayLabel="Texto" value={text} onChange={setText} fallback={defaultColors.text} />
         </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Colores para Aplicaciones móviles</h3>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12, flexWrap: 'wrap' }}>
-          <HexRow label="PrimaryMobile" value={primaryMobile} onChange={setPrimaryMobile} fallback={defaultColors.primary} />
-          <HexRow label="SecondaryMobile" value={secondaryMobile} onChange={setSecondaryMobile} fallback={defaultColors.secondary} />
-          <HexRow label="AccentMobile" value={accentMobile} onChange={setAccentMobile} fallback={defaultColors.accent} />
-          <HexRow label="BgMobile" value={bgMobile} onChange={setBgMobile} fallback={defaultColors.bg} />
-          <HexRow label="TextMobile" value={textMobile} onChange={setTextMobile} fallback={defaultColors.text} />
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', marginTop: 8 }}>
-            <button onClick={() => {
-              const root = document.documentElement
-              const p = normalizeHex(primaryMobile)
-              const s = normalizeHex(secondaryMobile)
-              const a = normalizeHex(accentMobile)
-              const b = normalizeHex(bgMobile)
-              const t = normalizeHex(textMobile)
-              if (isHex(p)) root.style.setProperty('--primary-mobile', p)
-              if (isHex(s)) root.style.setProperty('--secondary-mobile', s)
-              if (isHex(a)) root.style.setProperty('--accent-mobile', a)
-              if (isHex(b)) root.style.setProperty('--bg-mobile', b)
-              if (isHex(t)) root.style.setProperty('--text-mobile', t)
-              localStorage.setItem('ui:primaryMobile', p)
-              localStorage.setItem('ui:secondaryMobile', s)
-              localStorage.setItem('ui:accentMobile', a)
-              localStorage.setItem('ui:bgMobile', b)
-              localStorage.setItem('ui:textMobile', t)
-            }} className="card" style={{ padding: '8px 12px', cursor: 'pointer' }} disabled={!(isHex(normalizeHex(primaryMobile || defaultColors.primary)) && isHex(normalizeHex(secondaryMobile || defaultColors.secondary)) && isHex(normalizeHex(accentMobile || defaultColors.accent)) && isHex(normalizeHex(bgMobile || defaultColors.bg)) && isHex(normalizeHex(textMobile || defaultColors.text)))}>Apply mobile</button>
-
-            <button onClick={() => {
-              setPrimaryMobile(''); setSecondaryMobile(''); setAccentMobile(''); setBgMobile(''); setTextMobile('')
-              localStorage.removeItem('ui:primaryMobile'); localStorage.removeItem('ui:secondaryMobile'); localStorage.removeItem('ui:accentMobile'); localStorage.removeItem('ui:bgMobile'); localStorage.removeItem('ui:textMobile')
-            }} style={{ padding: '8px 12px', cursor: 'pointer' }}>Reset mobile</button>
-          </div>
+        <div className="mt-3 flex items-center gap-2 border-t border-[var(--ui-border)] pt-3">
+          <button type="button" onClick={handleApplyCustom} className={BTN_PRIMARY} disabled={!(isHex(normalizeHex(primary || defaultColors.primary)) && isHex(normalizeHex(secondary || defaultColors.secondary)) && isHex(normalizeHex(accent || defaultColors.accent)) && isHex(normalizeHex(bg || defaultColors.bg)) && isHex(normalizeHex(text || defaultColors.text)))}>Aplicar</button>
+          <button type="button" onClick={() => {
+            setPrimary(''); setSecondary(''); setAccent(''); setBg(''); setText('')
+            localStorage.removeItem('ui:primary'); localStorage.removeItem('ui:secondary'); localStorage.removeItem('ui:accent'); localStorage.removeItem('ui:bg'); localStorage.removeItem('ui:text')
+            applyTheme(theme);
+          }} className={BTN_SECONDARY}>Restablecer</button>
         </div>
-      </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Colores para aplicaciones móviles"
+        subtitle="Referencia de colores para la app móvil. Por ahora se guardan solo en este navegador."
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <HexRow label="PrimaryMobile" displayLabel="Color principal" value={primaryMobile} onChange={setPrimaryMobile} fallback={defaultColors.primary} />
+          <HexRow label="SecondaryMobile" displayLabel="Color secundario" value={secondaryMobile} onChange={setSecondaryMobile} fallback={defaultColors.secondary} />
+          <HexRow label="AccentMobile" displayLabel="Color de acento" value={accentMobile} onChange={setAccentMobile} fallback={defaultColors.accent} />
+          <HexRow label="BgMobile" displayLabel="Fondo" value={bgMobile} onChange={setBgMobile} fallback={defaultColors.bg} />
+          <HexRow label="TextMobile" displayLabel="Texto" value={textMobile} onChange={setTextMobile} fallback={defaultColors.text} />
+        </div>
+        <div className="mt-3 flex items-center gap-2 border-t border-[var(--ui-border)] pt-3">
+          <button type="button" onClick={() => {
+            const root = document.documentElement
+            const p = normalizeHex(primaryMobile)
+            const s = normalizeHex(secondaryMobile)
+            const a = normalizeHex(accentMobile)
+            const b = normalizeHex(bgMobile)
+            const t = normalizeHex(textMobile)
+            if (isHex(p)) root.style.setProperty('--primary-mobile', p)
+            if (isHex(s)) root.style.setProperty('--secondary-mobile', s)
+            if (isHex(a)) root.style.setProperty('--accent-mobile', a)
+            if (isHex(b)) root.style.setProperty('--bg-mobile', b)
+            if (isHex(t)) root.style.setProperty('--text-mobile', t)
+            localStorage.setItem('ui:primaryMobile', p)
+            localStorage.setItem('ui:secondaryMobile', s)
+            localStorage.setItem('ui:accentMobile', a)
+            localStorage.setItem('ui:bgMobile', b)
+            localStorage.setItem('ui:textMobile', t)
+          }} className={BTN_PRIMARY} disabled={!(isHex(normalizeHex(primaryMobile || defaultColors.primary)) && isHex(normalizeHex(secondaryMobile || defaultColors.secondary)) && isHex(normalizeHex(accentMobile || defaultColors.accent)) && isHex(normalizeHex(bgMobile || defaultColors.bg)) && isHex(normalizeHex(textMobile || defaultColors.text)))}>Aplicar</button>
+          <button type="button" onClick={() => {
+            setPrimaryMobile(''); setSecondaryMobile(''); setAccentMobile(''); setBgMobile(''); setTextMobile('')
+            localStorage.removeItem('ui:primaryMobile'); localStorage.removeItem('ui:secondaryMobile'); localStorage.removeItem('ui:accentMobile'); localStorage.removeItem('ui:bgMobile'); localStorage.removeItem('ui:textMobile')
+          }} className={BTN_SECONDARY}>Restablecer</button>
+        </div>
+      </SectionCard>
     </div>
   )
 }

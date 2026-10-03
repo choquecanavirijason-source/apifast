@@ -406,8 +406,6 @@ export default function Dashboard() {
       title="Centro de rol"
       subtitle="Panel principal · operaciones y finanzas"
       variant="cards"
-      pageClassName="min-h-0 bg-white"
-      containerClassName="!rounded-none !border-0 !bg-transparent !p-0 !shadow-none"
       toolbar={
         <div className="flex flex-col gap-3">
           {/* Filtros: una sola grilla, todos los campos del mismo ancho y alto */}
