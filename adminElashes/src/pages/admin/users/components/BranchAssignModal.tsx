@@ -75,20 +75,20 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-sm border border-[#edebe9] bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-lg border border-[var(--ui-border)] bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#edebe9] px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-[var(--ui-border)] px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <ArrowLeftRight className="h-4 w-4 text-[#0078d4]" />
+            <ArrowLeftRight className="h-4 w-4 text-[var(--ui-accent)]" />
             <div>
-              <h2 className="text-sm font-bold text-[#323130]">Reasignar sucursal</h2>
-              <p className="text-[11px] text-[#605e5c]">{user.username} · Origen: {homeBranchName}</p>
+              <h2 className="text-sm font-bold text-[var(--ui-text)]">Reasignar sucursal</h2>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">{user.username} · Origen: {homeBranchName}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-sm p-1 text-[#605e5c] hover:bg-[#f3f2f1]"
+            className="rounded-lg p-1 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -98,10 +98,10 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
         <div className="space-y-4 p-5">
           {/* Asignación temporal activa */}
           {hasTempActive && (
-            <div className="flex items-start justify-between rounded-sm border border-[#f0c477] bg-[#fff4ce] px-3 py-2.5">
+            <div className="flex items-start justify-between rounded-lg border border-[#f0c477] bg-[#fff4ce] px-3 py-2.5">
               <div>
                 <p className="text-[11px] font-semibold text-[#8a6a1f]">Asignación temporal activa</p>
-                <p className="text-[11px] text-[#605e5c]">
+                <p className="text-[11px] text-[var(--ui-text-muted)]">
                   Trabajando en otra sucursal hasta el {user.temp_branch_until}
                 </p>
               </div>
@@ -118,39 +118,39 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
           )}
 
           {/* Modo */}
-          <div className="flex overflow-hidden rounded-sm border border-[#edebe9]">
+          <div className="flex overflow-hidden rounded-lg border border-[var(--ui-border)]">
             <button
               type="button"
               onClick={() => setMode("temp")}
-              className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition ${mode === "temp" ? "bg-[#0078d4] text-white" : "bg-[#faf9f8] text-[#605e5c] hover:bg-[#f3f2f1]"}`}
+              className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition ${mode === "temp" ? "bg-brand text-white" : "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"}`}
             >
               Temporal
             </button>
             <button
               type="button"
               onClick={() => setMode("permanent")}
-              className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition ${mode === "permanent" ? "bg-[#d83b01] text-white" : "bg-[#faf9f8] text-[#605e5c] hover:bg-[#f3f2f1]"}`}
+              className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition ${mode === "permanent" ? "bg-[#d83b01] text-white" : "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"}`}
             >
               Permanente
             </button>
           </div>
 
           {mode === "permanent" && (
-            <p className="rounded-sm border border-[#f1adba] bg-[#fde7e9] px-3 py-2 text-[11px] text-[#a4262c]">
+            <p className="rounded-lg border border-[#f1adba] bg-[#fde7e9] px-3 py-2 text-[11px] text-[#a4262c]">
               Esto actualizará la sucursal de origen de la operaria de forma permanente.
             </p>
           )}
 
           {/* Sucursal destino */}
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[#605e5c]">
+            <label className="mb-1 block text-[11px] font-semibold text-[var(--ui-text-muted)]">
               <Building2 className="mr-1 inline h-3 w-3" />
               Sucursal destino
             </label>
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="w-full rounded-sm border border-[#edebe9] bg-white px-3 py-2 text-sm text-[#323130] outline-none focus:border-[#0078d4]"
+              className="w-full rounded-lg border border-[var(--ui-border)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-brand-secondary"
             >
               <option value="">Seleccionar...</option>
               {branches.map((b) => (
@@ -165,7 +165,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
           {/* Fecha de retorno (solo temporal) */}
           {mode === "temp" && (
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[#605e5c]">
+              <label className="mb-1 block text-[11px] font-semibold text-[var(--ui-text-muted)]">
                 Fecha de retorno
               </label>
               <input
@@ -173,9 +173,9 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
                 min={today}
                 value={tempUntil}
                 onChange={(e) => setTempUntil(e.target.value)}
-                className="w-full rounded-sm border border-[#edebe9] bg-white px-3 py-2 text-sm text-[#323130] outline-none focus:border-[#0078d4]"
+                className="w-full rounded-lg border border-[var(--ui-border)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-brand-secondary"
               />
-              <p className="mt-1 text-[10px] text-[#605e5c]">
+              <p className="mt-1 text-[10px] text-[var(--ui-text-muted)]">
                 A partir de esta fecha, la operaria vuelve automáticamente a {homeBranchName}.
               </p>
             </div>
@@ -183,7 +183,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 border-t border-[#edebe9] px-5 py-3">
+        <div className="flex gap-2 border-t border-[var(--ui-border)] px-5 py-3">
           <Button variant="secondary" fullWidth onClick={onClose} disabled={loading}>
             Cancelar
           </Button>

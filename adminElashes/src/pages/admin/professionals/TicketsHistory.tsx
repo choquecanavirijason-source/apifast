@@ -204,7 +204,7 @@ export default function TicketsHistoryPage() {
       header: "Código",
       sortable: true,
       render: (t) => (
-        <span className="font-mono text-xs font-bold text-[#0078d4]">
+        <span className="font-mono text-xs font-bold text-[var(--ui-accent)]">
           {t.ticket_code ?? `#${t.id}`}
         </span>
       ),
@@ -216,7 +216,7 @@ export default function TicketsHistoryPage() {
       render: (t) => (
         <div>
           <p className="font-semibold text-slate-800">{t.client_name || "Sin cliente"}</p>
-          {t.branch_name && <p className="text-[10px] text-[#a19f9d]">{t.branch_name}</p>}
+          {t.branch_name && <p className="text-[10px] text-[var(--ui-text-muted)]">{t.branch_name}</p>}
         </div>
       ),
     },
@@ -226,8 +226,8 @@ export default function TicketsHistoryPage() {
       sortable: true,
       getValue: (t) => t.service_names?.join(" · ") ?? (t.service_name ?? ""),
       render: (t) => (
-        <span className="text-xs text-[#323130]">
-          {t.service_names?.length ? t.service_names.join(" · ") : (t.service_name ?? <span className="text-[#a19f9d]">Sin servicio</span>)}
+        <span className="text-xs text-[var(--ui-text)]">
+          {t.service_names?.length ? t.service_names.join(" · ") : (t.service_name ?? <span className="text-[var(--ui-text-muted)]">Sin servicio</span>)}
         </span>
       ),
     },
@@ -237,11 +237,11 @@ export default function TicketsHistoryPage() {
       sortable: true,
       render: (t) =>
         t.professional_name ? (
-          <span className="rounded-full bg-[#f3f2f1] px-2 py-0.5 text-xs font-medium text-[#323130]">
+          <span className="rounded-full bg-[var(--ui-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--ui-text)]">
             {t.professional_name}
           </span>
         ) : (
-          <span className="text-xs text-[#a19f9d]">Sin asignar</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">Sin asignar</span>
         ),
     },
     {
@@ -252,20 +252,20 @@ export default function TicketsHistoryPage() {
       render: (t) =>
         t.start_time ? (
           <div className="text-xs">
-            <p className="font-semibold text-[#323130]">
+            <p className="font-semibold text-[var(--ui-text)]">
               {new Date(t.start_time).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
-            <p className="text-[#605e5c]">
+            <p className="text-[var(--ui-text-muted)]">
               {new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
-        ) : <span className="text-xs text-[#a19f9d]">—</span>,
+        ) : <span className="text-xs text-[var(--ui-text-muted)]">—</span>,
     },
     {
       key: "duration",
       header: "Duración",
       getValue: (t) => t.start_time,
-      render: (t) => <span className="text-xs text-[#605e5c]">{getDuration(t.start_time, t.end_time)}</span>,
+      render: (t) => <span className="text-xs text-[var(--ui-text-muted)]">{getDuration(t.start_time, t.end_time)}</span>,
     },
     {
       key: "status",
@@ -285,7 +285,7 @@ export default function TicketsHistoryPage() {
       render: (t) => {
         const total = getPrice(t);
         return (
-          <span className={`text-xs font-bold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[#a19f9d]"}`}>
+          <span className={`text-xs font-bold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[var(--ui-text-muted)]"}`}>
             {total > 0 ? moneyFormatter.format(total) : "—"}
           </span>
         );
@@ -298,9 +298,9 @@ export default function TicketsHistoryPage() {
       render: (t) => {
         const notes = trackingByAppointment.get(t.id)?.design_notes?.trim();
         return notes ? (
-          <span className="line-clamp-2 max-w-45 text-xs text-[#323130]" title={notes}>{notes}</span>
+          <span className="line-clamp-2 max-w-45 text-xs text-[var(--ui-text)]" title={notes}>{notes}</span>
         ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">—</span>
         );
       },
     },
@@ -313,7 +313,7 @@ export default function TicketsHistoryPage() {
         return q ? (
           <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">{q}</span>
         ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">—</span>
         );
       },
     },
@@ -409,35 +409,35 @@ export default function TicketsHistoryPage() {
       {activeTab === "servicios" && (
         <SectionCard bodyClassName="!p-4">
           <div className="mb-3 flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-[#0078d4]" />
-            <p className="text-sm font-bold text-[#323130]">Uso por servicio</p>
-            <span className="text-xs text-[#605e5c]">— {filteredTickets.length} tickets en el período</span>
+            <BarChart2 className="h-4 w-4 text-[var(--ui-accent)]" />
+            <p className="text-sm font-bold text-[var(--ui-text)]">Uso por servicio</p>
+            <span className="text-xs text-[var(--ui-text-muted)]">— {filteredTickets.length} tickets en el período</span>
           </div>
 
           {serviceStats.length === 0 ? (
-            <p className="py-6 text-center text-sm text-[#a19f9d]">No hay tickets para el período seleccionado.</p>
+            <p className="py-6 text-center text-sm text-[var(--ui-text-muted)]">No hay tickets para el período seleccionado.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {serviceStats.map(({ name, count, completed, revenue }) => {
                 const inv = getInventoryEstimate(name);
                 const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
                 return (
-                  <div key={name} className="rounded-lg border border-[#edebe9] bg-[#faf9f8] p-3">
+                  <div key={name} className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
                     {/* Nombre + badge tickets */}
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="font-semibold text-sm text-[#323130] leading-tight">{name}</p>
-                      <span className="shrink-0 rounded-full bg-[#0078d4]/10 px-2 py-0.5 text-[11px] font-bold text-[#0078d4]">
+                      <p className="font-semibold text-sm text-[var(--ui-text)] leading-tight">{name}</p>
+                      <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold text-[var(--ui-accent)]">
                         {count} ticket{count !== 1 ? "s" : ""}
                       </span>
                     </div>
 
                     {/* Barra progreso completados */}
                     <div className="mb-1.5">
-                      <div className="flex justify-between text-[10px] text-[#605e5c] mb-0.5">
+                      <div className="flex justify-between text-[10px] text-[var(--ui-text-muted)] mb-0.5">
                         <span>{completed} completados</span>
                         <span className="font-semibold">{pct}%</span>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-[#edebe9] overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-[var(--ui-surface-hover)] overflow-hidden">
                         <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
@@ -450,10 +450,10 @@ export default function TicketsHistoryPage() {
 
                     {/* Inventario estimado */}
                     {inv && (
-                      <div className="border-t border-[#edebe9] pt-2 mt-1">
+                      <div className="border-t border-[var(--ui-border)] pt-2 mt-1">
                         <div className="flex items-center gap-1 mb-1.5">
-                          <Package className="h-3 w-3 text-[#a19f9d]" />
-                          <span className="text-[11px] font-semibold text-[#a19f9d]">Estimado por sesión</span>
+                          <Package className="h-3 w-3 text-[var(--ui-text-muted)]" />
+                          <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">Estimado por sesión</span>
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {inv.adhesivo !== "—" && (

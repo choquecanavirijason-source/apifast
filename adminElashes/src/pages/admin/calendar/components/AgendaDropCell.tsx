@@ -20,7 +20,7 @@ export default function AgendaDropCell({ id, children, className = "", onClick, 
       onKeyDown={onKeyDown}
       onClick={onClick}
       className={`${className} ${
-        isOver ? "bg-[#deecf9] ring-2 ring-inset ring-[#0078d4]/45" : ""
+        isOver ? "bg-[var(--ui-accent-soft)] ring-2 ring-inset ring-brand-secondary/45" : ""
       }`}
     >
       {children}

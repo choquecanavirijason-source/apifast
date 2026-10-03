@@ -15,13 +15,13 @@ export default function ServicesToolbar({ onCreateCategory, search, onSearchChan
       <h2 className="text-lg font-semibold text-slate-800">Categorías de servicio</h2>
       <div className="flex flex-1 items-center justify-end gap-3">
         <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
           <input
             type="text"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Buscar categoría..."
-            className="h-9 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+            className="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white pl-9 pr-3 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
           />
         </div>
         <Button onClick={onCreateCategory} leftIcon={<Plus className="h-4 w-4" />}>

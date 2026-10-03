@@ -73,15 +73,14 @@ const AGENDA_POLL_MS = 20_000;
  * El verde de marca queda solo para el estado activo y la acción principal.
  */
 const TB_BTN =
-  "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#d2d0ce] bg-white px-2.5 text-xs font-semibold text-[#323130] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]";
+  "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[var(--ui-border-strong)] bg-white px-2.5 text-xs font-semibold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]";
 const TB_ICON_BTN =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]";
-const TB_DIVIDER = "hidden h-6 w-px shrink-0 bg-[#edebe9] sm:block";
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]";
+const TB_DIVIDER = "hidden h-6 w-px shrink-0 bg-[var(--ui-surface-hover)] sm:block";
 
 type AgendaViewMode = "planner" | "stations";
 type MainViewMode = "calendar" | "whatsapp";
 
-const MAIN_VIEW_STORAGE_KEY = "daily-agenda-main-view";
 const SCOPE_STEP_LABEL = {
   day: { prev: "Día anterior", next: "Día siguiente" },
   week: { prev: "Semana anterior", next: "Semana siguiente" },
@@ -177,15 +176,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     return closestCenter(args);
   };
 
-  const [mainView, setMainView] = useState<MainViewMode>(() => {
-    try {
-      const v = localStorage.getItem(MAIN_VIEW_STORAGE_KEY);
-      if (v === "calendar" || v === "whatsapp") return v;
-    } catch {
-      /* ignore */
-    }
-    return "calendar";
-  });
+  // Pedido del cliente: al entrar a la agenda siempre se ve "Calendario" (WhatsApp no se recuerda).
+  const [mainView, setMainView] = useState<MainViewMode>("calendar");
 
   // "Puestos por sección" oculto de momento: no hay asignación real de
   // operaria a puesto (solo llena columnas por orden de índice de la lista),
@@ -202,14 +194,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     }
   }, []);
 
-  const setMainViewMode = useCallback((mode: MainViewMode) => {
-    setMainView(mode);
-    try {
-      localStorage.setItem(MAIN_VIEW_STORAGE_KEY, mode);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const setMainViewMode = useCallback((mode: MainViewMode) => setMainView(mode), []);
 
   const handleValidationTicketUpdated = useCallback((updated: TicketItem) => {
     setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -707,7 +692,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         containerClassName={layoutContainerClass}
       >
         <SectionCard
-          className="mb-3 border border-[#e1dfdd] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          className="mb-3 border border-[var(--ui-border)] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           bodyClassName="px-3 py-2.5"
         >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -772,7 +757,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   onClick={() => shiftDate(-1)}
                   title={SCOPE_STEP_LABEL[calendarScope].prev}
                   aria-label={SCOPE_STEP_LABEL[calendarScope].prev}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -781,14 +766,14 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   aria-label="Fecha de la agenda"
-                  className="h-8 w-[132px] border-y border-[#d2d0ce] bg-white px-2 text-xs text-[#323130] outline-none focus:ring-1 focus:ring-brand/40"
+                  className="h-8 w-[132px] border-y border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:ring-1 focus:ring-brand/40"
                 />
                 <button
                   type="button"
                   onClick={() => shiftDate(1)}
                   title={SCOPE_STEP_LABEL[calendarScope].next}
                   aria-label={SCOPE_STEP_LABEL[calendarScope].next}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -816,7 +801,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       className={`flex min-w-[38px] shrink-0 flex-col items-center rounded-md border px-1 py-1 text-[10px] transition-colors ${
                         isSel
                           ? "border-brand bg-white font-semibold text-brand ring-1 ring-brand/20"
-                          : "border-[#edebe9] bg-white text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#201f1e]"
+                          : "border-[var(--ui-border)] bg-white text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                       }`}
                     >
                       <span className="capitalize leading-none">{short.replace(/\.$/, "")}</span>
@@ -877,15 +862,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 {printDropdownOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 top-full z-20 mt-1 min-w-[176px] rounded-md border border-[#e1dfdd] bg-white py-1 shadow-lg"
+                    className="absolute right-0 top-full z-20 mt-1 min-w-[176px] rounded-md border border-[var(--ui-border)] bg-white py-1 shadow-lg"
                   >
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() => { setPrintMode("planner"); setPrintDropdownOpen(false); }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[#323130] transition-colors hover:bg-[#f3f2f1]"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-hover)]"
                     >
-                      <List className="h-3.5 w-3.5 text-[#605e5c]" aria-hidden />
+                      <List className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" aria-hidden />
                       Vista planilla
                     </button>
                     {SHOW_STATIONS_TOGGLE && (
@@ -893,9 +878,9 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         type="button"
                         role="menuitem"
                         onClick={() => { setPrintMode("stations"); setPrintDropdownOpen(false); }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[#323130] transition-colors hover:bg-[#f3f2f1]"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-hover)]"
                       >
-                        <Columns3 className="h-3.5 w-3.5 text-[#605e5c]" aria-hidden />
+                        <Columns3 className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" aria-hidden />
                         Vista puestos 1–8
                       </button>
                     )}
@@ -932,13 +917,13 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
           onDragEnd={handleDragEnd}
         >
         {agendaView === "planner" ? (
-        <section data-tour="agenda-grid" className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
-          <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold text-[#201f1e] print:bg-[#f3f2f1]">
+        <section data-tour="agenda-grid" className="mb-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--ui-border-strong)] bg-white shadow-sm print:shadow-none">
+          <div className="border-b border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-3 py-2 text-center text-sm font-semibold text-[var(--ui-text)] print:bg-[var(--ui-surface-muted)]">
             {periodTitle}
           </div>
           {calendarScope === "day" && (
-            <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1">
-              <p className="text-[10px] text-[#605e5c]">FECHA DE INICIO ({weekdayUpper})</p>
+            <div className="flex items-center justify-between border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1">
+              <p className="text-[10px] text-[var(--ui-text-muted)]">FECHA DE INICIO ({weekdayUpper})</p>
               {openRangesMinutes !== null ? (
                 todayOpeningHours ? (
                   <p className="text-[10px] font-semibold text-[#107c10]">
@@ -1007,11 +992,11 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         ) : null}
 
         {agendaView === "stations" ? (
-        <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-sm">
-          <div className="border-b border-[#edebe9] bg-[#f3f2f1] px-3 py-2.5">
+        <section className="mb-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--ui-border)] bg-white shadow-sm">
+          <div className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold text-[#323130]">Puestos por sección</h2>
+                <h2 className="text-sm font-semibold text-[var(--ui-text)]">Puestos por sección</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   {stationSections.map((sec, idx) => {
                     const from = stationSections.slice(0, idx).reduce((s, x) => s + x.count, 0) + 1;
@@ -1020,14 +1005,14 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                       <span
                         key={sec.id}
                         style={{ background: sec.headerBg, color: sec.headerText }}
-                        className="rounded-sm px-2 py-0.5 text-[11px] font-semibold"
+                        className="rounded-lg px-2 py-0.5 text-[11px] font-semibold"
                       >
                         {from}–{to} · {sec.label}
                       </span>
                     );
                   })}
-                  <span className="text-[10px] text-[#605e5c]">
-                    · {GRID_FIRST_HOUR}:00–{GRID_LAST_HOUR}:00 · <strong className="text-[#323130]">{activeBranchLabel}</strong>
+                  <span className="text-[10px] text-[var(--ui-text-muted)]">
+                    · {GRID_FIRST_HOUR}:00–{GRID_LAST_HOUR}:00 · <strong className="text-[var(--ui-text)]">{activeBranchLabel}</strong>
                   </span>
                 </div>
               </div>
@@ -1035,7 +1020,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 <button
                   type="button"
                   onClick={() => setSectionsModalOpen(true)}
-                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border border-[#c8c6c4] bg-white px-2 py-1 text-[10px] font-semibold text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded border border-[var(--ui-border-strong)] bg-white px-2 py-1 text-[10px] font-semibold text-[var(--ui-text-muted)] transition hover:border-[#094732] hover:text-[#094732]"
                 >
                   <Settings2 className="h-3 w-3" />
                   Configurar
@@ -1051,7 +1036,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               }}
             >
               {/* ── Fila 1: encabezados de sección ─────────────────────────── */}
-              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#d0d0d0] px-1 py-2 text-[11px] font-semibold text-[#605e5c]">
+              <div className="sticky left-0 z-10 border border-[var(--ui-border)] bg-[#d0d0d0] px-1 py-2 text-[11px] font-semibold text-[var(--ui-text-muted)]">
                 Sección
               </div>
               {(() => {
@@ -1068,7 +1053,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                         background: section.headerBg,
                         color: section.headerText,
                       }}
-                      className="border border-[#edebe9] py-2 text-center text-[11px] font-semibold"
+                      className="border border-[var(--ui-border)] py-2 text-center text-[11px] font-semibold"
                     >
                       {section.label}
                       <span className="ml-1.5 rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-semibold">
@@ -1080,7 +1065,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               })()}
 
               {/* ── Fila 2: etiquetas de puesto (hora + operarias) ─────────── */}
-              <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#e8e8e8] px-1 py-2 text-[11px] font-semibold text-[#605e5c]">
+              <div className="sticky left-0 z-10 border border-[var(--ui-border)] bg-[#e8e8e8] px-1 py-2 text-[11px] font-semibold text-[var(--ui-text-muted)]">
                 Hora
               </div>
               {stationLabels.map((label, idx) => {
@@ -1089,7 +1074,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   <div
                     key={`${label}-${idx}`}
                     style={{ background: sec?.labelBg ?? "#ecfdf5", color: sec?.headerText ?? "#094732" }}
-                    className="border border-[#edebe9] px-1 py-2 text-center text-[10px] font-semibold leading-tight"
+                    className="border border-[var(--ui-border)] px-1 py-2 text-center text-[10px] font-semibold leading-tight"
                   >
                     {label}
                   </div>
@@ -1098,7 +1083,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
 
               {Array.from({ length: GRID_LAST_HOUR - GRID_FIRST_HOUR + 1 }, (_, i) => GRID_FIRST_HOUR + i).map((hour) => (
                 <div key={`row-${hour}`} className="contents">
-                  <div className="sticky left-0 z-10 border border-[#edebe9] bg-[#f3f2f1] px-2 py-3 text-xs font-semibold tabular-nums">
+                  <div className="sticky left-0 z-10 border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-3 text-xs font-semibold tabular-nums">
                     {String(hour).padStart(2, "0")}:00
                   </div>
                   {Array.from({ length: totalStations }, (_, col) => {
@@ -1119,7 +1104,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           if (activeDragTicket) return;
                           openNewModal(`${String(hour).padStart(2, "0")}:00`, pro?.id ?? null);
                         }}
-                        className="relative min-h-[88px] cursor-pointer border border-[#edebe9] bg-white p-1.5 transition hover:bg-[#faf9f8] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#094732]/35 sm:min-h-[96px]"
+                        className="relative min-h-[88px] cursor-pointer border border-[var(--ui-border)] bg-white p-1.5 transition hover:bg-[var(--ui-surface-hover)] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#094732]/35 sm:min-h-[96px]"
                       >
                         <div className="flex min-h-[80px] flex-wrap items-start gap-1 content-start">
                           {cellTickets.map((t) => (
@@ -1132,7 +1117,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                           ))}
                         </div>
                         <span
-                          className="pointer-events-none absolute bottom-0.5 right-0.5 rounded bg-white/90 px-1 text-[9px] text-[#a19f9d] opacity-60"
+                          className="pointer-events-none absolute bottom-0.5 right-0.5 rounded bg-white/90 px-1 text-[9px] text-[var(--ui-text-muted)] opacity-60"
                           aria-hidden
                         >
                           +
@@ -1148,7 +1133,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         ) : null}
 
         {isLoading ? (
-          <p className="mt-3 text-center text-xs text-[#605e5c]">Cargando reservas…</p>
+          <p className="mt-3 text-center text-xs text-[var(--ui-text-muted)]">Cargando reservas…</p>
         ) : null}
 
         <DragOverlay dropAnimation={null}>

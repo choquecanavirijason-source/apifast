@@ -50,13 +50,13 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
       {/* ── Info mínima ─────────────────────────────────────────────────── */}
       <div className="cursor-pointer" onClick={() => setDetailOpen((v) => !v)}>
         {/* Nombre — solo primer nombre */}
-        <div className={`truncate font-bold leading-tight text-[#004578] ${compact ? "text-[9px]" : "text-[10px]"}`}>
+        <div className={`truncate font-bold leading-tight text-[var(--ui-accent)] ${compact ? "text-[9px]" : "text-[10px]"}`}>
           {nombre}
         </div>
 
         {/* Servicio principal */}
         <div className="flex items-center gap-0.5">
-          <span className={`truncate text-[#323130] ${compact ? "text-[8px]" : "text-[9px]"}`}>
+          <span className={`truncate text-[var(--ui-text)] ${compact ? "text-[8px]" : "text-[9px]"}`}>
             {primaryService}
           </span>
           {extraCount > 0 && (
@@ -106,7 +106,7 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
         {!ticket.sale_id ? (
           <button
             type="button"
-            className={`rounded border border-[#0078d4]/40 bg-white font-semibold text-[#0078d4] hover:bg-[#deecf9] ${
+            className={`rounded border border-[var(--ui-accent)]/40 bg-white font-semibold text-[var(--ui-accent)] hover:bg-[var(--ui-accent-soft)] ${
               compact ? "px-1 py-0.5 text-[8px]" : "px-1.5 py-0.5 text-[9px]"
             }`}
             onClick={(e) => {

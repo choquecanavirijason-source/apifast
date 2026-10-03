@@ -452,20 +452,20 @@ export default function PosSaleStepTwo({
   };
 
   return (
-    <div className="flex h-[80dvh] max-h-dvh min-h-0 min-w-0 flex-col bg-[#f3f2f1] text-[#323130]">
+    <div className="flex h-[80dvh] max-h-dvh min-h-0 min-w-0 flex-col bg-[var(--ui-surface-muted)] text-[var(--ui-text)]">
       <p className="shrink-0 border-b border-[#c8e6d9] bg-[#ecfdf5] px-4 py-2 text-[11px] leading-snug text-[#094732]">
         Al confirmar la venta, los tickets en agenda se registran con la <strong>fecha y hora del momento del cobro</strong>{" "}
         (encadenados por duración). La vista del planificador es solo orientativa.
       </p>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-sm border border-[#edebe9] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-          <div className="flex shrink-0 items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3">
+        <div className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--ui-border)] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3">
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-[#094732]" />
-              <span className="text-sm font-semibold text-[#323130]">Planificador visual</span>
+              <span className="text-sm font-semibold text-[var(--ui-text)]">Planificador visual</span>
               {editingSaleCode ? (
-                <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-2 py-0.5 text-[10px] font-semibold text-[#8a6a1f]">
+                <span className="rounded-lg border border-[#f5d7a1] bg-[#fff4ce] px-2 py-0.5 text-[10px] font-semibold text-[#8a6a1f]">
                   Editando: {editingSaleCode}
                 </span>
               ) : null}
@@ -476,7 +476,7 @@ export default function PosSaleStepTwo({
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <label htmlFor="planner-date" className="text-[11px] font-medium text-[#605e5c]">
+              <label htmlFor="planner-date" className="text-[11px] font-medium text-[var(--ui-text-muted)]">
                 Fecha base
               </label>
               <input
@@ -484,7 +484,7 @@ export default function PosSaleStepTwo({
                 type="date"
                 value={calendarDate}
                 onChange={(event) => setCalendarDate(event.target.value || saleBaseDate)}
-                className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
               />
               <button
                 type="button"
@@ -493,7 +493,7 @@ export default function PosSaleStepTwo({
                   previous.setDate(weekStart.getDate() - 7);
                   setCalendarDate(toIsoDate(previous));
                 }}
-                className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs font-medium text-[#323130] transition hover:bg-[#f3f2f1]"
+                className="h-8 rounded-lg border border-[var(--ui-border)] bg-white px-2 text-xs font-medium text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
               >
                 Semana anterior
               </button>
@@ -504,7 +504,7 @@ export default function PosSaleStepTwo({
                   next.setDate(weekStart.getDate() + 7);
                   setCalendarDate(toIsoDate(next));
                 }}
-                className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs font-medium text-[#323130] transition hover:bg-[#f3f2f1]"
+                className="h-8 rounded-lg border border-[var(--ui-border)] bg-white px-2 text-xs font-medium text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
               >
                 Semana siguiente
               </button>
@@ -512,8 +512,8 @@ export default function PosSaleStepTwo({
           </div>
 
           {cartLines.length === 0 ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-16 text-[#605e5c]">
-              <div className="flex h-14 w-14 items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8]">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-16 text-[var(--ui-text-muted)]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
                 <ShoppingCart className="h-6 w-6 opacity-40" />
               </div>
               <div className="text-center">
@@ -524,14 +524,14 @@ export default function PosSaleStepTwo({
           ) : (
             <div className="relative min-h-0 flex flex-1 flex-col gap-2 xl:flex-row">
               <aside
-                className={`min-h-0 overflow-hidden rounded-sm bg-[#faf9f8] transition-all duration-300 ease-in-out ${
+                className={`min-h-0 overflow-hidden rounded-lg bg-[var(--ui-surface-muted)] transition-all duration-300 ease-in-out ${
                   isTicketsPanelOpen
-                    ? "xl:w-[360px] xl:border xl:border-[#edebe9] xl:p-3 xl:opacity-100"
+                    ? "xl:w-[360px] xl:border xl:border-[var(--ui-border)] xl:p-3 xl:opacity-100"
                     : "xl:w-0 xl:border-0 xl:p-0 xl:opacity-0"
                 }`}
               >
                 <div className="min-h-0 overflow-y-auto">
-                <p className="mb-2 text-xs font-semibold text-[#605e5c]">
+                <p className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">
                   Tickets (arrastra al calendario)
                 </p>
                 <div className="space-y-2">
@@ -550,25 +550,25 @@ export default function PosSaleStepTwo({
                           setDraggingLineId(line.localId);
                         }}
                         onDragEnd={() => setDraggingLineId(null)}
-                        className={`select-none rounded-sm border bg-white p-3 shadow-sm transition ${
+                        className={`select-none rounded-lg border bg-white p-3 shadow-sm transition ${
                           canScheduleTickets
                             ? `cursor-grab active:cursor-grabbing ${
                                 draggingLineId === line.localId
                                   ? "scale-[0.99] border-[#094732] opacity-80 ring-1 ring-[#094732]/45"
-                                  : "border-[#edebe9] hover:border-[#a7f3d0]"
+                                  : "border-[var(--ui-border)] hover:border-[#a7f3d0]"
                               }`
-                            : "cursor-not-allowed border-[#edebe9] opacity-90"
+                            : "cursor-not-allowed border-[var(--ui-border)] opacity-90"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[#323130]">
+                            <p className="truncate text-sm font-semibold text-[var(--ui-text)]">
                               {service?.name ?? "Servicio"}
                             </p>
-                            <p className="text-[11px] text-[#605e5c]">
+                            <p className="text-[11px] text-[var(--ui-text-muted)]">
                               {line.duration_minutes} min - Bs {line.price.toFixed(2)}
                             </p>
-                            <p className={`text-[10px] font-medium ${canScheduleTickets ? "text-[#094732]" : "text-[#a19f9d]"}`}>
+                            <p className={`text-[10px] font-medium ${canScheduleTickets ? "text-[#094732]" : "text-[var(--ui-text-muted)]"}`}>
                               {canScheduleTickets ? "Arrastra este ticket al calendario" : "Programación bloqueada hasta confirmar la venta"}
                             </p>
                           </div>
@@ -576,7 +576,7 @@ export default function PosSaleStepTwo({
                             type="button"
                             disabled={!canScheduleTickets}
                             onClick={() => openAvailabilityPreview(line.localId, assignedDate)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[#edebe9] bg-[#faf9f8] text-[#094732] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-45"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[#094732] transition hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-45"
                             title="Ver ocupación del día"
                           >
                             <CalendarDays className="h-3.5 w-3.5" />
@@ -587,7 +587,7 @@ export default function PosSaleStepTwo({
                           <select
                             value={line.service_id}
                             onChange={(event) => updateLine(line.localId, { service_id: event.target.value })}
-                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                            className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                           >
                             <option value="">Servicio…</option>
                             {services.map((serviceOption) => (
@@ -606,7 +606,7 @@ export default function PosSaleStepTwo({
                                 if (!event.target.value) updateLine(line.localId, { date: saleBaseDate });
                               }}
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)]"
                             />
                             <input
                               type="time"
@@ -628,7 +628,7 @@ export default function PosSaleStepTwo({
                                 })
                               }
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)]"
                             />
                           </div>
 
@@ -639,7 +639,7 @@ export default function PosSaleStepTwo({
                                 updateLine(line.localId, { professional_id: event.target.value })
                               }
                               disabled={!canScheduleTickets}
-                              className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[#f3f2f1]"
+                              className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35 disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)]"
                             >
                               <option value="">Operaria…</option>
                               {professionals.map((professional) => {
@@ -658,8 +658,8 @@ export default function PosSaleStepTwo({
                               })}
                             </select>
                             <label
-                              className={`inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-sm border border-[#edebe9] px-2 text-[11px] ${
-                                canScheduleTickets ? "text-[#605e5c]" : "cursor-not-allowed text-[#a19f9d]"
+                              className={`inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-[var(--ui-border)] px-2 text-[11px] ${
+                                canScheduleTickets ? "text-[var(--ui-text-muted)]" : "cursor-not-allowed text-[var(--ui-text-muted)]"
                               }`}
                             >
                               <input
@@ -672,7 +672,7 @@ export default function PosSaleStepTwo({
                                     time: event.target.checked ? "" : selectedHour || "09:00",
                                   })
                                 }
-                                className="rounded-sm border-[#8a8886] text-[#094732] focus:ring-[#094732] disabled:cursor-not-allowed"
+                                className="rounded-lg border-[var(--ui-border-strong)] text-[#094732] focus:ring-[#094732] disabled:cursor-not-allowed"
                               />
                               Sin hora
                             </label>
@@ -685,7 +685,7 @@ export default function PosSaleStepTwo({
                                 status: event.target.value === "in_service" ? "in_service" : "pending",
                               })
                             }
-                            className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                            className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                           >
                             {TICKET_STATUS_OPTIONS.map((statusOption) => (
                               <option key={statusOption.value} value={statusOption.value}>
@@ -713,7 +713,7 @@ export default function PosSaleStepTwo({
               <button
                 type="button"
                 onClick={() => setIsTicketsPanelOpen((current) => !current)}
-                className={`absolute left-0 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-r-sm border border-l-0 border-[#edebe9] bg-white p-1.5 text-[#605e5c] shadow-sm transition hover:bg-[#f3f2f1] xl:inline-flex ${
+                className={`absolute left-0 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-r-sm border border-l-0 border-[var(--ui-border)] bg-white p-1.5 text-[var(--ui-text-muted)] shadow-sm transition hover:bg-[var(--ui-surface-hover)] xl:inline-flex ${
                   isTicketsPanelOpen ? "xl:left-[360px]" : "xl:left-0"
                 }`}
                 title={isTicketsPanelOpen ? "Ocultar tickets" : "Mostrar tickets"}
@@ -722,8 +722,8 @@ export default function PosSaleStepTwo({
                 {isTicketsPanelOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
 
-              <section className="min-h-0 flex-1 overflow-auto rounded-sm border border-[#edebe9] bg-white">
-                <div className="flex items-center justify-end gap-2 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-2">
+              <section className="min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--ui-border)] bg-white">
+                <div className="flex items-center justify-end gap-2 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
                   <div className="mr-auto flex items-center gap-1">
                     <button
                       type="button"
@@ -732,7 +732,7 @@ export default function PosSaleStepTwo({
                         previousDay.setDate(previousDay.getDate() - 1);
                         setCalendarDate(toIsoDate(previousDay));
                       }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-[#8a8886] bg-white text-[#605e5c] transition hover:bg-[#f3f2f1]"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)]"
                       title="Ver día anterior"
                       aria-label="Ver día anterior"
                     >
@@ -745,7 +745,7 @@ export default function PosSaleStepTwo({
                         nextDay.setDate(nextDay.getDate() + 1);
                         setCalendarDate(toIsoDate(nextDay));
                       }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-[#8a8886] bg-white text-[#605e5c] transition hover:bg-[#f3f2f1]"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)]"
                       title="Ver día siguiente"
                       aria-label="Ver día siguiente"
                     >
@@ -758,7 +758,7 @@ export default function PosSaleStepTwo({
                         previousWeek.setDate(previousWeek.getDate() - 7);
                         setCalendarDate(toIsoDate(previousWeek));
                       }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-[#8a8886] bg-white text-[#605e5c] transition hover:bg-[#f3f2f1]"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)]"
                       title="Mover una semana a la izquierda"
                       aria-label="Mover una semana a la izquierda"
                     >
@@ -771,25 +771,25 @@ export default function PosSaleStepTwo({
                         nextWeek.setDate(nextWeek.getDate() + 7);
                         setCalendarDate(toIsoDate(nextWeek));
                       }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-[#8a8886] bg-white text-[#605e5c] transition hover:bg-[#f3f2f1]"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)]"
                       title="Mover una semana a la derecha"
                       aria-label="Mover una semana a la derecha"
                     >
                       <ChevronsRight className="h-4 w-4" />
                     </button>
                   </div>
-                  <label className="text-[11px] text-[#605e5c]">
+                  <label className="text-[11px] text-[var(--ui-text-muted)]">
                     Intervalo
                     <select
                       value={slotMinutes}
                       onChange={(event) => setSlotMinutes(event.target.value === "30" ? 30 : 60)}
-                      className="ml-1 h-7 rounded-sm border border-[#8a8886] px-1 text-xs"
+                      className="ml-1 h-7 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
                     >
                       <option value={60}>1 hora</option>
                       <option value={30}>30 minutos</option>
                     </select>
                   </label>
-                  <label className="text-[11px] text-[#605e5c]">
+                  <label className="text-[11px] text-[var(--ui-text-muted)]">
                     Hora inicial
                     <input
                       type="number"
@@ -800,10 +800,10 @@ export default function PosSaleStepTwo({
                         const next = Number(event.target.value);
                         setVisibleStartHour(Math.max(9, Math.min(19, Number.isFinite(next) ? next : 9)));
                       }}
-                      className="ml-1 h-7 w-14 rounded-sm border border-[#8a8886] px-1 text-xs"
+                      className="ml-1 h-7 w-14 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
                     />
                   </label>
-                  <label className="text-[11px] text-[#605e5c]">
+                  <label className="text-[11px] text-[var(--ui-text-muted)]">
                     Hora final
                     <input
                       type="number"
@@ -814,7 +814,7 @@ export default function PosSaleStepTwo({
                         const next = Number(event.target.value);
                         setVisibleEndHour(Math.max(9, Math.min(19, Number.isFinite(next) ? next : 19)));
                       }}
-                      className="ml-1 h-7 w-14 rounded-sm border border-[#8a8886] px-1 text-xs"
+                      className="ml-1 h-7 w-14 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
                     />
                   </label>
                 </div>
@@ -824,25 +824,25 @@ export default function PosSaleStepTwo({
                     gridTemplateColumns: `88px repeat(${Math.max(1, weekDays.length)}, minmax(170px, 1fr))`,
                   }}
                 >
-                  <div className="sticky top-0 z-20 border-b border-r border-[#edebe9] bg-[#faf9f8] px-2 py-2 text-[11px] font-semibold text-[#605e5c]">
+                  <div className="sticky top-0 z-20 border-b border-r border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-2 text-[11px] font-semibold text-[var(--ui-text-muted)]">
                     Hora
                   </div>
                   {weekDays.map((day) => (
                     <div
                       key={day.isoDate}
-                      className={`sticky top-0 z-20 border-b border-r border-[#edebe9] px-2 py-2 text-xs font-semibold text-[#323130] ${
-                        day.isoDate === todayIso ? "bg-[#ecfdf5]" : "bg-[#faf9f8]"
+                      className={`sticky top-0 z-20 border-b border-r border-[var(--ui-border)] px-2 py-2 text-xs font-semibold text-[var(--ui-text)] ${
+                        day.isoDate === todayIso ? "bg-[#ecfdf5]" : "bg-[var(--ui-surface-muted)]"
                       }`}
                     >
                       <p className="capitalize">{day.label}</p>
-                      <p className="text-[10px] font-medium text-[#605e5c]">{day.isoDate}</p>
+                      <p className="text-[10px] font-medium text-[var(--ui-text-muted)]">{day.isoDate}</p>
                     </div>
                   ))}
 
                   {calendarSlots.map((slot) => (
                     <div key={`row-${slot.minuteOfDay}`} className="contents">
                       <div
-                        className="border-b border-r border-[#edebe9] bg-[#faf9f8] px-2 py-2 text-xs font-medium text-[#605e5c]"
+                        className="border-b border-r border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-2 text-xs font-medium text-[var(--ui-text-muted)]"
                       >
                         {slot.label}
                       </div>
@@ -862,9 +862,9 @@ export default function PosSaleStepTwo({
                               if (canScheduleTickets) event.preventDefault();
                             }}
                             onDrop={(event) => handleDropInCell(event, day.isoDate, slot.hour, slot.minute)}
-                            className={`min-h-[74px] border-b border-r border-[#edebe9] p-1.5 transition-colors ${
+                            className={`min-h-[74px] border-b border-r border-[var(--ui-border)] p-1.5 transition-colors ${
                               hasFixedTickets
-                                ? "bg-[#f3f2f1]"
+                                ? "bg-[var(--ui-surface-muted)]"
                                 : hasConflicts
                                   ? "bg-[#fff4f4]"
                                   : day.isoDate === todayIso
@@ -894,18 +894,18 @@ export default function PosSaleStepTwo({
                                 return (
                                   <div
                                     key={`fixed-${ticket.id}`}
-                                    className="rounded-sm border border-[#c8c6c4] bg-[#e1dfdd] px-2 py-1 text-left text-[11px] text-[#323130]"
+                                    className="rounded-lg border border-[var(--ui-border-strong)] bg-[#e1dfdd] px-2 py-1 text-left text-[11px] text-[var(--ui-text)]"
                                     title="Ticket existente en agenda (no editable)"
                                   >
                                     <p className="truncate font-semibold">{serviceName}</p>
-                                    <p className="mt-0.5 text-[10px] leading-snug text-[#605e5c]">
-                                      <span className="font-medium text-[#323130]">
+                                    <p className="mt-0.5 text-[10px] leading-snug text-[var(--ui-text-muted)]">
+                                      <span className="font-medium text-[var(--ui-text)]">
                                         {startLabel} – {endLabel}
                                       </span>
-                                      <span className="text-[#605e5c]"> · {durationText}</span>
+                                      <span className="text-[var(--ui-text-muted)]"> · {durationText}</span>
                                     </p>
-                                    <p className="mt-0.5 truncate text-[10px] text-[#605e5c]">{professionalName}</p>
-                                    <p className="mt-0.5 truncate text-[10px] text-[#605e5c]">
+                                    <p className="mt-0.5 truncate text-[10px] text-[var(--ui-text-muted)]">{professionalName}</p>
+                                    <p className="mt-0.5 truncate text-[10px] text-[var(--ui-text-muted)]">
                                       {ticket.client_name || "Cliente"}
                                     </p>
                                   </div>
@@ -930,7 +930,7 @@ export default function PosSaleStepTwo({
                                       setDraggingLineId(line.localId);
                                     }}
                                     onDragEnd={() => setDraggingLineId(null)}
-                                    className={`rounded-sm border px-2 py-1 text-left text-[11px] shadow-sm transition ${
+                                    className={`rounded-lg border px-2 py-1 text-left text-[11px] shadow-sm transition ${
                                       availability?.available
                                         ? "border-[#c7e0b4] bg-[#f3f9ec] text-[#234f1e]"
                                         : "border-[#f1b6b8] bg-[#fff5f5] text-[#a4262c]"
@@ -951,25 +951,25 @@ export default function PosSaleStepTwo({
                                         onClick={() =>
                                           openAvailabilityPreview(line.localId, normalizeLineDate(line))
                                         }
-                                        className="rounded-sm border border-[#edebe9] bg-white/80 p-1 text-[#094732] hover:bg-white"
+                                        className="rounded-lg border border-[var(--ui-border)] bg-white/80 p-1 text-[#094732] hover:bg-white"
                                         title="Ver ocupación del día"
                                       >
                                         <CalendarDays className="h-3 w-3" />
                                       </button>
                                     </div>
-                                    <p className="mt-0.5 text-[10px] leading-snug text-[#323130]">
+                                    <p className="mt-0.5 text-[10px] leading-snug text-[var(--ui-text)]">
                                       <span className="font-semibold">
                                         {startLabel}
                                         {endLabel ? ` – ${endLabel}` : ""}
                                       </span>
-                                      <span className="text-[#605e5c]"> · {durationText}</span>
+                                      <span className="text-[var(--ui-text-muted)]"> · {durationText}</span>
                                       {" · "}
                                       {professionalNameById.get(line.professional_id) ?? "Sin operaria"}
                                       {!availability?.available
                                         ? ` · ${availability?.conflictCount ?? 1} conflicto(s)`
                                         : ""}
                                     </p>
-                                    <p className="mt-0.5 truncate text-[10px] text-[#605e5c]">
+                                    <p className="mt-0.5 truncate text-[10px] text-[var(--ui-text-muted)]">
                                       Cliente: {clientDisplayName}
                                     </p>
                                     <div className="mt-1 grid grid-cols-[1fr_auto] gap-1.5">
@@ -979,9 +979,9 @@ export default function PosSaleStepTwo({
                                         onChange={(event) =>
                                           updateLine(line.localId, { date: event.target.value || normalizeLineDate(line) })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                                        className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[10px] text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       />
-                                      <span className="inline-flex items-center rounded-sm border border-[#edebe9] bg-[#faf9f8] px-2 text-[10px] text-[#605e5c]">
+                                      <span className="inline-flex items-center rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 text-[10px] text-[var(--ui-text-muted)]">
                                         Fecha
                                       </span>
                                     </div>
@@ -1003,14 +1003,14 @@ export default function PosSaleStepTwo({
                                             without_time: false,
                                           })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                                        className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[10px] text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       />
                                       <select
                                         value={line.professional_id}
                                         onChange={(event) =>
                                           updateLine(line.localId, { professional_id: event.target.value })
                                         }
-                                        className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[10px] text-[#323130] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
+                                        className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[10px] text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/35"
                                       >
                                         <option value="">Operaria…</option>
                                         {professionals.map((professional) => {
@@ -1033,7 +1033,7 @@ export default function PosSaleStepTwo({
                               })}
 
                               {cellLines.length === 0 && fixedCellTickets.length === 0 ? (
-                                <p className="mt-auto text-center text-[10px] text-[#a19f9d]">
+                                <p className="mt-auto text-center text-[10px] text-[var(--ui-text-muted)]">
                                   Suelta ticket aqui
                                 </p>
                               ) : null}
@@ -1063,7 +1063,7 @@ export default function PosSaleStepTwo({
         </button>
         <div className="flex flex-col items-end gap-1">
           {hasConflicts && !isSubmitting && (
-            <p className="max-w-xs rounded-sm border border-[#f1b6b8] bg-[#fde7e9] px-3 py-1.5 text-right text-[11px] font-semibold text-[#a4262c]">
+            <p className="max-w-xs rounded-lg border border-[#f1b6b8] bg-[#fde7e9] px-3 py-1.5 text-right text-[11px] font-semibold text-[#a4262c]">
               ⚠ {conflictSummary}
             </p>
           )}

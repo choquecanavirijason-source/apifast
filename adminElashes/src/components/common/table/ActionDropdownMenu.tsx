@@ -85,7 +85,7 @@ export function ActionDropdownMenu<T>({ actions, item, anchorRect, onClose }: Pr
         <button
           key={idx}
           onClick={() => { action.onClick(item); onClose(); }}
-          className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors hover:bg-sky-50 ${
+          className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors hover:bg-sky-50 ${
             action.variant === "danger" ? "text-red-600" : action.variant === "primary" ? "text-blue-600" : "text-[var(--ui-text)]"
           }`}
         >

@@ -161,11 +161,11 @@ export default function RegisterClientModal({
     email: "",
     branch_id: "",
   });
-  const bcLabelClass = "block text-xs font-semibold text-[#605e5c]";
+  const bcLabelClass = "block text-xs font-semibold text-[var(--ui-text-muted)]";
   const bcSelectClass =
-    "h-10 w-full rounded-md border border-[#d2d0ce] bg-white px-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20";
+    "h-10 w-full rounded-md border border-[var(--ui-border-strong)] bg-white px-3 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20";
   const bcInputClass =
-    "!h-10 !rounded-md !border-[#d2d0ce] !text-[#323130] focus:!border-[#0078d4] focus:!ring-[#0078d4]/20";
+    "!h-10 !rounded-md !border-[var(--ui-border-strong)] !text-[var(--ui-text)] focus:!border-[var(--ui-accent)] focus:!ring-brand-secondary/20";
 
   useEffect(() => {
     if (!isOpen) {
@@ -323,7 +323,7 @@ export default function RegisterClientModal({
             onChange={handleInputChange}
             error={fieldErrors.nombre || undefined}
             className={bcInputClass}
-            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
           />
           <InputField
             name="apellido"
@@ -334,7 +334,7 @@ export default function RegisterClientModal({
             onChange={handleInputChange}
             error={fieldErrors.apellido || undefined}
             className={bcInputClass}
-            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
           />
 
           <InputField
@@ -348,10 +348,10 @@ export default function RegisterClientModal({
             onChange={handleInputChange}
             error={fieldErrors.edad || undefined}
             className={bcInputClass}
-            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3"
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
           />
 
-          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+          <div className="space-y-1.5 rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
             <label className={bcLabelClass} htmlFor="sexo-registro">
               Sexo
             </label>
@@ -369,7 +369,7 @@ export default function RegisterClientModal({
             </select>
           </div>
 
-          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2">
+          <div className="space-y-1.5 rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2">
             <label className={bcLabelClass} htmlFor="phone-registro">
               Telefono
             </label>
@@ -410,7 +410,7 @@ export default function RegisterClientModal({
             onChange={handleInputChange}
             error={fieldErrors.email || undefined}
             className={bcInputClass}
-            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2"
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2"
           />
 
           <InputField
@@ -420,10 +420,10 @@ export default function RegisterClientModal({
             value={formValues.ci}
             onChange={handleInputChange}
             className={bcInputClass}
-            containerClassName="rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2"
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2"
           />
 
-          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3">
+          <div className="space-y-1.5 rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
             <label className={bcLabelClass} htmlFor="tipo-ojos-registro">
               Tipo de Ojos
             </label>
@@ -449,7 +449,7 @@ export default function RegisterClientModal({
                 <button
                   type="button"
                   onClick={onRetryEyeTypes}
-                  className="text-xs font-semibold text-[#0078d4] hover:underline"
+                  className="text-xs font-semibold text-[var(--ui-accent)] hover:underline"
                 >
                   Reintentar
                 </button>
@@ -457,7 +457,7 @@ export default function RegisterClientModal({
             ) : null}
           </div>
 
-          <div className="space-y-1.5 rounded-md border border-[#edebe9] bg-[#faf9f8] p-3 sm:col-span-2">
+          <div className="space-y-1.5 rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2">
             <label className={bcLabelClass} htmlFor="branch-registro">
               Sucursal {mode === "create" ? <span className="text-rose-600">*</span> : null}
             </label>
@@ -486,7 +486,7 @@ export default function RegisterClientModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-[#edebe9] pt-4">
+        <div className="mt-6 flex justify-end gap-3 border-t border-[var(--ui-border)] pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

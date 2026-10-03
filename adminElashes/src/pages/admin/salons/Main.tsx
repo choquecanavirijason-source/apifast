@@ -413,7 +413,7 @@ export default function SalonsPage() {
         variant="cards"
         toolbar={renderToolbar()}
       >
-        <div className="rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-4">
+        <div className="rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-4">
           {pageView === "integrations" ? (
             <div className="space-y-4">
               <IntegrationProfilesManager
@@ -434,7 +434,7 @@ export default function SalonsPage() {
                         onClick={() => setIntegrationSalonId(salon.id)}
                         className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
                           integrationSalonId === salon.id
-                            ? "border-[#0078d4] bg-[#deecf9] font-semibold text-[#004578]"
+                            ? "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] font-semibold text-[var(--ui-accent)]"
                             : "border-transparent hover:bg-slate-50"
                         }`}
                       >
@@ -457,13 +457,13 @@ export default function SalonsPage() {
           {pageView === "salons" ? (
           <>
           <div className="relative w-full md:w-96">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
             <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por salon, direccion, ciudad o departamento"
-              className="w-full rounded-sm border border-[#8a8886] bg-white py-2.5 pl-9 pr-3 text-sm text-[#323130] outline-none ring-0 transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white py-2.5 pl-9 pr-3 text-sm text-[var(--ui-text)] outline-none ring-0 transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
             />
           </div>
 
@@ -471,7 +471,7 @@ export default function SalonsPage() {
             <select
               value={departmentFilter}
               onChange={(event) => handleDepartmentFilterChange(event.target.value)}
-              className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2.5 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
             >
               <option value="">Todos los paises</option>
               {COUNTRY_OPTIONS.map((country) => (
@@ -484,7 +484,7 @@ export default function SalonsPage() {
             <select
               value={cityFilter}
               onChange={(event) => setCityFilter(event.target.value)}
-              className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2.5 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+              className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2.5 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
             >
               <option value="">Todas las ciudades</option>
               {availableFilterCities.map((city) => (
@@ -497,32 +497,32 @@ export default function SalonsPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
-              <div className="col-span-full rounded-sm border border-dashed border-[#c8c6c4] bg-white py-10 text-center text-sm text-[#605e5c]">
+              <div className="col-span-full rounded-lg border border-dashed border-[var(--ui-border-strong)] bg-white py-10 text-center text-sm text-[var(--ui-text-muted)]">
                 Cargando sucursales...
               </div>
             ) : null}
 
             {!isLoading && filteredSalons.length === 0 ? (
-              <div className="col-span-full rounded-sm border border-dashed border-[#c8c6c4] bg-white py-10 text-center text-sm text-[#605e5c]">
+              <div className="col-span-full rounded-lg border border-dashed border-[var(--ui-border-strong)] bg-white py-10 text-center text-sm text-[var(--ui-text-muted)]">
                 No se encontraron salones.
               </div>
             ) : null}
 
             {!isLoading && filteredSalons.map((salon) => (
-              <div key={salon.id} className="rounded-sm border border-[#d2d0ce] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+              <div key={salon.id} className="rounded-lg border border-[var(--ui-border-strong)] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="flex items-center gap-2 text-lg font-semibold text-[#323130]">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold text-[var(--ui-text)]">
                       <Store className="h-4 w-4" /> {salon.name}
                     </h3>
-                    <p className="text-sm text-[#605e5c]">Sucursal registrada</p>
+                    <p className="text-sm text-[var(--ui-text-muted)]">Sucursal registrada</p>
                   </div>
-                  <span className="rounded-sm border border-[#b7dfb0] bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2d7d2a]">
+                  <span className="rounded-lg border border-[#b7dfb0] bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2d7d2a]">
                     Activo
                   </span>
                 </div>
 
-                <div className="mt-3 space-y-1 text-sm text-[#605e5c]">
+                <div className="mt-3 space-y-1 text-sm text-[var(--ui-text-muted)]">
                   <p>Direccion: {salon.address || "-"}</p>
                   <p>Ciudad: {salon.city || "-"}</p>
                   <p>Pais: {salon.department || "-"}</p>
@@ -533,21 +533,21 @@ export default function SalonsPage() {
                     <button
                       type="button"
                       onClick={() => openIntegrationsForSalon(salon)}
-                      className="inline-flex items-center gap-1 rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
                     >
                       <Settings2 className="h-3.5 w-3.5" /> API WhatsApp
                     </button>
                     <button
                       type="button"
                       onClick={() => openEdit(salon)}
-                      className="inline-flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
                     >
                       <Pencil className="h-3.5 w-3.5" /> Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => requestRemoveSalon(salon)}
-                      className="inline-flex items-center gap-1 rounded-sm border border-[#f1b6b8] bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#a4262c] transition hover:bg-[#fde7e9]"
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#f1b6b8] bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#a4262c] transition hover:bg-[#fde7e9]"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Eliminar
                     </button>

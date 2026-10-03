@@ -278,7 +278,7 @@ export default function PosTutorialModal({ onClose, setIsCartOpen, setDrawerForc
 
       {/* Tarjeta */}
       <div
-        className="fixed flex flex-col overflow-hidden rounded-sm border border-[#d2d0ce] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
+        className="fixed flex flex-col overflow-hidden rounded-lg border border-[var(--ui-border-strong)] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
         style={{ top: cardTop, left: cardLeft, width: CARD_W }}
       >
         <div className="flex items-start gap-3 bg-[#094732] px-4 pb-4 pt-4">
@@ -292,24 +292,24 @@ export default function PosTutorialModal({ onClose, setIsCartOpen, setDrawerForc
             type="button"
             onClick={finish}
             aria-label="Cerrar guía"
-            className="-mr-1 -mt-1 rounded-sm p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="-mr-1 -mt-1 rounded-lg p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         <div className="px-4 py-3">
-          <p className="text-xs leading-relaxed text-[#323130]">{step.description}</p>
+          <p className="text-xs leading-relaxed text-[var(--ui-text)]">{step.description}</p>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-[#edebe9] bg-[#faf9f8] px-4 py-2.5">
-          <span className="text-[11px] font-semibold text-[#a19f9d]">{stepIndex + 1} / {steps.length}</span>
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-2.5">
+          <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{stepIndex + 1} / {steps.length}</span>
           <div className="flex items-center gap-1.5">
             {!isFirst && (
               <button
                 type="button"
                 onClick={prev}
-                className="flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+                className="flex items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Atrás
@@ -318,7 +318,7 @@ export default function PosTutorialModal({ onClose, setIsCartOpen, setDrawerForc
             <button
               type="button"
               onClick={next}
-              className="flex items-center gap-1 rounded-sm bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
+              className="flex items-center gap-1 rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
             >
               {isLast ? "Empezar a vender" : "Siguiente"}
               {!isLast && <ChevronRight className="h-3.5 w-3.5" />}

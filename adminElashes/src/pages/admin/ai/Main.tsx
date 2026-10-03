@@ -248,7 +248,7 @@ export default function AdminAiPage() {
         <div className="space-y-4">
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#0078d4]" />
+              <Sparkles className="h-5 w-5 text-[var(--ui-accent)]" />
               <h2 className="text-sm font-bold text-slate-800">Resumen que ve la IA</h2>
             </div>
             {loadingContext ? (
@@ -258,10 +258,10 @@ export default function AdminAiPage() {
                 {contextCards.map((card) => (
                   <div
                     key={card.label}
-                    className="rounded-lg border border-[#deecf9] bg-[#f3f9fd] px-2 py-2 text-center"
+                    className="rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-accent-soft)] px-2 py-2 text-center"
                   >
-                    <p className="text-[11px] font-semibold text-[#605e5c]">{card.label}</p>
-                    <p className="text-sm font-bold text-[#004578]">{card.value}</p>
+                    <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{card.label}</p>
+                    <p className="text-sm font-bold text-[var(--ui-accent)]">{card.value}</p>
                   </div>
                 ))}
               </div>
@@ -300,7 +300,7 @@ export default function AdminAiPage() {
                     key={`${idx}-${msg.role}`}
                     className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
                       msg.role === "user"
-                        ? "ml-auto bg-[#0078d4] text-white"
+                        ? "ml-auto bg-brand text-white"
                         : "mr-auto border border-slate-200 bg-slate-50 text-slate-800"
                     }`}
                   >

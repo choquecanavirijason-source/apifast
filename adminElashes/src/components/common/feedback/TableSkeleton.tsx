@@ -23,7 +23,7 @@ export default function TableSkeleton({
               key={`skeleton-cell-${rowIndex}-${colIndex}`}
               className="border-b border-r border-slate-200/90 px-2.5 py-2 last:border-r-0"
             >
-              <div className="h-3.5 w-full max-w-[12rem] rounded-sm bg-slate-200/80" />
+              <div className="h-3.5 w-full max-w-[12rem] rounded-lg bg-slate-200/80" />
             </td>
           ))}
         </tr>

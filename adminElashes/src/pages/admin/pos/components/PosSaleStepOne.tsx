@@ -178,8 +178,8 @@ export default function PosSaleStepOne({
       <div className="min-h-0 w-full flex-1 overflow-hidden">
         {catalogView === "servicios" ? (
           <ServiceSelectorCard
-            labelClass="mb-2 block text-sm font-semibold text-[#323130]"
-            fieldClass="h-9 w-full rounded-sm border border-[#8a8886] text-sm focus:border-[#094732] focus:ring-0"
+            labelClass="mb-2 block text-sm font-semibold text-[var(--ui-text)]"
+            fieldClass="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] text-sm focus:border-[#094732] focus:ring-0"
             serviceSearch={serviceSearch}
             onServiceSearchChange={onServiceSearchChange}
             onServiceInputFocus={onServiceInputFocus}
@@ -201,8 +201,8 @@ export default function PosSaleStepOne({
           />
         ) : (
           <ProductSelectorCard
-            labelClass="mb-2 block text-sm font-semibold text-[#323130]"
-            fieldClass="h-9 w-full rounded-sm border border-[#8a8886] text-sm focus:border-[#094732] focus:ring-0"
+            labelClass="mb-2 block text-sm font-semibold text-[var(--ui-text)]"
+            fieldClass="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] text-sm focus:border-[#094732] focus:ring-0"
             products={products}
             productLines={productLines}
             onAddProductToCart={handleAddProductToCart}

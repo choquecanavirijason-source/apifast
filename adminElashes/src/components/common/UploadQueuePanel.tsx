@@ -17,19 +17,19 @@ export default function UploadQueuePanel() {
             ) : (
               <Upload className="h-4 w-4 shrink-0 text-[#094732]" />
             )}
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#323130]">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ui-text)]">
               {task.label}
             </span>
             <button
               type="button"
               onClick={() => dismiss(task.id)}
-              className="shrink-0 rounded p-0.5 text-[#a19f9d] hover:bg-[#f3f2f1] hover:text-[#323130]"
+              className="shrink-0 rounded p-0.5 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <div className="mt-2 text-xs text-[#605e5c]">
+          <div className="mt-2 text-xs text-[var(--ui-text-muted)]">
             {task.status === "queued" && "En cola…"}
             {task.status === "uploading" && `Subiendo… ${task.progress}%`}
             {task.status === "processing" && (

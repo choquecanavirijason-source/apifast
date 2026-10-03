@@ -442,13 +442,13 @@ export default function ReservationDrawer({
                         className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
                           count > 0
                             ? "border-[#094732] shadow-[0_0_0_2px_rgba(9,71,50,0.15)]"
-                            : "border-[#edebe9] hover:border-[#094732]"
+                            : "border-[var(--ui-border)] hover:border-[#094732]"
                         }`}
                       >
                         <button
                           type="button"
                           onClick={() => addServiceById(String(service.id))}
-                          className="relative h-24 w-full shrink-0 bg-[#f3f2f1] focus:outline-none"
+                          className="relative h-24 w-full shrink-0 bg-[var(--ui-surface-muted)] focus:outline-none"
                         >
                           {service.image_url ? (
                             <img
@@ -457,7 +457,7 @@ export default function ReservationDrawer({
                               className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#c8c6c4]">
+                            <div className="flex h-full w-full items-center justify-center text-lg font-black text-[var(--ui-text-muted)]">
                               {service.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
@@ -465,11 +465,11 @@ export default function ReservationDrawer({
 
                         <div className="flex items-center justify-between gap-1.5 px-2 py-2">
                           <div className="min-w-0">
-                            <p className="line-clamp-1 text-xs font-semibold text-[#323130]" title={service.name}>
+                            <p className="line-clamp-1 text-xs font-semibold text-[var(--ui-text)]" title={service.name}>
                               {service.name}
                             </p>
                             <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
-                            <p className="text-[10px] text-[#8a8886]">{service.duration_minutes} min</p>
+                            <p className="text-[10px] text-[var(--ui-text-muted)]">{service.duration_minutes} min</p>
                           </div>
 
                           {count === 0 ? (
@@ -486,7 +486,7 @@ export default function ReservationDrawer({
                               <button
                                 type="button"
                                 onClick={() => removeOneServiceFromCart(service.id)}
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d2d0ce] bg-white text-sm font-bold leading-none text-[#323130] shadow-sm transition hover:bg-[#f3f2f1]"
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-sm font-bold leading-none text-[var(--ui-text)] shadow-sm transition hover:bg-[var(--ui-surface-hover)]"
                                 aria-label={`Quitar ${service.name}`}
                               >
                                 −

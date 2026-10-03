@@ -118,7 +118,7 @@ export function ticketCardClass(status?: string | null): string {
   if (s === "completed" || s === "finalizado" || s === "atendido") {
     return "border-[#094732]/40 bg-[#ecfdf5] text-[#094732]";
   }
-  return "border-[#b4d7f0] bg-[#f0f6fc] text-[#004578]";
+  return "border-[var(--ui-border-strong)] bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]";
 }
 
 export function newLocalId() {

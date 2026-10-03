@@ -9,7 +9,7 @@ import { AuditLogService, type AuditLogOut } from "@/core/services/audit-log/aud
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 const fieldClass =
-  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35";
+  "w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35";
 
 const dateTimeFmt = (iso: string) =>
   iso ? new Date(iso).toLocaleString("es-BO", { dateStyle: "medium", timeStyle: "short" }) : "—";
@@ -59,14 +59,14 @@ function AuditLogDetailModal({ log, onClose }: { log: AuditLogOut; onClose: () =
         <div className="grid grid-cols-2 gap-3">
           {rows.map((r) => (
             <div key={r.label}>
-              <p className="text-[11px] font-semibold text-[#605e5c]">{r.label}</p>
-              <p className="text-sm font-medium text-[#323130]">{r.value}</p>
+              <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{r.label}</p>
+              <p className="text-sm font-medium text-[var(--ui-text)]">{r.value}</p>
             </div>
           ))}
         </div>
-        <div className="border-t border-[#edebe9] pt-3">
-          <p className="text-[11px] font-semibold text-[#605e5c]">Descripción</p>
-          <p className="mt-1 text-sm text-[#323130]">{log.description}</p>
+        <div className="border-t border-[var(--ui-border)] pt-3">
+          <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">Descripción</p>
+          <p className="mt-1 text-sm text-[var(--ui-text)]">{log.description}</p>
         </div>
       </div>
     </GenericModal>
@@ -135,13 +135,13 @@ export default function AuditLog() {
       header: "Fecha",
       sortable: true,
       getValue: (l) => l.created_at,
-      render: (l) => <span className="text-xs text-[#605e5c]">{dateTimeFmt(l.created_at)}</span>,
+      render: (l) => <span className="text-xs text-[var(--ui-text-muted)]">{dateTimeFmt(l.created_at)}</span>,
     },
     {
       key: "user_name",
       header: "Usuario",
       sortable: true,
-      render: (l) => <span className="text-xs font-medium text-[#323130]">{l.user_name ?? "—"}</span>,
+      render: (l) => <span className="text-xs font-medium text-[var(--ui-text)]">{l.user_name ?? "—"}</span>,
     },
     {
       key: "action",
@@ -157,18 +157,18 @@ export default function AuditLog() {
       key: "entity_type",
       header: "Módulo",
       sortable: true,
-      render: (l) => <span className="text-xs text-[#605e5c]">{ENTITY_LABELS[l.entity_type] ?? l.entity_type}</span>,
+      render: (l) => <span className="text-xs text-[var(--ui-text-muted)]">{ENTITY_LABELS[l.entity_type] ?? l.entity_type}</span>,
     },
     {
       key: "description",
       header: "Detalle",
-      render: (l) => <span className="text-xs text-[#323130]">{l.description}</span>,
+      render: (l) => <span className="text-xs text-[var(--ui-text)]">{l.description}</span>,
     },
     {
       key: "branch_name",
       header: "Sucursal",
       sortable: true,
-      render: (l) => <span className="text-xs text-[#605e5c]">{l.branch_name ?? "—"}</span>,
+      render: (l) => <span className="text-xs text-[var(--ui-text-muted)]">{l.branch_name ?? "—"}</span>,
     },
   ];
 
@@ -183,17 +183,17 @@ export default function AuditLog() {
   return (
     <Layout title="Auditoría" subtitle="Quién editó, eliminó o canceló qué, y cuándo." variant="cards">
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-5">
+        <div className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-5">
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Acción</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Acción</label>
             <select value={action} onChange={(e) => setAction(e.target.value)} className={`${fieldClass} mt-1`}>
               <option value="">Todas</option>
               {Object.entries(ACTION_LABELS).map(([value, label]) => (
@@ -202,7 +202,7 @@ export default function AuditLog() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Módulo</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Módulo</label>
             <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className={`${fieldClass} mt-1`}>
               <option value="">Todos</option>
               {Object.entries(ENTITY_LABELS).map(([value, label]) => (
@@ -225,8 +225,8 @@ export default function AuditLog() {
         bodyClassName="!p-0"
       >
         {logs.length === 0 && !loading ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-[#605e5c]">
-            <History className="h-8 w-8 text-[#a19f9d]" />
+          <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-[var(--ui-text-muted)]">
+            <History className="h-8 w-8 text-[var(--ui-text-muted)]" />
             Sin acciones registradas en este rango.
           </div>
         ) : (

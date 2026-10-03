@@ -111,7 +111,7 @@ export default function GenericModal({
 
   const shellFormClass = fullScreen
     ? `h-[100dvh] w-full max-w-none max-h-none rounded-none border-0 border-[var(--ui-border)] bg-[var(--ui-canvas)] p-0 shadow-none flex flex-col min-h-0 ${contentClassName}`
-    : `w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-sm border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-0 shadow-[0_10px_30px_rgba(0,0,0,0.18)] animate-in fade-in duration-150 flex flex-col ${contentClassName}`;
+    : `w-full ${sizeClassMap[size]} max-h-[calc(100vh-2rem)] rounded-xl border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-0 shadow-[0_10px_30px_rgba(0,0,0,0.18)] animate-in fade-in duration-150 flex flex-col ${contentClassName}`;
 
   const shellDivClass = shellFormClass;
 
@@ -124,16 +124,16 @@ export default function GenericModal({
     : "min-w-0 truncate text-base font-semibold text-[var(--ui-text)]";
 
   const closeBtnClass = fullScreen
-    ? "rounded-sm p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
-    : "rounded-sm p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]";
+    ? "rounded-lg p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+    : "rounded-lg p-2 text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]";
 
   const bodyWrapClass = fullScreen
     ? `flex-1 min-h-0 overflow-hidden flex flex-col ${bodyClassName}`
     : `flex-1 min-h-0 overflow-y-auto bg-[var(--ui-surface)] px-4 py-3 ${bodyClassName}`;
 
   const backdropClass = fullScreen
-    ? "fixed inset-0 z-50 flex items-stretch justify-stretch bg-[#323130]/45 p-0 backdrop-blur-[1px]"
-    : "fixed inset-0 z-50 flex items-center justify-center bg-[#323130]/35 px-3 py-2 backdrop-blur-[1px]";
+    ? "fixed inset-0 z-50 flex items-stretch justify-stretch bg-[#021a12]/45 p-0 backdrop-blur-[1px]"
+    : "fixed inset-0 z-50 flex items-center justify-center bg-[#021a12]/35 px-3 py-2 backdrop-blur-[1px]";
 
   return (
     <div

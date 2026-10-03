@@ -67,14 +67,14 @@ const COLUMNS: DataTableColumn<FlatRow>[] = [
     key: "client_name",
     header: "Cliente",
     sortable: true,
-    render: (r) => <span className="font-semibold text-[#323130]">{r.client_name}</span>,
+    render: (r) => <span className="font-semibold text-[var(--ui-text)]">{r.client_name}</span>,
     getValue: (r) => r.client_name,
   },
   {
     key: "services",
     header: "Servicios",
     sortable: false,
-    render: (r) => <span className="text-[#323130]">{r.services}</span>,
+    render: (r) => <span className="text-[var(--ui-text)]">{r.services}</span>,
     getValue: (r) => r.services,
   },
   {
@@ -82,7 +82,7 @@ const COLUMNS: DataTableColumn<FlatRow>[] = [
     header: "Profesional",
     sortable: true,
     render: (r) => (
-      <span className={r.professional ? "font-medium text-[#107c10]" : "italic text-[#a19f9d]"}>
+      <span className={r.professional ? "font-medium text-[#107c10]" : "italic text-[var(--ui-text-muted)]"}>
         {r.professional || "Sin asignar"}
       </span>
     ),
@@ -92,7 +92,7 @@ const COLUMNS: DataTableColumn<FlatRow>[] = [
     key: "time",
     header: "Hora",
     sortable: true,
-    render: (r) => <span className="tabular-nums text-[#323130]">{r.time || "—"}</span>,
+    render: (r) => <span className="tabular-nums text-[var(--ui-text)]">{r.time || "—"}</span>,
     getValue: (r) => r.raw_start,
   },
   {
@@ -110,7 +110,7 @@ const COLUMNS: DataTableColumn<FlatRow>[] = [
     key: "payment",
     header: "Pago",
     sortable: true,
-    render: (r) => <span className="text-[#605e5c]">{PAY_LABELS[r.payment] ?? r.payment}</span>,
+    render: (r) => <span className="text-[var(--ui-text-muted)]">{PAY_LABELS[r.payment] ?? r.payment}</span>,
     getValue: (r) => PAY_LABELS[r.payment] ?? r.payment,
   },
   {

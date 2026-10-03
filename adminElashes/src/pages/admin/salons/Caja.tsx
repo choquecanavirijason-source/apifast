@@ -25,7 +25,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 const fieldClass =
-  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35";
+  "w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35";
 
 const moneyFormatter = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -61,22 +61,22 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
       ) : (
         <div className="space-y-5">
           <div>
-            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">Ingresos por método</h4>
+            <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Ingresos por método</h4>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[11px] text-[#605e5c]">Efectivo</p>
+              <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                <p className="text-[11px] text-[var(--ui-text-muted)]">Efectivo</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.efectivo)}</p>
               </div>
-              <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[11px] text-[#605e5c]">Tarjeta</p>
+              <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                <p className="text-[11px] text-[var(--ui-text-muted)]">Tarjeta</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.tarjeta)}</p>
               </div>
-              <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[11px] text-[#605e5c]">Transferencia</p>
+              <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                <p className="text-[11px] text-[var(--ui-text-muted)]">Transferencia</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.transferencia)}</p>
               </div>
-              <div className="rounded-lg border border-[#edebe9] p-2 text-center">
-                <p className="text-[11px] text-[#605e5c]">QR</p>
+              <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                <p className="text-[11px] text-[var(--ui-text-muted)]">QR</p>
                 <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(detail.income_by_method.qr)}</p>
               </div>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-center">
@@ -87,25 +87,25 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
           </div>
 
           <div>
-            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">
+            <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">
               Pagos ({detail.payments.length})
             </h4>
             {detail.payments.length === 0 ? (
               <p className="text-xs text-slate-400">Sin pagos en esta sesión.</p>
             ) : (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-[#edebe9]">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--ui-border)]">
                 <table className="w-full text-xs">
-                  <thead className="bg-[#faf9f8]">
+                  <thead className="bg-[var(--ui-surface-muted)]">
                     <tr>
-                      <th className="px-2 py-1.5 text-left font-semibold text-[#605e5c]">Cliente</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-[#605e5c]">Método</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-[#605e5c]">Hora</th>
-                      <th className="px-2 py-1.5 text-right font-semibold text-[#605e5c]">Monto</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-[var(--ui-text-muted)]">Cliente</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-[var(--ui-text-muted)]">Método</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-[var(--ui-text-muted)]">Hora</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-[var(--ui-text-muted)]">Monto</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.payments.map((p) => (
-                      <tr key={p.id} className="border-t border-[#edebe9]">
+                      <tr key={p.id} className="border-t border-[var(--ui-border)]">
                         <td className="px-2 py-1.5">{p.client_name ?? "—"}</td>
                         <td className="px-2 py-1.5">{METHOD_LABELS[p.method] ?? p.method}</td>
                         <td className="px-2 py-1.5">{p.paid_at ? dateTimeFmt(p.paid_at) : "—"}</td>
@@ -119,24 +119,24 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
           </div>
 
           <div>
-            <h4 className="mb-2 text-xs font-semibold text-[#605e5c]">
+            <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">
               Gastos ({detail.expenses.length})
             </h4>
             {detail.expenses.length === 0 ? (
               <p className="text-xs text-slate-400">Sin gastos en esta sesión.</p>
             ) : (
-              <div className="max-h-40 overflow-y-auto rounded-lg border border-[#edebe9]">
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--ui-border)]">
                 <table className="w-full text-xs">
-                  <thead className="bg-[#faf9f8]">
+                  <thead className="bg-[var(--ui-surface-muted)]">
                     <tr>
-                      <th className="px-2 py-1.5 text-left font-semibold text-[#605e5c]">Descripción</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-[#605e5c]">Hora</th>
-                      <th className="px-2 py-1.5 text-right font-semibold text-[#605e5c]">Monto</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-[var(--ui-text-muted)]">Descripción</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-[var(--ui-text-muted)]">Hora</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-[var(--ui-text-muted)]">Monto</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.expenses.map((e) => (
-                      <tr key={e.id} className="border-t border-[#edebe9]">
+                      <tr key={e.id} className="border-t border-[var(--ui-border)]">
                         <td className="px-2 py-1.5">{e.description}</td>
                         <td className="px-2 py-1.5">{e.created_at ? dateTimeFmt(e.created_at) : "—"}</td>
                         <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-rose-700">
@@ -340,14 +340,14 @@ function AperturaCierreTab() {
       key: "opened_by_name",
       header: "Abierta por",
       sortable: true,
-      render: (s) => <span className="text-xs text-[#323130]">{s.opened_by_name ?? "—"}</span>,
+      render: (s) => <span className="text-xs text-[var(--ui-text)]">{s.opened_by_name ?? "—"}</span>,
     },
     {
       key: "opened_at",
       header: "Apertura",
       sortable: true,
       getValue: (s) => s.opened_at,
-      render: (s) => <span className="text-xs text-[#605e5c]">{dateTimeFmt(s.opened_at)}</span>,
+      render: (s) => <span className="text-xs text-[var(--ui-text-muted)]">{dateTimeFmt(s.opened_at)}</span>,
     },
     {
       key: "opening_amount",
@@ -355,7 +355,7 @@ function AperturaCierreTab() {
       sortable: true,
       getValue: (s) => s.opening_amount ?? 0,
       render: (s) => (
-        <span className="text-xs font-semibold tabular-nums text-[#323130]">
+        <span className="text-xs font-semibold tabular-nums text-[var(--ui-text)]">
           {moneyFormatter.format(s.opening_amount ?? 0)}
         </span>
       ),
@@ -363,14 +363,14 @@ function AperturaCierreTab() {
     {
       key: "closed_by_name",
       header: "Cerrada por",
-      render: (s) => <span className="text-xs text-[#323130]">{s.closed_by_name ?? "—"}</span>,
+      render: (s) => <span className="text-xs text-[var(--ui-text)]">{s.closed_by_name ?? "—"}</span>,
     },
     {
       key: "closed_at",
       header: "Cierre",
       sortable: true,
       getValue: (s) => s.closed_at ?? "",
-      render: (s) => <span className="text-xs text-[#605e5c]">{s.closed_at ? dateTimeFmt(s.closed_at) : "—"}</span>,
+      render: (s) => <span className="text-xs text-[var(--ui-text-muted)]">{s.closed_at ? dateTimeFmt(s.closed_at) : "—"}</span>,
     },
     {
       key: "grand_total",
@@ -389,7 +389,7 @@ function AperturaCierreTab() {
       sortable: true,
       getValue: (s) => s.expected_cash ?? 0,
       render: (s) => (
-        <span className="text-xs tabular-nums text-[#323130]">
+        <span className="text-xs tabular-nums text-[var(--ui-text)]">
           {s.expected_cash !== null ? moneyFormatter.format(s.expected_cash) : "—"}
         </span>
       ),
@@ -400,7 +400,7 @@ function AperturaCierreTab() {
       sortable: true,
       getValue: (s) => s.counted_amount ?? 0,
       render: (s) => (
-        <span className="text-xs tabular-nums text-[#323130]">
+        <span className="text-xs tabular-nums text-[var(--ui-text)]">
           {s.counted_amount !== null ? moneyFormatter.format(s.counted_amount) : "—"}
         </span>
       ),
@@ -411,8 +411,8 @@ function AperturaCierreTab() {
       sortable: true,
       getValue: (s) => s.difference ?? 0,
       render: (s) => {
-        if (s.difference === null) return <span className="text-xs text-[#a19f9d]">—</span>;
-        const color = s.difference === 0 ? "text-emerald-700" : s.difference > 0 ? "text-[#323130]" : "text-rose-700";
+        if (s.difference === null) return <span className="text-xs text-[var(--ui-text-muted)]">—</span>;
+        const color = s.difference === 0 ? "text-emerald-700" : s.difference > 0 ? "text-[var(--ui-text)]" : "text-rose-700";
         const sign = s.difference > 0 ? "+" : s.difference < 0 ? "−" : "";
         return (
           <span className={`text-xs font-semibold tabular-nums ${color}`}>
@@ -483,9 +483,9 @@ function AperturaCierreTab() {
 
   const historyTable = branchId ? (
     <SectionCard title="Historial de apertura y cierre" bodyClassName="!p-0">
-      <div className="grid gap-3 border-b border-[#edebe9] p-3 sm:grid-cols-4">
+      <div className="grid gap-3 border-b border-[var(--ui-border)] p-3 sm:grid-cols-4">
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Desde</label>
           <input
             type="date"
             value={historyFromDate}
@@ -494,7 +494,7 @@ function AperturaCierreTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Hasta</label>
           <input
             type="date"
             value={historyToDate}
@@ -565,31 +565,31 @@ function AperturaCierreTab() {
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-semibold text-[#605e5c]">Abierta por</p>
-            <p className="text-sm font-medium text-[#323130]">{session.opened_by_name ?? "—"}</p>
+            <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Abierta por</p>
+            <p className="text-sm font-medium text-[var(--ui-text)]">{session.opened_by_name ?? "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-[#605e5c]">Fecha y hora</p>
-            <p className="text-sm font-medium text-[#323130]">{dateTimeFmt(session.opened_at)}</p>
+            <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Fecha y hora</p>
+            <p className="text-sm font-medium text-[var(--ui-text)]">{dateTimeFmt(session.opened_at)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-[#605e5c]">Monto inicial</p>
+            <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Monto inicial</p>
             <p className="text-sm font-semibold tabular-nums text-emerald-700">
               {moneyFormatter.format(session.opening_amount ?? 0)}
             </p>
           </div>
         </div>
-        {session.notes && <p className="mt-3 text-xs text-[#605e5c]">Nota: {session.notes}</p>}
+        {session.notes && <p className="mt-3 text-xs text-[var(--ui-text-muted)]">Nota: {session.notes}</p>}
 
-        <div className="mt-4 rounded-lg border border-[#d2d0ce] bg-[#faf9f8] px-4 py-3">
+        <div className="mt-4 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-4 py-3">
           <div className="flex flex-wrap items-start gap-3">
             <div>
-              <p className="text-xs font-semibold text-[#323130]">Esperado en caja (solo efectivo)</p>
-              <p className="text-lg font-bold tabular-nums text-[#201f1e]">
+              <p className="text-xs font-semibold text-[var(--ui-text)]">Esperado en caja (solo efectivo)</p>
+              <p className="text-lg font-bold tabular-nums text-[var(--ui-text)]">
                 {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
               </p>
               {liveDetail && (
-                <span className="text-xs text-[#605e5c]">
+                <span className="text-xs text-[var(--ui-text-muted)]">
                   inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)}
                 </span>
               )}
@@ -609,21 +609,21 @@ function AperturaCierreTab() {
               type="button"
               onClick={() => void loadLiveDetail(session.id)}
               disabled={liveLoading}
-              className="ml-auto text-xs font-semibold text-[#323130] underline hover:text-[#094732] disabled:opacity-50"
+              className="ml-auto text-xs font-semibold text-[var(--ui-text)] underline hover:text-[#094732] disabled:opacity-50"
             >
               {liveLoading ? "Actualizando…" : "Actualizar ahora"}
             </button>
           </div>
         </div>
 
-        <div className="mt-5 border-t border-[#edebe9] pt-4">
-          <p className="mb-3 text-xs text-[#605e5c]">
+        <div className="mt-5 border-t border-[var(--ui-border)] pt-4">
+          <p className="mb-3 text-xs text-[var(--ui-text-muted)]">
             Al cerrar, contá el efectivo físico de la caja y cargalo abajo — el sistema compara contra lo esperado
             (monto inicial + ventas en efectivo − gastos en efectivo) y muestra si sobra o falta.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold text-[#605e5c]">
+              <label className="text-xs font-semibold text-[var(--ui-text-muted)]">
                 Monto contado <span className="text-rose-600">*</span>
               </label>
               <input
@@ -638,7 +638,7 @@ function AperturaCierreTab() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#605e5c]">
+              <label className="text-xs font-semibold text-[var(--ui-text-muted)]">
                 Fondo para el siguiente turno <span className="text-rose-600">*</span>
               </label>
               <input
@@ -652,12 +652,12 @@ function AperturaCierreTab() {
                 placeholder="0.00"
                 className={`${fieldClass} mt-1`}
               />
-              <p className="mt-1 text-[11px] text-[#605e5c]">
+              <p className="mt-1 text-[11px] text-[var(--ui-text-muted)]">
                 Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
               </p>
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold text-[#605e5c]">Nota de cierre (opcional)</label>
+              <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Nota de cierre (opcional)</label>
               <input
                 type="text"
                 value={closeNotes}
@@ -697,20 +697,20 @@ function AperturaCierreTab() {
       <SectionCard title="Arqueo del último cierre">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-semibold text-[#605e5c]">Esperado en caja</p>
-            <p className="text-sm font-semibold tabular-nums text-[#323130]">
+            <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Esperado en caja</p>
+            <p className="text-sm font-semibold tabular-nums text-[var(--ui-text)]">
               {moneyFormatter.format(lastClosed.expected_cash ?? 0)}
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-[#605e5c]">Contado</p>
-            <p className="text-sm font-semibold tabular-nums text-[#323130]">
+            <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Contado</p>
+            <p className="text-sm font-semibold tabular-nums text-[var(--ui-text)]">
               {lastClosed.counted_amount !== null ? moneyFormatter.format(lastClosed.counted_amount) : "— no se contó —"}
             </p>
           </div>
           {lastClosed.difference !== null && (
             <div>
-              <p className="text-xs font-semibold text-[#605e5c]">
+              <p className="text-xs font-semibold text-[var(--ui-text-muted)]">
                 {lastClosed.difference === 0 ? "Diferencia" : lastClosed.difference > 0 ? "Sobra" : "Falta"}
               </p>
               <p
@@ -718,7 +718,7 @@ function AperturaCierreTab() {
                   lastClosed.difference === 0
                     ? "text-emerald-700"
                     : lastClosed.difference > 0
-                      ? "text-[#323130]"
+                      ? "text-[var(--ui-text)]"
                       : "text-rose-700"
                 }`}
               >
@@ -728,7 +728,7 @@ function AperturaCierreTab() {
           )}
           {lastClosed.next_fund_amount != null && (
             <div>
-              <p className="text-xs font-semibold text-[#605e5c]">Fondo dejado para el siguiente turno</p>
+              <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Fondo dejado para el siguiente turno</p>
               <p className="text-sm font-bold tabular-nums text-emerald-700">
                 {moneyFormatter.format(lastClosed.next_fund_amount)}
               </p>
@@ -770,7 +770,7 @@ function AperturaCierreTab() {
             type="button"
             onClick={() => setIsOpenModalOpen(false)}
             disabled={submitting}
-            className="rounded-sm border border-[#8a8886] bg-white px-4 py-2 text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-[var(--ui-border-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -782,7 +782,7 @@ function AperturaCierreTab() {
     >
       <div className="grid gap-3">
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Monto inicial</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Monto inicial</label>
           <input
             type="number"
             min="0"
@@ -795,13 +795,13 @@ function AperturaCierreTab() {
           />
           {lastClosedOrFromHistory?.next_fund_amount != null
             && openingAmount === String(lastClosedOrFromHistory.next_fund_amount) && (
-            <p className="mt-1 text-[11px] text-[#605e5c]">
+            <p className="mt-1 text-[11px] text-[var(--ui-text-muted)]">
               Sugerido a partir del fondo dejado en el cierre anterior — podés cambiarlo.
             </p>
           )}
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Nota (opcional)</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Nota (opcional)</label>
           <input
             type="text"
             value={openNotes}
@@ -936,7 +936,7 @@ function NuevoGastoTab() {
       key: "expense_date",
       header: "Fecha",
       sortable: true,
-      render: (d) => <span className="text-xs text-[#323130]">{d.expense_date}</span>,
+      render: (d) => <span className="text-xs text-[var(--ui-text)]">{d.expense_date}</span>,
     },
     {
       key: "amount",
@@ -944,7 +944,7 @@ function NuevoGastoTab() {
       sortable: true,
       getValue: (d) => d.amount,
       render: (d) => (
-        <span className="text-xs font-semibold tabular-nums text-[#323130]">
+        <span className="text-xs font-semibold tabular-nums text-[var(--ui-text)]">
           {moneyFormatter.format(d.amount)}
         </span>
       ),
@@ -953,12 +953,12 @@ function NuevoGastoTab() {
       key: "description",
       header: "Descripción",
       sortable: true,
-      render: (d) => <span className="text-xs text-[#323130]">{d.description}</span>,
+      render: (d) => <span className="text-xs text-[var(--ui-text)]">{d.description}</span>,
     },
     {
       key: "photo",
       header: "Foto",
-      render: (d) => <span className="text-xs text-[#605e5c]">{d.photoName ?? "—"}</span>,
+      render: (d) => <span className="text-xs text-[var(--ui-text-muted)]">{d.photoName ?? "—"}</span>,
     },
   ];
 
@@ -975,11 +975,11 @@ function NuevoGastoTab() {
     <SectionCard title="Registro de gastos">
       <div className="grid gap-3 sm:grid-cols-4">
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Fecha</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Fecha</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${fieldClass} mt-1`} />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Monto</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Monto</label>
           <input
             type="number"
             min="0"
@@ -991,7 +991,7 @@ function NuevoGastoTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Foto (opcional)</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Foto (opcional)</label>
           <input
             type="file"
             accept="image/*"
@@ -1000,7 +1000,7 @@ function NuevoGastoTab() {
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#605e5c]">Descripción</label>
+          <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Descripción</label>
           <input
             type="text"
             value={description}
@@ -1029,7 +1029,7 @@ function NuevoGastoTab() {
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <span className="text-xs text-[#605e5c]">
+        <span className="text-xs text-[var(--ui-text-muted)]">
           Total de gastos: {draft.length}
           {draft.length > 0 ? ` · ${moneyFormatter.format(total)}` : ""}
         </span>
@@ -1045,7 +1045,7 @@ function NuevoGastoTab() {
             type="button"
             onClick={clearAll}
             disabled={draft.length === 0 || saving}
-            className="rounded-xl border border-[#8a8886] bg-white px-4 py-2 text-sm font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-[var(--ui-border-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Limpiar todo
           </button>
@@ -1142,13 +1142,13 @@ function HistorialGastosTab() {
       key: "expense_date",
       header: "Fecha",
       sortable: true,
-      render: (e) => <span className="text-xs text-[#323130]">{e.expense_date}</span>,
+      render: (e) => <span className="text-xs text-[var(--ui-text)]">{e.expense_date}</span>,
     },
     {
       key: "branch_name",
       header: "Sucursal",
       sortable: true,
-      render: (e) => <span className="text-xs text-[#605e5c]">{e.branch_name}</span>,
+      render: (e) => <span className="text-xs text-[var(--ui-text-muted)]">{e.branch_name}</span>,
     },
     {
       key: "amount",
@@ -1163,7 +1163,7 @@ function HistorialGastosTab() {
       key: "description",
       header: "Descripción",
       sortable: true,
-      render: (e) => <span className="text-xs text-[#323130]">{e.description}</span>,
+      render: (e) => <span className="text-xs text-[var(--ui-text)]">{e.description}</span>,
     },
     {
       key: "photo_url",
@@ -1174,19 +1174,19 @@ function HistorialGastosTab() {
             href={`${variables.apiUrl}${e.photo_url}`}
             target="_blank"
             rel="noreferrer"
-            className="text-xs font-medium text-[#323130] underline"
+            className="text-xs font-medium text-[var(--ui-text)] underline"
           >
             Ver foto
           </a>
         ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">—</span>
         ),
     },
     {
       key: "created_by_name",
       header: "Registrado por",
       sortable: true,
-      render: (e) => <span className="text-xs text-[#605e5c]">{e.created_by_name ?? "—"}</span>,
+      render: (e) => <span className="text-xs text-[var(--ui-text-muted)]">{e.created_by_name ?? "—"}</span>,
     },
   ];
 
@@ -1202,13 +1202,13 @@ function HistorialGastosTab() {
   return (
     <>
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-3">
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div className="flex items-end gap-2">

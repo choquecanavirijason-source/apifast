@@ -149,7 +149,7 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-start gap-2">
-          <Layers className="mt-0.5 h-5 w-5 text-[#0078d4]" />
+          <Layers className="mt-0.5 h-5 w-5 text-[var(--ui-accent)]" />
           <div>
             <h3 className="text-sm font-bold text-slate-800">Perfiles API compartidos</h3>
             <p className="text-xs text-slate-500">
@@ -187,7 +187,7 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
               <button
                 type="button"
                 onClick={() => openEdit(profile)}
-                className="rounded p-1 text-slate-500 hover:bg-white hover:text-[#0078d4]"
+                className="rounded p-1 text-slate-500 hover:bg-white hover:text-[var(--ui-accent)]"
                 title="Editar"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -206,7 +206,7 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
       )}
 
       {editingId !== null ? (
-        <div className="space-y-4 rounded-lg border border-[#deecf9] bg-[#f3f9fd] p-3">
+        <div className="space-y-4 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-accent-soft)] p-3">
           <InputField
             label="Nombre del perfil (ej. La Paz · WhatsApp)"
             value={form.name}
@@ -223,7 +223,7 @@ export default function IntegrationProfilesManager({ salons, onProfilesChange }:
                     key={salon.id}
                     className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
                       checked
-                        ? "border-[#0078d4] bg-white text-[#004578]"
+                        ? "border-[var(--ui-accent)] bg-white text-[var(--ui-accent)]"
                         : "border-slate-200 bg-white text-slate-600"
                     }`}
                   >

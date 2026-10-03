@@ -30,20 +30,20 @@ export default function CalendarControlsBar({
   onVisibleEndHourChange,
 }: CalendarControlsBarProps) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-2">
+    <div className="flex items-center justify-between gap-2 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
       <div className="flex items-center gap-2">
-        <div className={`flex items-center gap-1 rounded-md border bg-white px-2 py-1 shadow-sm transition-colors ${jumpSearch ? "border-[#0078d4] ring-1 ring-[#0078d4]/30" : "border-[#8a8886] hover:border-[#0078d4]"}`}>
-          <Search className="h-3.5 w-3.5 shrink-0 text-[#605e5c]" />
+        <div className={`flex items-center gap-1 rounded-md border bg-white px-2 py-1 shadow-sm transition-colors ${jumpSearch ? "border-[var(--ui-accent)] ring-1 ring-brand-secondary/30" : "border-[var(--ui-border-strong)] hover:border-brand-secondary"}`}>
+          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" />
           <input
             type="text"
             list="calendar-ticket-search-suggestions"
             value={jumpSearch}
             onChange={(event) => onJumpSearchChange(event.target.value)}
             placeholder="Buscar ticket o cliente..."
-            className="h-6 w-[240px] border-0 bg-transparent px-1 text-xs text-[#323130] outline-none placeholder:text-[#8a8886]"
+            className="h-6 w-[240px] border-0 bg-transparent px-1 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)]"
           />
           {jumpSearch ? (
-            <button type="button" onClick={onClearJumpSearch} className="flex h-5 w-5 items-center justify-center rounded-full text-[#605e5c] hover:bg-[#f3f2f1]">
+            <button type="button" onClick={onClearJumpSearch} className="flex h-5 w-5 items-center justify-center rounded-full text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]">
               <X className="h-3 w-3" />
             </button>
           ) : null}
@@ -53,15 +53,15 @@ export default function CalendarControlsBar({
             ))}
           </datalist>
         </div>
-        <button type="button" onClick={onGoPrevWeek} className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs">
+        <button type="button" onClick={onGoPrevWeek} className="h-8 rounded-lg border border-[var(--ui-border)] bg-white px-2 text-xs">
           Semana anterior
         </button>
-        <button type="button" onClick={onGoNextWeek} className="h-8 rounded-sm border border-[#edebe9] bg-white px-2 text-xs">
+        <button type="button" onClick={onGoNextWeek} className="h-8 rounded-lg border border-[var(--ui-border)] bg-white px-2 text-xs">
           Semana siguiente
         </button>
       </div>
       <div className="flex items-center gap-2">
-        <label className="text-[11px] text-[#605e5c]">
+        <label className="text-[11px] text-[var(--ui-text-muted)]">
           Intervalo
           <select
             value={slotMinutes}
@@ -69,14 +69,14 @@ export default function CalendarControlsBar({
               const value = Number(event.target.value);
               onSlotMinutesChange(value === 15 || value === 30 ? value : 60);
             }}
-            className="ml-1 h-7 rounded-sm border border-[#8a8886] px-1 text-xs"
+            className="ml-1 h-7 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
           >
             <option value={60}>1 hora</option>
             <option value={30}>30 minutos</option>
             <option value={15}>15 minutos</option>
           </select>
         </label>
-        <label className="text-[11px] text-[#605e5c]">
+        <label className="text-[11px] text-[var(--ui-text-muted)]">
           Inicio
           <input
             type="number"
@@ -84,10 +84,10 @@ export default function CalendarControlsBar({
             max={23}
             value={visibleStartHour}
             onChange={(event) => onVisibleStartHourChange(Number(event.target.value) || 0)}
-            className="ml-1 h-7 w-12 rounded-sm border border-[#8a8886] px-1 text-xs"
+            className="ml-1 h-7 w-12 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
           />
         </label>
-        <label className="text-[11px] text-[#605e5c]">
+        <label className="text-[11px] text-[var(--ui-text-muted)]">
           Fin
           <input
             type="number"
@@ -95,7 +95,7 @@ export default function CalendarControlsBar({
             max={23}
             value={visibleEndHour}
             onChange={(event) => onVisibleEndHourChange(Number(event.target.value) || 23)}
-            className="ml-1 h-7 w-12 rounded-sm border border-[#8a8886] px-1 text-xs"
+            className="ml-1 h-7 w-12 rounded-lg border border-[var(--ui-border-strong)] px-1 text-xs"
           />
         </label>
       </div>

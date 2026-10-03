@@ -69,7 +69,7 @@ export default function ServiceSelectorCard({
               <button
                 type="button"
                 onClick={onToggleServiceMenu}
-                className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1]"
+                className="absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -79,36 +79,36 @@ export default function ServiceSelectorCard({
             {isServiceMenuOpen && serviceMenuPosition && createPortal(
               <div
                 ref={serviceMenuRef}
-                className="fixed z-3000 bg-white border border-[#edebe9] shadow-xl rounded-sm"
+                className="fixed z-3000 bg-white border border-[var(--ui-border)] shadow-xl rounded-lg"
                 style={{ ...serviceMenuPosition, top: serviceMenuPosition.top + 4 }}
               >
                 <div className="max-h-64 overflow-y-auto py-1">
                   {filteredServices.length === 0 ? (
-                    <p className="px-4 py-3 text-xs text-[#605e5c]">Sin resultados para la búsqueda.</p>
+                    <p className="px-4 py-3 text-xs text-[var(--ui-text-muted)]">Sin resultados para la búsqueda.</p>
                   ) : (
                     filteredServices.map((service) => (
                       <button
                         key={service.id}
                         onClick={() => onServiceSelect(String(service.id))}
-                        className="group flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[#f3f2f1]"
+                        className="group flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[var(--ui-surface-hover)]"
                       >
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[#edebe9] bg-[#f3f2f1]">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
                           {service.image_url ? (
                             <img src={service.image_url} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[#a19f9d]">
+                            <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--ui-text-muted)]">
                               {service.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-[#323130]">{service.name}</p>
-                          <p className="truncate text-[11px] text-[#605e5c]">{service.description || "Sin descripción"}</p>
+                          <p className="truncate text-sm font-semibold text-[var(--ui-text)]">{service.name}</p>
+                          <p className="truncate text-[11px] text-[var(--ui-text-muted)]">{service.description || "Sin descripción"}</p>
                         </div>
                         <span className="shrink-0 text-xs font-semibold opacity-0 transition-opacity group-hover:opacity-100">
                           {service.discount_percent ? (
                             <span className="flex items-center gap-1">
-                              <span className="text-[#a19f9d] line-through">Bs {service.price.toFixed(2)}</span>
+                              <span className="text-[var(--ui-text-muted)] line-through">Bs {service.price.toFixed(2)}</span>
                               <span className="text-[#a4262c]">Bs {(service.effective_price ?? service.price).toFixed(2)}</span>
                             </span>
                           ) : (
@@ -141,7 +141,7 @@ export default function ServiceSelectorCard({
 
           <button
             onClick={onOpenCategoryModal}
-            className="h-9 px-4 border border-[#8a8886] text-sm font-semibold hover:bg-[#f3f2f1] transition-colors rounded-sm whitespace-nowrap"
+            className="h-9 px-4 border border-[var(--ui-border-strong)] text-sm font-semibold hover:bg-[var(--ui-surface-hover)] transition-colors rounded-lg whitespace-nowrap"
           >
             Explorar Todo
           </button>
@@ -155,7 +155,7 @@ export default function ServiceSelectorCard({
         // `flex-1` lo dimensiona cuando la cadena flex tiene altura definida;
         // el `max-h` por viewport garantiza scroll aunque esa cadena falle.
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ui-border)] p-3 max-h-[calc(100dvh-15rem)]">
-          <p className="mb-3 text-[11px] font-semibold text-[#605e5c]">Sugerencias rápidas</p>
+          <p className="mb-3 text-[11px] font-semibold text-[var(--ui-text-muted)]">Sugerencias rápidas</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {quickServices.map((service) => {
               const cartCount = cartCountByServiceId[String(service.id)] ?? 0;
@@ -166,14 +166,14 @@ export default function ServiceSelectorCard({
                   className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
                     cartCount > 0
                       ? "border-[#094732] shadow-[0_0_0_2px_rgba(0,120,212,0.15)]"
-                      : "border-[#edebe9] hover:border-[#094732]"
+                      : "border-[var(--ui-border)] hover:border-[#094732]"
                   }`}
                 >
                   {/* Imagen con overlay de detalles al hover */}
                   <button
                     type="button"
                     onClick={() => onAddServiceToCart(service)}
-                    className="relative h-52 w-full shrink-0 bg-[#f3f2f1] focus:outline-none"
+                    className="relative h-52 w-full shrink-0 bg-[var(--ui-surface-muted)] focus:outline-none"
                   >
                     {service.image_url ? (
                       <img
@@ -182,7 +182,7 @@ export default function ServiceSelectorCard({
                         className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl font-black text-[#c8c6c4]">
+                      <div className="flex h-full w-full items-center justify-center text-2xl font-black text-[var(--ui-text-muted)]">
                         {service.name.slice(0, 2).toUpperCase()}
                       </div>
                     )}
@@ -210,17 +210,17 @@ export default function ServiceSelectorCard({
                   {/* Info mínima: solo nombre + precio + controles */}
                   <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                     <div className="min-w-0">
-                      <p className="line-clamp-1 text-xs font-semibold text-[#323130]">{service.name}</p>
+                      <p className="line-clamp-1 text-xs font-semibold text-[var(--ui-text)]">{service.name}</p>
                       {service.discount_percent ? (
                         <p className="flex items-center gap-1 text-[11px] font-bold">
-                          <span className="text-[#a19f9d] line-through">Bs {service.price.toFixed(2)}</span>
+                          <span className="text-[var(--ui-text-muted)] line-through">Bs {service.price.toFixed(2)}</span>
                           <span className="text-[#a4262c]">Bs {(service.effective_price ?? service.price).toFixed(2)}</span>
                         </p>
                       ) : (
                         <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
                       )}
                       {service.commission_rate != null && (
-                        <p className="text-[10px] text-[#8a8886]">Comisión: {Math.round(service.commission_rate * 100)}%</p>
+                        <p className="text-[10px] text-[var(--ui-text-muted)]">Comisión: {Math.round(service.commission_rate * 100)}%</p>
                       )}
                     </div>
 
@@ -238,7 +238,7 @@ export default function ServiceSelectorCard({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onRemoveServiceFromCart(service); }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-[#d2d0ce] bg-white text-[#323130] text-base font-bold shadow-sm transition hover:bg-[#f3f2f1] leading-none"
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[var(--ui-text)] text-base font-bold shadow-sm transition hover:bg-[var(--ui-surface-hover)] leading-none"
                         >
                           −
                         </button>

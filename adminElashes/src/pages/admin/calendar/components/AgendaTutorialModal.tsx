@@ -174,7 +174,7 @@ function MockAgendaCard({ highlight }: { highlight: Illustration }) {
 
   return (
     <div
-      className={`relative h-[104px] w-[180px] rounded-md border border-l-[3px] border-[#b4d7f0] bg-[#f0f6fc] px-2 py-1.5 text-left text-[#004578] shadow-sm ${ring("overview")}`}
+      className={`relative h-[104px] w-[180px] rounded-md border border-l-[3px] border-[var(--ui-border-strong)] bg-[var(--ui-accent-soft)] px-2 py-1.5 text-left text-[var(--ui-accent)] shadow-sm ${ring("overview")}`}
     >
       {/* Asas para estirar (arriba y abajo) */}
       <span className={`absolute inset-x-0 top-0 mx-auto mt-0.5 block h-1 w-8 rounded-full bg-current opacity-50 ${ring("drag")}`} />
@@ -348,7 +348,7 @@ export default function AgendaTutorialModal({ onClose, storageKey, openReservati
       )}
 
       <div
-        className="fixed flex flex-col overflow-hidden rounded-sm border border-[#d2d0ce] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
+        className="fixed flex flex-col overflow-hidden rounded-lg border border-[var(--ui-border-strong)] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
         style={{ top: cardTop, left: cardLeft, width: cardW }}
       >
         <div className="relative flex items-start gap-3 bg-[#094732] px-4 pb-4 pt-4">
@@ -362,30 +362,30 @@ export default function AgendaTutorialModal({ onClose, storageKey, openReservati
             type="button"
             onClick={finish}
             aria-label="Cerrar guía"
-            className="-mr-1 -mt-1 rounded-sm p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="-mr-1 -mt-1 rounded-lg p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {isIllustration && (
-          <div className="flex justify-center bg-[#faf9f8] px-4 pb-3 pt-3">
+          <div className="flex justify-center bg-[var(--ui-surface-muted)] px-4 pb-3 pt-3">
             <MockAgendaCard highlight={step.illustration} />
           </div>
         )}
 
         <div className="px-4 py-3">
-          <p className="text-xs leading-relaxed text-[#323130]">{step.description}</p>
+          <p className="text-xs leading-relaxed text-[var(--ui-text)]">{step.description}</p>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-[#edebe9] bg-[#faf9f8] px-4 py-2.5">
-          <span className="text-[11px] font-semibold text-[#a19f9d]">{stepIndex + 1} / {steps.length}</span>
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-2.5">
+          <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{stepIndex + 1} / {steps.length}</span>
           <div className="flex items-center gap-1.5">
             {!isFirst && (
               <button
                 type="button"
                 onClick={prev}
-                className="flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+                className="flex items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Atrás
@@ -394,7 +394,7 @@ export default function AgendaTutorialModal({ onClose, storageKey, openReservati
             <button
               type="button"
               onClick={next}
-              className="flex items-center gap-1 rounded-sm bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
+              className="flex items-center gap-1 rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
             >
               {isLast ? "Entendido" : "Siguiente"}
               {!isLast && <ChevronRight className="h-3.5 w-3.5" />}

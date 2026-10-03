@@ -9,7 +9,7 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 
 const fieldClass =
-  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35";
+  "w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35";
 
 const moneyFormatter = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -125,13 +125,13 @@ export default function CorteDeCaja() {
       }
     >
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-3">
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Fecha inicio</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Fecha inicio</label>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Fecha fin</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Fecha fin</label>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
           <div className="flex items-end">

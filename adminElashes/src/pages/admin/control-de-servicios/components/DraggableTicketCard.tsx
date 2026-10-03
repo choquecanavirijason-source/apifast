@@ -121,7 +121,7 @@ export default function DraggableTicketCard({
 
   const initials = (ticket.client_name ?? "?").slice(0, 2).toUpperCase();
 
-  const inputCls = "h-8 w-full rounded-md border border-[#c8c6c4] bg-white px-2.5 text-xs text-[#323130] outline-none transition focus:border-[#201f1e] focus:ring-2 focus:ring-[#201f1e]/10";
+  const inputCls = "h-8 w-full rounded-md border border-[var(--ui-border-strong)] bg-white px-2.5 text-xs text-[var(--ui-text)] outline-none transition focus:border-[#201f1e] focus:ring-2 focus:ring-[#201f1e]/10";
 
   return (
     <div
@@ -132,7 +132,7 @@ export default function DraggableTicketCard({
       className={`group relative cursor-grab touch-none rounded-xl border bg-white transition-all active:cursor-grabbing ${
         isDragging
           ? "border-dashed border-[#201f1e] shadow-none"
-          : "border-[#c8c6c4] hover:border-[#8a8886]"
+          : "border-[var(--ui-border-strong)] hover:border-[var(--ui-border-strong)]"
       }`}
     >
       {/* ── Popup de edición ──────────────────────────────────────────────── */}
@@ -147,47 +147,47 @@ export default function DraggableTicketCard({
                 abierto, esta zona sigue sirviendo para arrastrar el ticket a
                 otra columna sin tener que cerrarlo con la X primero. */}
             {/* Header */}
-            <div className="flex cursor-grab items-center justify-between rounded-t-xl bg-[#f3f2f1] px-3 py-2.5 border-b border-[#e8e4dc]">
+            <div className="flex cursor-grab items-center justify-between rounded-t-xl bg-[var(--ui-surface-muted)] px-3 py-2.5 border-b border-[#e8e4dc]">
               <div className="flex items-center gap-2">
-                <GripVertical size={12} className="shrink-0 text-[#a19f9d]" />
+                <GripVertical size={12} className="shrink-0 text-[var(--ui-text-muted)]" />
                 <div className="h-3.5 w-0.5 rounded-full bg-[#201f1e]" />
-                <span className="text-[11px] font-semibold text-[#201f1e]">Ajustar turno</span>
+                <span className="text-[11px] font-semibold text-[var(--ui-text)]">Ajustar turno</span>
                 {hasChanges && (
-                  <span className="flex items-center gap-1 rounded-full border border-[#c8c6c4] px-1.5 py-0.5 text-[9px] font-semibold text-[#201f1e]">
+                  <span className="flex items-center gap-1 rounded-full border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--ui-text)]">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#201f1e]" />
                     {isSavingEdit ? "Guardando…" : "Guardado automático"}
                   </span>
                 )}
               </div>
               <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(false)}
-                className="rounded-md p-1 text-[#8a8886] hover:bg-[#ececec] hover:text-[#201f1e] transition-colors">
+                className="rounded-md p-1 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] transition-colors">
                 <X size={12} />
               </button>
             </div>
 
             {/* Info del ticket */}
-            <div className="cursor-grab border-b border-[#f0efed] bg-[#fafaf9] px-3 py-2.5 space-y-1.5">
+            <div className="cursor-grab border-b border-[var(--ui-border)] bg-[#fafaf9] px-3 py-2.5 space-y-1.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#c8c6c4] bg-white text-[11px] font-bold text-[#201f1e]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[11px] font-bold text-[var(--ui-text)]">
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-[#201f1e]">{ticket.client_name}</p>
+                  <p className="truncate text-xs font-semibold text-[var(--ui-text)]">{ticket.client_name}</p>
                   {ticket.ticket_code && (
-                    <p className="text-[10px] font-mono text-[#a19f9d]">{ticket.ticket_code}</p>
+                    <p className="text-[10px] font-mono text-[var(--ui-text-muted)]">{ticket.ticket_code}</p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 pl-[42px]">
-                <Scissors size={11} className="shrink-0 text-[#605e5c]" />
-                <span className="truncate text-[11px] text-[#605e5c]">{primarySvc}</span>
+                <Scissors size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
+                <span className="truncate text-[11px] text-[var(--ui-text-muted)]">{primarySvc}</span>
                 {extraCount > 0 && (
-                  <span className="shrink-0 rounded border border-[#c8c6c4] px-1 py-0.5 text-[9px] font-bold text-[#605e5c]">+{extraCount}</span>
+                  <span className="shrink-0 rounded border border-[var(--ui-border-strong)] px-1 py-0.5 text-[9px] font-bold text-[var(--ui-text-muted)]">+{extraCount}</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5 pl-[42px]">
-                <Clock size={11} className="shrink-0 text-[#8a8886]" />
-                <span className="text-[11px] tabular-nums text-[#8a8886]">
+                <Clock size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
+                <span className="text-[11px] tabular-nums text-[var(--ui-text-muted)]">
                   {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
                 </span>
               </div>
@@ -195,8 +195,8 @@ export default function DraggableTicketCard({
 
             {/* Selector operaria */}
             {canEditOperaria && (
-              <div className="p-3 border-b border-[#f0efed]">
-                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
+              <div className="p-3 border-b border-[var(--ui-border)]">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
                   <User size={8} /> Asignar operaria
                 </label>
                 <select value={quickProId} onPointerDown={stopPtr}
@@ -223,7 +223,7 @@ export default function DraggableTicketCard({
             {/* Selector clienta — corregir "Cliente Mostrador" o cambiar de clienta */}
             {canEditClient && (
               <div className="p-3">
-                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
                   <User size={8} /> Clienta
                 </label>
                 <div className="flex gap-1.5">
@@ -243,7 +243,7 @@ export default function DraggableTicketCard({
                       onPointerDown={stopPtr}
                       onClick={() => onOpenRegisterClient(ticket)}
                       title="Registrar nueva clienta"
-                      className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[#201f1e] transition hover:bg-[#f3f2f1]"
+                      className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
                     >
                       <Plus size={12} /> Nueva
                     </button>
@@ -256,22 +256,22 @@ export default function DraggableTicketCard({
       )}
 
       {/* ── Cabecera de la tarjeta: código + drag + acciones icon ─────────── */}
-      <div className="flex items-center justify-between rounded-t-xl bg-[#faf9f8] px-3 py-2 border-b border-[#f0efed]">
+      <div className="flex items-center justify-between rounded-t-xl bg-[var(--ui-surface-muted)] px-3 py-2 border-b border-[var(--ui-border)]">
         <div className="flex items-center gap-1.5">
-          <GripVertical size={13} className="shrink-0 text-[#c8c6c4] group-hover:text-[#8a8886] transition-colors cursor-grab" />
+          <GripVertical size={13} className="shrink-0 text-[var(--ui-text-muted)] group-hover:text-[var(--ui-text-muted)] transition-colors cursor-grab" />
           {ticket.ticket_code ? (
-            <span className="rounded border border-[#c8c6c4] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[#201f1e]">
+            <span className="rounded border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[var(--ui-text)]">
               {ticket.ticket_code}
             </span>
           ) : (
-            <span className="text-[10px] font-mono text-[#a19f9d]">#{ticket.id}</span>
+            <span className="text-[10px] font-mono text-[var(--ui-text-muted)]">#{ticket.id}</span>
           )}
         </div>
         <div className="flex items-center gap-0.5">
           <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
             title="Ver detalles"
             className={`rounded-lg p-1.5 transition-colors ${
-              detailOpen ? "bg-[#ececec] text-[#201f1e]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
+              detailOpen ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text)]" : "text-[var(--ui-text-muted)] hover:bg-[#f3f1ec] hover:text-[var(--ui-text-muted)]"
             }`}>
             <Info size={13} />
           </button>
@@ -279,7 +279,7 @@ export default function DraggableTicketCard({
             <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
               title="Ajustar turno"
               className={`rounded-lg p-1.5 transition-colors ${
-                hasChanges ? "bg-[#f3f2f1] text-[#201f1e]" : "text-[#c8c6c4] hover:bg-[#f3f1ec] hover:text-[#605e5c]"
+                hasChanges ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text)]" : "text-[var(--ui-text-muted)] hover:bg-[#f3f1ec] hover:text-[var(--ui-text-muted)]"
               }`}>
               <ChevronRight size={13} />
             </button>
@@ -292,11 +292,11 @@ export default function DraggableTicketCard({
 
         {/* Avatar + nombre */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c8c6c4] bg-white text-[12px] font-bold text-[#201f1e]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[12px] font-bold text-[var(--ui-text)]">
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-[#201f1e]">
+            <p className="truncate text-[15px] font-bold leading-tight text-[var(--ui-text)]">
               {ticket.client_name}
             </p>
             {canEditOperaria ? (
@@ -304,19 +304,19 @@ export default function DraggableTicketCard({
                 type="button"
                 onPointerDown={stopPtr}
                 onClick={() => setEditOpen(true)}
-                className={`mt-0.5 flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-[#f3f2f1] ${
+                className={`mt-0.5 flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-[var(--ui-surface-hover)] ${
                   proName ? "" : "animate-pulse"
                 }`}
               >
-                <User size={10} className="shrink-0 text-[#605e5c]" />
-                <span className="truncate text-[11px] font-medium text-[#605e5c] underline decoration-dotted">
+                <User size={10} className="shrink-0 text-[var(--ui-text-muted)]" />
+                <span className="truncate text-[11px] font-medium text-[var(--ui-text-muted)] underline decoration-dotted">
                   {proName ?? "Asignar operaria"}
                 </span>
               </button>
             ) : (
               <div className="mt-0.5 flex items-center gap-1">
-                <User size={10} className={proName ? "shrink-0 text-[#605e5c]" : "shrink-0 text-[#c8c6c4]"} />
-                <span className={`truncate text-[11px] ${proName ? "font-medium text-[#605e5c]" : "italic text-[#a19f9d]"}`}>
+                <User size={10} className={proName ? "shrink-0 text-[var(--ui-text-muted)]" : "shrink-0 text-[var(--ui-text-muted)]"} />
+                <span className={`truncate text-[11px] ${proName ? "font-medium text-[var(--ui-text-muted)]" : "italic text-[var(--ui-text-muted)]"}`}>
                   {proName ?? "Sin operaria asignada"}
                 </span>
               </div>
@@ -325,11 +325,11 @@ export default function DraggableTicketCard({
         </div>
 
         {/* Servicio */}
-        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[#e0dedd] px-2.5 py-1.5">
-          <Scissors size={12} className="shrink-0 text-[#605e5c]" />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#201f1e]">{primarySvc}</span>
+        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] px-2.5 py-1.5">
+          <Scissors size={12} className="shrink-0 text-[var(--ui-text-muted)]" />
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--ui-text)]">{primarySvc}</span>
           {extraCount > 0 && (
-            <span className="shrink-0 rounded-md border border-[#c8c6c4] px-1.5 py-0.5 text-[9px] font-bold text-[#605e5c]">
+            <span className="shrink-0 rounded-md border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--ui-text-muted)]">
               +{extraCount}
             </span>
           )}
@@ -338,13 +338,13 @@ export default function DraggableTicketCard({
         {/* Horario + tiempo restante */}
         <div className="mt-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Clock size={11} className="shrink-0 text-[#8a8886]" />
-            <span className="text-[11px] tabular-nums text-[#605e5c]">
+            <Clock size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
+            <span className="text-[11px] tabular-nums text-[var(--ui-text-muted)]">
               {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
             </span>
           </div>
           {remaining && (
-            <span className="rounded-full border border-[#c8c6c4] px-2 py-0.5 text-[10px] font-bold text-[#605e5c]">
+            <span className="rounded-full border border-[var(--ui-border-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--ui-text-muted)]">
               {remaining}
             </span>
           )}
@@ -356,38 +356,38 @@ export default function DraggableTicketCard({
             onPointerDown={stopPtr}>
             {ticket.ticket_code && (
               <div className="col-span-2 flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[#8a8886]">Código:</span>
-                <span className="font-mono text-[#323130]">{ticket.ticket_code}</span>
+                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Código:</span>
+                <span className="font-mono text-[var(--ui-text)]">{ticket.ticket_code}</span>
               </div>
             )}
             {ticket.client_phone && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[#8a8886]">Tel:</span>
-                <span className="truncate text-[#323130]">{ticket.client_phone}</span>
+                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Tel:</span>
+                <span className="truncate text-[var(--ui-text)]">{ticket.client_phone}</span>
               </div>
             )}
             {ticket.client_age != null && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[#8a8886]">Edad:</span>
-                <span className="text-[#323130]">{ticket.client_age} años</span>
+                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Edad:</span>
+                <span className="text-[var(--ui-text)]">{ticket.client_age} años</span>
               </div>
             )}
             {ticket.client_eye_type_name && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[#8a8886]">Ojos:</span>
-                <span className="truncate text-[#323130]">{ticket.client_eye_type_name}</span>
+                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Ojos:</span>
+                <span className="truncate text-[var(--ui-text)]">{ticket.client_eye_type_name}</span>
               </div>
             )}
             {ticket.sale_id && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[#8a8886]">Venta:</span>
-                <span className="font-semibold text-[#201f1e]">#{ticket.sale_id}</span>
+                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Venta:</span>
+                <span className="font-semibold text-[var(--ui-text)]">#{ticket.sale_id}</span>
               </div>
             )}
             {(ticket.service_names?.length ?? 0) > 1 && (
               <div className="col-span-2 mt-0.5 flex flex-wrap gap-1">
                 {ticket.service_names!.map((s, i) => (
-                  <span key={i} className="rounded-md border border-[#c8c6c4] px-1.5 py-0.5 text-[10px] font-semibold text-[#605e5c]">{s}</span>
+                  <span key={i} className="rounded-md border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-text-muted)]">{s}</span>
                 ))}
               </div>
             )}
@@ -397,7 +397,7 @@ export default function DraggableTicketCard({
 
       {/* ── Acciones ────────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-2 border-t border-[#f0efed] px-3 pb-3 pt-2.5"
+        className="flex items-center gap-2 border-t border-[var(--ui-border)] px-3 pb-3 pt-2.5"
         onPointerDown={stopPtr}
       >
         <div className="min-w-0 flex-1">{actions}</div>

@@ -9,32 +9,32 @@ interface StatusStyle {
 const STATUS_STYLES: Record<OperariaCurrentStatus, StatusStyle> = {
   in_service: {
     dot:   "bg-[#201f1e]",
-    badge: "border-[#201f1e] bg-white text-[#201f1e]",
+    badge: "border-[#201f1e] bg-white text-[var(--ui-text)]",
     label: "En servicio",
   },
   pending: {
     dot:   "bg-[#605e5c]",
-    badge: "border-[#c8c6c4] bg-white text-[#605e5c]",
+    badge: "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)]",
     label: "En espera",
   },
   confirmed: {
     dot:   "bg-[#605e5c]",
-    badge: "border-[#c8c6c4] bg-white text-[#605e5c]",
+    badge: "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)]",
     label: "Confirmada",
   },
   completed: {
     dot:   "bg-[#8a8886]",
-    badge: "border-[#c8c6c4] bg-white text-[#8a8886]",
+    badge: "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)]",
     label: "Finalizada",
   },
   cancelled: {
     dot:   "bg-[#a19f9d]",
-    badge: "border-[#edebe9] bg-[#f3f2f1] text-[#a19f9d]",
+    badge: "border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]",
     label: "Cancelada",
   },
   free: {
     dot:   "bg-[#c8c6c4]",
-    badge: "border-[#edebe9] bg-white text-[#605e5c]",
+    badge: "border-[var(--ui-border)] bg-white text-[var(--ui-text-muted)]",
     label: "Libre",
   },
 };
@@ -56,7 +56,7 @@ export default function OperariaStatusPanel({ operarias, collapsed }: Props) {
         transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease",
       }}
     >
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1.5">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
         {operarias.map((op) => {
           const styles = STATUS_STYLES[op.currentStatus] ?? STATUS_STYLES.free;
           return (

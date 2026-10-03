@@ -531,13 +531,13 @@ export default function ServicesPage() {
           <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
           <div className="flex flex-1 items-center justify-end gap-3">
             <div className="relative w-full sm:w-72">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#605e5c]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
               <input
                 type="text"
                 value={serviceSearch}
                 onChange={(event) => setServiceSearch(event.target.value)}
                 placeholder="Buscar servicio..."
-                className="h-9 w-full rounded-sm border border-[#8a8886] bg-white pl-9 pr-3 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                className="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white pl-9 pr-3 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
               />
             </div>
             <Button onClick={handleOpenCreateService} leftIcon={<Plus className="h-4 w-4" />}>
@@ -582,17 +582,17 @@ export default function ServicesPage() {
           </div>
 
           {filteredCategories.length === 0 ? (
-            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-6">
-              <p className="text-sm text-[#605e5c]">No se encontraron categorías con ese criterio de búsqueda.</p>
+            <SectionCard className="mt-4 border-[var(--ui-border-strong)] bg-white" bodyClassName="!p-6">
+              <p className="text-sm text-[var(--ui-text-muted)]">No se encontraron categorías con ese criterio de búsqueda.</p>
             </SectionCard>
           ) : null}
 
           {filteredCategories.length > categoriesPerPage ? (
-            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-3">
+            <SectionCard className="mt-4 border-[var(--ui-border-strong)] bg-white" bodyClassName="!p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-[#605e5c]">
-                  Página <span className="font-semibold text-[#323130]">{categoryPage}</span> de{" "}
-                  <span className="font-semibold text-[#323130]">{totalCategoryPages}</span>
+                <p className="text-xs text-[var(--ui-text-muted)]">
+                  Página <span className="font-semibold text-[var(--ui-text)]">{categoryPage}</span> de{" "}
+                  <span className="font-semibold text-[var(--ui-text)]">{totalCategoryPages}</span>
                 </p>
 
                 <div className="flex items-center gap-1">
@@ -611,10 +611,10 @@ export default function ServicesPage() {
                       key={pageNumber}
                       type="button"
                       onClick={() => setCategoryPage(pageNumber)}
-                      className={`h-8 min-w-8 rounded-sm border px-2 text-xs font-semibold transition ${
+                      className={`h-8 min-w-8 rounded-lg border px-2 text-xs font-semibold transition ${
                         pageNumber === categoryPage
-                          ? "border-[#0078d4] bg-[#0078d4] text-white"
-                          : "border-[#d2d0ce] bg-white text-[#323130] hover:bg-[#f3f2f1]"
+                          ? "border-[var(--ui-accent)] bg-brand text-white"
+                          : "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]"
                       }`}
                     >
                       {pageNumber}
@@ -743,17 +743,17 @@ export default function ServicesPage() {
           </div>
 
           {filteredServices.length === 0 ? (
-            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-6">
-              <p className="text-sm text-[#605e5c]">No se encontraron servicios con ese criterio de búsqueda.</p>
+            <SectionCard className="mt-4 border-[var(--ui-border-strong)] bg-white" bodyClassName="!p-6">
+              <p className="text-sm text-[var(--ui-text-muted)]">No se encontraron servicios con ese criterio de búsqueda.</p>
             </SectionCard>
           ) : null}
 
           {filteredServices.length > servicesPerPage ? (
-            <SectionCard className="mt-4 border-[#d2d0ce] bg-white" bodyClassName="!p-3">
+            <SectionCard className="mt-4 border-[var(--ui-border-strong)] bg-white" bodyClassName="!p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-[#605e5c]">
-                  Página <span className="font-semibold text-[#323130]">{servicePage}</span> de{" "}
-                  <span className="font-semibold text-[#323130]">{totalServicePages}</span>
+                <p className="text-xs text-[var(--ui-text-muted)]">
+                  Página <span className="font-semibold text-[var(--ui-text)]">{servicePage}</span> de{" "}
+                  <span className="font-semibold text-[var(--ui-text)]">{totalServicePages}</span>
                 </p>
 
                 <div className="flex items-center gap-1">
@@ -772,10 +772,10 @@ export default function ServicesPage() {
                       key={pageNumber}
                       type="button"
                       onClick={() => setServicePage(pageNumber)}
-                      className={`h-8 min-w-8 rounded-sm border px-2 text-xs font-semibold transition ${
+                      className={`h-8 min-w-8 rounded-lg border px-2 text-xs font-semibold transition ${
                         pageNumber === servicePage
-                          ? "border-[#0078d4] bg-[#0078d4] text-white"
-                          : "border-[#d2d0ce] bg-white text-[#323130] hover:bg-[#f3f2f1]"
+                          ? "border-[var(--ui-accent)] bg-brand text-white"
+                          : "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]"
                       }`}
                     >
                       {pageNumber}

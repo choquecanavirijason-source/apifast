@@ -18,7 +18,7 @@ interface SectionCardProps {
 const shellClass: Record<SectionCardVariant, string> = {
   default: "rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-sm",
   business:
-    "rounded-sm border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]",
+    "rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]",
 };
 
 const headerClass: Record<SectionCardVariant, string> = {

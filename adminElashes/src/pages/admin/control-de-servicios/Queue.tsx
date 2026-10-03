@@ -1090,14 +1090,14 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const boardRibbon = (
-    <div className="flex items-stretch border-b border-[#edebe9] bg-[#f3f2f1]">
+    <div className="flex items-stretch border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
 
       {/* Toggle operarias */}
       <button
         type="button"
         onClick={() => setOperariasOpen((v) => !v)}
         title={operariasOpen ? "Ocultar operarias" : "Mostrar operarias"}
-        className="flex items-center gap-1 border-r border-[#edebe9] px-2 py-1 text-[11px] font-semibold text-[#a19f9d] hover:bg-[#edebe9] hover:text-[#605e5c] transition-colors"
+        className="flex items-center gap-1 border-r border-[var(--ui-border)] px-2 py-1 text-[11px] font-semibold text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text-muted)] transition-colors"
       >
         <Users className="h-3 w-3" />
         <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-300 ${operariasOpen ? "rotate-0" : "-rotate-90"}`} />
@@ -1111,8 +1111,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           { label: "Finalizadas", count: completedTickets.length },
         ].map((s) => (
           <div key={s.label} className="flex flex-col items-center">
-            <p className="text-sm font-semibold tabular-nums text-[#201f1e]">{s.count}</p>
-            <p className="text-[11px] font-semibold text-[#605e5c]">{s.label}</p>
+            <p className="text-sm font-semibold tabular-nums text-[var(--ui-text)]">{s.count}</p>
+            <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{s.label}</p>
           </div>
         ))}
       </div>
@@ -1124,9 +1124,9 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           data-tour="queue-call-next"
           onClick={() => void handleCallNext()}
           disabled={waitingTickets.length === 0 || isLoading}
-          className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-xs font-semibold transition-all ${
+          className={`flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-all ${
             waitingTickets.length === 0 || isLoading
-              ? "cursor-not-allowed bg-[#edebe9] text-[#a19f9d]"
+              ? "cursor-not-allowed bg-[var(--ui-surface-hover)] text-[var(--ui-text-muted)]"
               : "bg-[#094732] text-white hover:bg-[#063324]"
           }`}
         >
@@ -1146,11 +1146,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             onClick={() => void loadTickets()}
             disabled={isLoading}
             title="Actualizar ahora"
-            className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border)] bg-white text-[var(--ui-text-muted)] transition hover:border-[#094732] hover:text-[#094732] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
-          <span className="text-[8px] font-semibold tabular-nums text-[#a19f9d]">
+          <span className="text-[8px] font-semibold tabular-nums text-[var(--ui-text-muted)]">
             {isLoading ? "•" : `${countdown}s`}
           </span>
         </div>
@@ -1159,7 +1159,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           type="button"
           onClick={() => setTvMode(true)}
           title="Pantalla TV"
-          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border)] bg-white text-[var(--ui-text-muted)] transition hover:border-[#094732] hover:text-[#094732]"
         >
           <Tv2 className="h-3.5 w-3.5" />
         </button>
@@ -1168,7 +1168,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
           type="button"
           onClick={() => setShowTutorial(true)}
           title="Ver guía rápida del tablero"
-          className="flex h-7 w-7 items-center justify-center rounded-sm border border-[#edebe9] bg-white text-[#605e5c] transition hover:border-[#094732] hover:text-[#094732]"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border)] bg-white text-[var(--ui-text-muted)] transition hover:border-[#094732] hover:text-[#094732]"
         >
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
@@ -1309,7 +1309,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                         e.stopPropagation();
                         navigate("/admin/pos-tracking", { state: { fromAgendaReservation: { appointmentId: ticket.id } } });
                       }}
-                      className="rounded-lg border border-[#0078d4]/30 bg-[#eef6ff] px-3 py-1.5 text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] transition-colors"
+                      className="rounded-lg border border-[var(--ui-accent)]/30 bg-[var(--ui-accent-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ui-accent)] hover:bg-[var(--ui-accent-soft)] transition-colors"
                     >
                       Completar pago
                     </button>
@@ -1392,23 +1392,23 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             </div>
 
             {finishPreview && (
-              <div className="rounded-sm border border-[#d2d0ce] bg-[#faf9f8] px-4 py-3">
+              <div className="rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-4 py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <p className="text-sm font-semibold text-[#323130]">
+                  <p className="text-sm font-semibold text-[var(--ui-text)]">
                     {finishPreview.clientName}
-                    <span className="ml-2 font-normal text-[#605e5c]">
+                    <span className="ml-2 font-normal text-[var(--ui-text-muted)]">
                       · {finishPreview.serviceNames.join(" + ") || "Servicio"}
                     </span>
                   </p>
                   {finishPreview.totalPrice > 0 && (
-                    <p className="text-sm font-semibold text-[#323130]">Bs {finishPreview.totalPrice.toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-[var(--ui-text)]">Bs {finishPreview.totalPrice.toFixed(2)}</p>
                   )}
                 </div>
 
                 {(finishPreview.maintenanceDate || finishPreview.removalDate) && (
-                  <div className="mt-2 flex flex-wrap gap-2 border-t border-[#edebe9] pt-2">
+                  <div className="mt-2 flex flex-wrap gap-2 border-t border-[var(--ui-border)] pt-2">
                     {finishPreview.maintenanceDate && (
-                      <span className="rounded-full bg-[#deecf9] px-2.5 py-1 text-xs font-semibold text-[#004578]">
+                      <span className="rounded-full bg-[var(--ui-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--ui-accent)]">
                         Mantenimiento sugerido: {finishPreview.maintenanceDate}
                       </span>
                     )}
@@ -1447,7 +1447,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
               <div>
                 <label className={BC_LABEL}>Servicio(s)</label>
-                <p className="min-h-9 w-full rounded-sm border border-[#8a8886] bg-[#f3f2f1] px-2.5 py-1.5 text-sm leading-snug text-[#323130]">
+                <p className="min-h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-2.5 py-1.5 text-sm leading-snug text-[var(--ui-text)]">
                   {finishPreview?.serviceNames.join(" + ") || "—"}
                 </p>
               </div>
@@ -1478,7 +1478,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     type="button"
                     onClick={() => finishTarget && setRegisterClientTarget(finishTarget)}
                     title="Registrar nueva clienta"
-                    className="flex shrink-0 items-center gap-1 rounded-sm border border-[#094732] bg-[#094732] px-2.5 text-xs font-semibold text-white transition hover:bg-[#063324]"
+                    className="flex shrink-0 items-center gap-1 rounded-lg border border-[#094732] bg-[#094732] px-2.5 text-xs font-semibold text-white transition hover:bg-[#063324]"
                   >
                     <Plus size={13} /> Nueva
                   </button>
@@ -1513,18 +1513,18 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsQuestionnaireModalOpen(true)}>
                       Responder cuestionario
                     </Button>
-                    <span className="text-xs text-[#605e5c]">{Object.keys(questionnaireResponses).length} respuestas guardadas</span>
+                    <span className="text-xs text-[var(--ui-text-muted)]">{Object.keys(questionnaireResponses).length} respuestas guardadas</span>
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className="border border-[#edebe9] bg-[#faf9f8] p-3">
+            <div className="border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <label htmlFor="finish-observations" className={BC_LABEL}>
                   Observaciones del servicio
                 </label>
-                <span className="text-[11px] text-[#605e5c]">
+                <span className="text-[11px] text-[var(--ui-text-muted)]">
                   {finishTarget && typeof finishTarget.client_age === "number" && finishTarget.client_age < 18
                     ? "Cuestionario obligatorio · notas opcionales"
                     : "Opcional"}
@@ -1540,7 +1540,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
               />
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-[#edebe9] pt-3">
+            <div className="flex justify-end gap-2 border-t border-[var(--ui-border)] pt-3">
               <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsFinishModalOpen(false)}>
                 Cancelar
               </Button>
@@ -1570,10 +1570,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                 ))}
             </div>
           ) : (
-            <p className="text-sm text-[#605e5c]">Sin preguntas registradas.</p>
+            <p className="text-sm text-[var(--ui-text-muted)]">Sin preguntas registradas.</p>
           )}
 
-          <div className="mt-6 flex justify-end gap-2 border-t border-[#edebe9] pt-3">
+          <div className="mt-6 flex justify-end gap-2 border-t border-[var(--ui-border)] pt-3">
             <Button type="button" variant="secondary" className={BC_BTN_SECONDARY} onClick={() => setIsQuestionnaireModalOpen(false)}>
               Cerrar
             </Button>
@@ -1614,7 +1614,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   if (embedded) {
     return (
       <>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f3f2f1]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ui-surface-muted)]">
           <div className="shrink-0">{topBar}</div>
           {/* Tablero — ocupa todo el espacio restante */}
           <div className={`min-h-0 flex-1 overflow-hidden p-1.5 ${isDraggingBoard ? "select-none" : ""}`}>
@@ -1639,8 +1639,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   return (
     <>
       <Layout
-        title={<span className="text-lg font-semibold text-[#201f1e]">Tablero de atención</span>}
-        subtitle={<span className="text-sm text-[#605e5c]">Cola de servicios · {filterDate || todayDate()}</span>}
+        title={<span className="text-lg font-semibold text-[var(--ui-text)]">Tablero de atención</span>}
+        subtitle={<span className="text-sm text-[var(--ui-text-muted)]">Cola de servicios · {filterDate || todayDate()}</span>}
         variant="cards"
         pageClassName={BC_PAGE}
         containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}

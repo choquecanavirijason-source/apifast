@@ -31,7 +31,7 @@ export default function PosToolbar({
 }: Props) {
   return (
     <div className="mb-1 mt-1 flex w-full items-center justify-between">
-      <div className="inline-flex  rounded-sm border border-[#edebe9] bg-[#faf9f8]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+      <div className="inline-flex  rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)]  shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
         {(["sale", "history", "lastticket"] as const).map((tab) => (
           <button
             key={tab}
@@ -41,10 +41,10 @@ export default function PosToolbar({
               setActiveTab(tab);
               setStep(1);
             }}
-            className={`rounded-sm px-5 py-2 text-sm font-semibold transition-colors ${
+            className={`rounded-lg px-5 py-2 text-sm font-semibold transition-colors ${
               activeTab === tab
-                ? "border border-[#edebe9] bg-white text-[#323130] shadow-sm"
-                : "text-[#605e5c] hover:bg-white/70 hover:text-[#323130]"
+                ? "border border-[var(--ui-border)] bg-white text-[var(--ui-text)] shadow-sm"
+                : "text-[var(--ui-text-muted)] hover:bg-white/70 hover:text-[var(--ui-text)]"
             }`}
           >
             {tab === "sale" ? "Nueva venta" : tab === "history" ? "Historial" : (
@@ -66,10 +66,10 @@ export default function PosToolbar({
             type="button"
             onClick={() => setIsCartOpen((prev) => !prev)}
             title={isCartOpen ? "Cerrar carrito" : "Ver carrito de venta"}
-            className={`relative flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            className={`relative flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
               isCartOpen
                 ? "border-[#094732] bg-[#ecfdf5] text-[#094732]"
-                : "border-[#8a8886] bg-white text-[#605e5c] hover:bg-[#f3f2f1]"
+                : "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
             }`}
           >
             <ShoppingCart className="h-3.5 w-3.5" />
@@ -83,13 +83,13 @@ export default function PosToolbar({
         ) : null}
         {editingSale ? (
           <>
-            <span className="rounded-sm border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
+            <span className="rounded-lg border border-[#f5d7a1] bg-[#fff4ce] px-3 py-1 text-xs font-semibold text-[#8a6a1f]">
               Editando venta: {editingSale.sale_code}
             </span>
             <button
               type="button"
               onClick={resetSaleForm}
-              className="rounded-sm border border-[#edebe9] bg-white px-3 py-1 text-xs font-semibold text-[#605e5c] hover:bg-[#f3f2f1]"
+              className="rounded-lg border border-[var(--ui-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
             >
               Salir edicion
             </button>

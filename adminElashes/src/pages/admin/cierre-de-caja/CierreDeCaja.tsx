@@ -88,7 +88,7 @@ function fmtDate(iso: string) {
 
 function PaymentBadge({ method }: { method: string | null }) {
   if (!method)
-    return <span className="text-[10px] text-[#a19f9d]">Sin cobrar</span>;
+    return <span className="text-[10px] text-[var(--ui-text-muted)]">Sin cobrar</span>;
   const Icon = PAYMENT_ICONS[method] ?? Banknote;
   const color =
     PAYMENT_COLORS[method] ?? "bg-gray-50 text-gray-700 border-gray-200";
@@ -435,11 +435,11 @@ export default function CierreDeCaja() {
       header: "Ticket / Venta",
       render: (item) => (
         <div>
-          <p className="font-mono text-[11px] font-bold text-[#323130]">
+          <p className="font-mono text-[11px] font-bold text-[var(--ui-text)]">
             {item.ticket_code ?? `#${item.appointment_id}`}
           </p>
           {item.sale_code && (
-            <p className="font-mono text-[10px] text-[#a19f9d]">
+            <p className="font-mono text-[10px] text-[var(--ui-text-muted)]">
               {item.sale_code}
             </p>
           )}
@@ -451,7 +451,7 @@ export default function CierreDeCaja() {
       key: "client_name",
       header: "Cliente",
       render: (item) => (
-        <span className="font-medium text-[#323130]">{item.client_name}</span>
+        <span className="font-medium text-[var(--ui-text)]">{item.client_name}</span>
       ),
       sortable: true,
       getValue: (item) => item.client_name,
@@ -464,7 +464,7 @@ export default function CierreDeCaja() {
           {item.service_names.map((svc, i) => (
             <span
               key={i}
-              className="rounded-sm border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-semibold text-[#005a9e]"
+              className="rounded-lg border border-[#9dc4e6] bg-[#eff6fc] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-accent)]"
             >
               {svc}
             </span>
@@ -479,7 +479,7 @@ export default function CierreDeCaja() {
       render: (item) => (
         <span className="whitespace-nowrap">
           {item.professional_name}
-          <span className="ml-1 text-[10px] text-[#a19f9d]">
+          <span className="ml-1 text-[10px] text-[var(--ui-text-muted)]">
             {(item.commission_rate * 100).toFixed(0)}%
           </span>
         </span>
@@ -491,9 +491,9 @@ export default function CierreDeCaja() {
       key: "start_time",
       header: "Hora",
       render: (item) => (
-        <span className="whitespace-nowrap font-mono text-[11px] text-[#605e5c]">
+        <span className="whitespace-nowrap font-mono text-[11px] text-[var(--ui-text-muted)]">
           {fmtTime(item.start_time)}
-          <span className="block text-[9px] text-[#a19f9d]">
+          <span className="block text-[9px] text-[var(--ui-text-muted)]">
             {fmtDate(item.start_time)}
           </span>
         </span>
@@ -516,7 +516,7 @@ export default function CierreDeCaja() {
       header: "Monto / Saldo",
       render: (item) => (
         <div className="whitespace-nowrap">
-          <p className="font-semibold text-[#323130]">
+          <p className="font-semibold text-[var(--ui-text)]">
             Bs {item.total_price.toFixed(2)}
           </p>
           {item.balance_due > 0 ? (
@@ -539,13 +539,13 @@ export default function CierreDeCaja() {
           item.status === "completed" || item.status === "confirmed";
         if (isCompleted)
           return (
-            <span className="whitespace-nowrap font-semibold text-[#323130]">
+            <span className="whitespace-nowrap font-semibold text-[var(--ui-text)]">
               Bs {item.commission.toFixed(2)}
             </span>
           );
         if (item.status === "cancelled")
-          return <span className="text-[10px] text-[#a19f9d]">—</span>;
-        return <span className="text-[10px] text-[#605e5c]">Pend.</span>;
+          return <span className="text-[10px] text-[var(--ui-text-muted)]">—</span>;
+        return <span className="text-[10px] text-[var(--ui-text-muted)]">Pend.</span>;
       },
       sortable: true,
       getValue: (item) => item.commission,
@@ -563,7 +563,7 @@ export default function CierreDeCaja() {
                 <select
                   value={cobrandoMethod}
                   onChange={(e) => setCobrandoMethod(e.target.value)}
-                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1 text-[10px] text-[#323130] outline-none"
+                  className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1 text-[10px] text-[var(--ui-text)] outline-none"
                 >
                   <option value="cash">Efectivo</option>
                   <option value="qr">QR</option>
@@ -628,7 +628,7 @@ export default function CierreDeCaja() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f3f2f1] p-4 sm:p-6">
+    <div className="min-h-screen bg-[var(--ui-surface-muted)] p-4 sm:p-6">
       {/* Header */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -657,7 +657,7 @@ export default function CierreDeCaja() {
       {/* Filtros */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[var(--ui-text-muted)]">
             Desde
           </label>
           <input
@@ -668,11 +668,11 @@ export default function CierreDeCaja() {
               setFromDate(value);
               if (value > toDate) setToDate(value);
             }}
-            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+            className="h-9 rounded-lg border border-[var(--ui-border)] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[var(--ui-text-muted)]">
             Hasta
           </label>
           <input
@@ -680,11 +680,11 @@ export default function CierreDeCaja() {
             value={toDate}
             min={fromDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+            className="h-9 rounded-lg border border-[var(--ui-border)] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold text-[#605e5c]">
+          <label className="text-[11px] font-semibold text-[var(--ui-text-muted)]">
             Operaria
           </label>
           <select
@@ -694,7 +694,7 @@ export default function CierreDeCaja() {
                 e.target.value === "" ? null : Number(e.target.value),
               )
             }
-            className="h-9 rounded-sm border border-[#edebe9] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
+            className="h-9 rounded-lg border border-[var(--ui-border)] bg-white px-3 text-sm focus:border-[#063324] focus:outline-none"
           >
             <option value="">Todas las operarias</option>
             {professionals.map((p) => (
@@ -751,15 +751,15 @@ export default function CierreDeCaja() {
           variant="business"
           className="mb-5"
           bodyClassName="!p-0"
-          headerClassName="flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
+          headerClassName="flex items-start justify-between gap-3 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3"
           title="Confirmación de comisiones"
         >
-          <p className="border-b border-[#edebe9] bg-[#faf9f8] px-4 py-2 text-xs text-[#605e5c]">
+          <p className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-2 text-xs text-[var(--ui-text-muted)]">
             Marcá cada operaria cuando le hayas entregado su comisión · Solo tickets completados
           </p>
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-[#edebe9] bg-[#faf9f8]">
+              <tr className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
                 {[
                   "Operaria",
                   "Tickets",
@@ -770,7 +770,7 @@ export default function CierreDeCaja() {
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-3 py-2 text-left text-[11px] font-semibold text-[#605e5c]"
+                    className="px-3 py-2 text-left text-[11px] font-semibold text-[var(--ui-text-muted)]"
                   >
                     {h}
                   </th>
@@ -782,20 +782,20 @@ export default function CierreDeCaja() {
                 const key = String(p.professional_id ?? p.professional_name);
                 const conf = paymentConfirmations[key];
                 return (
-                  <tr key={key} className="border-b border-[#edebe9]">
-                    <td className="px-3 py-2 font-medium text-[#323130]">
+                  <tr key={key} className="border-b border-[var(--ui-border)]">
+                    <td className="px-3 py-2 font-medium text-[var(--ui-text)]">
                       {p.professional_name}
                     </td>
-                    <td className="px-3 py-2 text-[#605e5c]">
+                    <td className="px-3 py-2 text-[var(--ui-text-muted)]">
                       {p.ticket_count}
                     </td>
-                    <td className="px-3 py-2 font-semibold text-[#323130]">
+                    <td className="px-3 py-2 font-semibold text-[var(--ui-text)]">
                       Bs {p.total_price.toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 text-[#605e5c]">
+                    <td className="px-3 py-2 text-[var(--ui-text-muted)]">
                       {(p.commission_rate * 100).toFixed(0)}%
                     </td>
-                    <td className="px-3 py-2 font-semibold text-[#323130]">
+                    <td className="px-3 py-2 font-semibold text-[var(--ui-text)]">
                       Bs {p.commission.toFixed(2)}
                     </td>
                     <td className="px-4 py-2">
@@ -804,7 +804,7 @@ export default function CierreDeCaja() {
                           <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800">
                             ✓ Confirmado
                           </span>
-                          <p className="mt-0.5 text-[10px] text-[#605e5c]">
+                          <p className="mt-0.5 text-[10px] text-[var(--ui-text-muted)]">
                             {conf.confirmedAt}
                           </p>
                         </div>
@@ -819,7 +819,7 @@ export default function CierreDeCaja() {
                             })
                           }
                           disabled={confirmingKey === key || !p.professional_id}
-                          className="rounded-sm border border-[#8a8886] bg-white px-3 py-1.5 text-xs font-semibold text-[#323130] transition hover:bg-[#f3f2f1] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {confirmingKey === key
                             ? "Guardando…"
@@ -840,23 +840,23 @@ export default function CierreDeCaja() {
         variant="business"
         title="Detalle de tickets"
         bodyClassName="!p-3"
-        headerClassName="flex items-start justify-between gap-3 border-b border-[#edebe9] bg-[#faf9f8] px-4 py-3"
+        headerClassName="flex items-start justify-between gap-3 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3"
       >
-        <p className="mb-3 text-xs text-[#605e5c]">
+        <p className="mb-3 text-xs text-[var(--ui-text-muted)]">
           {report.items.length} ticket(s) · Solo completados cuentan para comisión
         </p>
         {!loading && report.items.length > 0 && (
-          <div className="mb-3 flex items-center gap-4 rounded-sm border border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-xs">
-            <span className="font-bold text-[#323130]">
+          <div className="mb-3 flex items-center gap-4 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-2 text-xs">
+            <span className="font-bold text-[var(--ui-text)]">
               Total:{" "}
-              <span className="text-[#323130]">
+              <span className="text-[var(--ui-text)]">
                 Bs {report.grand_total.toFixed(2)}
               </span>
             </span>
-            <span className="text-[#605e5c]">|</span>
-            <span className="font-bold text-[#323130]">
+            <span className="text-[var(--ui-text-muted)]">|</span>
+            <span className="font-bold text-[var(--ui-text)]">
               Comisiones:{" "}
-              <span className="text-[#323130]">
+              <span className="text-[var(--ui-text)]">
                 Bs {report.grand_commission.toFixed(2)}
               </span>
             </span>

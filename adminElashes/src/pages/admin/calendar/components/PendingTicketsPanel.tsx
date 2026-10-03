@@ -59,7 +59,7 @@ export default function PendingTicketsPanel({
 }: PendingTicketsPanelProps) {
   return (
     <aside
-      className={`min-h-0 overflow-y-auto rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3 transition-all duration-200 ${
+      className={`min-h-0 overflow-y-auto rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 transition-all duration-200 ${
         isOpen ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0 pointer-events-none"
       }`}
     >
@@ -69,12 +69,12 @@ export default function PendingTicketsPanel({
           value={ticketSearch}
           onChange={(event) => onTicketSearchChange(event.target.value)}
           placeholder="Buscar ticket, cliente, servicio..."
-          className="h-9 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4]"
+          className="h-9 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-brand-secondary"
         />
         <select
           value={ticketStatusFilter}
           onChange={(event) => onTicketStatusFilterChange(event.target.value)}
-          className="h-9 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4]"
+          className="h-9 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-brand-secondary"
         >
           <option value="all">Todos los estados</option>
           {ticketStatusOptions.map((status) => (
@@ -84,9 +84,9 @@ export default function PendingTicketsPanel({
           ))}
         </select>
       </div>
-      <p className="mb-2 text-xs font-semibold text-[#605e5c]">Tickets</p>
+      <p className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Tickets</p>
       <div className="space-y-2">
-        {isLoading ? <p className="text-xs text-[#605e5c]">Cargando tickets...</p> : null}
+        {isLoading ? <p className="text-xs text-[var(--ui-text-muted)]">Cargando tickets...</p> : null}
         {pendingTickets.map((ticket) => {
           const start = parseTicketDate(ticket.start_time);
           const dateValue = Number.isNaN(start.getTime()) ? selectedDate : toIsoDate(start);
@@ -97,8 +97,8 @@ export default function PendingTicketsPanel({
               draggable={isUpdatingTicketId !== ticket.id}
               onDragStart={(event) => onDragStartTicket(event, ticket.id)}
               onDragEnd={onDragEndTicket}
-              className={`rounded-sm border p-2.5 shadow-sm ${getTicketStatusCardClass(ticket.status)} ${
-                draggingTicketId === ticket.id ? "ring-1 ring-[#0078d4]/40" : ""
+              className={`rounded-lg border p-2.5 shadow-sm ${getTicketStatusCardClass(ticket.status)} ${
+                draggingTicketId === ticket.id ? "ring-1 ring-brand-secondary/40" : ""
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -109,24 +109,24 @@ export default function PendingTicketsPanel({
                   {statusLabel(ticket.status)}
                 </span>
               </div>
-              <p className="mt-1 text-sm font-semibold text-[#323130]">{ticket.client_name}</p>
-              <p className="truncate text-[11px] text-[#605e5c]">{getTicketServiceSummary(ticket)}</p>
-              <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#605e5c]">
+              <p className="mt-1 text-sm font-semibold text-[var(--ui-text)]">{ticket.client_name}</p>
+              <p className="truncate text-[11px] text-[var(--ui-text-muted)]">{getTicketServiceSummary(ticket)}</p>
+              <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[var(--ui-text-muted)]">
                 <span className="truncate">{ticket.branch_name ?? "Sin sucursal"}</span>
-                <span className="font-semibold text-[#323130]">{getTicketPriceLabel(ticket)}</span>
+                <span className="font-semibold text-[var(--ui-text)]">{getTicketPriceLabel(ticket)}</span>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <input
                   type="date"
                   value={dateValue}
                   onChange={(event) => void onUpdateTicket(ticket.id, { date: event.target.value })}
-                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px]"
+                  className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[11px]"
                 />
                 <input
                   type="time"
                   value={timeValue}
                   onChange={(event) => void onUpdateTicket(ticket.id, { time: event.target.value })}
-                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px]"
+                  className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[11px]"
                 />
               </div>
               <div className="mt-1.5 grid grid-cols-2 gap-1.5">
@@ -137,7 +137,7 @@ export default function PendingTicketsPanel({
                       professional_id: event.target.value ? Number(event.target.value) : null,
                     })
                   }
-                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px]"
+                  className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[11px]"
                 >
                   <option value="">Operaria…</option>
                   {professionals.map((professional) => (
@@ -149,7 +149,7 @@ export default function PendingTicketsPanel({
                 <select
                   value={ticket.status}
                   onChange={(event) => void onUpdateTicket(ticket.id, { status: event.target.value })}
-                  className="h-7 rounded-sm border border-[#8a8886] bg-white px-1.5 text-[11px]"
+                  className="h-7 rounded-lg border border-[var(--ui-border-strong)] bg-white px-1.5 text-[11px]"
                 >
                   {ticketStatusOptions.map((status) => (
                     <option key={status} value={status}>

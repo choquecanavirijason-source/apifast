@@ -105,52 +105,52 @@ function MockTicketCard({ highlight }: { highlight: Illustration }) {
     highlight === zone ? "ring-2 ring-[#107c10] ring-offset-2 rounded-lg" : "";
 
   return (
-    <div className="w-full rounded-xl border border-[#c8c6c4] bg-white text-left shadow-sm">
-      <div className="flex items-center justify-between rounded-t-xl bg-[#faf9f8] px-3 py-2 border-b border-[#f0efed]">
-        <span className="rounded border border-[#c8c6c4] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[#201f1e]">T-1042</span>
+    <div className="w-full rounded-xl border border-[var(--ui-border-strong)] bg-white text-left shadow-sm">
+      <div className="flex items-center justify-between rounded-t-xl bg-[var(--ui-surface-muted)] px-3 py-2 border-b border-[var(--ui-border)]">
+        <span className="rounded border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[var(--ui-text)]">T-1042</span>
         <div className="flex items-center gap-1">
-          <span className="rounded-lg p-1 text-[#c8c6c4]"><Info size={12} /></span>
-          <span className={`rounded-lg p-1 text-[#8a8886] ${ring("cliente") || ring("operaria")}`}><ChevronRightSquare size={12} /></span>
+          <span className="rounded-lg p-1 text-[var(--ui-text-muted)]"><Info size={12} /></span>
+          <span className={`rounded-lg p-1 text-[var(--ui-text-muted)] ${ring("cliente") || ring("operaria")}`}><ChevronRightSquare size={12} /></span>
         </div>
       </div>
 
       <div className="px-3.5 pt-3 pb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c8c6c4] bg-white text-[11px] font-bold text-[#201f1e]">AP</div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[11px] font-bold text-[var(--ui-text)]">AP</div>
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-bold leading-tight text-[#201f1e]">Ana Pérez (ejemplo)</p>
+            <p className="truncate text-[14px] font-bold leading-tight text-[var(--ui-text)]">Ana Pérez (ejemplo)</p>
             <div className={`mt-0.5 inline-flex items-center gap-1 px-1 py-0.5 -ml-1 ${ring("operaria")}`}>
-              <User size={10} className="shrink-0 text-[#605e5c]" />
-              <span className="truncate text-[11px] font-medium text-[#605e5c] underline decoration-dotted">Asignar operaria</span>
+              <User size={10} className="shrink-0 text-[var(--ui-text-muted)]" />
+              <span className="truncate text-[11px] font-medium text-[var(--ui-text-muted)] underline decoration-dotted">Asignar operaria</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[#e0dedd] px-2.5 py-1.5">
-          <Scissors size={11} className="shrink-0 text-[#605e5c]" />
-          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#201f1e]">Extensiones Clásicas</span>
+        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] px-2.5 py-1.5">
+          <Scissors size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
+          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[var(--ui-text)]">Extensiones Clásicas</span>
         </div>
 
         <div className="mt-2 flex items-center gap-1.5">
-          <Clock size={10} className="shrink-0 text-[#8a8886]" />
-          <span className="text-[10px] tabular-nums text-[#605e5c]">10:30 – 12:00</span>
+          <Clock size={10} className="shrink-0 text-[var(--ui-text-muted)]" />
+          <span className="text-[10px] tabular-nums text-[var(--ui-text-muted)]">10:30 – 12:00</span>
         </div>
       </div>
 
       {highlight === "cliente" ? (
-        <div className="border-t border-[#f0efed] p-3">
-          <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-[#8a8886]">
+        <div className="border-t border-[var(--ui-border)] p-3">
+          <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
             <User size={8} /> Clienta
           </label>
           <div className="flex gap-1.5">
-            <div className="h-7 flex-1 rounded-md border border-[#c8c6c4] bg-[#faf9f8] px-2 text-[11px] leading-7 text-[#605e5c]">Cliente Mostrador</div>
-            <div className={`flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[#201f1e] ${ring("cliente")}`}>
+            <div className="h-7 flex-1 rounded-md border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-2 text-[11px] leading-7 text-[var(--ui-text-muted)]">Cliente Mostrador</div>
+            <div className={`flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[var(--ui-text)] ${ring("cliente")}`}>
               <UserPlus size={11} /> Nueva
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 border-t border-[#f0efed] px-3 pb-2.5 pt-2">
+        <div className="flex items-center gap-2 border-t border-[var(--ui-border)] px-3 pb-2.5 pt-2">
           <div className={`flex-1 rounded-lg px-3 py-1.5 text-center text-[11px] font-semibold text-white ${highlight === "actions" ? "bg-[#094732] ring-2 ring-[#107c10] ring-offset-2" : "bg-[#094732]"}`}>
             {highlight === "actions" ? "Iniciar atención / Finalizar" : "Iniciar atención"}
           </div>
@@ -313,7 +313,7 @@ export default function QueueTutorialModal({ onClose, storageKey }: Props) {
       )}
 
       <div
-        className="fixed flex flex-col overflow-hidden rounded-sm border border-[#d2d0ce] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
+        className="fixed flex flex-col overflow-hidden rounded-lg border border-[var(--ui-border-strong)] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out"
         style={{ top: cardTop, left: cardLeft, width: cardW }}
       >
         <div className="relative flex items-start gap-3 bg-[#094732] px-4 pb-4 pt-4">
@@ -327,30 +327,30 @@ export default function QueueTutorialModal({ onClose, storageKey }: Props) {
             type="button"
             onClick={finish}
             aria-label="Cerrar guía"
-            className="-mr-1 -mt-1 rounded-sm p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="-mr-1 -mt-1 rounded-lg p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {isIllustration && (
-          <div className="bg-[#faf9f8] px-4 pb-3 pt-3">
+          <div className="bg-[var(--ui-surface-muted)] px-4 pb-3 pt-3">
             <MockTicketCard highlight={step.illustration} />
           </div>
         )}
 
         <div className="px-4 py-3">
-          <p className="text-xs leading-relaxed text-[#323130]">{step.description}</p>
+          <p className="text-xs leading-relaxed text-[var(--ui-text)]">{step.description}</p>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-[#edebe9] bg-[#faf9f8] px-4 py-2.5">
-          <span className="text-[11px] font-semibold text-[#a19f9d]">{stepIndex + 1} / {steps.length}</span>
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-2.5">
+          <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">{stepIndex + 1} / {steps.length}</span>
           <div className="flex items-center gap-1.5">
             {!isFirst && (
               <button
                 type="button"
                 onClick={prev}
-                className="flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#323130] transition hover:bg-[#f3f2f1]"
+                className="flex items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Atrás
@@ -359,7 +359,7 @@ export default function QueueTutorialModal({ onClose, storageKey }: Props) {
             <button
               type="button"
               onClick={next}
-              className="flex items-center gap-1 rounded-sm bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
+              className="flex items-center gap-1 rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#063324]"
             >
               {isLast ? "Entendido" : "Siguiente"}
               {!isLast && <ChevronRight className="h-3.5 w-3.5" />}

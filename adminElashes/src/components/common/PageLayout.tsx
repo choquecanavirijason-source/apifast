@@ -21,7 +21,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
   actions,
   className = "",
 }) => (
-  <div className={`flex flex-col min-h-screen bg-[#f3f2f1] font-sans ${className}`}>
+  <div className={`flex flex-col min-h-screen bg-[var(--ui-surface-muted)] font-sans ${className}`}>
     <header className="bg-white border-b border-slate-200 px-6 py-4 md:px-12">
       <div className="flex items-center gap-4 max-w-[1600px] mx-auto">
         {icon && <div className="text-brand">{icon}</div>}
@@ -47,7 +47,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
     )}
 
     <main className="flex-1 p-4 md:p-8 max-w-[1600px] mx-auto w-full">
-      <div className="bg-white border border-slate-200 shadow-sm rounded-sm p-4 md:p-6">
+      <div className="bg-white border border-slate-200 shadow-sm rounded-lg p-4 md:p-6">
         {children}
       </div>
     </main>

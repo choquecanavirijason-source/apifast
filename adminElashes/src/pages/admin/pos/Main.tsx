@@ -22,7 +22,7 @@ const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py
 const labelClass = "block text-[11px] font-semibold text-slate-400 mb-1.5";
 // Modales de Caja (Abrir/Cerrar): texto en negro, sin colores decorativos —
 // solo negrita para resaltar lo importante.
-const cashLabelClass = "block text-[11px] font-semibold text-[#201f1e] mb-1.5";
+const cashLabelClass = "block text-[11px] font-semibold text-[var(--ui-text)] mb-1.5";
 // Borde bien visible siempre (no solo al hacer foco) — con border-slate-200
 // el recuadro donde escribir casi no se notaba.
 const cashFieldClass = "w-full rounded-xl border-2 border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/15";
@@ -71,12 +71,12 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         embedded ? undefined : (
           <span className="flex w-full items-center justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-base font-semibold leading-tight text-[#323130]">Caja registradora</span>
-              <span className="block text-[11px] leading-tight text-[#605e5c]">Punto de venta · Dynamics-style</span>
+              <span className="block text-base font-semibold leading-tight text-[var(--ui-text)]">Caja registradora</span>
+              <span className="block text-[11px] leading-tight text-[var(--ui-text-muted)]">Punto de venta · Dynamics-style</span>
             </span>
-            <span className="flex shrink-0 items-center gap-2 rounded-sm border border-[#edebe9] bg-white px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            <span className="flex shrink-0 items-center gap-2 rounded-lg border border-[var(--ui-border)] bg-white px-3 py-1.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
               <CalendarDays className="h-4 w-4 text-[#094732]" />
-              <span className="font-medium text-[#323130]">
+              <span className="font-medium text-[var(--ui-text)]">
                 {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
               </span>
             </span>
@@ -181,47 +181,47 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         {/* ── No branch selected ───────────────────────────────────────── */}
         {pos.activeTab === "sale" && !pos.activeBranchId ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3f2f1]">
-              <Building2 className="h-8 w-8 text-[#a19f9d]" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ui-surface-muted)]">
+              <Building2 className="h-8 w-8 text-[var(--ui-text-muted)]" />
             </div>
             <div className="max-w-sm text-center">
-              <p className="text-base font-semibold text-[#323130]">Selecciona una sucursal</p>
-              <p className="mt-1.5 text-sm text-[#605e5c]">Para registrar una venta debes elegir una sucursal específica.</p>
+              <p className="text-base font-semibold text-[var(--ui-text)]">Selecciona una sucursal</p>
+              <p className="mt-1.5 text-sm text-[var(--ui-text-muted)]">Para registrar una venta debes elegir una sucursal específica.</p>
             </div>
             <div className="w-full max-w-xs space-y-2">
               {pos.branches.length === 0 ? (
-                <p className="text-center text-xs text-[#a19f9d]">Cargando sucursales…</p>
+                <p className="text-center text-xs text-[var(--ui-text-muted)]">Cargando sucursales…</p>
               ) : pos.branches.map((branch) => (
                 <button
                   key={branch.id}
                   type="button"
                   onClick={() => { setSelectedBranchId(branch.id); pos.setActiveBranchId(branch.id); }}
-                  className="flex w-full items-center gap-3 rounded-sm border border-[#edebe9] bg-white px-4 py-3 text-left transition hover:border-[#094732] hover:bg-[#ecfdf5]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-[var(--ui-border)] bg-white px-4 py-3 text-left transition hover:border-[#094732] hover:bg-[#ecfdf5]"
                 >
                   <Building2 className="h-5 w-5 shrink-0 text-[#094732]" />
                   <div>
-                    <p className="text-sm font-semibold text-[#323130]">{branch.name}</p>
-                    {branch.address && <p className="text-xs text-[#605e5c]">{branch.address}</p>}
+                    <p className="text-sm font-semibold text-[var(--ui-text)]">{branch.name}</p>
+                    {branch.address && <p className="text-xs text-[var(--ui-text-muted)]">{branch.address}</p>}
                   </div>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[#a19f9d]">También puedes cambiarla desde el selector en la barra superior</p>
+            <p className="text-xs text-[var(--ui-text-muted)]">También puedes cambiarla desde el selector en la barra superior</p>
           </div>
 
         /* ── Sucursal elegida pero sin caja abierta (o todavía verificando) ── */
         ) : pos.activeTab === "sale" && pos.activeBranchId && !pos.cashSession ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
             {pos.isLoadingCashSession ? (
-              <p className="text-sm text-[#605e5c]">Comprobando el estado de la caja…</p>
+              <p className="text-sm text-[var(--ui-text-muted)]">Comprobando el estado de la caja…</p>
             ) : (
               <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3f2f1]">
-              <DoorOpen className="h-8 w-8 text-[#a19f9d]" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ui-surface-muted)]">
+              <DoorOpen className="h-8 w-8 text-[var(--ui-text-muted)]" />
             </div>
             <div className="max-w-sm text-center">
-              <p className="text-base font-semibold text-[#323130]">La caja de esta sucursal está cerrada</p>
-              <p className="mt-1.5 text-sm text-[#605e5c]">
+              <p className="text-base font-semibold text-[var(--ui-text)]">La caja de esta sucursal está cerrada</p>
+              <p className="mt-1.5 text-sm text-[var(--ui-text-muted)]">
                 {canOpenCashSession
                   ? "Abrila para empezar a registrar ventas — sin abrirla no se puede cobrar."
                   : "Pedile a una encargada o cajera que abra la caja antes de vender."}
@@ -231,13 +231,13 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               <button
                 type="button"
                 onClick={() => void pos.openCashSessionModal()}
-                className="flex items-center gap-2 rounded-sm bg-[#094732] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#063324]"
+                className="flex items-center gap-2 rounded-lg bg-[#094732] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#063324]"
               >
                 <DoorOpen className="h-4 w-4" />
                 Abrir caja
               </button>
             ) : (
-              <span className="flex items-center gap-1.5 rounded-sm border border-[#edebe9] bg-white px-3 py-1.5 text-xs text-[#a19f9d]">
+              <span className="flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] bg-white px-3 py-1.5 text-xs text-[var(--ui-text-muted)]">
                 <Lock className="h-3.5 w-3.5" />
                 No tenés permiso para abrir caja
               </span>
@@ -626,15 +626,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           }
         >
           <div className="grid gap-3">
-            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-3 py-2.5 text-xs">
-              <p className="font-semibold text-[#201f1e]">Esperado en caja (solo efectivo)</p>
-              <p className="mt-0.5 text-base font-bold tabular-nums text-[#201f1e]">
+            <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5 text-xs">
+              <p className="font-semibold text-[var(--ui-text)]">Esperado en caja (solo efectivo)</p>
+              <p className="mt-0.5 text-base font-bold tabular-nums text-[var(--ui-text)]">
                 {pos.isLoadingCloseCashDetail ? "…" : `Bs ${(pos.closeCashLiveDetail?.expected_cash ?? 0).toFixed(2)}`}
               </p>
             </div>
             <div>
               <label className={cashLabelClass}>
-                Monto contado <span className="text-[#201f1e]">*</span>
+                Monto contado <span className="text-[var(--ui-text)]">*</span>
               </label>
               <input
                 type="number"
@@ -649,7 +649,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             </div>
             <div>
               <label className={cashLabelClass}>
-                Fondo para el siguiente turno <span className="text-[#201f1e]">*</span>
+                Fondo para el siguiente turno <span className="text-[var(--ui-text)]">*</span>
               </label>
               <input
                 type="number"
@@ -661,7 +661,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 placeholder="0.00"
                 className={`${cashFieldClass} mt-1`}
               />
-              <p className="mt-1 text-[11px] font-medium text-[#201f1e]">
+              <p className="mt-1 text-[11px] font-medium text-[var(--ui-text)]">
                 Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
               </p>
             </div>

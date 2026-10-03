@@ -38,19 +38,19 @@ export default function TicketDragOverlay({ ticket }: { ticket: TicketItem }) {
 
     <div
 
-      className="w-[min(100vw-2rem,300px)] cursor-grabbing border border-[#c8c6c4] bg-white p-3 shadow-[0_8px_16px_rgba(0,0,0,0.14)]"
+      className="w-[min(100vw-2rem,300px)] cursor-grabbing border border-[var(--ui-border-strong)] bg-white p-3 shadow-[0_8px_16px_rgba(0,0,0,0.14)]"
 
       style={{ borderLeftWidth: 4, borderLeftColor: strip }}
 
     >
 
-      <p className="truncate text-sm font-semibold text-[#201f1e]">{ticket.client_name}</p>
+      <p className="truncate text-sm font-semibold text-[var(--ui-text)]">{ticket.client_name}</p>
 
-      <p className="mt-0.5 truncate text-xs text-[#605e5c]">{services}</p>
+      <p className="mt-0.5 truncate text-xs text-[var(--ui-text-muted)]">{services}</p>
 
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#edebe9] pt-2">
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[var(--ui-border)] pt-2">
 
-        <span className="text-xs font-semibold text-[#323130]">
+        <span className="text-xs font-semibold text-[var(--ui-text)]">
 
           {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
 
@@ -66,7 +66,7 @@ export default function TicketDragOverlay({ ticket }: { ticket: TicketItem }) {
 
       {ticket.ticket_code ? (
 
-        <p className="mt-1 font-mono text-[10px] text-[#8a8886]">{ticket.ticket_code}</p>
+        <p className="mt-1 font-mono text-[10px] text-[var(--ui-text-muted)]">{ticket.ticket_code}</p>
 
       ) : null}
 

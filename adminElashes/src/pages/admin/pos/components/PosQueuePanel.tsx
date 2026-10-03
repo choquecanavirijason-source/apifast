@@ -48,7 +48,7 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
     <button
       type="button"
       onClick={() => setIsExpanded((v) => !v)}
-      className="flex items-center gap-1.5 text-[11px] font-semibold text-[#605e5c] hover:text-[#094732]"
+      className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--ui-text-muted)] hover:text-[#094732]"
     >
       {inServiceCount > 0 && (
         <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">
@@ -75,7 +75,7 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
       <div className="max-h-52 overflow-y-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="bg-[#faf9f8] text-[11px] font-semibold text-[#605e5c]">
+            <tr className="bg-[var(--ui-surface-muted)] text-[11px] font-semibold text-[var(--ui-text-muted)]">
               <th className="px-3 py-1.5">Clienta</th>
               <th className="px-3 py-1.5">Servicio</th>
               <th className="px-3 py-1.5">Operaria</th>
@@ -83,17 +83,17 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
               <th className="px-3 py-1.5">Estado</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f3f2f1]">
+          <tbody className="divide-y divide-[var(--ui-border)]">
             {queueTickets.map((ticket) => {
               const cfg = STATUS_CONFIG[ticket.status as keyof typeof STATUS_CONFIG];
               return (
-                <tr key={ticket.id} className="hover:bg-[#f3f2f1]">
-                  <td className="max-w-30 truncate px-3 py-2 font-medium text-[#323130]">{ticket.client_name}</td>
-                  <td className="max-w-35 truncate px-3 py-2 text-[#605e5c]">
+                <tr key={ticket.id} className="hover:bg-[var(--ui-surface-hover)]">
+                  <td className="max-w-30 truncate px-3 py-2 font-medium text-[var(--ui-text)]">{ticket.client_name}</td>
+                  <td className="max-w-35 truncate px-3 py-2 text-[var(--ui-text-muted)]">
                     {ticket.service_names?.join(", ") ?? ticket.service_name ?? "—"}
                   </td>
-                  <td className="px-3 py-2 text-[#605e5c]">{resolveProfName(ticket)}</td>
-                  <td className="px-3 py-2 font-mono text-[#323130]">{formatTime(ticket.start_time)}</td>
+                  <td className="px-3 py-2 text-[var(--ui-text-muted)]">{resolveProfName(ticket)}</td>
+                  <td className="px-3 py-2 font-mono text-[var(--ui-text)]">{formatTime(ticket.start_time)}</td>
                   <td className="px-3 py-2">
                     {cfg ? (
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>
@@ -101,7 +101,7 @@ export default function PosQueuePanel({ existingTickets, professionals, todayStr
                         {cfg.label}
                       </span>
                     ) : (
-                      <span className="text-[#a19f9d]">{ticket.status}</span>
+                      <span className="text-[var(--ui-text-muted)]">{ticket.status}</span>
                     )}
                   </td>
                 </tr>

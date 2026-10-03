@@ -67,12 +67,12 @@ export default function SalonsFormModal({
         />
 
         <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-[#323130]" htmlFor="branch-country">
+          <label className="block text-sm font-semibold text-[var(--ui-text)]" htmlFor="branch-country">
             Pais
           </label>
           <select
             id="branch-country"
-            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+            className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
             value={form.department}
             onChange={(event) => onCountryChange(event.target.value)}
             required
@@ -97,12 +97,12 @@ export default function SalonsFormModal({
         />
 
         <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-[#323130]" htmlFor="branch-city">
+          <label className="block text-sm font-semibold text-[var(--ui-text)]" htmlFor="branch-city">
             Ciudad
           </label>
           <select
             id="branch-city"
-            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]"
+            className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35 disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]"
             value={form.city}
             onChange={(event) => onTextChange("city", event.target.value)}
             disabled={!form.department}
@@ -119,12 +119,12 @@ export default function SalonsFormModal({
         </div>
 
         {/* Ubicación en Google Maps */}
-        <div className="md:col-span-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3">
+        <div className="md:col-span-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
           <div className="mb-2 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-[#0078d4]" />
-            <p className="text-sm font-semibold text-[#323130]">Ubicación en Google Maps</p>
+            <MapPin className="h-4 w-4 text-[var(--ui-accent)]" />
+            <p className="text-sm font-semibold text-[var(--ui-text)]">Ubicación en Google Maps</p>
           </div>
-          <p className="mb-2 text-xs text-[#605e5c]">
+          <p className="mb-2 text-xs text-[var(--ui-text-muted)]">
             Pega el link de Google Maps de la sucursal (compartir → copiar enlace). La app de clientes lo usa
             para el botón "Cómo llegar" en citas y puntos de recojo.
           </p>
@@ -133,14 +133,14 @@ export default function SalonsFormModal({
             value={form.maps_url}
             onChange={(event) => onTextChange("maps_url", event.target.value)}
             placeholder="https://maps.app.goo.gl/... o https://goo.gl/maps/..."
-            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+            className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
           />
           {form.maps_url && (
             <a
               href={form.maps_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0078d4] hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ui-accent)] hover:underline"
             >
               Probar enlace →
             </a>
@@ -148,12 +148,12 @@ export default function SalonsFormModal({
         </div>
 
         {/* QR de pago estático */}
-        <div className="md:col-span-2 rounded-sm border border-[#edebe9] bg-[#faf9f8] p-3">
+        <div className="md:col-span-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
           <div className="mb-2 flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-[#0078d4]" />
-            <p className="text-sm font-semibold text-[#323130]">QR de pago</p>
+            <QrCode className="h-4 w-4 text-[var(--ui-accent)]" />
+            <p className="text-sm font-semibold text-[var(--ui-text)]">QR de pago</p>
           </div>
-          <p className="mb-2 text-xs text-[#605e5c]">
+          <p className="mb-2 text-xs text-[var(--ui-text-muted)]">
             Pega la URL de la imagen QR del negocio (cuenta bancaria, Tigo Money, etc.). Se mostrará en el POS cuando el cliente pague con QR.
           </p>
           <input
@@ -161,22 +161,22 @@ export default function SalonsFormModal({
             value={form.qr_image_url}
             onChange={(event) => onTextChange("qr_image_url", event.target.value)}
             placeholder="https://... (URL de la imagen QR)"
-            className="w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+            className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
           />
           {form.qr_image_url && (
             <div className="mt-2 flex items-center gap-3">
               <img
                 src={form.qr_image_url}
                 alt="Preview QR"
-                className="h-24 w-24 rounded-sm border border-[#edebe9] object-contain bg-white p-1"
+                className="h-24 w-24 rounded-lg border border-[var(--ui-border)] object-contain bg-white p-1"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-              <p className="text-xs text-[#605e5c]">Vista previa del QR</p>
+              <p className="text-xs text-[var(--ui-text-muted)]">Vista previa del QR</p>
             </div>
           )}
         </div>
 
-        <div className="order-last md:col-span-2 mt-2 flex items-center justify-end gap-2 border-t border-[#edebe9] pt-3">
+        <div className="order-last md:col-span-2 mt-2 flex items-center justify-end gap-2 border-t border-[var(--ui-border)] pt-3">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
@@ -185,9 +185,9 @@ export default function SalonsFormModal({
           </Button>
         </div>
 
-        <div className="md:col-span-2 mt-1 rounded-sm border border-[#d2d0ce] bg-white p-3">
+        <div className="md:col-span-2 mt-1 rounded-lg border border-[var(--ui-border-strong)] bg-white p-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#323130]">Horarios de apertura y cierre</p>
+            <p className="text-sm font-semibold text-[var(--ui-text)]">Horarios de apertura y cierre</p>
             {errors.opening_hours ? (
               <p className="text-xs font-semibold text-[#a4262c]">{errors.opening_hours}</p>
             ) : null}
@@ -195,14 +195,14 @@ export default function SalonsFormModal({
 
           <div className="space-y-2">
             {form.opening_hours.map((dayItem, dayIndex) => (
-              <div key={dayItem.day} className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-2">
+              <div key={dayItem.day} className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-2">
                 <div className="mb-1 flex items-center justify-between">
-                  <p className="text-xs font-semibold text-[#605e5c] capitalize">{dayItem.day}</p>
+                  <p className="text-xs font-semibold text-[var(--ui-text-muted)] capitalize">{dayItem.day}</p>
                   <button
                     type="button"
                     onClick={() => onAddScheduleRange(dayIndex)}
                     disabled={dayItem.ranges.length >= 2}
-                    className="inline-flex items-center gap-1 rounded-sm border border-[#8a8886] bg-white px-2 py-1 text-[11px] font-semibold text-[#323130] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus className="h-3 w-3" />
                     Agregar rango
@@ -222,7 +222,7 @@ export default function SalonsFormModal({
                         onChange={(event) =>
                           onOpeningHoursChange(dayIndex, rangeIndex, "open_time", event.target.value)
                         }
-                        className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                        className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
                       />
                       <input
                         type="text"
@@ -234,12 +234,12 @@ export default function SalonsFormModal({
                         onChange={(event) =>
                           onOpeningHoursChange(dayIndex, rangeIndex, "close_time", event.target.value)
                         }
-                        className="h-8 rounded-sm border border-[#8a8886] bg-white px-2 text-xs text-[#323130] outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35"
+                        className="h-8 rounded-lg border border-[var(--ui-border-strong)] bg-white px-2 text-xs text-[var(--ui-text)] outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
                       />
                       <button
                         type="button"
                         onClick={() => onRemoveScheduleRange(dayIndex, rangeIndex)}
-                        className="inline-flex h-8 items-center justify-center rounded-sm border border-[#f1b6b8] bg-[#fff5f5] px-2 text-[#a4262c]"
+                        className="inline-flex h-8 items-center justify-center rounded-lg border border-[#f1b6b8] bg-[#fff5f5] px-2 text-[#a4262c]"
                         title="Quitar rango"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

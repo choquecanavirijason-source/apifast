@@ -38,7 +38,7 @@ export interface CommissionExportTotals {
 }
 
 const fieldClass =
-  "w-full rounded-sm border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#323130] placeholder:text-[#a19f9d] outline-none transition focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/35 disabled:bg-[#f3f2f1] disabled:text-[#a19f9d]";
+  "w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] placeholder:text-[var(--ui-text-muted)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35 disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]";
 
 const CARD_COLORS = [
   { bg: "bg-violet-100", text: "text-violet-800" },
@@ -264,7 +264,7 @@ export default function ProfessionalServiceHistory() {
       header: "Código",
       sortable: true,
       render: (t) => (
-        <span className="font-mono text-xs font-semibold text-[#0078d4]">
+        <span className="font-mono text-xs font-semibold text-[var(--ui-accent)]">
           {t.ticket_code ?? `#${t.id}`}
         </span>
       ),
@@ -281,7 +281,7 @@ export default function ProfessionalServiceHistory() {
       sortable: true,
       getValue: (t) => t.service_names?.join(" · ") ?? (t.service_name ?? ""),
       render: (t) => (
-        <span className="text-xs text-[#323130]">
+        <span className="text-xs text-[var(--ui-text)]">
           {t.service_names?.length ? t.service_names.join(" · ") : (t.service_name ?? "Sin servicio")}
         </span>
       ),
@@ -291,7 +291,7 @@ export default function ProfessionalServiceHistory() {
       header: "Operaria",
       sortable: true,
       render: (t) => (
-        <span className={`text-xs ${t.professional_name ? "font-medium text-[#323130]" : "text-[#a19f9d]"}`}>
+        <span className={`text-xs ${t.professional_name ? "font-medium text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"}`}>
           {t.professional_name ?? "Sin asignar"}
         </span>
       ),
@@ -304,21 +304,21 @@ export default function ProfessionalServiceHistory() {
       render: (t) =>
         t.start_time ? (
           <div className="text-xs">
-            <p className="font-medium text-[#323130]">
+            <p className="font-medium text-[var(--ui-text)]">
               {new Date(t.start_time).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
-            <p className="text-[#605e5c]">
+            <p className="text-[var(--ui-text-muted)]">
               {new Date(t.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
-        ) : <span className="text-[#a19f9d]">—</span>,
+        ) : <span className="text-[var(--ui-text-muted)]">—</span>,
     },
     {
       key: "duration",
       header: "Duración",
       getValue: (t) => t.start_time,
       render: (t) => (
-        <span className="text-xs text-[#605e5c]">{getDurationLabel(t.start_time, t.end_time)}</span>
+        <span className="text-xs text-[var(--ui-text-muted)]">{getDurationLabel(t.start_time, t.end_time)}</span>
       ),
     },
     {
@@ -339,7 +339,7 @@ export default function ProfessionalServiceHistory() {
       render: (t) => {
         const total = getTicketPriceTotal(t);
         return (
-          <span className={`text-xs font-semibold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[#a19f9d]"}`}>
+          <span className={`text-xs font-semibold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[var(--ui-text-muted)]"}`}>
             {total > 0 ? moneyFormatter.format(total) : "—"}
           </span>
         );
@@ -352,11 +352,11 @@ export default function ProfessionalServiceHistory() {
       getValue: (t) => String(getTicketCommission(t)),
       render: (t) => {
         if (t.status !== "completed") {
-          return <span className="text-xs text-[#a19f9d]">—</span>;
+          return <span className="text-xs text-[var(--ui-text-muted)]">—</span>;
         }
         const commission = getTicketCommission(t);
         return (
-          <span className={`text-xs font-semibold tabular-nums ${commission > 0 ? "text-[#0050a0]" : "text-[#a19f9d]"}`}>
+          <span className={`text-xs font-semibold tabular-nums ${commission > 0 ? "text-[var(--ui-accent)]" : "text-[var(--ui-text-muted)]"}`}>
             {commission > 0 ? moneyFormatter.format(commission) : "—"}
           </span>
         );
@@ -367,7 +367,7 @@ export default function ProfessionalServiceHistory() {
       header: "Sucursal",
       sortable: true,
       render: (t) => (
-        <span className="text-xs text-[#605e5c]">{t.branch_name ?? "—"}</span>
+        <span className="text-xs text-[var(--ui-text-muted)]">{t.branch_name ?? "—"}</span>
       ),
     },
     {
@@ -377,9 +377,9 @@ export default function ProfessionalServiceHistory() {
       render: (t) => {
         const notes = trackingByAppointment.get(t.id)?.design_notes?.trim();
         return notes ? (
-          <span className="line-clamp-2 max-w-45 text-xs text-[#323130]" title={notes}>{notes}</span>
+          <span className="line-clamp-2 max-w-45 text-xs text-[var(--ui-text)]" title={notes}>{notes}</span>
         ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">—</span>
         );
       },
     },
@@ -390,9 +390,9 @@ export default function ProfessionalServiceHistory() {
       render: (t) => {
         const q = trackingByAppointment.get(t.id)?.questionnaire?.title;
         return q ? (
-          <span className="text-xs text-[#0078d4]">{q}</span>
+          <span className="text-xs text-[var(--ui-accent)]">{q}</span>
         ) : (
-          <span className="text-xs text-[#a19f9d]">—</span>
+          <span className="text-xs text-[var(--ui-text-muted)]">—</span>
         );
       },
     },
@@ -538,10 +538,10 @@ export default function ProfessionalServiceHistory() {
       {/* ── Filtros (compartidos entre las dos pestañas: operaria, estado,
            rango de fechas) ─────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-sm border border-[#d2d0ce] bg-[#faf9f8] p-3 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-3">
           {/* Operaria */}
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Operaria</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Operaria</label>
             {canSeeCards ? (
               <div className="mt-1 flex items-center gap-1.5">
                 <select
@@ -564,7 +564,7 @@ export default function ProfessionalServiceHistory() {
                     type="button"
                     onClick={() => setSelectedProfessionalId(null)}
                     title="Ver todas"
-                    className="flex shrink-0 items-center rounded-md border border-[#d2d0ce] bg-white p-2 text-[#605e5c] hover:bg-[#f3f2f1]"
+                    className="flex shrink-0 items-center rounded-md border border-[var(--ui-border-strong)] bg-white p-2 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -586,13 +586,13 @@ export default function ProfessionalServiceHistory() {
 
           {/* Desde */}
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Desde</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Desde</label>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
 
           {/* Hasta */}
           <div>
-            <label className="text-xs font-semibold text-[#605e5c]">Hasta</label>
+            <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
         </div>
@@ -628,7 +628,7 @@ export default function ProfessionalServiceHistory() {
 
       {/* ── Tabla de tickets ─────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-0">
-        {error ? <div className="border-b border-[#edebe9] p-4 text-sm text-rose-600">{error}</div> : null}
+        {error ? <div className="border-b border-[var(--ui-border)] p-4 text-sm text-rose-600">{error}</div> : null}
 
         <DataTable
           data={filteredTickets}

@@ -575,7 +575,7 @@ export default function Dashboard() {
         >
           <div className="h-52">
             {revenueChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
+              <div className="flex h-full items-center justify-center text-sm text-[var(--ui-text-muted)]">
                 No hay datos de ingresos para el rango seleccionado.
               </div>
             ) : (
@@ -603,7 +603,7 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="total" radius={[2, 2, 0, 0]} barSize={28} fill="#0078d4" />
+                  <Bar dataKey="total" radius={[2, 2, 0, 0]} barSize={28} fill="#094732" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -623,7 +623,7 @@ export default function Dashboard() {
         >
           <div className="h-72">
             {serviceChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
+              <div className="flex h-full items-center justify-center text-sm text-[var(--ui-text-muted)]">
                 No hay tickets para el filtro actual.
               </div>
             ) : (
@@ -677,44 +677,44 @@ export default function Dashboard() {
           }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
-              <p className="text-[11px] font-semibold text-[#605e5c]">Estados de ticket</p>
-              <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Pendientes</span>
+            <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+              <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">Estados de ticket</p>
+              <div className="mt-3 space-y-2 border-t border-[var(--ui-border)] pt-3 text-sm text-[var(--ui-text)]">
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Pendientes</span>
                   <strong className="tabular-nums">{overview.cards.appointments_pending}</strong>
                 </div>
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Confirmados</span>
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Confirmados</span>
                   <strong className="tabular-nums">{overview.cards.appointments_confirmed}</strong>
                 </div>
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Completados</span>
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Completados</span>
                   <strong className="tabular-nums">{overview.cards.appointments_completed}</strong>
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-[#605e5c]">Cancelados</span>
+                  <span className="text-[var(--ui-text-muted)]">Cancelados</span>
                   <strong className="tabular-nums">{overview.cards.appointments_cancelled}</strong>
                 </div>
               </div>
             </div>
-            <div className="rounded-sm border border-[#edebe9] bg-[#faf9f8] p-4">
-              <p className="text-[11px] font-semibold text-[#605e5c]">Caja y ventas</p>
-              <div className="mt-3 space-y-2 border-t border-[#edebe9] pt-3 text-sm text-[#323130]">
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Pagos registrados</span>
+            <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+              <p className="text-[11px] font-semibold text-[var(--ui-text-muted)]">Caja y ventas</p>
+              <div className="mt-3 space-y-2 border-t border-[var(--ui-border)] pt-3 text-sm text-[var(--ui-text)]">
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Pagos registrados</span>
                   <strong className="tabular-nums">{overview.cards.payments_count}</strong>
                 </div>
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Promedio por pago</span>
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Promedio por pago</span>
                   <strong className="tabular-nums">{formatCurrency(overview.cards.avg_payment)}</strong>
                 </div>
-                <div className="flex items-center justify-between border-b border-dashed border-[#edebe9] pb-2">
-                  <span className="text-[#605e5c]">Ventas POS</span>
+                <div className="flex items-center justify-between border-b border-dashed border-[var(--ui-border)] pb-2">
+                  <span className="text-[var(--ui-text-muted)]">Ventas POS</span>
                   <strong className="tabular-nums">{overview.cards.pos_sales_count}</strong>
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-[#605e5c]">Clientes activos</span>
+                  <span className="text-[var(--ui-text-muted)]">Clientes activos</span>
                   <strong className="tabular-nums">{overview.cards.clients_with_activity}</strong>
                 </div>
               </div>
@@ -735,7 +735,7 @@ export default function Dashboard() {
         >
           <div className="h-72">
             {inventoryChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-[#605e5c]">
+              <div className="flex h-full items-center justify-center text-sm text-[var(--ui-text-muted)]">
                 No hay datos de inventario para mostrar.
               </div>
             ) : (
@@ -788,14 +788,14 @@ export default function Dashboard() {
                 key={item.path}
                 type="button"
                 onClick={() => navigate(item.path)}
-                className="rounded-sm border border-[#edebe9] bg-[#faf9f8] px-4 py-3.5 text-left outline-none transition hover:border-[#0078d4] hover:bg-white focus-visible:ring-2 focus-visible:ring-[#0078d4] focus-visible:ring-offset-2"
+                className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3.5 text-left outline-none transition hover:border-brand-secondary hover:bg-white focus-visible:ring-2 focus-visible:ring-brand-secondary focus-visible:ring-offset-2"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#323130]">{item.label}</p>
-                    <p className="mt-1 text-xs text-[#605e5c]">{item.helper}</p>
+                    <p className="text-sm font-semibold text-[var(--ui-text)]">{item.label}</p>
+                    <p className="mt-1 text-xs text-[var(--ui-text-muted)]">{item.helper}</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[#0078d4]" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ui-accent)]" />
                 </div>
               </button>
             ))}

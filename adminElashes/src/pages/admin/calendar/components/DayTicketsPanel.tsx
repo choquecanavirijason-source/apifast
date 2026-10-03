@@ -131,11 +131,11 @@ export default function DayTicketsPanel({
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="rounded-2xl border border-[#edebe9] bg-[#faf9f8] p-3">
-          <p className="text-xs font-semibold text-[#605e5c]">
+        <div className="rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
+          <p className="text-xs font-semibold text-[var(--ui-text-muted)]">
             Tickets pendientes (sin hora / sin operaria)
           </p>
-          <p className="mt-1 text-[11px] text-[#605e5c]">Arrastra un ticket al calendario para programarlo.</p>
+          <p className="mt-1 text-[11px] text-[var(--ui-text-muted)]">Arrastra un ticket al calendario para programarlo.</p>
           <div className="mt-3 max-h-[280px] space-y-2 overflow-y-auto pr-1">
             {draggableTickets.length === 0 ? (
               <p className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-500">
@@ -153,7 +153,7 @@ export default function DayTicketsPanel({
                   }}
                   onDragEnd={() => onDragTicketEnd?.()}
                   className={`cursor-grab rounded-xl border bg-white p-2.5 shadow-sm transition active:cursor-grabbing ${
-                    draggingTicketId === ticket.id ? "border-[#0078d4] ring-1 ring-[#0078d4]/40" : "border-slate-200"
+                    draggingTicketId === ticket.id ? "border-[var(--ui-accent)] ring-1 ring-brand-secondary/40" : "border-slate-200"
                   } ${isUpdatingTicketId === ticket.id ? "opacity-60" : ""}`}
                 >
                   <p className="text-xs font-bold text-[#094732]">{ticket.ticket_code ?? `#${ticket.id}`}</p>
