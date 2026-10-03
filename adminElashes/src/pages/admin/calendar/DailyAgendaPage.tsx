@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, ChevronLeft, ChevronRight, Columns3, HelpCircle, List, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Columns3, HelpCircle, List, ListTodo, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
 import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
@@ -33,8 +33,22 @@ import {
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import { getApiErrorMessage } from "../../../core/utils/apiError";
 import { getLocalDateInputValue } from "./calendar.utils";
-import { parseDragTicketId, parseDropTarget, plannerDropId, stationDropId } from "./dailyAgenda.dnd";
-import { buildRescheduleTimes, groupTicketsByHourAndStation } from "./dailyAgenda.utils";
+import { parseDragTicketId, parseDropTarget, stationDropId } from "./dailyAgenda.dnd";
+import {
+  buildRescheduleTimes,
+  formatLocalDateTime,
+  getAppointmentDurationMs,
+  groupTicketsByHourAndStation,
+  parseTicketDate,
+  toIsoDate,
+} from "./dailyAgenda.utils";
+import DayTimeGrid, { type OpenRange } from "./components/DayTimeGrid";
+import MonthAgendaView, { buildMonthGrid } from "./components/MonthAgendaView";
+import YearAgendaView, { buildYearRange } from "./components/YearAgendaView";
+import AgendaHintsBar from "./components/AgendaHintsBar";
+import TicketsSidePanel, { TICKET_DRAG_MIME } from "./components/TicketsSidePanel";
+import CalendarScopeMenu, { type CalendarScope } from "./components/CalendarScopeMenu";
+import EditReservationModal from "./components/EditReservationModal";
 import AgendaDropCell from "./components/AgendaDropCell";
 import AgendaTicketCard from "./components/AgendaTicketCard";
 import DraggableAgendaTicketCard from "./components/DraggableAgendaTicketCard";
@@ -68,45 +82,13 @@ type AgendaViewMode = "planner" | "stations";
 type MainViewMode = "calendar" | "whatsapp";
 
 const MAIN_VIEW_STORAGE_KEY = "daily-agenda-main-view";
-
-type PlannerSlot = { minuteOfDay: number; stepMinutes: number; label: string };
-
-function buildPlannerSlots(): PlannerSlot[] {
-  const slots: PlannerSlot[] = [];
-  for (let h = 7; h <= 18; h += 1) {
-    for (const m of [0, 15, 30, 45]) {
-      slots.push({
-        minuteOfDay: h * 60 + m,
-        stepMinutes: 15,
-        label: new Date(2000, 0, 1, h, m).toLocaleTimeString("es-BO", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-      });
-    }
-  }
-  for (let h = 19; h <= 22; h += 1) {
-    for (const m of [0, 30]) {
-      if (h === 22 && m > 30) break;
-      slots.push({
-        minuteOfDay: h * 60 + m,
-        stepMinutes: 30,
-        label: new Date(2000, 0, 1, h, m).toLocaleTimeString("es-BO", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-      });
-    }
-  }
-  return slots;
-}
-
-const PLANNER_SLOTS = buildPlannerSlots();
-
-const toIsoDate = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const SCOPE_STEP_LABEL = {
+  day: { prev: "Día anterior", next: "Día siguiente" },
+  week: { prev: "Semana anterior", next: "Semana siguiente" },
+  month: { prev: "Mes anterior", next: "Mes siguiente" },
+  year: { prev: "Año anterior", next: "Año siguiente" },
+} as const;
+const TICKETS_PAGE_SIZE = 500; // máximo que acepta el backend por página
 
 /** Semana calendario (lun–dom) que contiene `isoDate`. */
 function buildWeekStrip(isoDate: string): string[] {
@@ -120,43 +102,6 @@ function buildWeekStrip(isoDate: string): string[] {
     day.setDate(monday.getDate() + i);
     return toIsoDate(day);
   });
-}
-
-const parseTicketDate = (value: string) => {
-  if (!value) return new Date("");
-  const hasTz = /[zZ]|[+-]\d{2}:\d{2}$/.test(value);
-  if (hasTz) return new Date(value);
-  const [datePart, timePartRaw = "00:00:00"] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, second] = timePartRaw.split(":").map(Number);
-  return new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, second || 0);
-};
-
-function slotKeyForTime(minuteOfDay: number, step: number) {
-  return Math.floor(minuteOfDay / step) * step;
-}
-
-function groupTicketsByPlannerSlot(tickets: TicketItem[], dateKey: string): Map<number, TicketItem[]> {
-  const map = new Map<number, TicketItem[]>();
-  for (const t of tickets) {
-    const start = parseTicketDate(t.start_time);
-    if (Number.isNaN(start.getTime()) || toIsoDate(start) !== dateKey) continue;
-    const mod = start.getHours() * 60 + start.getMinutes();
-    let slotStart: number;
-    if (mod >= 7 * 60 && mod < 19 * 60) {
-      slotStart = slotKeyForTime(mod, 15);
-    } else {
-      slotStart = Math.max(19 * 60, slotKeyForTime(mod, 30));
-    }
-    const list = map.get(slotStart) ?? [];
-    list.push(t);
-    map.set(slotStart, list);
-  }
-  for (const [k, list] of map) {
-    list.sort((a, b) => a.start_time.localeCompare(b.start_time));
-    map.set(k, list);
-  }
-  return map;
 }
 
 export type DailyAgendaPageProps = {
@@ -190,6 +135,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   );
 
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateInputValue());
+  // Pedido del cliente: al entrar a la agenda siempre se abre la vista Semana.
+  const [calendarScope, setCalendarScope] = useState<CalendarScope>("week");
+  // Días visibles según la vista (Día / Semana / Mes) y rango a pedir al backend.
+  const visibleDays = useMemo(() => {
+    if (calendarScope === "week") return buildWeekStrip(selectedDate);
+    if (calendarScope === "month") return buildMonthGrid(selectedDate);
+    if (calendarScope === "year") return buildYearRange(selectedDate);
+    return [selectedDate];
+  }, [calendarScope, selectedDate]);
+  const rangeStart = visibleDays[0];
+  const rangeEnd = visibleDays[visibleDays.length - 1];
   const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
@@ -346,13 +302,24 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   const loadAgendaContext = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setIsLoading(true);
     try {
+      // Semana/Mes pueden tener más de 500 citas: se piden por páginas.
+      const loadRangeTickets = async () => {
+        const all: TicketItem[] = [];
+        for (let page = 0; page < 10; page += 1) {
+          const batch = await AgendaService.listTickets({
+            skip: page * TICKETS_PAGE_SIZE,
+            limit: TICKETS_PAGE_SIZE,
+            branch_id: branchId ?? undefined,
+            start_date: rangeStart,
+            end_date: rangeEnd,
+          });
+          all.push(...batch);
+          if (batch.length < TICKETS_PAGE_SIZE) break;
+        }
+        return all;
+      };
       const [ticketData, pros, svc] = await Promise.all([
-        AgendaService.listTickets({
-          limit: 500,
-          branch_id: branchId ?? undefined,
-          start_date: selectedDate,
-          end_date: selectedDate,
-        }),
+        loadRangeTickets(),
         AgendaService.listProfessionalsForSelect({
           limit: 200,
           role_name: "Operaria",
@@ -365,7 +332,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       setServices(svc);
     } catch {
       if (!options?.silent) {
-        toast.error("No se pudieron cargar las reservas del día.");
+        toast.error("No se pudieron cargar las reservas.");
       }
       setTickets([]);
       setProfessionals([]);
@@ -373,7 +340,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     } finally {
       if (!options?.silent) setIsLoading(false);
     }
-  }, [branchId, selectedDate]);
+  }, [branchId, rangeStart, rangeEnd]);
 
   useEffect(() => {
     const handleBranchChange = () => {
@@ -442,6 +409,36 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
 
   const weekStrip = useMemo(() => buildWeekStrip(selectedDate), [selectedDate]);
 
+  /** Título del período visible: día, rango de la semana o mes. */
+  const periodTitle = useMemo(() => {
+    if (calendarScope === "day") return headerTitle;
+    const date = new Date(`${selectedDate}T12:00:00`);
+    if (calendarScope === "year") return String(date.getFullYear());
+    if (calendarScope === "month") {
+      const label = date.toLocaleDateString("es-BO", { month: "long", year: "numeric" });
+      return label.charAt(0).toUpperCase() + label.slice(1);
+    }
+    const first = new Date(`${visibleDays[0]}T12:00:00`);
+    const last = new Date(`${visibleDays[visibleDays.length - 1]}T12:00:00`);
+    const fmt = (d: Date) => d.toLocaleDateString("es-BO", { day: "numeric", month: "short" }).replace(".", "");
+    return `${fmt(first)} – ${fmt(last)} ${last.getFullYear()}`;
+  }, [calendarScope, headerTitle, selectedDate, visibleDays]);
+
+  /** Abre un mes concreto en la vista Mes (desde Año). */
+  const openMonth = useCallback((dateKey: string) => {
+    setSelectedDate(dateKey);
+    setCalendarScope("month");
+  }, []);
+
+  /** Abre un día concreto en la vista Día (desde Semana, Mes o Año). */
+  const openDay = useCallback(
+    (dateKey: string) => {
+      setSelectedDate(dateKey);
+      setCalendarScope("day");
+    },
+    []
+  );
+
   const activeBranchLabel = useMemo(() => {
     if (!branchId) return "Todas las sucursales";
     return branches.find((b) => b.id === branchId)?.name ?? `Sucursal #${branchId}`;
@@ -468,10 +465,27 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     });
   }, [todayOpeningHours]);
 
-  const isSlotOpen = useCallback((minuteOfDay: number): boolean => {
-    if (!openRangesMinutes) return true;
-    return openRangesMinutes.some((r) => minuteOfDay >= r.open && minuteOfDay < r.close);
-  }, [openRangesMinutes]);
+  /** Horario de atención de un día cualquiera (en minutos), para las vistas Día y Semana. */
+  const getOpenRanges = useCallback(
+    (dateKey: string): OpenRange[] | null => {
+      if (!branchId) return null;
+      const branch = branches.find((b) => b.id === branchId);
+      if (!branch?.opening_hours) return null;
+      const DAYS_ES = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+      const dayName = DAYS_ES[new Date(`${dateKey}T12:00:00`).getDay()];
+      const daySchedule = branch.opening_hours.find((d) => d.day === dayName);
+      const ranges = (daySchedule?.ranges ?? [])
+        .filter((r) => r.open_time && r.close_time)
+        .map((r) => {
+          const [oh, om] = r.open_time.split(":").map(Number);
+          const [ch, cm] = r.close_time.split(":").map(Number);
+          return { open: oh * 60 + om, close: ch * 60 + cm };
+        });
+      // Sin horario cargado para ese día se considera abierto (igual que antes).
+      return ranges.length > 0 ? ranges : null;
+    },
+    [branchId, branches]
+  );
 
   const visibleTickets = useMemo(() => {
     if (!branchId) return tickets;
@@ -480,11 +494,6 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       return true;
     });
   }, [tickets, branchId]);
-
-  const plannerMap = useMemo(
-    () => groupTicketsByPlannerSlot(visibleTickets, selectedDate),
-    [visibleTickets, selectedDate]
-  );
 
   const stationGridMap = useMemo(
     () => groupTicketsByHourAndStation(visibleTickets, selectedDate, professionals.slice(0, totalStations)),
@@ -508,9 +517,17 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
 
   const shiftDate = (delta: number) => {
     const d = new Date(`${selectedDate}T12:00:00`);
-    d.setDate(d.getDate() + delta);
+    if (calendarScope === "year") d.setFullYear(d.getFullYear() + delta, 0, 1);
+    else if (calendarScope === "month") d.setMonth(d.getMonth() + delta, 1);
+    else d.setDate(d.getDate() + delta * (calendarScope === "week" ? 7 : 1));
     setSelectedDate(toIsoDate(d));
   };
+
+  const [editingTicket, setEditingTicket] = useState<TicketItem | null>(null);
+  // Panel de tickets (antes en la "Vista semanal de citas"): buscar, filtrar y arrastrar al calendario.
+  const [ticketsPanelOpen, setTicketsPanelOpen] = useState(false);
+  const [ticketsPanelRefresh, setTicketsPanelRefresh] = useState(0);
+  const draggedPanelTicketRef = useRef<TicketItem | null>(null);
 
   const patchTicket = useCallback((ticketId: number, patch: Partial<TicketItem>) => {
     setTickets((prev) => prev.map((item) => (item.id === ticketId ? { ...item, ...patch } : item)));
@@ -572,6 +589,62 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       }
     },
     [branchId, patchTicket, professionals, selectedDate, tickets]
+  );
+
+  /** Mueve o estira una cita en la vista del día (minutos desde las 00:00 del día seleccionado). */
+  const changeTicketTime = useCallback(
+    async (ticket: TicketItem, dateKey: string, startMinute: number, endMinute: number) => {
+      const ticketId = ticket.id;
+
+      const [year, month, day] = dateKey.split("-").map(Number);
+      const at = (minute: number) =>
+        formatLocalDateTime(new Date(year, (month || 1) - 1, day || 1, Math.floor(minute / 60), minute % 60, 0));
+      const start_time = at(startMinute);
+      const end_time = at(endMinute);
+
+      const snapshot: TicketItem = { ...ticket };
+      patchTicket(ticketId, { start_time, end_time });
+      setReschedulingTicketId(ticketId);
+      try {
+        const updated = await AgendaService.updateAppointment(ticketId, {
+          start_time,
+          end_time,
+          ...(branchId != null ? { branch_id: branchId } : {}),
+        });
+        patchTicket(ticketId, { start_time: updated.start_time, end_time: updated.end_time });
+        toast.success("Horario de la reserva actualizado.");
+        // Si venía del panel (fuera del rango visible), recargar para que aparezca en el calendario.
+        if (!tickets.some((item) => item.id === ticketId)) void loadAgendaContext({ silent: true });
+        setTicketsPanelRefresh((n) => n + 1);
+      } catch (err: unknown) {
+        // Si choca con otra cita (409) u ocurre otro error, la cita vuelve a su lugar.
+        patchTicket(ticketId, snapshot);
+        toast.error(getApiErrorMessage(err, "No se pudo cambiar el horario de la reserva."));
+      } finally {
+        setReschedulingTicketId(null);
+      }
+    },
+    [branchId, loadAgendaContext, patchTicket, tickets]
+  );
+
+  /** Clic en un ticket del panel: ir a su semana y abrir la edición. */
+  const openTicketFromPanel = useCallback((ticket: TicketItem) => {
+    const start = parseTicketDate(ticket.start_time);
+    if (!Number.isNaN(start.getTime())) setSelectedDate(toIsoDate(start));
+    setCalendarScope((scope) => (scope === "year" || scope === "month" ? "week" : scope));
+    setEditingTicket(ticket);
+  }, []);
+
+  /** Se soltó un ticket del panel en el calendario: se agenda ahí conservando su duración. */
+  const dropPanelTicket = useCallback(
+    (dateKey: string, minute: number) => {
+      const ticket = draggedPanelTicketRef.current;
+      draggedPanelTicketRef.current = null;
+      if (!ticket) return;
+      const duration = Math.round(getAppointmentDurationMs(ticket) / 60_000);
+      void changeTicketTime(ticket, dateKey, minute, Math.min(minute + duration, 24 * 60 - 1));
+    },
+    [changeTicketTime]
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -697,8 +770,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 <button
                   type="button"
                   onClick={() => shiftDate(-1)}
-                  title="Día anterior"
-                  aria-label="Día anterior"
+                  title={SCOPE_STEP_LABEL[calendarScope].prev}
+                  aria-label={SCOPE_STEP_LABEL[calendarScope].prev}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -713,14 +786,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 <button
                   type="button"
                   onClick={() => shiftDate(1)}
-                  title="Día siguiente"
-                  aria-label="Día siguiente"
+                  title={SCOPE_STEP_LABEL[calendarScope].next}
+                  aria-label={SCOPE_STEP_LABEL[calendarScope].next}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-[#d2d0ce] bg-white text-[#605e5c] transition-colors hover:bg-[#f3f2f1] hover:text-[#201f1e]"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
+              {calendarScope === "day" && (
               <div className="flex shrink-0 gap-1">
                 {weekStrip.map((dayIso) => {
                   const isSel = dayIso === selectedDate;
@@ -755,10 +829,27 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   );
                 })}
               </div>
+              )}
             </div>
 
             {/* Grupo 4 — acciones */}
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                data-tour="agenda-tickets-btn"
+                onClick={() => setTicketsPanelOpen((open) => !open)}
+                aria-pressed={ticketsPanelOpen}
+                title={ticketsPanelOpen ? "Ocultar panel de tickets" : "Ver tickets para buscar o arrastrar al calendario"}
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                  ticketsPanelOpen
+                    ? "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]"
+                    : "border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]"
+                }`}
+              >
+                <ListTodo className="h-3.5 w-3.5" aria-hidden />
+                Tickets
+              </button>
+              <CalendarScopeMenu value={calendarScope} onChange={setCalendarScope} />
               <button
                 type="button"
                 data-tour="agenda-new-btn"
@@ -843,88 +934,74 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         {agendaView === "planner" ? (
         <section data-tour="agenda-grid" className="mb-2 min-h-0 flex-1 overflow-hidden rounded-sm border border-[#c8c6c4] bg-white shadow-sm print:shadow-none">
           <div className="border-b border-[#c8c6c4] bg-[#f3f2f1] px-3 py-2 text-center text-sm font-semibold text-[#201f1e] print:bg-[#f3f2f1]">
-            {headerTitle}
+            {periodTitle}
           </div>
-          <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1">
-            <p className="text-[10px] text-[#605e5c]">FECHA DE INICIO ({weekdayUpper})</p>
-            {openRangesMinutes !== null ? (
-              todayOpeningHours ? (
-                <p className="text-[10px] font-semibold text-[#107c10]">
-                  Horario: {todayOpeningHours.map((r) => `${r.open_time}–${r.close_time}`).join(" / ")}
-                </p>
-              ) : (
-                <p className="text-[10px] font-semibold text-[#a4262c]">Cerrado hoy</p>
-              )
-            ) : null}
-          </div>
-          <div className="max-h-[min(72vh,900px)] overflow-auto">
-            <div
-              className="grid min-w-[min(100%,720px)]"
-              style={{ gridTemplateColumns: "92px minmax(240px, 1fr)" }}
-            >
-              {PLANNER_SLOTS.map((slot, idx) => {
-                const rowTickets = plannerMap.get(slot.minuteOfDay) ?? [];
-                const zebra = idx % 2 === 0;
-                const slotOpen = isSlotOpen(slot.minuteOfDay);
-                const closed = openRangesMinutes !== null && !slotOpen;
-                return (
-                  <div key={`${slot.minuteOfDay}-${slot.stepMinutes}`} className="contents">
-                    <div
-                      className={`border-b border-r border-[#edebe9] px-2 py-1.5 text-xs font-medium tabular-nums ${
-                        closed
-                          ? "bg-[#f3f3f2] text-[#a19f9d]"
-                          : zebra ? "bg-[#faf9f8]" : "bg-white"
-                      }`}
-                    >
-                      <span className={closed ? "opacity-60" : ""}>{slot.label}</span>
-                      {closed && (
-                        <span className="ml-1 text-[11px] font-semibold text-[#bebbb8]">cerrado</span>
-                      )}
-                    </div>
-                    <AgendaDropCell
-                      id={plannerDropId(slot.minuteOfDay)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          const h = Math.floor(slot.minuteOfDay / 60);
-                          const m = slot.minuteOfDay % 60;
-                          openNewModal(
-                            `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-                            null
-                          );
-                        }
-                      }}
-                      onClick={() => {
-                        if (activeDragTicket) return;
-                        const h = Math.floor(slot.minuteOfDay / 60);
-                        const m = slot.minuteOfDay % 60;
-                        openNewModal(
-                          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-                          null
-                        );
-                      }}
-                      className={`border-b border-[#edebe9] px-2 py-1.5 transition ${
-                        closed
-                          ? "cursor-default bg-[#f3f3f2] opacity-60"
-                          : `cursor-pointer rounded-sm hover:bg-[#f3f2f1] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[#201f1e]/25 ${
-                              zebra ? "bg-[#fafaf9]" : "bg-white"
-                            }`
-                      }`}
-                    >
-                      <div className="flex min-h-[88px] flex-wrap items-start gap-1.5 content-start py-0.5">
-                        {rowTickets.map((t) => (
-                          <DraggableAgendaTicketCard
-                            key={t.id}
-                            ticket={t}
-                            disabled={reschedulingTicketId === t.id}
-                          />
-                        ))}
-                      </div>
-                    </AgendaDropCell>
-                  </div>
-                );
-              })}
+          {calendarScope === "day" && (
+            <div className="flex items-center justify-between border-b border-[#edebe9] bg-[#faf9f8] px-3 py-1">
+              <p className="text-[10px] text-[#605e5c]">FECHA DE INICIO ({weekdayUpper})</p>
+              {openRangesMinutes !== null ? (
+                todayOpeningHours ? (
+                  <p className="text-[10px] font-semibold text-[#107c10]">
+                    Horario: {todayOpeningHours.map((r) => `${r.open_time}–${r.close_time}`).join(" / ")}
+                  </p>
+                ) : (
+                  <p className="text-[10px] font-semibold text-[#a4262c]">Cerrado hoy</p>
+                )
+              ) : null}
             </div>
+          )}
+          <div className="flex flex-col lg:flex-row">
+          {ticketsPanelOpen && (
+            <TicketsSidePanel
+              branchId={branchId}
+              refreshKey={ticketsPanelRefresh}
+              onClose={() => setTicketsPanelOpen(false)}
+              onOpenTicket={openTicketFromPanel}
+              onDragTicket={(ticket) => {
+                if (ticket) draggedPanelTicketRef.current = ticket;
+              }}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+          {calendarScope !== "year" && <AgendaHintsBar />}
+          {calendarScope === "year" ? (
+            <YearAgendaView
+              tickets={visibleTickets}
+              year={Number(selectedDate.slice(0, 4))}
+              onSelectDay={openDay}
+              onSelectMonth={openMonth}
+            />
+          ) : calendarScope === "month" ? (
+            <MonthAgendaView
+              tickets={visibleTickets}
+              days={visibleDays}
+              monthKey={selectedDate.slice(0, 7)}
+              onSelectDay={openDay}
+              onEdit={setEditingTicket}
+            />
+          ) : (
+            <DayTimeGrid
+              tickets={visibleTickets}
+              days={visibleDays}
+              getOpenRanges={getOpenRanges}
+              disabledTicketId={reschedulingTicketId}
+              onCreateAt={(dateKey, minute) => {
+                setSelectedDate(dateKey);
+                openNewModal(
+                  `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`,
+                  null
+                );
+              }}
+              onChangeTime={(ticket, dateKey, startMinute, endMinute) =>
+                void changeTicketTime(ticket, dateKey, startMinute, endMinute)
+              }
+              externalDragType={TICKET_DRAG_MIME}
+              onDropExternal={dropPanelTicket}
+              onEdit={setEditingTicket}
+              onSelectDay={openDay}
+            />
+          )}
+          </div>
           </div>
         </section>
         ) : null}
@@ -1100,6 +1177,21 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         onConsumeRegisteredClient={consumeRegisteredClientPick}
         onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
         openingHoursToday={todayOpeningHours}
+      />
+
+      <EditReservationModal
+        ticket={editingTicket}
+        onClose={() => setEditingTicket(null)}
+        onSaved={(updated) => {
+          setTickets((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+          setEditingTicket(null);
+          setTicketsPanelRefresh((n) => n + 1);
+          void loadAgendaContext({ silent: true });
+          window.dispatchEvent(new Event(AGENDA_REFRESH_EVENT));
+        }}
+        branchId={branchId}
+        services={services}
+        professionals={professionals}
       />
 
       <RegisterClientModal

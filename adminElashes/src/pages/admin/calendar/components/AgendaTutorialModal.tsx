@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, X, CalendarClock, CalendarDays, Plus, MousePointerClick,
-  GripVertical, Wallet, Printer, ChevronDown, Search, User, UserCog, CheckCircle2, type LucideIcon,
+  Move, Wallet, Printer, Search, User, UserCog, CheckCircle2, type LucideIcon,
 } from "lucide-react";
 
 /** Por usuario (no por navegador) — varias operarias suelen compartir la
@@ -47,8 +47,8 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
       selector: null,
       illustration: null,
       icon: CalendarClock,
-      title: "Bienvenida a la Agenda del día",
-      description: "Acá ves las reservas del día organizadas por hora. Te mostramos rápido cómo moverte y crear/reprogramar una cita.",
+      title: "Bienvenida a la Agenda",
+      description: "Acá ves las reservas organizadas por hora, como en el calendario del celular. Te mostramos rápido cómo crear, mover, estirar y editar una cita.",
       onEnter: closeReservation,
     },
     {
@@ -63,8 +63,16 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
       selector: '[data-tour="agenda-date-nav"]',
       illustration: null,
       icon: CalendarDays,
-      title: "Elegir el día",
-      description: "\"Hoy\" vuelve a la fecha actual. Tocá un día de la semana, usá las flechas, o el campo de fecha para saltar a cualquier día.",
+      title: "Moverte entre fechas",
+      description: "\"Hoy\" vuelve a la fecha actual. Las flechas avanzan o retroceden según la vista (un día, una semana, un mes o un año) y el campo de fecha salta a cualquier día.",
+      onEnter: closeReservation,
+    },
+    {
+      selector: '[data-tour="agenda-scope"]',
+      illustration: null,
+      icon: CalendarDays,
+      title: "Día, Semana, Mes o Año",
+      description: "Elegí cómo ver el calendario. La agenda abre en Semana. Atajos de teclado: D (día), S (semana), M (mes) y A (año). En Mes y Año, tocá un día para abrirlo.",
       onEnter: closeReservation,
     },
     {
@@ -119,24 +127,24 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
       selector: '[data-tour="agenda-grid"]',
       illustration: null,
       icon: MousePointerClick,
-      title: "La planilla horaria",
-      description: "Cada fila es un horario. Tocá una casilla vacía para crear una reserva justo en esa hora — es un atajo más rápido que el botón \"Nueva\".",
+      title: "El calendario por horas",
+      description: "Cada reserva es un bloque: mientras más dura, más alto. Al pasar el mouse por un espacio libre aparece \"+ hora\": hacé clic ahí para crear una reserva justo en ese horario.",
       onEnter: closeReservation,
     },
     {
       selector: null,
       illustration: "overview",
       icon: CalendarClock,
-      title: "Así se ve una reserva",
-      description: "Cada tarjeta muestra el nombre de la clienta y el servicio. Tocá la flechita para ver más detalles: teléfono, edad, tipo de ojo y operaria asignada.",
+      title: "Editar con doble clic",
+      description: "Cada bloque muestra la clienta, el horario y el servicio. Hacé doble clic para editar la fecha, las horas, la operaria o los servicios.",
       onEnter: closeReservation,
     },
     {
       selector: null,
       illustration: "drag",
-      icon: GripVertical,
-      title: "Reprogramar arrastrando",
-      description: "Arrastrá una tarjeta desde su asa (⋮⋮) y soltala en otra hora para cambiar el horario de la reserva, sin tener que editarla a mano.",
+      icon: Move,
+      title: "Mover y estirar",
+      description: "Arrastrá la reserva para cambiarla de hora (o de día, en Semana). Para cambiar la duración, estirá desde la rayita de arriba o de abajo: se ajusta de 15 en 15 minutos. En tablet, mantené presionado un instante antes de mover.",
       onEnter: closeReservation,
     },
     {
@@ -162,27 +170,23 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
 
 function MockAgendaCard({ highlight }: { highlight: Illustration }) {
   const ring = (zone: Illustration) =>
-    highlight === zone ? "ring-2 ring-[#107c10] ring-offset-2 rounded-md" : "";
+    highlight === zone ? "ring-2 ring-[#9F8351] ring-offset-2" : "";
 
   return (
-    <div className="flex items-start gap-1">
-      <div className={`mt-1 flex h-6 w-5 shrink-0 items-center justify-center rounded border border-[#c8c6c4] bg-white text-[#605e5c] ${ring("drag")}`}>
-        <GripVertical className="h-3.5 w-3.5" />
+    <div
+      className={`relative h-[104px] w-[180px] rounded-md border border-l-[3px] border-[#b4d7f0] bg-[#f0f6fc] px-2 py-1.5 text-left text-[#004578] shadow-sm ${ring("overview")}`}
+    >
+      {/* Asas para estirar (arriba y abajo) */}
+      <span className={`absolute inset-x-0 top-0 mx-auto mt-0.5 block h-1 w-8 rounded-full bg-current opacity-50 ${ring("drag")}`} />
+      <div className="truncate text-[12px] font-semibold leading-tight">Valeria (ejemplo)</div>
+      <div className="text-[11px] tabular-nums opacity-80">9:00 a. m. – 10:30 a. m.</div>
+      <div className="truncate text-[11px] opacity-90">Lifting de Pestañas</div>
+      <div className="absolute bottom-2.5 left-2">
+        <span className={`inline-block rounded border border-current/30 bg-white/80 px-1.5 py-0.5 text-[11px] font-medium ${ring("venta")}`}>
+          Pasar a venta
+        </span>
       </div>
-      <div className="min-w-[132px] max-w-[180px] rounded-md border-2 border-[#a7d3f0] bg-[#eef6ff] p-1.5 text-left shadow-sm">
-        <div className="truncate text-[11px] font-bold leading-tight text-[#004578]">Valeria (ejemplo)</div>
-        <div className="flex items-center gap-1">
-          <span className="truncate text-[10px] text-[#323130]">Lifting de Pestañas</span>
-        </div>
-        <div className={`mt-0.5 inline-flex items-center opacity-70 ${ring("overview")}`}>
-          <ChevronDown className="h-3 w-3" />
-        </div>
-        <div className="mt-1.5 border-t border-current/15 pt-1">
-          <span className={`inline-block rounded border border-[#0078d4]/40 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#0078d4] ${ring("venta")}`}>
-            Pasar a venta
-          </span>
-        </div>
-      </div>
+      <span className={`absolute inset-x-0 bottom-0 mx-auto mb-0.5 block h-1 w-8 rounded-full bg-current opacity-50 ${ring("drag")}`} />
     </div>
   );
 }

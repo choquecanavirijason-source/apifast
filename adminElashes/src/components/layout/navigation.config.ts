@@ -5,10 +5,7 @@ import {
   Bot,
   Briefcase,
   Building2,
-  Calendar,
-  CalendarCheck,
   CalendarDays,
-  ChevronDown,
   ClipboardCheck,
   Clock,
   Cpu,
@@ -72,24 +69,10 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
   {
     label: "Agenda",
     section: "Operación",
+    // Agenda única (Día / Semana / Mes / Año). La antigua "Vista semanal de citas" redirige aquí.
+    path: "/admin/calendar/agenda",
     icon: CalendarDays,
     permission: ["appointments:view", "appointments:manage"],
-    children: [
-      {
-        label: "Agenda diaria",
-        description: "Citas y atención del día",
-        path: "/admin/calendar/agenda",
-        icon: CalendarCheck,
-        permission: ["appointments:view", "appointments:manage"],
-      },
-      {
-        label: "Vista semanal de citas",
-        description: "Planificación del calendario",
-        path: "/admin/calendar/citas",
-        icon: Calendar,
-        permission: ["appointments:view", "appointments:manage"],
-      },
-    ],
   },
   {
     label: "Atención",
@@ -456,12 +439,12 @@ export function useNavigationGroups() {
     );
   };
 
-  const groups = NAVIGATION_GROUPS.map((group) => {
+  const groups = NAVIGATION_GROUPS.flatMap((group): NavigationGroup[] => {
     const children = group.children?.filter((child) => hasPermission(child.permission));
-    if (group.children && !children?.length && !hasPermission(group.permission)) return null;
-    if (!group.children && !hasPermission(group.permission)) return null;
-    return { ...group, children };
-  }).filter((group): group is NavigationGroup => Boolean(group));
+    if (group.children && !children?.length && !hasPermission(group.permission)) return [];
+    if (!group.children && !hasPermission(group.permission)) return [];
+    return [{ ...group, children }];
+  });
 
   return groups;
 }

@@ -1,7 +1,9 @@
 import type { ProfessionalForSelect, TicketItem } from "../../../core/services/agenda/agenda.service";
 import { GRID_FIRST_HOUR, GRID_LAST_HOUR, STATION_COUNT } from "./dailyAgenda.constants";
 
-export const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+/** Fecha local YYYY-MM-DD. No usar toISOString(): da la fecha UTC y en Bolivia (UTC-4) desde las 20:00 devuelve el día siguiente. */
+export const toIsoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export function buildWeekStrip(isoDate: string): string[] {
   const center = new Date(`${isoDate}T12:00:00`);

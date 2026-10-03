@@ -4,6 +4,7 @@ import { Printer, X, List, Columns3 } from "lucide-react";
 import { toast } from "react-toastify";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { SegmentedTabs } from "../../../../components/common/ui";
+import { toIsoDate } from "../dailyAgenda.utils";
 
 const PRINT_WINDOW_SCRIPT = `<script>
 window.addEventListener("load", function () { window.print(); });
@@ -32,10 +33,6 @@ function parseTicketDate(value: string) {
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute, second] = timePartRaw.split(":").map(Number);
   return new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, second || 0);
-}
-
-function toIsoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
 }
 
 function getDayTickets(tickets: TicketItem[], dateKey: string) {

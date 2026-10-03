@@ -10,12 +10,12 @@ import { useWebSocket } from "../../../core/hooks/useWebSocket";
 import PosPage from "../pos/Main";
 import { getLocalDateInputValue } from "./calendar.utils";
 import { STATUS_LABELS } from "./calendar.constants";
+import { toIsoDate } from "./dailyAgenda.utils";
 import PendingTicketsPanel from "./components/PendingTicketsPanel";
 import CalendarControlsBar from "./components/CalendarControlsBar";
 
 export type CalendarPageProps = { embedded?: boolean };
 
-const toIsoDate = (value: Date) => value.toISOString().slice(0, 10);
 const toTimeValue = (hour: number, minute: number) => `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 const toLocalDateTimeValue = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}T${toTimeValue(

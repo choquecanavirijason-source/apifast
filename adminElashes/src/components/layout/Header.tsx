@@ -106,7 +106,7 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
     label: "Control de servicios",
     href: "/admin/services/queue",
   },
-  { id: "section-calendario", label: "Calendario", href: "/admin/calendar" },
+  { id: "section-calendario", label: "Calendario", href: "/admin/calendar/agenda" },
   {
     id: "section-agenda-dia",
     label: "Agenda del día",

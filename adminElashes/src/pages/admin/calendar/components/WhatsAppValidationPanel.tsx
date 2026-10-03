@@ -3,7 +3,7 @@ import { CheckCircle2, MessageCircle, Send } from "lucide-react";
 import { toast } from "react-toastify";
 import { AgendaService, type TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { getApiErrorMessage } from "../../../../core/utils/apiError";
-import { parseTicketDate } from "../dailyAgenda.utils";
+import { parseTicketDate, toIsoDate } from "../dailyAgenda.utils";
 import { Button } from "../../../../components/common/ui";
 
 type Props = {
@@ -174,7 +174,7 @@ export default function WhatsAppValidationPanel({
   const dayTickets = tickets.filter((t) => {
     const d = parseTicketDate(t.start_time);
     if (Number.isNaN(d.getTime())) return false;
-    const key = d.toISOString().slice(0, 10);
+    const key = toIsoDate(d);
     return key === selectedDate && t.status !== "cancelled" && t.status !== "cancelado";
   });
 

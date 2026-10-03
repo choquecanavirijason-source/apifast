@@ -297,7 +297,7 @@ export default function Dashboard() {
   const quickLinks = [
     { label: "Clientes", helper: "Ver base de clientes", path: "/clients" },
     { label: "Tickets", helper: "Gestionar tickets y pagos", path: "/admin/tickets" },
-    { label: "Calendario", helper: "Vista semanal de citas", path: "/admin/calendar" },
+    { label: "Calendario", helper: "Agenda por día, semana, mes o año", path: "/admin/calendar/agenda" },
     { label: "Agenda del día", helper: "Planilla diaria de reservas (sin venta POS)", path: "/admin/calendar/agenda" },
     { label: "Caja & Seguimiento", helper: "Ventas y seguimiento técnico", path: "/admin/pos-tracking" },
   ];
@@ -804,7 +804,7 @@ export default function Dashboard() {
             <Button variant="secondary" size="sm" leftIcon={<Ticket className="h-4 w-4" />} onClick={() => navigate("/admin/tickets")}>
               Gestionar tickets
             </Button>
-            <Button variant="secondary" size="sm" leftIcon={<CalendarDays className="h-4 w-4" />} onClick={() => navigate("/admin/calendar")}>
+            <Button variant="secondary" size="sm" leftIcon={<CalendarDays className="h-4 w-4" />} onClick={() => navigate("/admin/calendar/agenda")}>
               Ver calendario
             </Button>
             <Button variant="secondary" size="sm" leftIcon={<CalendarClock className="h-4 w-4" />} onClick={() => navigate("/admin/calendar/agenda")}>

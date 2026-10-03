@@ -2,6 +2,7 @@
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShoppingCart } from "lucide-react";
 import { TICKET_STATUS_OPTIONS } from "../pos.constants";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
+import { toIsoDate } from "../../calendar/dailyAgenda.utils";
 import type {
   CartLine,
   PosSaleStepTwoProps as BasePosSaleStepTwoProps,
@@ -16,7 +17,6 @@ interface PosSaleStepTwoExtraProps {
 
 type PosSaleStepTwoProps = BasePosSaleStepTwoProps & PosSaleStepTwoExtraProps;
 
-const toIsoDate = (value: Date) => value.toISOString().slice(0, 10);
 const toTimeValue = (hour: number, minute: number) =>
   `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 

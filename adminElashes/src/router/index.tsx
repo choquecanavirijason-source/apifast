@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
 import variables from "@/core/config/variables";
@@ -32,7 +32,6 @@ import ServicesPage from '@/pages/admin/services/Main';
 import ServiceQueuePage from '@/pages/admin/control-de-servicios/Queue';
 import TurnScreen from '@/pages/admin/control-de-servicios/TurnScreen';
 import TicketsPage from '@/pages/admin/tickets/Main';
-import CalendarPage from '@/pages/admin/calendar/Main';
 import DailyAgendaPage from "@/pages/admin/calendar/DailyAgendaPage";
 import PosPage from '@/pages/admin/pos/Main';
 import FollowUpPage from '@/pages/admin/follow-up/pages/FollowUpPage';
@@ -193,8 +192,9 @@ export default function AppRouter() {
             <Route path="admin/tickets/finalizados" element={<CompletedTicketsHistory />} />
             <Route path="admin/professionals/history" element={<ProfessionalServiceHistory />} />
             <Route path="admin/professionals/tickets" element={<TicketsHistoryPage />} />
-            <Route path="admin/calendar" element={<CalendarPage />} />
-            <Route path="admin/calendar/citas" element={<CalendarPage />} />
+            {/* La antigua vista semanal se unió a la agenda (Día/Semana/Mes/Año). */}
+            <Route path="admin/calendar" element={<Navigate to="/admin/calendar/agenda" replace />} />
+            <Route path="admin/calendar/citas" element={<Navigate to="/admin/calendar/agenda" replace />} />
             <Route path="admin/calendar/agenda" element={<DailyAgendaPage />} />
             <Route path="admin/pos" element={<PosPage section="sale" />} />
             <Route path="admin/pos/history" element={<PosPage section="history" />} />
