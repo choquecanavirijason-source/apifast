@@ -1,78 +1,28 @@
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
-
 import { formatTime, STATUS_LABELS } from "../control.constants";
+import { ticketCardClass } from "../../calendar/dailyAgenda.utils";
 
-
-
-const STATUS_STRIP: Record<string, string> = {
-
-  pending: "#D83B01",
-
-  waiting: "#D83B01",
-
-  confirmed: "#D83B01",
-
-  in_service: "#094732",
-
-  completed: "#107C10",
-
-  cancelled: "#A4262C",
-
-};
-
-
-
-/** Vista ligera del ticket mientras se arrastra (DragOverlay). */
-
+/** Vista ligera del ticket mientras se arrastra (DragOverlay) — mismo estilo que los bloques de la Agenda. */
 export default function TicketDragOverlay({ ticket }: { ticket: TicketItem }) {
-
   const services =
-
     ticket.service_names?.length ? ticket.service_names.join(", ") : ticket.service_name ?? "Sin servicio";
 
-  const strip = STATUS_STRIP[ticket.status] ?? "#D2D0CE";
-
-
-
   return (
-
     <div
-
-      className="w-[min(100vw-2rem,300px)] cursor-grabbing border border-[var(--ui-border-strong)] bg-white p-3 shadow-[0_8px_16px_rgba(0,0,0,0.14)]"
-
-      style={{ borderLeftWidth: 4, borderLeftColor: strip }}
-
+      className={`w-[min(100vw-2rem,300px)] cursor-grabbing rounded-lg border border-l-[3px] px-2.5 py-2 shadow-lg ring-2 ring-[#9F8351]/50 ${ticketCardClass(ticket.status)}`}
     >
-
-      <p className="truncate text-sm font-semibold text-[var(--ui-text)]">{ticket.client_name}</p>
-
-      <p className="mt-0.5 truncate text-xs text-[var(--ui-text-muted)]">{services}</p>
-
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[var(--ui-border)] pt-2">
-
-        <span className="text-xs font-semibold text-[var(--ui-text)]">
-
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <p className="truncate text-[12px] font-semibold">{ticket.client_name}</p>
+        <span className="shrink-0 text-[11px] tabular-nums opacity-75">
           {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
-
         </span>
-
-        <span className="border border-[#94c4a9] bg-[#f0f7f4] px-1.5 py-0.5 text-[11px] font-semibold text-[#094732]">
-
-          {STATUS_LABELS[ticket.status] ?? ticket.status}
-
-        </span>
-
       </div>
-
-      {ticket.ticket_code ? (
-
-        <p className="mt-1 font-mono text-[10px] text-[var(--ui-text-muted)]">{ticket.ticket_code}</p>
-
-      ) : null}
-
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <p className="truncate text-[11px] opacity-90">{services}</p>
+        <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold">
+          {STATUS_LABELS[ticket.status] ?? ticket.status}
+        </span>
+      </div>
     </div>
-
   );
-
 }
-

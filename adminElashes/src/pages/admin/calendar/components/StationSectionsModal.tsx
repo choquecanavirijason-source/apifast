@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import GenericModal from "../../../../components/common/modal/GenericModal";
 import { Button } from "../../../../components/common/ui";
 import {
@@ -110,10 +110,9 @@ export default function StationSectionsModal({ isOpen, onClose, sections, onSave
             return (
               <div
                 key={section.id}
-                className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+                className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] p-3 shadow-sm"
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <GripVertical className="h-4 w-4 shrink-0 text-slate-300" />
                   <span
                     style={{ background: section.headerBg, color: section.headerText }}
                     className="rounded px-2 py-0.5 text-[10px] font-bold"
@@ -125,7 +124,7 @@ export default function StationSectionsModal({ isOpen, onClose, sections, onSave
                     <button
                       type="button"
                       onClick={() => handleRemove(section.id)}
-                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      className="rounded-md p-1 text-[var(--ui-text-muted)] hover:bg-rose-50 hover:text-rose-600"
                       title="Eliminar sección"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

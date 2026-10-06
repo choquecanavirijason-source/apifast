@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ChevronRight,
-  Clock, GripVertical, Info, Plus, Scissors, Trash2, User, X,
-} from "lucide-react";
+import { ChevronDown, Info, Pencil, Plus, Scissors, Trash2, User, UserCog } from "lucide-react";
 
 import type { ClientForSelect, ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { formatTime } from "../control.constants";
+import { ticketCardClass } from "../../calendar/dailyAgenda.utils";
 
 const getDateInputValue = (iso: string) => {
   const parsed = new Date(iso);
@@ -29,7 +27,7 @@ const stopPtr = (e: React.PointerEvent) => e.stopPropagation();
 export default function DraggableTicketCard({
   ticket, actions, showRemaining, getRemainingLabel,
   onDelete, professionals, busyProfessionalIds, onSaveEdits, isSavingEdit,
-  clients, onChangeClient, onOpenRegisterClient,
+  clients, onChangeClient, onOpenRegisterClient, compact = false,
 }: {
   ticket: TicketItem;
   actions: ReactNode;
@@ -48,6 +46,8 @@ export default function DraggableTicketCard({
   clients?: ClientForSelect[];
   onChangeClient?: (ticket: TicketItem, clientId: string) => void;
   onOpenRegisterClient?: (ticket: TicketItem) => void;
+  /** Versión reducida (2 líneas) para columnas con muchos tickets. */
+  compact?: boolean;
 }) {
   const [quickDate, setQuickDate] = useState(getDateInputValue(ticket.start_time));
   const [quickProId, setQuickProId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
@@ -119,9 +119,11 @@ export default function DraggableTicketCard({
   const proName = professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username
     ?? ticket.professional_name ?? null;
 
-  const initials = (ticket.client_name ?? "?").slice(0, 2).toUpperCase();
 
-  const inputCls = "h-8 w-full rounded-md border border-[var(--ui-border-strong)] bg-white px-2.5 text-xs text-[var(--ui-text)] outline-none transition focus:border-[#201f1e] focus:ring-2 focus:ring-[#201f1e]/10";
+  const fieldCls =
+    "h-8 w-full cursor-pointer rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2 text-xs text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20";
+
+  const canEdit = canEditOperaria || canEditClient;
 
   return (
     <div
@@ -129,87 +131,120 @@ export default function DraggableTicketCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`group relative cursor-grab touch-none rounded-xl border bg-white transition-all active:cursor-grabbing ${
-        isDragging
-          ? "border-dashed border-[#201f1e] shadow-none"
-          : "border-[var(--ui-border-strong)] hover:border-[var(--ui-border-strong)]"
+      onDoubleClick={() => {
+        // Doble clic = editar (como en la Agenda); si no se puede editar, muestra el detalle.
+        if (canEdit) setEditOpen(true);
+        else setDetailOpen((v) => !v);
+      }}
+      title={canEdit ? "Arrastra para mover de columna · doble clic para editar" : "Arrastra para mover de columna"}
+      className={`group relative cursor-grab touch-none select-none rounded-lg border border-l-[3px] shadow-sm transition-shadow active:cursor-grabbing ${ticketCardClass(ticket.status)} ${
+        isDragging ? "border-dashed opacity-40 shadow-none" : "hover:shadow-md"
       }`}
     >
-      {/* ── Popup de edición ──────────────────────────────────────────────── */}
-      {editOpen && (canEditOperaria || canEditClient) && (
-        <>
-          <div className="absolute inset-0 z-40 rounded-xl bg-white/60 backdrop-blur-[2px]" />
+      {/* ── Cuerpo: mismo estilo que los bloques de la Agenda ─────────────── */}
+      <div className={compact ? "px-2 py-1.5" : "px-2.5 py-2"}>
+        {/* Línea 1: clienta + horario + acciones de icono */}
+        <div className="flex items-start gap-1.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <span className="truncate text-[12px] font-semibold">{ticket.client_name}</span>
+              <span className="shrink-0 text-[11px] tabular-nums opacity-75">
+                {formatTime(ticket.start_time)}
+                {compact ? "" : ` – ${formatTime(ticket.end_time)}`}
+              </span>
+            </div>
+            <div className="flex min-w-0 items-center gap-1 text-[11px] opacity-90">
+              <Scissors size={11} className="shrink-0 opacity-60" />
+              <span className="truncate">{primarySvc}</span>
+              {extraCount > 0 && <span className="shrink-0 font-semibold">+{extraCount}</span>}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
+              title="Ver detalles"
+              className={`rounded-md p-1 transition-colors ${detailOpen ? "bg-black/10" : "opacity-60 hover:bg-black/5 hover:opacity-100"}`}>
+              <Info size={12} />
+            </button>
+            {canEdit && (
+              <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
+                title="Editar: operaria, clienta, fecha y hora (o doble clic)"
+                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors ${
+                  hasChanges ? "bg-black/10" : "opacity-70 hover:bg-black/5 hover:opacity-100"
+                }`}>
+                <Pencil size={11} />
+                {!compact && "Editar"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Línea 2: operaria + tiempo restante */}
+        <div className={`flex items-center justify-between gap-1.5 ${compact ? "mt-1" : "mt-1.5"}`}>
+          {canEditOperaria ? (
+            <button
+              type="button"
+              onPointerDown={stopPtr}
+              onClick={() => setEditOpen(true)}
+              title={proName ? "Cambiar operaria" : "Asignar operaria"}
+              className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                proName
+                  ? "border-current/25 bg-white/60 hover:bg-white"
+                  : "border-dashed border-[#9F8351] bg-[#9F8351]/10 text-[#85754a] hover:bg-[#9F8351]/20"
+              }`}
+            >
+              <UserCog size={11} className="shrink-0" />
+              <span className="truncate">{proName ?? "Asignar operaria"}</span>
+              <ChevronDown size={10} className="shrink-0 opacity-60" />
+            </button>
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-1 text-[11px] opacity-80">
+              <User size={11} className="shrink-0" />
+              <span className="truncate">{proName ?? "Sin operaria"}</span>
+            </span>
+          )}
+          {remaining && (
+            <span className="shrink-0 rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
+              {remaining}
+            </span>
+          )}
+        </div>
+
+        {/* Edición en línea (doble clic o "Editar"): dentro de la tarjeta, nunca se corta */}
+        {editOpen && canEdit && (
           <div
             ref={editRef}
-            className="absolute inset-x-0 top-0 z-50 select-none rounded-xl bg-white shadow-2xl ring-1 ring-black/10"
+            className="mt-2 space-y-2 rounded-md border border-current/15 bg-[var(--ui-surface)] p-2 text-[var(--ui-text)]"
+            onPointerDown={stopPtr}
+            onDoubleClick={(e) => e.stopPropagation()}
           >
-            {/* Header y bloque de info: sin stopPtr a propósito — con el popup
-                abierto, esta zona sigue sirviendo para arrastrar el ticket a
-                otra columna sin tener que cerrarlo con la X primero. */}
-            {/* Header */}
-            <div className="flex cursor-grab items-center justify-between rounded-t-xl bg-[var(--ui-surface-muted)] px-3 py-2.5 border-b border-[#e8e4dc]">
-              <div className="flex items-center gap-2">
-                <GripVertical size={12} className="shrink-0 text-[var(--ui-text-muted)]" />
-                <div className="h-3.5 w-0.5 rounded-full bg-[#201f1e]" />
-                <span className="text-[11px] font-semibold text-[var(--ui-text)]">Ajustar turno</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold">Editar turno</span>
+              <span className="flex items-center gap-2">
                 {hasChanges && (
-                  <span className="flex items-center gap-1 rounded-full border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--ui-text)]">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#201f1e]" />
-                    {isSavingEdit ? "Guardando…" : "Guardado automático"}
+                  <span className="text-[10px] text-[var(--ui-text-muted)]">
+                    {isSavingEdit ? "Guardando…" : "Se guarda solo"}
                   </span>
                 )}
-              </div>
-              <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(false)}
-                className="rounded-md p-1 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] transition-colors">
-                <X size={12} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-medium text-white hover:bg-brand-hover"
+                >
+                  Listo
+                </button>
+              </span>
             </div>
 
-            {/* Info del ticket */}
-            <div className="cursor-grab border-b border-[var(--ui-border)] bg-[#fafaf9] px-3 py-2.5 space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[11px] font-bold text-[var(--ui-text)]">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-[var(--ui-text)]">{ticket.client_name}</p>
-                  {ticket.ticket_code && (
-                    <p className="text-[10px] font-mono text-[var(--ui-text-muted)]">{ticket.ticket_code}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 pl-[42px]">
-                <Scissors size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
-                <span className="truncate text-[11px] text-[var(--ui-text-muted)]">{primarySvc}</span>
-                {extraCount > 0 && (
-                  <span className="shrink-0 rounded border border-[var(--ui-border-strong)] px-1 py-0.5 text-[9px] font-bold text-[var(--ui-text-muted)]">+{extraCount}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 pl-[42px]">
-                <Clock size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
-                <span className="text-[11px] tabular-nums text-[var(--ui-text-muted)]">
-                  {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
-                </span>
-              </div>
-            </div>
-
-            {/* Selector operaria */}
             {canEditOperaria && (
-              <div className="p-3 border-b border-[var(--ui-border)]">
-                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
-                  <User size={8} /> Asignar operaria
-                </label>
-                <select value={quickProId} onPointerDown={stopPtr}
-                  onChange={(e) => setQuickProId(e.target.value)}
-                  className={`${inputCls} cursor-pointer`}>
+              <label className="block">
+                <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--ui-text-muted)]">
+                  <UserCog size={11} /> Operaria
+                </span>
+                <select value={quickProId} onChange={(e) => setQuickProId(e.target.value)} className={fieldCls}>
                   <option value="">Sin operaria</option>
                   {professionals.map((p) => {
                     const inService = busyProfessionalIds?.has(p.id) ?? (p.is_busy === true);
-                    // Al <option> nativo no se le puede poner color/badge —
-                    // se marca en el texto. No se bloquea a las ocupadas: este
-                    // selector solo aparece en tickets "en espera", así que
-                    // elegir a una operaria ocupada es justo la forma de
-                    // ponerla en su cola para cuando se libere.
+                    // No se bloquea a las ocupadas: elegirla la deja en su cola para cuando se libere.
                     return (
                       <option key={p.id} value={String(p.id)}>
                         {p.username} — {inService ? "En servicio" : "Libre"}
@@ -217,21 +252,19 @@ export default function DraggableTicketCard({
                     );
                   })}
                 </select>
-              </div>
+              </label>
             )}
 
-            {/* Selector clienta — corregir "Cliente Mostrador" o cambiar de clienta */}
             {canEditClient && (
-              <div className="p-3">
-                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
-                  <User size={8} /> Clienta
-                </label>
-                <div className="flex gap-1.5">
+              <label className="block">
+                <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--ui-text-muted)]">
+                  <User size={11} /> Clienta
+                </span>
+                <span className="flex gap-1.5">
                   <select
                     value={String(ticket.client_id ?? "")}
-                    onPointerDown={stopPtr}
                     onChange={(e) => onChangeClient?.(ticket, e.target.value)}
-                    className={`${inputCls} min-w-0 flex-1 cursor-pointer`}
+                    className={`${fieldCls} min-w-0 flex-1`}
                   >
                     {(clients ?? []).map((c) => (
                       <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
@@ -240,176 +273,83 @@ export default function DraggableTicketCard({
                   {onOpenRegisterClient && (
                     <button
                       type="button"
-                      onPointerDown={stopPtr}
                       onClick={() => onOpenRegisterClient(ticket)}
                       title="Registrar nueva clienta"
-                      className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-[#201f1e] bg-white px-2 text-[10px] font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
+                      className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[var(--ui-border-strong)] px-2 text-[11px] font-medium hover:bg-[var(--ui-surface-hover)]"
                     >
                       <Plus size={12} /> Nueva
                     </button>
                   )}
-                </div>
-              </div>
+                </span>
+              </label>
             )}
           </div>
-        </>
-      )}
+        )}
 
-      {/* ── Cabecera de la tarjeta: código + drag + acciones icon ─────────── */}
-      <div className="flex items-center justify-between rounded-t-xl bg-[var(--ui-surface-muted)] px-3 py-2 border-b border-[var(--ui-border)]">
-        <div className="flex items-center gap-1.5">
-          <GripVertical size={13} className="shrink-0 text-[var(--ui-text-muted)] group-hover:text-[var(--ui-text-muted)] transition-colors cursor-grab" />
-          {ticket.ticket_code ? (
-            <span className="rounded border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[var(--ui-text)]">
-              {ticket.ticket_code}
-            </span>
-          ) : (
-            <span className="text-[10px] font-mono text-[var(--ui-text-muted)]">#{ticket.id}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5">
-          <button type="button" onPointerDown={stopPtr} onClick={() => setDetailOpen((v) => !v)}
-            title="Ver detalles"
-            className={`rounded-lg p-1.5 transition-colors ${
-              detailOpen ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text)]" : "text-[var(--ui-text-muted)] hover:bg-[#f3f1ec] hover:text-[var(--ui-text-muted)]"
-            }`}>
-            <Info size={13} />
-          </button>
-          {(canEditOperaria || canEditClient) && (
-            <button type="button" onPointerDown={stopPtr} onClick={() => setEditOpen(true)}
-              title="Ajustar turno"
-              className={`rounded-lg p-1.5 transition-colors ${
-                hasChanges ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text)]" : "text-[var(--ui-text-muted)] hover:bg-[#f3f1ec] hover:text-[var(--ui-text-muted)]"
-              }`}>
-              <ChevronRight size={13} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Cuerpo de la tarjeta ─────────────────────────────────────────── */}
-      <div className="px-4 pt-3 pb-2">
-
-        {/* Avatar + nombre */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--ui-border-strong)] bg-white text-[12px] font-bold text-[var(--ui-text)]">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-[var(--ui-text)]">
-              {ticket.client_name}
-            </p>
-            {canEditOperaria ? (
-              <button
-                type="button"
-                onPointerDown={stopPtr}
-                onClick={() => setEditOpen(true)}
-                className={`mt-0.5 flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-[var(--ui-surface-hover)] ${
-                  proName ? "" : "animate-pulse"
-                }`}
-              >
-                <User size={10} className="shrink-0 text-[var(--ui-text-muted)]" />
-                <span className="truncate text-[11px] font-medium text-[var(--ui-text-muted)] underline decoration-dotted">
-                  {proName ?? "Asignar operaria"}
-                </span>
-              </button>
-            ) : (
-              <div className="mt-0.5 flex items-center gap-1">
-                <User size={10} className={proName ? "shrink-0 text-[var(--ui-text-muted)]" : "shrink-0 text-[var(--ui-text-muted)]"} />
-                <span className={`truncate text-[11px] ${proName ? "font-medium text-[var(--ui-text-muted)]" : "italic text-[var(--ui-text-muted)]"}`}>
-                  {proName ?? "Sin operaria asignada"}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Servicio */}
-        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] px-2.5 py-1.5">
-          <Scissors size={12} className="shrink-0 text-[var(--ui-text-muted)]" />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--ui-text)]">{primarySvc}</span>
-          {extraCount > 0 && (
-            <span className="shrink-0 rounded-md border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--ui-text-muted)]">
-              +{extraCount}
-            </span>
-          )}
-        </div>
-
-        {/* Horario + tiempo restante */}
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Clock size={11} className="shrink-0 text-[var(--ui-text-muted)]" />
-            <span className="text-[11px] tabular-nums text-[var(--ui-text-muted)]">
-              {formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}
-            </span>
-          </div>
-          {remaining && (
-            <span className="rounded-full border border-[var(--ui-border-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--ui-text-muted)]">
-              {remaining}
-            </span>
-          )}
-        </div>
-
-        {/* Panel de detalles expandible */}
+        {/* Detalle expandible */}
         {detailOpen && (
-          <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl border border-[#e8e4dc] bg-[#faf8f4] p-2.5 text-[11px]"
-            onPointerDown={stopPtr}>
-            {ticket.ticket_code && (
-              <div className="col-span-2 flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Código:</span>
-                <span className="font-mono text-[var(--ui-text)]">{ticket.ticket_code}</span>
-              </div>
-            )}
+          <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-md bg-white/60 p-2 text-[11px]" onPointerDown={stopPtr}>
+            <div className="col-span-2 flex gap-1.5">
+              <span className="shrink-0 opacity-70">Código:</span>
+              <span className="font-mono">{ticket.ticket_code ?? `#${ticket.id}`}</span>
+            </div>
+            <div className="col-span-2 flex gap-1.5">
+              <span className="shrink-0 opacity-70">Horario:</span>
+              <span className="tabular-nums">{formatTime(ticket.start_time)} – {formatTime(ticket.end_time)}</span>
+            </div>
             {ticket.client_phone && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Tel:</span>
-                <span className="truncate text-[var(--ui-text)]">{ticket.client_phone}</span>
+                <span className="shrink-0 opacity-70">Tel:</span>
+                <span className="truncate">{ticket.client_phone}</span>
               </div>
             )}
             {ticket.client_age != null && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Edad:</span>
-                <span className="text-[var(--ui-text)]">{ticket.client_age} años</span>
+                <span className="shrink-0 opacity-70">Edad:</span>
+                <span>{ticket.client_age} años</span>
               </div>
             )}
             {ticket.client_eye_type_name && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Ojos:</span>
-                <span className="truncate text-[var(--ui-text)]">{ticket.client_eye_type_name}</span>
+                <span className="shrink-0 opacity-70">Ojos:</span>
+                <span className="truncate">{ticket.client_eye_type_name}</span>
               </div>
             )}
             {ticket.sale_id && (
               <div className="flex gap-1.5">
-                <span className="shrink-0 font-semibold text-[var(--ui-text-muted)]">Venta:</span>
-                <span className="font-semibold text-[var(--ui-text)]">#{ticket.sale_id}</span>
+                <span className="shrink-0 opacity-70">Venta:</span>
+                <span className="font-semibold">#{ticket.sale_id}</span>
               </div>
             )}
             {(ticket.service_names?.length ?? 0) > 1 && (
               <div className="col-span-2 mt-0.5 flex flex-wrap gap-1">
-                {ticket.service_names!.map((s, i) => (
-                  <span key={i} className="rounded-md border border-[var(--ui-border-strong)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-text-muted)]">{s}</span>
+                {ticket.service_names!.map((svc, i) => (
+                  <span key={i} className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium">{svc}</span>
                 ))}
               </div>
             )}
           </div>
         )}
-      </div>
 
-      {/* ── Acciones ────────────────────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-2 border-t border-[var(--ui-border)] px-3 pb-3 pt-2.5"
-        onPointerDown={stopPtr}
-      >
-        <div className="min-w-0 flex-1">{actions}</div>
-        <button
-          type="button"
+        {/* Acciones */}
+        <div
+          className={`flex items-center gap-1.5 ${compact ? "mt-1" : "mt-2"} [&_button]:text-[11px] ${
+            compact ? "[&_button]:!px-2 [&_button]:!py-0.5" : ""
+          }`}
           onPointerDown={stopPtr}
-          onClick={() => onDelete(ticket)}
-          title="Eliminar ticket"
-          className="shrink-0 rounded-lg border border-transparent p-1.5 text-[#c4b08a] transition-colors hover:border-[#f1adba] hover:bg-[#fde7e9] hover:text-[#a4262c]"
+          onDoubleClick={(e) => e.stopPropagation()}
         >
-          <Trash2 size={14} />
-        </button>
+          <div className="min-w-0 flex-1">{actions}</div>
+          <button
+            type="button"
+            onPointerDown={stopPtr}
+            onClick={() => onDelete(ticket)}
+            title="Eliminar ticket"
+            className="shrink-0 rounded-md p-1 opacity-50 transition hover:bg-rose-50 hover:text-rose-700 hover:opacity-100"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
     </div>
   );

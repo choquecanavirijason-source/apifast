@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, MousePointerClick, Move, MoveVertical, PencilLine, X } from "lucide-react";
+import { Lightbulb, MousePointer2, MousePointerClick, Move, MoveVertical, PencilLine, X } from "lucide-react";
 
 const STORAGE_KEY = "agenda-hints-dismissed";
 
@@ -8,6 +8,7 @@ const HINTS = [
   { icon: Move, text: "Arrastra una reserva para cambiarla de hora o de día" },
   { icon: MoveVertical, text: "Estira desde el borde de arriba o de abajo para cambiar la duración" },
   { icon: PencilLine, text: "Doble clic en una reserva para editarla" },
+  { icon: MousePointer2, text: "Clic derecho para pasarla a En servicio, finalizarla o pasarla a venta" },
 ];
 
 /** Barra de ayuda de la agenda: explica en una línea cómo se usa. Se puede cerrar y no vuelve a aparecer. */

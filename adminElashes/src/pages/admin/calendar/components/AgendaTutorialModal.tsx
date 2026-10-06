@@ -120,7 +120,7 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
       illustration: null,
       icon: CheckCircle2,
       title: "Confirmar reserva",
-      description: "Esto solo agenda — no cobra nada. Si la clienta es nueva, vas a ver pedido un adelanto obligatorio antes de poder confirmar.",
+      description: "Esto solo agenda — no cobra nada ni pide adelanto. El cobro se hace después, al pasar la reserva a venta.",
       onEnter: openReservation,
     },
     {

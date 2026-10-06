@@ -73,14 +73,14 @@ const STEPS: TourStep[] = [
     illustration: "operaria",
     icon: UserCog,
     title: "Asignar operaria",
-    description: "Tocá donde dice \"Asignar operaria\" (o el botón ›) para elegir quién va a atender. Si no se asigna nadie, el ticket no se puede pasar a \"En servicio\".",
+    description: "Tocá el botón \"Asignar operaria ▾\" (o \"Editar\", o doble clic en la tarjeta) para elegir quién va a atender. Si no se asigna nadie, el ticket no se puede pasar a \"En servicio\".",
   },
   {
     selector: null,
     illustration: "cliente",
     icon: UserPlus,
     title: "Asignar o registrar clienta",
-    description: "En el mismo panel de \"Ajustar turno\" podés corregir la clienta (por si quedó como \"Cliente Mostrador\") o tocar \"Nueva\" para registrar una clienta sin salir de esta pantalla.",
+    description: "En el mismo panel de \"Editar turno\" podés corregir la clienta (por si quedó como \"Cliente Mostrador\") o tocar \"Nueva\" para registrar una clienta sin salir de esta pantalla.",
   },
   {
     selector: null,

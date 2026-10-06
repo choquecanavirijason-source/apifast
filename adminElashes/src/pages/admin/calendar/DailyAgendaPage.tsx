@@ -17,6 +17,7 @@ import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../../components/common/layout";
 import { SectionCard, SegmentedTabs } from "../../../components/common/ui";
 import RegisterClientModal from "../clients/RegisterClientModal";
@@ -49,6 +50,7 @@ import AgendaHintsBar from "./components/AgendaHintsBar";
 import TicketsSidePanel, { TICKET_DRAG_MIME } from "./components/TicketsSidePanel";
 import CalendarScopeMenu, { type CalendarScope } from "./components/CalendarScopeMenu";
 import EditReservationModal from "./components/EditReservationModal";
+import TicketContextMenu, { type TicketContextAction } from "./components/TicketContextMenu";
 import AgendaDropCell from "./components/AgendaDropCell";
 import AgendaTicketCard from "./components/AgendaTicketCard";
 import DraggableAgendaTicketCard from "./components/DraggableAgendaTicketCard";
@@ -535,6 +537,10 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   };
 
   const [editingTicket, setEditingTicket] = useState<TicketItem | null>(null);
+  // Menú de clic derecho sobre una cita (pedido del cliente): En servicio / venta / editar.
+  const navigate = useNavigate();
+  const [contextMenu, setContextMenu] = useState<{ ticket: TicketItem; x: number; y: number } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   // Panel de tickets (antes en la "Vista semanal de citas"): buscar, filtrar y arrastrar al calendario.
   const [ticketsPanelOpen, setTicketsPanelOpen] = useState(false);
   const [ticketsPanelRefresh, setTicketsPanelRefresh] = useState(0);
@@ -636,6 +642,57 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       }
     },
     [branchId, loadAgendaContext, patchTicket, tickets]
+  );
+
+  /** "Pasar a En servicio" desde el clic derecho: mismas reglas que "Iniciar atención" en Control de servicios. */
+  const startServiceFromAgenda = useCallback(
+    async (ticket: TicketItem) => {
+      if (!ticket.professional_id) {
+        toast.warning("Asigna una operaria antes de pasar a En servicio.");
+        setEditingTicket(ticket);
+        return;
+      }
+      const busyWith = tickets.find(
+        (t) => t.id !== ticket.id && t.professional_id === ticket.professional_id && t.status === "in_service"
+      );
+      if (busyWith) {
+        toast.error(
+          `La operaria ya está atendiendo a ${busyWith.client_name}. Finaliza ese servicio antes de iniciar uno nuevo.`
+        );
+        return;
+      }
+      const snapshot: TicketItem = { ...ticket };
+      patchTicket(ticket.id, { status: "in_service" });
+      setReschedulingTicketId(ticket.id);
+      try {
+        // Igual que en Control de servicios: el choque de horario no aplica al iniciar la atención.
+        await AgendaService.updateAppointment(ticket.id, { status: "in_service", skip_availability_check: true });
+        toast.success(`${ticket.client_name} pasó a En servicio.`);
+        setTicketsPanelRefresh((n) => n + 1);
+        window.dispatchEvent(new Event(AGENDA_REFRESH_EVENT));
+      } catch (err: unknown) {
+        patchTicket(ticket.id, snapshot);
+        toast.error(getApiErrorMessage(err, "No se pudo pasar a En servicio."));
+      } finally {
+        setReschedulingTicketId(null);
+      }
+    },
+    [patchTicket, tickets]
+  );
+
+  const handleContextAction = useCallback(
+    (action: TicketContextAction, ticket: TicketItem) => {
+      if (action === "edit") setEditingTicket(ticket);
+      else if (action === "start-service") void startServiceFromAgenda(ticket);
+      else if (action === "finish") {
+        // Finalizar registra seguimiento (operaria, notas, cuestionario): se usa la misma ventana de Control de servicios.
+        navigate("/admin/services/queue", { state: { finishAppointmentId: ticket.id } });
+      }
+      else if (action === "to-sale" && !ticket.sale_id) {
+        navigate("/admin/pos-tracking", { state: { fromAgendaReservation: { appointmentId: ticket.id } } });
+      }
+    },
+    [navigate, startServiceFromAgenda]
   );
 
   /** Clic en un ticket del panel: ir a su semana y abrir la edición. */
@@ -1018,6 +1075,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               monthKey={selectedDate.slice(0, 7)}
               onSelectDay={openDay}
               onEdit={setEditingTicket}
+              onTicketContextMenu={(ticket, x, y) => setContextMenu({ ticket, x, y })}
             />
           ) : (
             <DayTimeGrid
@@ -1039,6 +1097,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               onDropExternal={dropPanelTicket}
               capacity={calendarScope === "day" ? capacity : undefined}
               onEdit={setEditingTicket}
+              onTicketContextMenu={(ticket, x, y) => setContextMenu({ ticket, x, y })}
               onSelectDay={openDay}
             />
           )}
@@ -1219,6 +1278,16 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         onOpenRegisterClient={() => setIsRegisterClientOpen(true)}
         openingHoursToday={todayOpeningHours}
       />
+
+      {contextMenu && (
+        <TicketContextMenu
+          ticket={contextMenu.ticket}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onAction={handleContextAction}
+          onClose={closeContextMenu}
+        />
+      )}
 
       <EditReservationModal
         ticket={editingTicket}

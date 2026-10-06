@@ -115,6 +115,10 @@ export function ticketCardClass(status?: string | null): string {
   if (s === "waiting" || s === "en_espera_validacion") {
     return "border-amber-300 bg-amber-50 text-amber-950";
   }
+  if (s === "in_service" || s === "siendo_atendido" || s === "en_servicio") {
+    // En servicio: dorado de marca, para distinguir de un vistazo quién está siendo atendida.
+    return "border-[#9F8351]/60 bg-[#f6f1e7] text-[#5c4a26]";
+  }
   if (s === "completed" || s === "finalizado" || s === "atendido") {
     return "border-[#094732]/40 bg-[#ecfdf5] text-[#094732]";
   }

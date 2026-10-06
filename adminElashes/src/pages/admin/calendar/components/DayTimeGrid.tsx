@@ -67,6 +67,8 @@ type DayTimeGridProps = {
    * Cada cita ocupa la primera columna libre en su horario; si no hay lugar va a una columna "Extra".
    */
   capacity?: number;
+  /** Clic derecho sobre una cita (menú de acciones). */
+  onTicketContextMenu?: (ticket: TicketItem, x: number, y: number) => void;
 };
 
 const minuteOfDay = (date: Date) => date.getHours() * 60 + date.getMinutes();
@@ -157,6 +159,7 @@ export default function DayTimeGrid({
   externalDragType,
   onDropExternal,
   capacity,
+  onTicketContextMenu,
 }: DayTimeGridProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -444,14 +447,26 @@ export default function DayTimeGrid({
         role="button"
         tabIndex={0}
         aria-label={`${ticket.client_name}, ${formatMinute(start)} a ${formatMinute(end)}`}
-        title="Arrastra para mover · asas para cambiar la duración · doble clic para editar"
+        title="Arrastra para mover · asas para cambiar la duración · doble clic para editar · clic derecho para más acciones"
         onClick={(e) => e.stopPropagation()}
         onDoubleClick={(e) => {
           e.stopPropagation();
           onEdit?.(ticket);
         }}
+        onContextMenu={(e) => {
+          if (!onTicketContextMenu) return;
+          e.preventDefault();
+          e.stopPropagation();
+          clearDrag();
+          onTicketContextMenu(ticket, e.clientX, e.clientY);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") onEdit?.(ticket);
+          if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+            e.preventDefault();
+            const rect = e.currentTarget.getBoundingClientRect();
+            onTicketContextMenu?.(ticket, rect.left + 8, rect.top + 8);
+          }
         }}
         onPointerDown={(e) => beginDrag(e, item, "move")}
         className={`group/event absolute overflow-hidden rounded-md border border-l-[3px] px-1.5 py-0.5 text-left shadow-sm transition-shadow [touch-action:pan-y] ${ticketCardClass(ticket.status)} ${

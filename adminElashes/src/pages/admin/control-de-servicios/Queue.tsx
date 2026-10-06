@@ -13,7 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { ChevronDown, HelpCircle, Plus, RefreshCw, Tv2, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
 
@@ -37,8 +37,6 @@ import {
   BC_FIELD,
   BC_INFO_BOX,
   BC_LABEL,
-  BC_PAGE,
-  BC_CONTAINER,
   BC_TEXTAREA,
   BC_WARN_BOX,
 } from "./control.bc365.styles";
@@ -60,6 +58,7 @@ const SHOW_ALL_DATES_FOR_TESTING = true;
 
 const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
@@ -560,6 +559,21 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
 
     setIsFinishModalOpen(true);
   };
+
+  // Desde la Agenda (clic derecho → "Finalizar"): abrir directo "Finalizar atención" de esa clienta.
+  const finishFromAgendaId = (location.state as { finishAppointmentId?: number } | null)?.finishAppointmentId;
+  useEffect(() => {
+    if (!finishFromAgendaId) return;
+    const target = tickets.find((t) => t.id === finishFromAgendaId);
+    if (!target) return;
+    navigate(location.pathname, { replace: true, state: null });
+    if (target.status !== "in_service") {
+      toast.info("Solo se puede finalizar una atención que está En servicio.");
+      return;
+    }
+    handleOpenFinishModal(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finishFromAgendaId, tickets]);
 
   const handleQuestionnaireChange = async (id: string) => {
     setFinishQuestionnaireId(id);
@@ -1196,10 +1210,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={waitingTickets}
             isEmptyLabel="Sin clientas en espera."
             highlightTicket={isRecentlyCreated}
-            renderCard={(ticket) => (
+            renderCard={(ticket, compact) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
+                compact={compact}
                 professionals={professionals}
                 busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
@@ -1219,7 +1234,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                      className="rounded-lg border border-[#f1adba] bg-[#fde7e9] px-2.5 py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
+                      className="rounded-lg border border-rose-200 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1241,10 +1256,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={inServiceTickets}
             isEmptyLabel="Sin servicios activos."
             highlightTicket={isRecentlyCreated}
-            renderCard={(ticket) => (
+            renderCard={(ticket, compact) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
+                compact={compact}
                 professionals={professionals}
                 busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
@@ -1264,7 +1280,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                      className="rounded-lg border border-[#f1adba] bg-[#fde7e9] px-2.5 py-1.5 text-[11px] font-semibold text-[#a4262c] hover:bg-[#f9c0cb] transition-colors"
+                      className="rounded-lg border border-rose-200 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -1286,10 +1302,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
             tickets={completedTickets}
             isEmptyLabel="Sin finalizadas hoy."
             highlightTicket={isRecentlyCreated}
-            renderCard={(ticket) => (
+            renderCard={(ticket, compact) => (
               <DraggableTicketCard
                 key={ticket.id}
                 ticket={ticket}
+                compact={compact}
                 professionals={professionals}
                 busyProfessionalIds={busyProfessionalIds}
                 clients={clients}
@@ -1642,11 +1659,10 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         title={<span className="text-lg font-semibold text-[var(--ui-text)]">Tablero de atención</span>}
         subtitle={<span className="text-sm text-[var(--ui-text-muted)]">Cola de servicios · {filterDate || todayDate()}</span>}
         variant="cards"
-        pageClassName={BC_PAGE}
-        containerClassName={`${BC_CONTAINER} !rounded-sm !shadow-[0_1px_2px_rgba(0,0,0,0.06)]`}
         topContent={topBar}
       >
-        {boardGrid}
+        {/* Altura fija al alto de la pantalla: las columnas llegan abajo y cada una tiene su propio scroll. */}
+        <div className="h-[calc(100dvh-15rem)] min-h-[420px]">{boardGrid}</div>
         {dialogs}
       </Layout>
       {tvMode && (

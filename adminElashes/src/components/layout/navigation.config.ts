@@ -89,11 +89,11 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
     ],
     children: [
       {
-        label: "Clientes",
-        description: "Base, historial y frecuencia",
-        path: "/clients",
-        icon: Users,
-        permission: ["clients:view", "clients:manage"],
+        label: "Control de servicios",
+        description: "Turnos y estados de atención",
+        path: "/admin/services/queue",
+        icon: Clock,
+        permission: ["services:view", "services:manage"],
       },
       {
         label: "Tickets",
@@ -108,11 +108,11 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         ],
       },
       {
-        label: "Control de servicios",
-        description: "Turnos y estados de atención",
-        path: "/admin/services/queue",
-        icon: Clock,
-        permission: ["services:view", "services:manage"],
+        label: "Clientes",
+        description: "Base, historial y frecuencia",
+        path: "/clients",
+        icon: Users,
+        permission: ["clients:view", "clients:manage"],
       },
     ],
   },

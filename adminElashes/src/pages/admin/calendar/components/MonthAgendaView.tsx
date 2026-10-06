@@ -10,6 +10,8 @@ type MonthAgendaViewProps = {
   monthKey: string;
   onSelectDay: (dateKey: string) => void;
   onEdit?: (ticket: TicketItem) => void;
+  /** Clic derecho sobre una cita (menú de acciones). */
+  onTicketContextMenu?: (ticket: TicketItem, x: number, y: number) => void;
 };
 
 const MAX_VISIBLE = 3;
@@ -33,7 +35,7 @@ const formatTime = (date: Date) =>
   date.toLocaleTimeString("es-BO", { hour: "numeric", minute: "2-digit", hour12: true });
 
 /** Vista Mes: cada día muestra sus primeras citas; clic en el día abre la vista Día. */
-export default function MonthAgendaView({ tickets, days, monthKey, onSelectDay, onEdit }: MonthAgendaViewProps) {
+export default function MonthAgendaView({ tickets, days, monthKey, onSelectDay, onEdit, onTicketContextMenu }: MonthAgendaViewProps) {
   const todayKey = toIsoDate(new Date());
 
   const byDay = useMemo(() => {
@@ -100,6 +102,12 @@ export default function MonthAgendaView({ tickets, days, monthKey, onSelectDay, 
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       onEdit?.(ticket);
+                    }}
+                    onContextMenu={(e) => {
+                      if (!onTicketContextMenu) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onTicketContextMenu(ticket, e.clientX, e.clientY);
                     }}
                     title={`${ticket.client_name} · doble clic para editar`}
                     className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] text-[var(--ui-text)] hover:bg-[var(--ui-accent-soft)]"
