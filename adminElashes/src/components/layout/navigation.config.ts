@@ -255,7 +255,7 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         permission: ["catalog:view", "catalog:manage"],
       },
       {
-        label: "Diseños",
+        label: "Diseño de pestañas",
         description: "Estilos de aplicación",
         path: "/designs",
         icon: Palette,

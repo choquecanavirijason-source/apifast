@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronDown, HelpCircle, Plus, RefreshCw, Tv2, Users } from "lucide-react";
+import { ChevronDown, HelpCircle, Plus, RefreshCw, Search, Tv2, Users, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
@@ -93,11 +93,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       // localStorage puede fallar en modo privado — simplemente no se muestra.
     }
   }, [tutorialStorageKey, user?.id]);
-  const [filterService] = useState("");
-  const [filterClient] = useState("");
+  // Filtros del tablero: buscador (clienta, servicio o código) y operaria ("none" = sin operaria).
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterDate] = useState(todayDate());
   const [filterTime] = useState("");
-  const [filterProfessionalId] = useState("");
+  const [filterProfessionalId, setFilterProfessionalId] = useState("");
   const [ticketToDelete, setTicketToDelete] = useState<TicketItem | null>(null);
   const [deleteConfirmationCode, setDeleteConfirmationCode] = useState("");
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
@@ -329,27 +329,28 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const mergeTicketsBySaleId = (ticketList: TicketItem[]): TicketItem[] => ticketList;
 
   const filteredTickets = useMemo(() => {
-    const serviceTerm = filterService.trim().toLowerCase();
-    const clientTerm = filterClient.trim().toLowerCase();
+    const searchTerm = filterSearch.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
-      const servicesText = `${ticket.service_name ?? ""} ${(ticket.service_names ?? []).join(" ")}`.toLowerCase();
-      const clientText = `${ticket.client_name ?? ""}`.toLowerCase();
+      const searchText = `${ticket.client_name ?? ""} ${ticket.service_name ?? ""} ${(ticket.service_names ?? []).join(" ")} ${ticket.ticket_code ?? ""}`.toLowerCase();
       const ticketDate = getTicketDate(ticket.start_time);
       const ticketTime = getTicketTime(ticket.start_time);
 
-      const matchesService = !serviceTerm || servicesText.includes(serviceTerm);
-      const matchesClient = !clientTerm || clientText.includes(clientTerm);
+      const matchesSearch = !searchTerm || searchText.includes(searchTerm);
       const matchesDate = SHOW_ALL_DATES_FOR_TESTING
         ? ticketDate >= todayDate()
         : !filterDate || ticketDate === filterDate;
       const matchesTime = !filterTime || ticketTime === filterTime;
       const matchesProfessional =
-        !filterProfessionalId || String(ticket.professional_id ?? "") === filterProfessionalId;
+        !filterProfessionalId ||
+        (filterProfessionalId === "none"
+          ? !ticket.professional_id
+          : String(ticket.professional_id ?? "") === filterProfessionalId);
 
-      return matchesService && matchesClient && matchesDate && matchesTime && matchesProfessional;
+      return matchesSearch && matchesDate && matchesTime && matchesProfessional;
     });
-  }, [tickets, filterService, filterClient, filterDate, filterTime, filterProfessionalId]);
+  }, [tickets, filterSearch, filterDate, filterTime, filterProfessionalId]);
+  const hasActiveFilters = Boolean(filterSearch.trim() || filterProfessionalId);
 
   // Resumen + previsualización de mantenimiento/retiro para el modal
   // "Finalizar atención" — mismo criterio que el backend (tracking_service:
@@ -1131,6 +1132,54 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         ))}
       </div>
 
+      {/* Filtros */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 border-l border-[var(--ui-border)] px-2 py-1" data-tour="queue-filters">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ui-text-muted)]" />
+          <input
+            type="text"
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            placeholder="Buscar clienta, servicio o código…"
+            aria-label="Buscar en el tablero"
+            className="h-7 w-56 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-7 pr-2 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
+          />
+        </div>
+        <select
+          value={filterProfessionalId}
+          onChange={(e) => setFilterProfessionalId(e.target.value)}
+          aria-label="Filtrar por operaria"
+          className={`h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none focus:ring-2 focus:ring-brand-secondary/20 ${
+            filterProfessionalId
+              ? "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] font-medium text-[var(--ui-accent)]"
+              : "border-[var(--ui-border-strong)] bg-[var(--ui-input)] text-[var(--ui-text)]"
+          }`}
+        >
+          <option value="">Todas las operarias</option>
+          <option value="none">Sin operaria</option>
+          {professionals.map((p) => (
+            <option key={p.id} value={String(p.id)}>{p.username}</option>
+          ))}
+        </select>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              setFilterSearch("");
+              setFilterProfessionalId("");
+            }}
+            className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+          >
+            <X className="h-3.5 w-3.5" /> Limpiar
+          </button>
+        )}
+        {hasActiveFilters && (
+          <span className="text-[11px] text-[var(--ui-text-muted)]">
+            {filteredTickets.length} de {tickets.length} tickets
+          </span>
+        )}
+      </div>
+
       {/* Llamar siguiente + refresh — empujado a la derecha */}
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
         <button
@@ -1624,7 +1673,12 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const topBar = (
     <>
       {boardRibbon}
-      <OperariaStatusPanel operarias={operariaStatuses} collapsed={!operariasOpen} />
+      <OperariaStatusPanel
+        operarias={operariaStatuses}
+        collapsed={!operariasOpen}
+        selectedId={filterProfessionalId}
+        onSelect={setFilterProfessionalId}
+      />
     </>
   );
 

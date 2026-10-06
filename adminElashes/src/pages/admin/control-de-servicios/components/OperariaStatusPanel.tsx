@@ -42,9 +42,13 @@ const STATUS_STYLES: Record<OperariaCurrentStatus, StatusStyle> = {
 interface Props {
   operarias: OperariaStatus[];
   collapsed: boolean;
+  /** Operaria por la que se está filtrando el tablero (id en texto), o "" si ninguna. */
+  selectedId?: string;
+  /** Clic en una operaria: filtra el tablero por ella (otro clic quita el filtro). */
+  onSelect?: (professionalId: string) => void;
 }
 
-export default function OperariaStatusPanel({ operarias, collapsed }: Props) {
+export default function OperariaStatusPanel({ operarias, collapsed, selectedId = "", onSelect }: Props) {
   if (operarias.length === 0) return null;
 
   return (
@@ -59,15 +63,21 @@ export default function OperariaStatusPanel({ operarias, collapsed }: Props) {
       <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
         {operarias.map((op) => {
           const styles = STATUS_STYLES[op.currentStatus] ?? STATUS_STYLES.free;
+          const selected = selectedId === String(op.professionalId);
           return (
-            <div
+            <button
+              type="button"
               key={op.professionalId}
-              title={
+              onClick={() => onSelect?.(selected ? "" : String(op.professionalId))}
+              aria-pressed={selected}
+              title={`${
                 op.activeTicket
                   ? `Atendiendo: ${op.activeTicket.client_name} — ${op.activeTicket.ticket_code ?? `#${op.activeTicket.id}`}`
                   : op.professionalName
-              }
-              className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles.badge}`}
+              } · ${selected ? "Clic para quitar el filtro" : "Clic para ver solo sus tickets"}`}
+              className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:bg-[var(--ui-surface-hover)] ${styles.badge} ${
+                selected ? "!border-[var(--ui-accent)] !bg-[var(--ui-accent-soft)] !text-[var(--ui-accent)] ring-1 ring-[var(--ui-accent)]/30" : ""
+              }`}
             >
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`} />
               <span className="font-semibold">{op.professionalName}</span>
@@ -76,7 +86,7 @@ export default function OperariaStatusPanel({ operarias, collapsed }: Props) {
               {op.ticketsToday.length > 0 && (
                 <span className="ml-0.5 opacity-50">({op.ticketsToday.length})</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

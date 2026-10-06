@@ -12,6 +12,8 @@ import {
   ChevronsRight,
   Image as ImageIcon,
   Box,
+  Map as MapIcon,
+  Maximize2,
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -35,6 +37,8 @@ type DesignCombo = {
   pngPreview: string;
   modelFileName: string;
   modelFileUrl: string;
+  /** Mapeo de pestañas (PNG con transparencia) que envía la app móvil. Solo lectura en el panel. */
+  lashMapImage: string;
 };
 
 type DesignApiItem = {
@@ -48,6 +52,11 @@ type DesignApiItem = {
   image: string | null;
   model_3d_url: string | null;
   model_3d_filename: string | null;
+  /**
+   * Mapeo de pestañas en PNG (data URL base64 o ruta /media/...), lo carga la app móvil.
+   * Nombre de campo propuesto para el backend/APK; mientras no exista llega undefined.
+   */
+  lash_map_image?: string | null;
 };
 
 type CatalogOption = { id: number; name: string };
@@ -99,7 +108,68 @@ const fromApi = (item: DesignApiItem): DesignCombo => ({
   pngPreview: item.image ?? "",
   modelFileName: item.model_3d_filename ?? "",
   modelFileUrl: item.model_3d_url ?? "",
+  lashMapImage: item.lash_map_image ?? "",
 });
+
+/** Fondo de cuadritos (como en programas de diseño) para que se note la transparencia del PNG. */
+const CHECKERBOARD_STYLE = {
+  backgroundColor: "#ffffff",
+  backgroundImage:
+    "linear-gradient(45deg,#ececec 25%,transparent 25%),linear-gradient(-45deg,#ececec 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ececec 75%),linear-gradient(-45deg,transparent 75%,#ececec 75%)",
+  backgroundSize: "16px 16px",
+  backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
+} as const;
+
+/** Vista del mapeo de pestañas (solo lectura): lo envía la app móvil en PNG con transparencia. */
+function LashMapPreview({ src, name, large = false }: { src: string; name: string; large?: boolean }) {
+  const [zoomed, setZoomed] = useState(false);
+  if (!src) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-4 py-5 text-center">
+        <MapIcon className="h-6 w-6 text-[var(--ui-text-muted)]" />
+        <p className="text-xs font-medium text-[var(--ui-text)]">Sin mapeo todavía</p>
+        <p className="text-[11px] text-[var(--ui-text-muted)]">Llegará desde la app móvil como imagen PNG con transparencia.</p>
+      </div>
+    );
+  }
+  const url = resolveMediaUrl(src);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setZoomed(true)}
+        title="Ver en grande"
+        className="group relative block w-full overflow-hidden rounded-xl border border-[var(--ui-border)]"
+        style={CHECKERBOARD_STYLE}
+      >
+        <img src={url} alt={`Mapeo de pestañas de ${name}`} className={`mx-auto w-full object-contain ${large ? "h-56" : "h-28"}`} />
+        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+          <Maximize2 className="h-3 w-3" /> Ampliar
+        </span>
+      </button>
+      {zoomed && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#021a12]/70 p-4"
+          onClick={() => setZoomed(false)}
+          role="dialog"
+          aria-label={`Mapeo de pestañas de ${name}`}
+        >
+          <div className="max-h-full max-w-4xl overflow-auto rounded-xl shadow-2xl" style={CHECKERBOARD_STYLE}>
+            <img src={url} alt={`Mapeo de pestañas de ${name}`} className="max-h-[85vh] w-auto object-contain" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setZoomed(false)}
+            aria-label="Cerrar"
+            className="absolute right-4 top-4 rounded-full bg-white/90 p-1.5 text-[var(--ui-text)] hover:bg-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function DesignsPage() {
   const [rows, setRows] = useState<DesignCombo[]>([]);
@@ -296,8 +366,8 @@ export default function DesignsPage() {
 
   return (
     <Layout
-      title="Diseños"
-      subtitle="Combinaciones sugeridas de efectos, tipos de ojo y diseños"
+      title="Diseño de pestañas"
+      subtitle="Combinaciones de efectos, tipos de ojo y diseños, con su mapeo de pestañas"
       variant="cards"
       toolbar={
         <FilterActionBar
@@ -339,6 +409,11 @@ export default function DesignsPage() {
                   <Sparkles className="h-8 w-8 text-slate-300" />
                 )}
               </div>
+              {item.lashMapImage ? (
+                <span className="-mt-7 ml-2 relative inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-[#094732] shadow-sm">
+                  <MapIcon className="h-3 w-3" /> Con mapeo
+                </span>
+              ) : null}
               <div className="border-t border-slate-100 px-3 py-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -406,7 +481,7 @@ export default function DesignsPage() {
 
       <GenericModal
         isOpen={modalMode === "create" || modalMode === "edit"}
-        title={modalMode === "edit" ? "Editar diseño" : "Crear diseño"}
+        title={modalMode === "edit" ? "Editar diseño de pestañas" : "Crear diseño de pestañas"}
         onClose={closeModal}
         size="md"
         asForm
@@ -571,10 +646,18 @@ export default function DesignsPage() {
               </div>
             </div>
           </div>
+
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold text-slate-500">Mapeo de pestañas</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">Lo envía la app móvil (PNG con transparencia). Aquí solo se muestra.</p>
+            <div className="mt-2">
+              <LashMapPreview src={activeRow?.lashMapImage ?? ""} name={form.name || "diseño"} />
+            </div>
+          </div>
         </div>
       </GenericModal>
 
-      <GenericModal isOpen={modalMode === "view"} title="Detalle del diseño" onClose={closeModal} size="md">
+      <GenericModal isOpen={modalMode === "view"} title="Detalle del diseño de pestañas" onClose={closeModal} size="md">
         {activeRow && (
           <div className="grid gap-4 text-sm text-slate-600">
             <div>
@@ -627,6 +710,10 @@ export default function DesignsPage() {
                   <p className="mt-1 text-slate-400">Sin modelo 3D</p>
                 )}
               </div>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <p className="mb-2 text-xs font-semibold text-slate-400">Mapeo de pestañas</p>
+              <LashMapPreview src={activeRow.lashMapImage} name={activeRow.name} large />
             </div>
           </div>
         )}
