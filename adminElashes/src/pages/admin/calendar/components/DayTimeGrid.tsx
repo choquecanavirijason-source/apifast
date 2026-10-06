@@ -62,6 +62,11 @@ type DayTimeGridProps = {
   externalDragType?: string;
   /** Se soltó un ticket externo en un horario. */
   onDropExternal?: (dateKey: string, minuteOfDay: number) => void;
+  /**
+   * Vista Día: cantidad de columnas fijas (capacidad de atención simultánea del salón).
+   * Cada cita ocupa la primera columna libre en su horario; si no hay lugar va a una columna "Extra".
+   */
+  capacity?: number;
 };
 
 const minuteOfDay = (date: Date) => date.getHours() * 60 + date.getMinutes();
@@ -74,6 +79,27 @@ export const formatMinute = (minute: number) =>
   });
 
 const snap = (minutes: number) => Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
+
+/**
+ * Vista Día con capacidad: columnas fijas 1..capacity, como la hoja del salón.
+ * Cada cita va a la primera columna libre (por hora de inicio); las que no entran van a columnas extra.
+ */
+function layoutLanes(items: PlacedTicket[], capacity: number): { items: PositionedTicket[]; lanes: number } {
+  const sorted = [...items].sort((a, b) => a.start - b.start || b.end - a.end || a.ticket.id - b.ticket.id);
+  const laneEnds: number[] = [];
+  const placed = sorted.map((item) => {
+    let lane = laneEnds.findIndex((end) => end <= item.start);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(item.end);
+    } else {
+      laneEnds[lane] = item.end;
+    }
+    return { ...item, column: lane };
+  });
+  const lanes = Math.max(capacity, laneEnds.length);
+  return { items: placed.map((item) => ({ ...item, columns: lanes })), lanes };
+}
 
 /** Reparte en columnas las citas que se cruzan (como Apple/Google: lado a lado). */
 function layoutDay(items: PlacedTicket[]): PositionedTicket[] {
@@ -130,6 +156,7 @@ export default function DayTimeGrid({
   onSelectDay,
   externalDragType,
   onDropExternal,
+  capacity,
 }: DayTimeGridProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -139,13 +166,15 @@ export default function DayTimeGrid({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [nowMinute, setNowMinute] = useState(() => minuteOfDay(new Date()));
   /** Espacio libre bajo el mouse: muestra "+ hora" para que se entienda que ahí se crea una cita. */
-  const [hoverSlot, setHoverSlot] = useState<{ day: number; minute: number } | null>(null);
+  const [hoverSlot, setHoverSlot] = useState<{ day: number; minute: number; lane?: number } | null>(null);
 
   const totalMinutes = GRID_END_MINUTE - GRID_START_MINUTE;
   const gridHeight = totalMinutes * PX_PER_MINUTE;
   const todayKey = toIsoDate(new Date());
   const isWeek = days.length > 1;
   const daysKey = days.join(",");
+  /** Columnas fijas de capacidad (solo vista Día). */
+  const useLanes = !isWeek && capacity != null && capacity > 0;
 
   const ticketsByDay = useMemo(() => {
     const dayIndex = new Map(days.map((d, i) => [d, i]));
@@ -170,9 +199,15 @@ export default function DayTimeGrid({
           : item,
       );
     }
-    return days.map((_, i) => layoutDay(placed.filter((p) => p.day === i)));
+    return days.map((_, i) => {
+      const dayItems = placed.filter((p) => p.day === i);
+      return useLanes ? layoutLanes(dayItems, capacity!) : { items: layoutDay(dayItems), lanes: 0 };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickets, daysKey, preview]);
+  }, [tickets, daysKey, preview, useLanes, capacity]);
+
+  /** Total de columnas en la vista Día (capacidad + extras si hay sobrecupo). */
+  const laneCount = useLanes ? ticketsByDay[0]?.lanes ?? capacity! : 0;
 
   const openRangesByDay = useMemo(() => days.map((d) => getOpenRanges(d)), [days, getOpenRanges]);
 
@@ -347,7 +382,12 @@ export default function DayTimeGrid({
     const minute = slotAt(event);
     const ranges = openRangesByDay[dayIndex];
     const open = !ranges || ranges.some((r) => minute >= r.open && minute < r.close);
-    setHoverSlot(open && minute < GRID_END_MINUTE ? { day: dayIndex, minute } : null);
+    let lane: number | undefined;
+    if (useLanes) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      lane = Math.min(laneCount - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * laneCount)));
+    }
+    setHoverSlot(open && minute < GRID_END_MINUTE ? { day: dayIndex, minute, lane } : null);
   };
 
   const isExternalDrag = (event: React.DragEvent) =>
@@ -520,6 +560,33 @@ export default function DayTimeGrid({
           </div>
         )}
 
+        {/* Encabezado de columnas de capacidad (vista Día): 1..N como la hoja del salón */}
+        {useLanes && (
+          <div className="sticky top-0 z-[35] flex border-b border-[var(--ui-border)] bg-[var(--ui-surface)]">
+            <div className="flex w-[72px] shrink-0 items-center justify-end border-r border-[var(--ui-border)] pr-2 text-[11px] text-[var(--ui-text-muted)]">
+              Hora
+            </div>
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))` }}>
+              {Array.from({ length: laneCount }, (_, i) => {
+                const extra = i >= capacity!;
+                return (
+                  <div
+                    key={i}
+                    title={extra ? "Sobrecupo: más clientas a la vez que la capacidad configurada" : `Columna ${i + 1}`}
+                    className={`border-r py-1.5 text-center text-xs font-semibold tabular-nums last:border-r-0 ${
+                      extra
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : "border-[var(--ui-border)] text-[var(--ui-text-muted)]"
+                    }`}
+                  >
+                    {extra ? "Extra" : i + 1}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex">
           {/* Columna de horas */}
           <div className="relative w-[72px] shrink-0 border-r border-[var(--ui-border)]" style={{ height: gridHeight }}>
@@ -584,14 +651,42 @@ export default function DayTimeGrid({
 
                 {hoverSlot?.day === dayIndex && !preview && (
                   <div
-                    className="pointer-events-none absolute inset-x-1 z-[5] flex items-center rounded-md border border-dashed border-[#9F8351]/60 bg-[#9F8351]/8 px-1.5 text-[11px] font-medium text-[#85754a]"
-                    style={{ top: toTop(hoverSlot.minute) + 1, height: SNAP_MINUTES * PX_PER_MINUTE * 2 - 2 }}
+                    className={`pointer-events-none absolute z-[5] flex items-center rounded-md border border-dashed border-[#9F8351]/60 bg-[#9F8351]/8 px-1.5 text-[11px] font-medium text-[#85754a] ${
+                      hoverSlot.lane === undefined ? "inset-x-1" : ""
+                    }`}
+                    style={{
+                      top: toTop(hoverSlot.minute) + 1,
+                      height: SNAP_MINUTES * PX_PER_MINUTE * 2 - 2,
+                      ...(hoverSlot.lane !== undefined
+                        ? {
+                            left: `calc(${(hoverSlot.lane / laneCount) * 100}% + 2px)`,
+                            width: `calc(${100 / laneCount}% - 4px)`,
+                          }
+                        : {}),
+                    }}
                   >
                     + {formatMinute(hoverSlot.minute)}
                   </div>
                 )}
 
-                {ticketsByDay[dayIndex].map(renderTicket)}
+                {/* Separadores de columnas de capacidad (vista Día) */}
+                {useLanes &&
+                  Array.from({ length: laneCount - 1 }, (_, i) => (
+                    <div
+                      key={`lane-${i}`}
+                      className="pointer-events-none absolute inset-y-0 border-l border-[var(--ui-border)]"
+                      style={{ left: `${((i + 1) / laneCount) * 100}%` }}
+                    />
+                  ))}
+                {useLanes &&
+                  laneCount > capacity! && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 right-0 bg-amber-400/8"
+                      style={{ width: `${((laneCount - capacity!) / laneCount) * 100}%` }}
+                    />
+                  )}
+
+                {ticketsByDay[dayIndex].items.map(renderTicket)}
               </div>
             ))}
           </div>

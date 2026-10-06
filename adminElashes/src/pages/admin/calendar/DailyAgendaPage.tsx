@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, ChevronLeft, ChevronRight, Columns3, HelpCircle, List, ListTodo, MessageCircle, Plus, Printer, Settings2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Columns3, HelpCircle, List, ListTodo, MessageCircle, Minus, Plus, Printer, Settings2 } from "lucide-react";
 import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
@@ -88,6 +88,18 @@ const SCOPE_STEP_LABEL = {
   year: { prev: "Año anterior", next: "Año siguiente" },
 } as const;
 const TICKETS_PAGE_SIZE = 500; // máximo que acepta el backend por página
+/** Capacidad de atención simultánea (columnas de la vista Día), guardada por sucursal en este navegador. */
+const CAPACITY_STORAGE_PREFIX = "agenda-capacity:";
+const DEFAULT_CAPACITY = 8;
+const MAX_CAPACITY = 20;
+const readCapacity = (branchId: number | null) => {
+  try {
+    const saved = Number(localStorage.getItem(`${CAPACITY_STORAGE_PREFIX}${branchId ?? "all"}`));
+    return Number.isInteger(saved) && saved >= 1 && saved <= MAX_CAPACITY ? saved : DEFAULT_CAPACITY;
+  } catch {
+    return DEFAULT_CAPACITY;
+  }
+};
 
 /** Semana calendario (lun–dom) que contiene `isoDate`. */
 function buildWeekStrip(isoDate: string): string[] {
@@ -134,8 +146,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   );
 
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateInputValue());
-  // Pedido del cliente: al entrar a la agenda siempre se abre la vista Semana.
-  const [calendarScope, setCalendarScope] = useState<CalendarScope>("week");
+  // Pedido del cliente (2026-10-06): al entrar a la agenda siempre se abre la vista Día.
+  const [calendarScope, setCalendarScope] = useState<CalendarScope>("day");
   // Días visibles según la vista (Día / Semana / Mes) y rango a pedir al backend.
   const visibleDays = useMemo(() => {
     if (calendarScope === "week") return buildWeekStrip(selectedDate);
@@ -146,6 +158,20 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   const rangeStart = visibleDays[0];
   const rangeEnd = visibleDays[visibleDays.length - 1];
   const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
+  const [capacity, setCapacityState] = useState(() => readCapacity(getSelectedBranchId()));
+  useEffect(() => setCapacityState(readCapacity(branchId)), [branchId]);
+  const setCapacity = useCallback(
+    (next: number) => {
+      const value = Math.min(MAX_CAPACITY, Math.max(1, next));
+      setCapacityState(value);
+      try {
+        localStorage.setItem(`${CAPACITY_STORAGE_PREFIX}${branchId ?? "all"}`, String(value));
+      } catch {
+        /* ignore */
+      }
+    },
+    [branchId]
+  );
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -834,6 +860,35 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                 <ListTodo className="h-3.5 w-3.5" aria-hidden />
                 Tickets
               </button>
+              {calendarScope === "day" && (
+                <div
+                  className="flex h-8 shrink-0 items-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)]"
+                  title="Capacidad: cuántas clientas se atienden a la vez (columnas de la vista Día)"
+                  data-tour="agenda-capacity"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setCapacity(capacity - 1)}
+                    disabled={capacity <= 1}
+                    aria-label="Quitar una columna"
+                    className="flex h-full w-7 items-center justify-center rounded-l-lg text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:opacity-40"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="px-1.5 text-xs text-[var(--ui-text-muted)]">
+                    Capacidad <span className="font-semibold tabular-nums text-[var(--ui-text)]">{capacity}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCapacity(capacity + 1)}
+                    disabled={capacity >= MAX_CAPACITY}
+                    aria-label="Agregar una columna"
+                    className="flex h-full w-7 items-center justify-center rounded-r-lg text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:opacity-40"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <CalendarScopeMenu value={calendarScope} onChange={setCalendarScope} />
               <button
                 type="button"
@@ -982,6 +1037,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
               }
               externalDragType={TICKET_DRAG_MIME}
               onDropExternal={dropPanelTicket}
+              capacity={calendarScope === "day" ? capacity : undefined}
               onEdit={setEditingTicket}
               onSelectDay={openDay}
             />

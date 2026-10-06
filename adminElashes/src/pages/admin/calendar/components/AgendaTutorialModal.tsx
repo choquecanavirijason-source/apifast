@@ -72,7 +72,7 @@ function buildSteps(openReservation: () => void, closeReservation: () => void): 
       illustration: null,
       icon: CalendarDays,
       title: "Día, Semana, Mes o Año",
-      description: "Elegí cómo ver el calendario. La agenda abre en Semana. Atajos de teclado: D (día), S (semana), M (mes) y A (año). En Mes y Año, tocá un día para abrirlo.",
+      description: "Elegí cómo ver el calendario. La agenda abre en Día, con una columna por cada clienta que se puede atender a la vez (capacidad, ajustable con − y +). Atajos: D (día), S (semana), M (mes) y A (año). En Mes y Año, tocá un día para abrirlo.",
       onEnter: closeReservation,
     },
     {
