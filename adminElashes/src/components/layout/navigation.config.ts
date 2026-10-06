@@ -23,7 +23,6 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Ticket,
   UserCheck,
@@ -199,17 +198,11 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
     permission: ["inventory:view", "inventory:manage"],
   },
   {
-    label: "Configuración del servicio",
+    // Lo que se vende: servicios y su organización.
+    label: "Servicios",
     section: "Catálogo e inventario",
-    icon: SlidersHorizontal,
-    permission: [
-      "services:view",
-      "services:manage",
-      "catalog:view",
-      "catalog:manage",
-      "forms:view",
-      "forms:manage",
-    ],
+    icon: Briefcase,
+    permission: ["services:view", "services:manage"],
     children: [
       {
         label: "Catálogo",
@@ -226,11 +219,20 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         icon: Layers,
         permission: ["services:view", "services:manage"],
       },
+    ],
+  },
+  {
+    // Todo lo técnico de las pestañas (pedido del cliente: separado del catálogo de servicios).
+    label: "Pestañas",
+    section: "Catálogo e inventario",
+    icon: Palette,
+    permission: ["catalog:view", "catalog:manage", "forms:view", "forms:manage"],
+    children: [
       {
-        label: "Tecnología",
-        description: "Técnicas y materiales",
-        path: "/lash-designs",
-        icon: Cpu,
+        label: "Diseño de pestañas",
+        description: "Estilos de aplicación",
+        path: "/designs",
+        icon: Palette,
         permission: ["catalog:view", "catalog:manage"],
       },
       {
@@ -255,10 +257,10 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         permission: ["catalog:view", "catalog:manage"],
       },
       {
-        label: "Diseño de pestañas",
-        description: "Estilos de aplicación",
-        path: "/designs",
-        icon: Palette,
+        label: "Tecnología",
+        description: "Técnicas y materiales",
+        path: "/lash-designs",
+        icon: Cpu,
         permission: ["catalog:view", "catalog:manage"],
       },
       {
