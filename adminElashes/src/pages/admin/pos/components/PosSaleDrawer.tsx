@@ -845,7 +845,7 @@ export default function PosSaleDrawer({
                             key={p.id}
                             type="button"
                             onClick={() => { setSellerId(String(p.id)); setIsSellerOpen(false); }}
-                            title={inService ? "Ocupada ahora — se puede igual poner en su cola con \"Crear turno\"" : undefined}
+                            title={inService ? "Ocupada ahora — se puede igual poner en su cola con \"Agendar cita\"" : undefined}
                             className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
                               String(p.id) === sellerId
                                 ? "bg-[#ecfdf5]"
@@ -1273,7 +1273,7 @@ export default function PosSaleDrawer({
                   : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
               }`}
             >
-              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Crear turno"}
+              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Agendar cita"}
             </button>
             <button
               type="button"
@@ -1285,7 +1285,7 @@ export default function PosSaleDrawer({
                   : "bg-[#094732] text-white hover:bg-[#063324]"
               }`}
             >
-              {isSubmitting ? "Procesando…" : "Pasar a servicio"}
+              {isSubmitting ? "Procesando…" : "Atender ahora"}
             </button>
           </div>
         </>

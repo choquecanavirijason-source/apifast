@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, ChevronRightSquare, X, LayoutGrid, User, UserCog,
-  UserPlus, PlayCircle, CheckCircle2, PhoneCall, Info, Clock, Scissors, type LucideIcon,
+  UserPlus, PlayCircle, CheckCircle2, Info, Clock, Scissors, type LucideIcon,
 } from "lucide-react";
 
 /** Por usuario (no por navegador) — varias operarias suelen compartir la
@@ -88,13 +88,6 @@ const STEPS: TourStep[] = [
     icon: PlayCircle,
     title: "Iniciar y finalizar",
     description: "\"Iniciar atención\" mueve el ticket a \"En servicio\". Ya en esa columna, \"Finalizar\" abre el registro de tracking y lo pasa a \"Finalizadas\".",
-  },
-  {
-    selector: '[data-tour="queue-call-next"]',
-    illustration: null,
-    icon: PhoneCall,
-    title: "Llamar siguiente",
-    description: "Atiende automáticamente a la próxima clienta en espera con una operaria libre, sin tener que buscarla vos misma en el tablero.",
   },
 ];
 

@@ -11,6 +11,8 @@ export default function PosSaleStepOne({
   fieldClass: _fieldClass,
   isLoading,
   products,
+  canManageInventory,
+  onCreateProduct,
   productLines,
   onAddProductToCart,
   onUpdateProductQuantity,
@@ -204,6 +206,8 @@ export default function PosSaleStepOne({
             labelClass="mb-2 block text-sm font-semibold text-[var(--ui-text)]"
             fieldClass="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] text-sm focus:border-[#094732] focus:ring-0"
             products={products}
+            canManageInventory={canManageInventory}
+            onCreateProduct={onCreateProduct}
             productLines={productLines}
             onAddProductToCart={handleAddProductToCart}
             onUpdateProductQuantity={onUpdateProductQuantity}

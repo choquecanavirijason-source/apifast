@@ -68,6 +68,8 @@ export type PosSaleStepOneProps = {
   isLoading: boolean;
   /** Productos de inventario de la sucursal activa, para la pestaña "Productos". */
   products: Product[];
+  canManageInventory: boolean;
+  onCreateProduct: () => void;
   productLines: ProductCartLine[];
   onAddProductToCart: (product: Product) => void;
   onUpdateProductQuantity: (localId: string, quantity: number) => void;

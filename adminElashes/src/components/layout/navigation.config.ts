@@ -411,6 +411,10 @@ export function useNavigationGroups() {
         "appointments:manage",
         "catalog:view",
         "forms:view",
+        "tracking:view",
+        "tracking:manage",
+        "payments:view",
+        "branches:view",
       );
     } else if (roleName === "secretaria") {
       names.push(

@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import useAuth from "../core/hooks/useAuth";
 import type { IPermission } from "@/core/types/IPermission";
 import variables from "@/core/config/variables";
+import { FALLBACK_LANDING_ROUTE, resolveLandingRoute } from "./landing";
 
 // Returns true only if `route` is a proper path prefix of `path`
 // (exact match OR next char after route is '/')
@@ -13,11 +14,11 @@ function isPathPrefix(route: string, path: string): boolean {
 // Roles acotados a un puñado de rutas — a diferencia de routePermissions
 // (que solo filtra por permiso y deja pasar cualquier ruta "abierta" no
 // listada), esto bloquea TODO lo que no esté en la lista, sin importar qué
-// permisos tenga el rol. Pensado para Cajera: solo debe poder usar el POS,
-// aunque sus permisos (clients:view, services:view, etc.) también le
-// alcancen para entrar a otras pantallas si se las escribe a mano en la URL.
+// permisos tenga el rol. Pensado para Cajera: solo debe poder usar el POS y
+// Productos e Inventario, aunque sus permisos también le alcancen para entrar
+// a otras pantallas si se las escribe a mano en la URL.
 const ROLE_ALLOWED_PREFIXES: Record<string, string[]> = {
-  Cajera: ["/admin/pos-tracking", "/admin/perfil"],
+  Cajera: ["/admin/pos-tracking", "/admin/products", "/admin/perfil", "/profile"],
 };
 const ROLE_LANDING_ROUTE: Record<string, string> = {
   Cajera: "/admin/pos-tracking",
@@ -25,7 +26,7 @@ const ROLE_LANDING_ROUTE: Record<string, string> = {
 
 const PrivateRoute = () => {
   const location = useLocation();
-  const { isAuthenticated, hasAnyPermission, hasAnyPermissionByName, hasRole, isAdmin } = useAuth();
+  const { isAuthenticated, hasAnyPermission, hasAnyPermissionByName, hasRole, isAdmin, roles, permissions } = useAuth();
   const hasToken = Boolean(localStorage.getItem(variables.session.tokenName));
 
   const currentPath = location.pathname;
@@ -43,6 +44,7 @@ const PrivateRoute = () => {
   const routePermissions: Record<string, IPermission[] | null> = {
     // Abierto a cualquiera con sesión — no depende de datos de ningún módulo
     "/admin/perfil": null,
+    "/profile": null,
 
     "/": ["dashboard:view"] as IPermission[],
     "/clients": ["clients:view", "clients:manage"] as IPermission[],
@@ -126,7 +128,12 @@ const PrivateRoute = () => {
     return <Outlet />;
   }
 
-  return <Navigate to="/" replace state={{ unauthorized: true }} />;
+  // Redirigir a la pantalla de inicio del rol — nunca a la misma ruta
+  // bloqueada (antes iba siempre a "/", y para quien no tiene
+  // dashboard:view eso era un bucle con la pantalla en blanco).
+  const landing = resolveLandingRoute(roles, permissions);
+  const target = landing === currentPath ? FALLBACK_LANDING_ROUTE : landing;
+  return <Navigate to={target} replace state={{ unauthorized: true }} />;
 };
 
 export default PrivateRoute;

@@ -193,7 +193,9 @@ export default function AppSidebar({
           "services:view",
           "services:manage",
           "appointments:view",
-          "appointments:manage"
+          "appointments:manage",
+          "payments:view",
+          "branches:view"
         );
       } else if (roleName === "secretaria") {
         perms.push(

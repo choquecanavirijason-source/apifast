@@ -149,9 +149,8 @@ def seed_roles(db: Session):
             permission_map["catalog:view"],
             permission_map["branches:view"],
         ],
-        # Cajera: solo lo necesario para operar Ventas (Caja POS, Caja y
-        # seguimiento, Cierre de caja) — no administra Servicios/Inventario
-        # como Secretaria, es más acotado a propósito.
+        # Cajera: permisos para operar Ventas y administrar Productos e
+        # Inventario; el resto de las áreas sigue restringido.
         "Cajera": [
             permission_map["payments:view"],
             permission_map["payments:manage"],
@@ -166,9 +165,10 @@ def seed_roles(db: Session):
             # Crear una venta en el POS genera el ticket/cita de agenda —
             # sin esto, la cajera no puede completar ninguna venta.
             permission_map["appointments:manage"],
-            # El POS vende productos de inventario (no solo servicios) —
-            # necesita ver el catálogo/stock, aunque no administrarlo.
+            # El POS vende productos de inventario y el rol también puede
+            # administrar la sección Productos e Inventario.
             permission_map["inventory:view"],
+            permission_map["inventory:manage"],
         ],
     }
 

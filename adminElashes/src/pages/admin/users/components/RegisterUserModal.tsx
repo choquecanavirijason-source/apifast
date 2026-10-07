@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
+import { Eye, EyeOff } from "lucide-react";
 
 import type { BranchItem, RoleItem } from "../types";
 
@@ -38,6 +39,7 @@ export default function RegisterUserModal({
   const formRef = useRef<HTMLFormElement | null>(null);
   const wasOpenRef = useRef(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const singleRole = roles.length === 1 ? roles[0] : null;
   const singleBranch = branches.length === 1 ? branches[0] : null;
   const [values, setValues] = useState({
@@ -134,15 +136,26 @@ export default function RegisterUserModal({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Contrasena</label>
-            <input
-              name="password"
-              type="password"
-              required
-              value={values.password}
-              onChange={(event) => setValues((prev) => ({ ...prev, password: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#094732]"
-              placeholder="Minimo 8 caracteres"
-            />
+            <div className="relative">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={values.password}
+                onChange={(event) => setValues((prev) => ({ ...prev, password: event.target.value }))}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-10 text-sm outline-none focus:border-[#094732]"
+                placeholder="Minimo 8 caracteres"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Telefono</label>

@@ -1093,17 +1093,6 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     );
   };
 
-  const handleCallNext = async () => {
-    if (!activeBranchId) { toast.warning("Selecciona una sucursal."); return; }
-    try {
-      await AgendaService.callNextAppointment({ branch_id: activeBranchId });
-      toast.success("Siguiente turno llamado.");
-      void loadTickets();
-    } catch {
-      toast.error("No hay turnos pendientes o la operaria ya está ocupada.");
-    }
-  };
-
   const boardRibbon = (
     <div className="flex items-stretch border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
 
@@ -1180,29 +1169,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         )}
       </div>
 
-      {/* Llamar siguiente + refresh — empujado a la derecha */}
+      {/* Refresh — empujado a la derecha */}
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
-        <button
-          type="button"
-          data-tour="queue-call-next"
-          onClick={() => void handleCallNext()}
-          disabled={waitingTickets.length === 0 || isLoading}
-          className={`flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-all ${
-            waitingTickets.length === 0 || isLoading
-              ? "cursor-not-allowed bg-[var(--ui-surface-hover)] text-[var(--ui-text-muted)]"
-              : "bg-[#094732] text-white hover:bg-[#063324]"
-          }`}
-        >
-          Llamar siguiente
-          {waitingTickets.length > 0 && (
-            <span className={`rounded-full px-1 py-0.5 text-[9px] font-bold ${
-              waitingTickets.length === 0 || isLoading ? "bg-[#c8c6c4] text-white" : "bg-white/25 text-white"
-            }`}>
-              {waitingTickets.length}
-            </span>
-          )}
-        </button>
-
         <div className="flex flex-col items-center gap-0">
           <button
             type="button"

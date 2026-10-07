@@ -1,10 +1,15 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { toast } from "react-toastify";
 import { Building2, CalendarDays, DoorOpen, HelpCircle, Lock, Package, ShoppingCart, Wrench } from "lucide-react";
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, SegmentedTabs } from "../../../components/common/ui";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import type { Product } from "../../../core/types/IProduct";
+import { ProductService, type ProductCategoryOption, type ProductCreatePayload } from "../../../core/services/product/product.service";
+import ProductFormModal from "../products/ProductFormModal";
 import RegisterClientModal from "../clients/RegisterClientModal";
 import CategorySelectionModal from "./components/CategorySelectionModal";
 import SalesHistoryTable from "./components/SalesHistoryTable";
@@ -17,6 +22,22 @@ import PosTutorialModal, { getPosTutorialStorageKey } from "./components/PosTuto
 import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
 import { usePosPage } from "./usePosPage";
 import useAuth from "../../../core/hooks/useAuth";
+
+type ProductForm = Omit<Product, "id" | "updatedAt">;
+type ProductFormErrors = Partial<Record<keyof ProductForm, string>>;
+
+const emptyProductForm: ProductForm = {
+  name: "",
+  sku: "",
+  category: "",
+  supplier: "",
+  price: 0,
+  cost: 0,
+  stock: 0,
+  minStock: 0,
+  description: "",
+  active: true,
+};
 
 const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400";
 const labelClass = "block text-[11px] font-semibold text-slate-400 mb-1.5";
@@ -48,9 +69,108 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
   const [showTutorial, setShowTutorial] = useState(false);
   const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
-  const { user, hasPermissionByName } = useAuth();
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [productForm, setProductForm] = useState<ProductForm>(emptyProductForm);
+  const [productCategories, setProductCategories] = useState<ProductCategoryOption[]>([]);
+  const { user, hasPermissionByName, hasRole } = useAuth();
   const canOpenCashSession = hasPermissionByName("payments:manage");
+  const canManageInventory = hasPermissionByName("inventory:manage") || hasRole("Cajera");
   const tutorialStorageKey = useMemo(() => getPosTutorialStorageKey(user?.id), [user?.id]);
+  const productFormErrors = useMemo<ProductFormErrors>(() => {
+    const errors: ProductFormErrors = {};
+    const name = productForm.name.trim();
+    const sku = productForm.sku.trim().toUpperCase();
+    const imageUrl = productForm.imageUrl?.trim() ?? "";
+
+    if (!name) errors.name = "El nombre es obligatorio.";
+    else if (name.length < 2) errors.name = "El nombre debe tener al menos 2 caracteres.";
+
+    if (!sku) errors.sku = "El SKU es obligatorio.";
+    else if (!/^[A-Z0-9_-]{3,30}$/.test(sku)) errors.sku = "Usa 3-30 caracteres: letras, numeros, guion o guion bajo.";
+
+    if (productForm.price < 0) errors.price = "El precio no puede ser negativo.";
+    if (productForm.cost < 0) errors.cost = "El costo no puede ser negativo.";
+    if (productForm.stock < 0 || !Number.isInteger(productForm.stock)) errors.stock = "El stock debe ser un entero mayor o igual a 0.";
+    if (productForm.minStock < 0 || !Number.isInteger(productForm.minStock)) errors.minStock = "El stock minimo debe ser un entero mayor o igual a 0.";
+
+    if (imageUrl) {
+      try {
+        const parsed = new URL(imageUrl);
+        if (!["http:", "https:"].includes(parsed.protocol)) errors.imageUrl = "La URL debe iniciar con http:// o https://";
+      } catch {
+        errors.imageUrl = "Ingresa una URL valida.";
+      }
+    }
+
+    if (productForm.description.length > 500) errors.description = "La descripcion no puede superar los 500 caracteres.";
+    return errors;
+  }, [productForm]);
+
+  const openProductModal = () => {
+    setProductForm({ ...emptyProductForm, category: productCategories[0]?.name ?? "" });
+    setIsProductModalOpen(true);
+    void ProductService.listCategories()
+      .then(setProductCategories)
+      .catch(() => toast.error("No se pudieron cargar las categorias de productos."));
+  };
+
+  const closeProductModal = () => {
+    if (isCreatingProduct) return;
+    setIsProductModalOpen(false);
+    setProductForm(emptyProductForm);
+  };
+
+  const submitProduct = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (Object.keys(productFormErrors).length > 0) {
+      toast.warning(Object.values(productFormErrors)[0]);
+      return;
+    }
+    if (!pos.activeBranchId) {
+      toast.warning("Selecciona una sucursal antes de crear el producto.");
+      return;
+    }
+
+    const category = productCategories.find((item) =>
+      item.name.toLowerCase() === productForm.category.trim().toLowerCase(),
+    );
+    if (productForm.category.trim() && !category) {
+      toast.warning("Selecciona una categoria valida.");
+      return;
+    }
+
+    const payload: ProductCreatePayload = {
+      sku: productForm.sku.trim().toUpperCase(),
+      name: productForm.name.trim(),
+      category_id: category?.id,
+      price: Math.max(0, productForm.price),
+      cost: Math.max(0, productForm.cost),
+      status: productForm.active,
+      image_url: productForm.imageUrl?.trim() || undefined,
+      initial_stock: Math.max(0, productForm.stock),
+      min_stock: productForm.minStock > 0 ? productForm.minStock : undefined,
+      branch_id: pos.activeBranchId,
+    };
+
+    setIsCreatingProduct(true);
+    try {
+      await ProductService.createProduct(payload);
+      toast.success("Producto creado correctamente.");
+      setIsProductModalOpen(false);
+      setProductForm(emptyProductForm);
+      await pos.loadContext();
+    } catch (error) {
+      let message: string | undefined;
+      if (typeof error === "object" && error !== null && "response" in error) {
+        const responseError = error as { response?: { data?: { detail?: string; message?: string } } };
+        message = responseError.response?.data?.detail ?? responseError.response?.data?.message;
+      }
+      toast.error(message ?? "No se pudo crear el producto.");
+    } finally {
+      setIsCreatingProduct(false);
+    }
+  };
 
   // Primera vez que este usuario entra al POS (en cualquier navegador/PC):
   // mostrar la guía rápida — no aplica a embebidos secundarios (ver
@@ -253,6 +373,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             fieldClass={fieldClass}
             isLoading={pos.isLoading}
             products={pos.products}
+            canManageInventory={canManageInventory}
+            onCreateProduct={openProductModal}
             productLines={pos.productLines}
             onAddProductToCart={pos.addProductToCart}
             onUpdateProductQuantity={pos.updateProductQuantity}
@@ -518,6 +640,23 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           mode="create"
           initialClient={null}
           defaultBranchId={pos.activeBranchId}
+        />
+
+        <ProductFormModal
+          isOpen={isProductModalOpen}
+          isEditing={false}
+          isSubmitting={isCreatingProduct}
+          form={productForm}
+          errors={productFormErrors}
+          categories={productCategories}
+          onClose={closeProductModal}
+          onSubmit={submitProduct}
+          onTextChange={(field, value) => setProductForm((current) => ({ ...current, [field]: value }))}
+          onNumberChange={(field, value) => {
+            const parsed = Number(value);
+            setProductForm((current) => ({ ...current, [field]: Number.isNaN(parsed) ? 0 : parsed }));
+          }}
+          onActiveChange={(active) => setProductForm((current) => ({ ...current, active }))}
         />
 
         <CategorySelectionModal

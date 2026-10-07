@@ -1,13 +1,16 @@
 ﻿import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import type { Product } from "../../../../core/types/IProduct";
 import type { ProductCartLine } from "../pos.types";
+import { Button } from "../../../../components/common/ui";
 
 type ProductSelectorCardProps = {
   labelClass: string;
   fieldClass: string;
   products: Product[];
+  canManageInventory: boolean;
+  onCreateProduct: () => void;
   productLines: ProductCartLine[];
   onAddProductToCart: (product: Product) => void;
   onUpdateProductQuantity: (localId: string, quantity: number) => void;
@@ -18,6 +21,8 @@ export default function ProductSelectorCard({
   labelClass,
   fieldClass,
   products,
+  canManageInventory,
+  onCreateProduct,
   productLines,
   onAddProductToCart,
   onUpdateProductQuantity,
@@ -75,6 +80,16 @@ export default function ProductSelectorCard({
               ))}
             </select>
           </div>
+          {canManageInventory && (
+            <Button
+              type="button"
+              onClick={onCreateProduct}
+              leftIcon={<Plus className="h-4 w-4" />}
+              className="shrink-0"
+            >
+              Nuevo producto
+            </Button>
+          )}
         </div>
       </div>
 

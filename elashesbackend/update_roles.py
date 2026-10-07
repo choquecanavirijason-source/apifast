@@ -73,6 +73,18 @@ def update_roles():
                     "branches:view",
                 ] if p in pmap
             ],
+
+            "Cajera": [
+                pmap[p] for p in [
+                    "payments:view", "payments:manage",
+                    "clients:view", "clients:manage",
+                    "catalog:view",
+                    "services:view",
+                    "branches:view",
+                    "appointments:view", "appointments:manage",
+                    "inventory:view", "inventory:manage",
+                ] if p in pmap
+            ],
         }
 
         updated = []

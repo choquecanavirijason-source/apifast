@@ -90,8 +90,8 @@ export default function PosTutorialModal({ onClose, setIsCartOpen, setDrawerForc
     {
       selector: '[data-tour="pos-drawer-checkout-buttons"]',
       icon: PlayCircle,
-      title: "Crear turno o pasar a servicio",
-      description: "\"Crear turno\" cobra y deja el ticket en la cola de espera (útil si la operaria está ocupada). \"Pasar a servicio\" cobra y arranca la atención ya mismo — necesita una operaria libre asignada.",
+      title: "Agendar cita o atender ahora",
+      description: "\"Agendar cita\" cobra y deja el ticket en la cola de espera (útil si la operaria está ocupada). \"Atender ahora\" cobra y arranca la atención ya mismo — necesita una operaria libre asignada.",
       onEnter: () => { setIsCartOpen(true); setDrawerForceStep("pago"); },
     },
     {
