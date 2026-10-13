@@ -16,9 +16,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 
 from main import app
-from app.infrastructure.database.session import get_db
+from app.core.dependencies import get_db  # la misma dependencia que usa la app
 from app.infrastructure.security import get_password_hash
 from app.domain.entities.user import User, Role, Permission, role_permissions
 from app.domain.entities.branch import Branch
@@ -34,6 +35,9 @@ SQLITE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLITE_URL,
     connect_args={"check_same_thread": False},
+    # Misma conexión para todos los hilos: TestClient atiende en otro hilo y,
+    # sin StaticPool, cada hilo vería su propia BD en memoria vacía.
+    poolclass=StaticPool,
 )
 TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
