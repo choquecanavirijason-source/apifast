@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,8 @@ from app.core.dependencies import (
     require_permission,
     resolve_branch_id,
 )
-from app.core.rate_limit import rate_limit
+from app.core.internal_auth import has_valid_internal_key
+from app.core.rate_limit import rate_limit, rate_limit_check, rate_limit_record
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
@@ -36,7 +37,12 @@ class _SalonLoginPayload(BaseModel):
 
 
 @router.post("/verify-salon-login")
-def verify_salon_login(payload: _SalonLoginPayload, request: Request, db: Session = Depends(get_db)):
+def verify_salon_login(
+    payload: _SalonLoginPayload,
+    request: Request,
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
+    db: Session = Depends(get_db),
+):
     """
     Endpoint INTERNO: verifica que un cliente del salón pueda acceder al marketplace
     usando su email (o nombre) + CI como contraseña. Solo si marketplace_enabled = True.
@@ -44,11 +50,29 @@ def verify_salon_login(payload: _SalonLoginPayload, request: Request, db: Sessio
 
     El CI es un número corto y adivinable (no un secreto real) — sin límite
     de intentos, este endpoint era brute-forceable directamente.
+
+    Límite de intentos:
+    - Sin X-Internal-Key válida: 5 por minuto por IP (cuenta todas las llamadas).
+    - Con X-Internal-Key válida (llamada del marketplace, todas desde la misma IP):
+      5 intentos FALLIDOS por minuto por cuenta; los logins válidos no consumen cupo.
     """
-    rate_limit(request, "verify-salon-login", max_attempts=5, window_seconds=60)
     from sqlalchemy import func, or_
 
     identifier = payload.email.strip().lower()
+    internal = has_valid_internal_key(x_internal_key)
+    if internal:
+        rate_limit_check(
+            request, "verify-salon-login-account", max_attempts=5, window_seconds=60,
+            subject=identifier,
+        )
+    else:
+        rate_limit(request, "verify-salon-login", max_attempts=5, window_seconds=60)
+
+    def _fail(body: dict) -> dict:
+        if internal:
+            rate_limit_record(request, "verify-salon-login-account", subject=identifier)
+        return body
+
     full_name = func.lower(
         func.trim(Client.name + " " + func.coalesce(Client.last_name, ""))
     )
@@ -64,11 +88,11 @@ def verify_salon_login(payload: _SalonLoginPayload, request: Request, db: Sessio
         .first()
     )
     if not client or not client.ci:
-        return {"valid": False}
+        return _fail({"valid": False})
     if client.ci.strip() != payload.ci.strip():
-        return {"valid": False}
+        return _fail({"valid": False})
     if not client.marketplace_enabled:
-        return {"valid": False, "reason": "marketplace_not_enabled"}
+        return _fail({"valid": False, "reason": "marketplace_not_enabled"})
     return {
         "valid": True,
         "id": client.id,

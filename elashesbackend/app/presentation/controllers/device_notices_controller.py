@@ -9,7 +9,6 @@ Registro: la clienta se autentica en backend_marketplace (email + CI); ese
 servicio llama a POST /dispositivos con el header X-Internal-Key y le entrega
 a la app el token devuelto. El token se muestra una sola vez.
 """
-import hmac
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -28,6 +27,7 @@ from app.core.dependencies import (
     get_current_device_client_id,
     get_db,
 )
+from app.core.internal_auth import has_valid_internal_key
 from app.core.rate_limit import rate_limit
 from app.domain.entities.client_device import ClientDevice
 
@@ -70,9 +70,7 @@ def _require_internal_key(request: Request, x_internal_key: Optional[str]) -> No
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Registro de dispositivos no configurado",
         )
-    if not x_internal_key or not hmac.compare_digest(
-        x_internal_key.encode("utf-8"), expected.encode("utf-8")
-    ):
+    if not has_valid_internal_key(x_internal_key):
         # Todas las llamadas legítimas llegan desde la IP del marketplace, así que
         # el límite por IP cuenta solo los intentos con clave ausente o incorrecta
         # (fuerza bruta); las llamadas válidas nunca consumen cupo.
