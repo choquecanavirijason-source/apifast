@@ -33,3 +33,7 @@ class Client(Base):
     appointments = relationship("Appointment", back_populates="client", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="client", cascade="all, delete-orphan")
     sales = relationship("PosSale", back_populates="client", cascade="all, delete-orphan")
+    # ON DELETE CASCADE en la BD; passive_deletes evita cargar los dispositivos al borrar.
+    devices = relationship(
+        "ClientDevice", back_populates="client", cascade="all, delete-orphan", passive_deletes=True
+    )

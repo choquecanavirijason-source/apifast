@@ -71,6 +71,7 @@ def verify_salon_login(payload: _SalonLoginPayload, request: Request, db: Sessio
         return {"valid": False, "reason": "marketplace_not_enabled"}
     return {
         "valid": True,
+        "id": client.id,
         "name": f"{client.name} {client.last_name}".strip(),
         "email": client.email,
         "phone": client.phone,

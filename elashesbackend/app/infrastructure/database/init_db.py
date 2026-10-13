@@ -6,6 +6,7 @@ from app.domain.entities.app_settings import AppSettings
 from app.domain.entities.branch import Branch
 from app.domain.entities.user import User, Role, Permission
 from app.domain.entities.client import Client
+from app.domain.entities.client_device import ClientDevice
 from app.domain.entities.inventory import Category, Product, Batch, InventoryMovement
 from app.domain.entities.tracking import (
     Tracking,
