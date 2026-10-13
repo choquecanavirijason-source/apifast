@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import record_audit
@@ -62,8 +62,7 @@ class CashSessionOut(BaseModel):
     next_fund_amount: Optional[float]
     notes: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 def _to_out(c: CashClose) -> CashSessionOut:

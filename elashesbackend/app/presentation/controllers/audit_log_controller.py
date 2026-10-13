@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.dependencies import get_db, require_any_permission
@@ -27,8 +27,7 @@ class AuditLogOut(BaseModel):
     description: str
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 def _to_out(log: AuditLog) -> AuditLogOut:

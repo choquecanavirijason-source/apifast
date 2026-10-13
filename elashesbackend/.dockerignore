@@ -1,6 +1,32 @@
+# Datos y bases locales (son los que inflaban el contexto: postgres-data ~48 MB)
+postgres-data/
 mysql/
 elashes.db
+elashes.db.backup-*
 media/
+
+# Control de versiones y entornos
+.git/
+.gitignore
+venv/
+.venv/
+env/
+
+# Python
 __pycache__/
 *.pyc
-.git/
+.pytest_cache/
+
+# Empaquetado de escritorio
+dist/
+build/
+*.spec
+
+# Secretos locales (en Docker las variables llegan por docker-compose)
+.env
+
+# Otros
+node_modules/
+.claude/
+.vscode/
+.idea/

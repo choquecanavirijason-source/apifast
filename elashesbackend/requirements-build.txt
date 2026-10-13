@@ -1,0 +1,9 @@
+# Solo para compilar el instalador de escritorio en Windows (build.bat -> PyInstaller).
+# No se instala en la imagen Docker del servidor.
+-r requirements.txt
+pyinstaller==6.19.0
+pyinstaller-hooks-contrib==2026.2
+pefile==2024.8.26
+altgraph==0.17.5
+pywin32-ctypes==0.2.3
+colorama==0.4.6
