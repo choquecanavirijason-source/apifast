@@ -5,20 +5,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# --- INICIO DEL ARREGLO ---
-# Instalamos las librerías gráficas de Linux necesarias para OpenCV (cv2)
-RUN rm -rf /var/lib/apt/lists/* \
-    && apt-get clean \
-    && dpkg --configure -a \
-    && apt-get update --allow-releaseinfo-change -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false \
-    && apt-get install -y --allow-unauthenticated \
-        libgl1 \
-        libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-# --- FIN DEL ARREGLO ---
+# Con opencv-python-headless no hacen falta libgl1 ni libglib2.0-0, así que no
+# se instalan paquetes del sistema. Si se agrega una dependencia nativa,
+# instalarla aquí: apt-get update && apt-get install -y --no-install-recommends <pkg> && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Dependencias antes del código para aprovechar la caché de capas.
+# INSTALL_DEV=true instala además pytest (requirements-dev.txt) para correr los tests.
+ARG INSTALL_DEV=false
+COPY requirements.txt requirements-dev.txt /app/
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
+        pip install --no-cache-dir -r /app/requirements-dev.txt; \
+    else \
+        pip install --no-cache-dir -r /app/requirements.txt; \
+    fi
 
 COPY . /app
 

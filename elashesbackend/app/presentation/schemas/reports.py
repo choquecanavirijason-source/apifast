@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 DEFAULT_COMMISSION_RATE = 0.40
 
@@ -26,8 +26,7 @@ class DailyClosingItem(BaseModel):
     advance_payment_amount: float = 0.0    # adelanto registrado al hacer la reserva
     balance_due: float = 0.0               # saldo pendiente = total_price - advance_payment_amount
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfessionalSummary(BaseModel):

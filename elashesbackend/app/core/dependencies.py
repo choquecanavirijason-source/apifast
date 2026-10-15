@@ -1,11 +1,13 @@
 from typing import Generator, Callable, Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session, joinedload
 
+from app.application.services.device_service import authenticate_token
 from app.infrastructure.database.session import SessionLocal
+from app.domain.entities.client_device import ClientDevice
 from app.domain.entities.user import User, Role
 from app.infrastructure.security import decode_token
 
@@ -21,6 +23,31 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+_device_bearer = HTTPBearer(auto_error=False)
+
+
+def get_current_device(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_device_bearer),
+    db: Session = Depends(get_db),
+) -> ClientDevice:
+    """Autentica a la app de una clienta con el token de dispositivo
+    ("Authorization: Bearer <token>"): hash -> dispositivo no revocado."""
+    device = None
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        device = authenticate_token(db, credentials.credentials)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de dispositivo inválido o revocado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return device
+
+
+def get_current_device_client_id(device: ClientDevice = Depends(get_current_device)) -> int:
+    return device.client_id
 
 
 def get_current_user(

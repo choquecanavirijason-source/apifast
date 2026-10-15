@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean, Text
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean, Text, text
 from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
 
@@ -83,17 +85,25 @@ class Appointment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     ticket_code = Column(String(50), unique=True, index=True, nullable=True)  # TKT-YYYYMMDD-XXXX
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     professional_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     sale_id = Column(Integer, ForeignKey("pos_sales.id"), nullable=True)
     is_ia = Column(Boolean, nullable=False, default=False)
-    start_time = Column(DateTime, nullable=False)
+    start_time = Column(DateTime, nullable=False, index=True)  # hora local (La Paz), naive
     end_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="pending", nullable=False)  # pending, completed, cancelled
     advance_payment_amount = Column(Float, nullable=False, default=0.0)  # monto de adelanto pagado al reservar
+    # UTC naive (misma convención que pos_sales/inventory). Las citas anteriores a
+    # la migración quedan con la fecha de la migración.
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
 
     client = relationship("Client", back_populates="appointments")
     created_by = relationship(

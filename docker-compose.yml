@@ -55,6 +55,18 @@ services:
     networks:
       - app-network
 
+  # --- Tests (pytest) — no arranca con `up`; usar: docker compose run --rm backend-test ---
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: ./elashesbackend
+      args:
+        INSTALL_DEV: "true"
+    image: proyect-elashes-backend:test
+    volumes:
+      - ./elashesbackend:/app
+    command: ["python", "-m", "pytest", "-q"]
+
   # --- Frontend (React) ---
   frontend:
     build: ./adminElashes

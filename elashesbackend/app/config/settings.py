@@ -3,7 +3,7 @@ import sys
 from urllib.parse import quote_plus
 
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 def get_base_path():
@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     whatsapp_api_token: Optional[str] = None
     whatsapp_phone_number_id: Optional[str] = None
 
+    # Avisos programados de citas (POST /dispositivos, GET /avisos/programados,
+    # DELETE /dispositivos/actual). Solo en el servidor de producción: el
+    # instalador de escritorio no los monta aunque la variable esté en true.
+    client_notices_enabled: bool = False
+    # Secreto server-to-server: backend_marketplace lo envía en X-Internal-Key al
+    # registrar un dispositivo tras el login de la clienta. Vacío = registro deshabilitado.
+    internal_api_key: Optional[str] = None
+
     @model_validator(mode="after")
     def resolve_database_url(self):
         if self.database_url and str(self.database_url).strip():
@@ -85,10 +93,11 @@ class Settings(BaseSettings):
         self.database_url = f"sqlite:///{os.path.join(external_path, 'elashes.db')}"
         return self
 
-    class Config:
-        # Esto buscará el .env empaquetado dentro del EXE
-        env_file = os.path.join(base_path, ".env")
-        extra = "ignore"
-        case_sensitive = False
+    # Esto buscará el .env empaquetado dentro del EXE
+    model_config = SettingsConfigDict(
+        env_file=os.path.join(base_path, ".env"),
+        extra="ignore",
+        case_sensitive=False,
+    )
 
 settings = Settings()

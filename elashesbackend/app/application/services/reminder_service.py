@@ -1,10 +1,14 @@
 """Chequeo diario de recordatorios de mantenimiento/retiro: avisa a la
 clienta (solo a ella, vía su canal WebSocket) cuando faltan
 REMINDER_DAYS_BEFORE días para su próxima fecha de retoque o retiro. Se
-programa desde main.py con APScheduler."""
+programa desde main.py con APScheduler.
+
+Si los avisos programados están activos (client_notices_active), no hace
+nada: esos avisos ya cubren mantenimiento/retiro y aquí se duplicarían."""
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 
+from app.application.services.appointment_notice_service import client_notices_active
 from app.domain.entities.tracking import Tracking
 from app.domain.entities.service_agenda import Appointment, Service
 from app.core.ws_manager import client_ws_manager
@@ -23,7 +27,11 @@ def _pending_query(db: Session):
 
 def collect_due_reminders(db: Session) -> list[dict]:
     """Marca como enviadas (commitea) y devuelve las trackings que hoy caen
-    exactamente REMINDER_DAYS_BEFORE días antes de su fecha objetivo."""
+    exactamente REMINDER_DAYS_BEFORE días antes de su fecha objetivo. Con los
+    avisos programados activos devuelve [] sin marcar nada."""
+    if client_notices_active():
+        return []
+
     target_date = (datetime.utcnow() + timedelta(days=REMINDER_DAYS_BEFORE)).date()
     due: list[dict] = []
 

@@ -76,6 +76,8 @@ import app.infrastructure.database.migrations.add_cash_received_to_payments as m
 import app.infrastructure.database.migrations.add_cash_close_next_fund_amount as m44
 import app.infrastructure.database.migrations.add_is_active_and_discount_to_services as m45
 import app.infrastructure.database.migrations.add_audit_logs_table as m46
+import app.infrastructure.database.migrations.add_created_at_and_indexes_to_appointments as m47
+import app.infrastructure.database.migrations.add_client_devices_table as m48
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -94,6 +96,7 @@ from app.presentation.controllers.marketplace_proxy_controller import router as 
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import REELS_CHANNEL, client_ws_manager, reels_ws_manager, ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
+from app.application.services.appointment_notice_service import LA_PAZ, client_notices_active
 from app.application.services.reminder_service import run_daily_reminder_check
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -151,6 +154,8 @@ async def lifespan(app: FastAPI):
         ("cash_close_next_fund_amount", m44.upgrade),
         ("is_active_and_discount_to_services", m45.upgrade),
         ("audit_logs_table", m46.upgrade),
+        ("appointments_created_at_and_indexes", m47.upgrade),
+        ("client_devices_table", m48.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -182,7 +187,9 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
 
-    scheduler = AsyncIOScheduler()
+    # Hora de Bolivia: sin timezone usaría la del contenedor (UTC) y las 9:00
+    # serían las 05:00 en La Paz.
+    scheduler = AsyncIOScheduler(timezone=LA_PAZ)
     scheduler.add_job(_reminder_job, CronTrigger(hour=9, minute=0))
     scheduler.start()
 
@@ -272,6 +279,14 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)
     app.include_router(auth_routes.router)
+
+    # Avisos programados de citas: solo en el servidor de producción, nunca en
+    # el instalador de escritorio (PyInstaller -> sys.frozen).
+    if client_notices_active():
+        from app.presentation.controllers.device_notices_controller import (
+            router as device_notices_router,
+        )
+        app.include_router(device_notices_router)
 
     @app.websocket("/ws/branch/{branch_id}")
     async def ws_branch(websocket: WebSocket, branch_id: int, token: str | None = None):
