@@ -17,6 +17,7 @@ from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.core.audit import record_audit
 from app.presentation.schemas.client import (
+    CitaProximaResponse,
     ClientCreate,
     ClientNotificacionesResponse,
     ClientNotificacionesUpdate,
@@ -32,7 +33,7 @@ from app.application.services.client_service import (
     delete_client,
     set_client_notifications,
 )
-from app.application.services.retoque_service import list_retoques
+from app.application.services.retoque_service import list_citas_proximas, list_retoques
 
 
 router = APIRouter(
@@ -176,6 +177,21 @@ def get_retoques(
     más los vencidos de la última semana (ver retoque_service)."""
     effective_branch = resolve_branch_id(branch_id, current_user)
     return list_retoques(db=db, dias=dias, branch_id=effective_branch)
+
+
+@router.get(
+    "/citas-proximas",
+    response_model=List[CitaProximaResponse],
+)
+def get_citas_proximas(
+    dias: int = Query(default=30, ge=1, le=365),
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients:view")),
+):
+    """Próximas citas no canceladas en los próximos `dias` días (ver retoque_service)."""
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    return list_citas_proximas(db=db, dias=dias, branch_id=effective_branch)
 
 
 @router.patch(

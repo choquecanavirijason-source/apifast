@@ -297,3 +297,87 @@ class TestEstadoDeRetoques:
 
     def test_requiere_clients_view(self, client, seed):
         assert client.get("/clients/retoques").status_code == 401
+
+
+# ── GET /clients/citas-proximas ──────────────────────────────────────────────
+
+def add_cita(db, client: Client, start: datetime, *, branch: Branch, status="pending",
+             service: Service | None = None) -> Appointment:
+    appt = Appointment(client_id=client.id, branch_id=branch.id, service_id=service.id if service else None,
+                       start_time=start, end_time=start + timedelta(hours=1), status=status)
+    db.add(appt)
+    db.commit()
+    return appt
+
+
+def citas(client, headers, **params) -> list[dict]:
+    resp = client.get("/clients/citas-proximas", params=params, headers=headers)
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def now_local_naive() -> datetime:
+    return datetime.now(LA_PAZ).replace(tzinfo=None, microsecond=0)
+
+
+class TestProximasCitas:
+    def test_fila_completa(self, client, db, seed):
+        start = local_naive(3, 15)
+        appt = add_cita(db, seed["ana"], start, branch=seed["centro"], status="confirmed", service=seed["service"])
+        [row] = citas(client, login(client, "admin_t"))
+        assert row["appointment_id"] == appt.id
+        assert row["clienta"] == "Ana Lopez"
+        assert row["servicio"] == "Extensiones Clásicas"
+        assert row["fecha_hora"] == start.isoformat()
+        assert row["sucursal"] == "Centro"
+        assert row["estado"] == "confirmed"
+        assert row["notificaciones_activas"] is True
+
+    def test_rango_de_dias(self, client, db, seed):
+        now = now_local_naive()
+        add_cita(db, seed["ana"], now - timedelta(hours=1), branch=seed["centro"])            # ya pasó
+        add_cita(db, seed["ana"], now + timedelta(hours=2), branch=seed["centro"])            # entra
+        add_cita(db, seed["ana"], now + timedelta(days=6, hours=23), branch=seed["centro"])   # entra con 7
+        add_cita(db, seed["ana"], now + timedelta(days=7, hours=1), branch=seed["centro"])    # fuera de 7
+        add_cita(db, seed["ana"], now + timedelta(days=31), branch=seed["centro"])            # fuera de 30
+        h = login(client, "admin_t")
+        assert len(citas(client, h, dias=7)) == 2
+        assert len(citas(client, h)) == 3  # 30 por defecto
+
+    def test_no_salen_las_canceladas(self, client, db, seed):
+        add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"], status="cancelled")
+        keep = add_cita(db, seed["bea"], local_naive(2), branch=seed["norte"], status="pending")
+        assert [r["appointment_id"] for r in citas(client, login(client, "admin_t"))] == [keep.id]
+
+    def test_orden_por_fecha_hora(self, client, db, seed):
+        tarde = add_cita(db, seed["ana"], local_naive(5, 16), branch=seed["centro"])
+        temprano = add_cita(db, seed["bea"], local_naive(2, 9), branch=seed["norte"])
+        medio = add_cita(db, seed["cris"], local_naive(5, 10), branch=seed["centro"])
+        ids = [r["appointment_id"] for r in citas(client, login(client, "admin_t"))]
+        assert ids == [temprano.id, medio.id, tarde.id]
+
+    def test_filtro_por_sucursal_de_la_cita(self, client, db, seed):
+        add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"])
+        # Clienta de Norte que agenda en Centro: cuenta como cita de Centro.
+        add_cita(db, seed["bea"], local_naive(3), branch=seed["centro"])
+        en_norte = add_cita(db, seed["bea"], local_naive(4), branch=seed["norte"])
+        h = login(client, "admin_t")
+        assert len(citas(client, h)) == 3
+        assert [r["appointment_id"] for r in citas(client, h, branch_id=seed["norte"].id)] == [en_norte.id]
+        assert len(citas(client, h, branch_id=seed["centro"].id)) == 2
+
+    def test_operaria_solo_ve_su_sucursal(self, client, db, seed):
+        add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"])
+        add_cita(db, seed["bea"], local_naive(3), branch=seed["norte"])
+        h = login(client, "operaria_t")
+        assert [r["sucursal"] for r in citas(client, h)] == ["Centro"]
+        assert [r["sucursal"] for r in citas(client, h, branch_id=seed["norte"].id)] == ["Centro"]
+
+    def test_notificaciones_de_la_clienta_solo_lectura(self, client, db, seed):
+        add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"])
+        h = login(client, "admin_t")
+        patch(client, h, seed["ana"].id, False)
+        assert [r["notificaciones_activas"] for r in citas(client, h)] == [False]
+
+    def test_requiere_clients_view(self, client, seed):
+        assert client.get("/clients/citas-proximas").status_code == 401

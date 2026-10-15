@@ -1,20 +1,24 @@
 """
-Tabla "Estado de retoques" del panel (Atención > Notificaciones): clientas
-cuyo mantenimiento/retiro cae en los próximos días, más las vencidas de los
-últimos VENCIDOS_DIAS días (las que el salón debería llamar).
+Tablas de Atención > Notificaciones en el panel:
 
-Usa las mismas reglas que los avisos programados (appointment_notice_service):
-solo cuenta el último seguimiento de cada clienta y las fechas objetivo se
-leen en hora de La Paz.
+- "Estado de retoques": clientas cuyo mantenimiento/retiro cae en los
+  próximos días, más las vencidas de los últimos VENCIDOS_DIAS días (las que
+  el salón debería llamar). Usa las mismas reglas que los avisos programados
+  (appointment_notice_service): solo cuenta el último seguimiento de cada
+  clienta y las fechas objetivo se leen en hora de La Paz.
+- "Próximas citas": citas no canceladas de los próximos días, las que
+  reciben los avisos "manana"/"hoy".
 """
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.appointment_notice_service import (
     LA_PAZ,
+    STATUS_CANCELLED,
+    appointment_service_names,
     latest_trackings,
     next_appointments,
     tracking_targets,
@@ -22,6 +26,7 @@ from app.application.services.appointment_notice_service import (
 )
 from app.application.services.tracking_service import resolve_service
 from app.domain.entities.client import Client
+from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.tracking import Tracking
 
 VENCIDOS_DIAS = 7
@@ -92,4 +97,52 @@ def list_retoques(
             )
 
     rows.sort(key=lambda r: (r["fecha_objetivo"], r["clienta"].lower(), r["tipo"]))
+    return rows
+
+
+def list_citas_proximas(
+    db: Session,
+    dias: int,
+    branch_id: Optional[int] = None,
+    now_utc: Optional[datetime] = None,
+) -> list[dict]:
+    """Citas no canceladas con start_time entre ahora y ahora + dias (hora de
+    La Paz), ordenadas por fecha. branch_id filtra por la sucursal de la cita."""
+    now_utc = now_utc or datetime.now(timezone.utc)
+    now_local = now_utc.astimezone(LA_PAZ).replace(tzinfo=None)  # como start_time
+
+    query = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.client),
+            joinedload(Appointment.branch),
+            joinedload(Appointment.service),
+            joinedload(Appointment.appointment_services).joinedload(AppointmentService.service),
+        )
+        .filter(Appointment.status != STATUS_CANCELLED)
+        .filter(Appointment.start_time > now_local)
+        .filter(Appointment.start_time <= now_local + timedelta(days=dias))
+    )
+    if branch_id is not None:
+        query = query.filter(Appointment.branch_id == branch_id)
+
+    rows = []
+    for appointment in query.order_by(Appointment.start_time, Appointment.id).all():
+        client = appointment.client
+        names = appointment_service_names(appointment) or (
+            [appointment.service.name] if appointment.service else []
+        )
+        rows.append(
+            {
+                "appointment_id": appointment.id,
+                "client_id": client.id,
+                "clienta": f"{client.name} {client.last_name}".strip(),
+                "servicio": ", ".join(names) or None,
+                "fecha_hora": appointment.start_time,
+                "sucursal": appointment.branch.name if appointment.branch else None,
+                "branch_id": appointment.branch_id,
+                "estado": appointment.status,
+                "notificaciones_activas": client.notificaciones_activas,
+            }
+        )
     return rows

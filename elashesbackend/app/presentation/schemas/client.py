@@ -98,3 +98,18 @@ class RetoqueResponse(BaseModel):
     proxima_cita: Optional[datetime] = None
     notificaciones_activas: bool
     branch_id: Optional[int] = None
+
+
+class CitaProximaResponse(BaseModel):
+    """Fila de "Próximas citas" (ver retoque_service.list_citas_proximas)."""
+    appointment_id: int
+    client_id: int
+    clienta: str
+    servicio: Optional[str] = None
+    # Hora de La Paz, sin zona (como appointments.start_time).
+    fecha_hora: datetime
+    sucursal: Optional[str] = None
+    branch_id: Optional[int] = None
+    estado: str
+    # De la clienta; solo lectura aquí (se cambia en "Estado de retoques").
+    notificaciones_activas: bool

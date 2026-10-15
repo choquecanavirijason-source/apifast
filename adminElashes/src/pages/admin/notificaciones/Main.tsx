@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ClientService, type RetoqueRow } from "@/core/services/client/client.service";
+import { CalendarClock, RefreshCcw } from "lucide-react";
+import { ClientService, type CitaProximaRow, type RetoqueRow } from "@/core/services/client/client.service";
+import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
 import { getApiErrorMessage } from "@/core/utils/apiError";
 import useAuth from "@/core/hooks/useAuth";
-import { Button, SectionCard } from "@/components/common/ui";
+import { Button, SectionCard, SegmentedTabs } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 
 const fieldClass =
@@ -15,6 +18,14 @@ const RANGOS = [7, 15, 30, 60];
 
 // DataTable necesita un id por fila; una clienta puede tener una por tipo.
 type RetoqueTableRow = RetoqueRow & { id: string };
+type CitaTableRow = CitaProximaRow & { id: number };
+
+type Tab = "retoques" | "citas";
+
+const TABS = [
+  { id: "retoques", label: "Estado de retoques", icon: <RefreshCcw /> },
+  { id: "citas", label: "Próximas citas", icon: <CalendarClock /> },
+] as const;
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
@@ -42,7 +53,13 @@ export default function NotificacionesPage() {
   const canChooseBranch = isAdmin() || hasRole("Secretaria");
   const canManage = isAdmin() || hasPermissionByName("clients:manage");
 
+  // En la URL (?tab=citas) para que la pestaña sobreviva a una recarga.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = searchParams.get("tab") === "citas" ? "citas" : "retoques";
+  const setTab = (next: Tab) => setSearchParams(next === "citas" ? { tab: "citas" } : {}, { replace: true });
+
   const [rows, setRows] = useState<RetoqueRow[]>([]);
+  const [citas, setCitas] = useState<CitaProximaRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dias, setDias] = useState(30);
@@ -75,18 +92,29 @@ export default function NotificacionesPage() {
       .catch(() => setBranches([]));
   }, [canChooseBranch]);
 
+  // Las dos pestañas comparten sucursal y rango; solo se pide la activa.
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    const params = { dias, branch_id: branchId ?? undefined };
     try {
-      setRows(await ClientService.listRetoques({ dias, branch_id: branchId ?? undefined }));
+      if (tab === "citas") {
+        setCitas(await ClientService.listCitasProximas(params));
+      } else {
+        setRows(await ClientService.listRetoques(params));
+      }
     } catch (err) {
-      setRows([]);
-      setError(getApiErrorMessage(err, "No se pudo cargar el estado de retoques."));
+      if (tab === "citas") {
+        setCitas([]);
+        setError(getApiErrorMessage(err, "No se pudo cargar las próximas citas."));
+      } else {
+        setRows([]);
+        setError(getApiErrorMessage(err, "No se pudo cargar el estado de retoques."));
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [dias, branchId]);
+  }, [dias, branchId, tab]);
 
   useEffect(() => {
     void load();
@@ -95,6 +123,10 @@ export default function NotificacionesPage() {
   const tableRows = useMemo<RetoqueTableRow[]>(
     () => rows.map((row) => ({ ...row, id: `${row.seguimiento_id}-${row.tipo}` })),
     [rows],
+  );
+  const citaRows = useMemo<CitaTableRow[]>(
+    () => citas.map((row) => ({ ...row, id: row.appointment_id })),
+    [citas],
   );
 
   // Una clienta puede tener dos filas (mantenimiento y retiro): el toggle es
@@ -228,14 +260,77 @@ export default function NotificacionesPage() {
     },
   ];
 
+  const citaColumns: DataTableColumn<CitaTableRow>[] = [
+    {
+      key: "clienta",
+      header: "Clienta",
+      render: (row) => <span className="font-semibold text-slate-800">{row.clienta}</span>,
+      sortable: true,
+    },
+    {
+      key: "servicio",
+      header: "Servicio",
+      getValue: (row) => row.servicio ?? "",
+      render: (row) => row.servicio ?? <span className="text-slate-400">—</span>,
+      sortable: true,
+    },
+    {
+      key: "fecha_hora",
+      header: "Fecha y hora",
+      getValue: (row) => row.fecha_hora,
+      render: (row) => formatAppointment(row.fecha_hora),
+      sortable: true,
+    },
+    {
+      key: "sucursal",
+      header: "Sucursal",
+      getValue: (row) => row.sucursal ?? "",
+      render: (row) => row.sucursal ?? <span className="text-slate-400">—</span>,
+      filterable: true,
+    },
+    {
+      key: "estado",
+      header: "Estado",
+      getValue: (row) => STATUS_LABELS[row.estado] ?? row.estado,
+      render: (row) => (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+          {STATUS_LABELS[row.estado] ?? row.estado}
+        </span>
+      ),
+      filterable: true,
+    },
+    {
+      // Solo lectura: se cambia en "Estado de retoques".
+      key: "notificaciones_activas",
+      header: "Notificaciones",
+      getValue: (row) => (row.notificaciones_activas ? "Activas" : "Inactivas"),
+      render: (row) => (
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            row.notificaciones_activas ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {row.notificaciones_activas ? "Activas" : "Inactivas"}
+        </span>
+      ),
+    },
+  ];
+
+  const isEmpty = !isLoading && !error && (tab === "citas" ? citas.length === 0 : rows.length === 0);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <SectionCard bodyClassName="!p-5">
+      <SectionCard bodyClassName="!p-5 flex flex-col gap-3">
+        <SegmentedTabs options={TABS} value={tab} onChange={setTab} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Estado de retoques</h2>
+            <h2 className="text-lg font-semibold text-slate-800">
+              {tab === "citas" ? "Próximas citas" : "Estado de retoques"}
+            </h2>
             <p className="text-xs text-slate-500">
-              Mantenimiento y retiro en los próximos {dias} días, más los vencidos de la última semana.
+              {tab === "citas"
+                ? `Citas no canceladas de los próximos ${dias} días.`
+                : `Mantenimiento y retiro en los próximos ${dias} días, más los vencidos de la última semana.`}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -279,18 +374,37 @@ export default function NotificacionesPage() {
         </SectionCard>
       ) : null}
 
-      {!isLoading && !error && rows.length === 0 ? (
+      {isEmpty ? (
         <SectionCard bodyClassName="!p-6">
-          <p className="text-sm font-medium text-slate-700">
-            Ninguna clienta tiene retoque ni retiro en los próximos {dias} días.
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Las fechas salen al finalizar una atención. Para que se calculen, el servicio necesita sus días
-            de retoque/retiro y su categoría debe tener activado "Tiene mantenimiento" o "Tiene retiro".
-          </p>
+          {tab === "citas" ? (
+            <p className="text-sm font-medium text-slate-700">
+              No hay citas en los próximos {dias} días.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-slate-700">
+                Ninguna clienta tiene retoque ni retiro en los próximos {dias} días.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Las fechas salen al finalizar una atención. Para que se calculen, el servicio necesita sus días
+                de retoque/retiro y su categoría debe tener activado "Tiene mantenimiento" o "Tiene retiro".
+              </p>
+            </>
+          )}
         </SectionCard>
+      ) : tab === "citas" ? (
+        <DataTable
+          key="citas"
+          data={citaRows}
+          columns={citaColumns}
+          loading={isLoading}
+          defaultLimit={25}
+          availableLimits={[10, 25, 50, 100]}
+          globalSearchPlaceholder="Buscar por clienta, servicio o sucursal..."
+        />
       ) : (
         <DataTable
+          key="retoques"
           data={tableRows}
           columns={columns}
           loading={isLoading}

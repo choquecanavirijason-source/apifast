@@ -480,6 +480,14 @@ export default function Header() {
     };
   }, []);
 
+  // Las páginas con su propio selector (ej. Notificaciones, POS) también
+  // cambian la sucursal global: sin esto la cabecera mostraba la anterior.
+  useEffect(() => {
+    const handleChange = () => setSelectedBranchIdState(getSelectedBranchId());
+    window.addEventListener("branchchange", handleChange);
+    return () => window.removeEventListener("branchchange", handleChange);
+  }, []);
+
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) {

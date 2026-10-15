@@ -62,6 +62,21 @@ export interface RetoqueRow {
   branch_id: number | null;
 }
 
+/** Fila de "Próximas citas" (GET /clients/citas-proximas). */
+export interface CitaProximaRow {
+  appointment_id: number;
+  client_id: number;
+  clienta: string;
+  servicio: string | null;
+  /** Hora de La Paz sin zona (YYYY-MM-DDTHH:mm:ss). */
+  fecha_hora: string;
+  sucursal: string | null;
+  branch_id: number | null;
+  estado: string;
+  /** De la clienta; aquí solo se muestra. */
+  notificaciones_activas: boolean;
+}
+
 export type ClientUpdatePayload = Partial<ClientCreatePayload> & {
   status?: string;
   marketplace_enabled?: boolean;
@@ -128,6 +143,11 @@ export const ClientService = {
 
   async listRetoques(params: { dias: number; branch_id?: number }): Promise<RetoqueRow[]> {
     const response = await api.get<RetoqueRow[]>("/clients/retoques", { params });
+    return response.data;
+  },
+
+  async listCitasProximas(params: { dias: number; branch_id?: number }): Promise<CitaProximaRow[]> {
+    const response = await api.get<CitaProximaRow[]>("/clients/citas-proximas", { params });
     return response.data;
   },
 

@@ -164,7 +164,7 @@ def compute_tracking_notices(tipo: str, target_utc: datetime) -> list[Notice]:
     ]
 
 
-def _service_names(appointment: Appointment) -> list[str]:
+def appointment_service_names(appointment: Appointment) -> list[str]:
     """Nombres desde appointment_services + services (no appointments.service_id)."""
     links: list[AppointmentService] = sorted(
         appointment.appointment_services, key=lambda link: (link.sort_order or 0, link.id)
@@ -174,7 +174,7 @@ def _service_names(appointment: Appointment) -> list[str]:
 
 def _format_notice(tipo: str, appointment: Appointment) -> tuple[str, str]:
     hora = appointment.start_time.strftime("%H:%M")
-    servicios = ", ".join(_service_names(appointment))
+    servicios = ", ".join(appointment_service_names(appointment))
     salon = appointment.branch.name if appointment.branch else None
 
     titulo = "Tu cita es mañana" if tipo == TIPO_MANANA else "Tu cita es hoy"
