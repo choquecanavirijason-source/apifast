@@ -38,6 +38,7 @@ import FollowUpPage from '@/pages/admin/follow-up/pages/FollowUpPage';
 import PosTrackingHub from '@/pages/admin/pos-tracking/PosTrackingHub';
 import CierreDeCajaPage from '@/pages/admin/cierre-de-caja/CierreDeCaja';
 import AuditLogPage from '@/pages/admin/audit/AuditLog';
+import NotificacionesPage from '@/pages/admin/notificaciones/Main';
 import CompletedTicketsHistory from "@/pages/admin/pos-tracking/CompletedTicketsHistory";
 import ProfessionalServiceHistory from "@/pages/admin/professionals/History";
 import TicketsHistoryPage from "@/pages/admin/professionals/TicketsHistory";
@@ -190,6 +191,7 @@ export default function AppRouter() {
             <Route path="admin/turns" element={<TurnScreen />} />
             <Route path="admin/tickets" element={<TicketsPage />} />
             <Route path="admin/tickets/finalizados" element={<CompletedTicketsHistory />} />
+            <Route path="admin/notificaciones" element={<NotificacionesPage />} />
             <Route path="admin/professionals/history" element={<ProfessionalServiceHistory />} />
             <Route path="admin/professionals/tickets" element={<TicketsHistoryPage />} />
             {/* La antigua vista semanal se unió a la agenda (Día/Semana/Mes/Año). */}
