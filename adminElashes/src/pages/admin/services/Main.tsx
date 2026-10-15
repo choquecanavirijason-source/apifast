@@ -876,36 +876,47 @@ export default function ServicesPage() {
             </div>
           </div>
 
-          {(selectedCategoryForService?.has_maintenance || selectedCategoryForService?.has_removal) && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              {selectedCategoryForService?.has_maintenance && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Días para mantenimiento</label>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="Ej. 21"
-                    value={serviceForm.maintenanceDays}
-                    onChange={(event) => handleServiceFormChange("maintenanceDays", event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-                  />
-                </div>
-              )}
-              {selectedCategoryForService?.has_removal && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Días para retiro</label>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="Ej. 35"
-                    value={serviceForm.removalDays}
-                    onChange={(event) => handleServiceFormChange("removalDays", event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-                  />
-                </div>
+          {/* Siempre visibles: los días solo se usan si la categoría tiene el
+              check correspondiente (tracking_service), así que se avisa
+              cuando está apagado en vez de esconder el campo. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Retoque / mantenimiento (días)</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Ej. 21"
+                value={serviceForm.maintenanceDays}
+                onChange={(event) => handleServiceFormChange("maintenanceDays", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+              <p className="text-xs text-slate-500">Vacío = no requiere</p>
+              {selectedCategoryForService && !selectedCategoryForService.has_maintenance && (
+                <p className="text-xs text-amber-700">
+                  La categoría «{selectedCategoryForService.name}» tiene el mantenimiento desactivado:
+                  actívalo en la categoría para que se usen estos días.
+                </p>
               )}
             </div>
-          )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Retiro (días)</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Ej. 35"
+                value={serviceForm.removalDays}
+                onChange={(event) => handleServiceFormChange("removalDays", event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+              />
+              <p className="text-xs text-slate-500">Vacío = no requiere</p>
+              {selectedCategoryForService && !selectedCategoryForService.has_removal && (
+                <p className="text-xs text-amber-700">
+                  La categoría «{selectedCategoryForService.name}» tiene el retiro desactivado:
+                  actívalo en la categoría para que se usen estos días.
+                </p>
+              )}
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
