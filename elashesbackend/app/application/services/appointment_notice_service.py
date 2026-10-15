@@ -22,6 +22,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.tracking_service import resolve_service
@@ -185,34 +186,69 @@ def _format_notice(tipo: str, appointment: Appointment) -> tuple[str, str]:
     return titulo, cuerpo
 
 
-def _tracking_notices(
-    db: Session, client_id: int, now: datetime, limit: datetime
-) -> list[dict]:
-    """Avisos de mantenimiento/retiro del último seguimiento de la clienta (uno
-    nuevo anula los anteriores). Ninguno si ya tiene una cita futura no
-    cancelada: el objetivo es recordarle agendar, no avisar de más."""
-    tracking = (
+def tracking_targets(tracking: Tracking) -> list[tuple[str, datetime]]:
+    """(tipo, fecha objetivo UTC naive) de un seguimiento, solo las cargadas."""
+    return [
+        (tipo, target)
+        for tipo, target in (
+            (TIPO_MANTENIMIENTO, tracking.next_maintenance_date),
+            (TIPO_RETIRO, tracking.next_removal_date),
+        )
+        if target
+    ]
+
+
+def latest_trackings(db: Session, client_ids: list[int]) -> dict[int, Tracking]:
+    """Último seguimiento de cada clienta (last_application_date, luego id):
+    uno nuevo anula los avisos de los anteriores. Lo comparten los avisos y
+    la tabla de retoques del panel para que nunca digan cosas distintas."""
+    if not client_ids:
+        return {}
+    trackings = (
         db.query(Tracking)
         .options(
+            joinedload(Tracking.client),
             joinedload(Tracking.branch),
             joinedload(Tracking.appointment).joinedload(Appointment.branch),
         )
-        .filter(Tracking.client_id == client_id)
-        .order_by(Tracking.last_application_date.desc(), Tracking.id.desc())
-        .first()
+        .filter(Tracking.client_id.in_(client_ids))
+        .order_by(Tracking.client_id, Tracking.last_application_date.desc(), Tracking.id.desc())
+        .all()
     )
-    if not tracking or not (tracking.next_maintenance_date or tracking.next_removal_date):
-        return []
+    latest: dict[int, Tracking] = {}
+    for tracking in trackings:
+        latest.setdefault(tracking.client_id, tracking)
+    return latest
 
-    has_future_appointment = (
-        db.query(Appointment.id)
-        .filter(Appointment.client_id == client_id)
+
+def next_appointments(db: Session, client_ids: list[int], now: datetime) -> dict[int, datetime]:
+    """Próxima cita no cancelada de cada clienta (start_time, hora de La Paz
+    naive). Las que no tienen ninguna no aparecen."""
+    if not client_ids:
+        return {}
+    rows = (
+        db.query(Appointment.client_id, func.min(Appointment.start_time))
+        .filter(Appointment.client_id.in_(client_ids))
         .filter(Appointment.status != STATUS_CANCELLED)
-        .filter(Appointment.start_time > now.replace(tzinfo=None))
-        .first()
-        is not None
+        .filter(Appointment.start_time > now.astimezone(LA_PAZ).replace(tzinfo=None))
+        .group_by(Appointment.client_id)
+        .all()
     )
-    if has_future_appointment:
+    return dict(rows)
+
+
+def _tracking_notices(
+    db: Session, client_id: int, now: datetime, limit: datetime
+) -> list[dict]:
+    """Avisos de mantenimiento/retiro del último seguimiento de la clienta.
+    Ninguno si la clienta los tiene desactivados o si ya tiene una cita
+    futura no cancelada: el objetivo es recordarle agendar, no avisar de más."""
+    tracking = latest_trackings(db, [client_id]).get(client_id)
+    if not tracking or not tracking_targets(tracking):
+        return []
+    if not tracking.client.notificaciones_activas:
+        return []
+    if next_appointments(db, [client_id], now):
         return []
 
     # Mismo servicio con el que se calcularon los días (tracking_service).
@@ -221,12 +257,7 @@ def _tracking_notices(
     cuerpo = " · ".join(p for p in (service.name if service else None, branch.name if branch else None) if p)
 
     avisos = []
-    for tipo, target in (
-        (TIPO_MANTENIMIENTO, tracking.next_maintenance_date),
-        (TIPO_RETIRO, tracking.next_removal_date),
-    ):
-        if not target:
-            continue
+    for tipo, target in tracking_targets(tracking):
         for notice in compute_tracking_notices(tipo, target):
             if notice.expira_en <= now or notice.mostrar_en > limit:
                 continue

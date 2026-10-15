@@ -18,7 +18,8 @@ REMINDER_DAYS_BEFORE = 3
 
 def _pending_query(db: Session):
     return db.query(Tracking).options(
-        joinedload(Tracking.appointment).joinedload(Appointment.service)
+        joinedload(Tracking.client),
+        joinedload(Tracking.appointment).joinedload(Appointment.service),
     ).filter(
         (Tracking.maintenance_reminder_sent == False)
         | (Tracking.removal_reminder_sent == False)
@@ -36,6 +37,10 @@ def collect_due_reminders(db: Session) -> list[dict]:
     due: list[dict] = []
 
     for tracking in _pending_query(db).all():
+        # Desactivadas desde el panel: ni se envía ni se marca como enviado.
+        if not tracking.client.notificaciones_activas:
+            continue
+
         service_name = (
             tracking.appointment.service.name
             if tracking.appointment and tracking.appointment.service

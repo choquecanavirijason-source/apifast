@@ -179,6 +179,15 @@ def get_client_by_id(db: Session, client_id: int) -> Client:
     return client
 
 
+def set_client_notifications(db: Session, client: Client, activas: bool) -> Client:
+    """Activa/desactiva los avisos de mantenimiento/retiro de la clienta (los
+    de citas no dependen de esto)."""
+    client.notificaciones_activas = activas
+    db.commit()
+    db.refresh(client)
+    return client
+
+
 def create_client(db: Session, payload: ClientCreate) -> Client:
     _validate_age(payload.age)
 
