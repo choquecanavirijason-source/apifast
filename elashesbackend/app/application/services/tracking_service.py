@@ -121,7 +121,7 @@ def _validate_tracking_relations(
             )
 
 
-def _resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
+def resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
     """El servicio principal de la cita (single service_id, o el primero de la
     lista si la cita tiene varios servicios). None si la cita no existe o no
     tiene ningún servicio."""
@@ -160,7 +160,7 @@ def _resolve_next_dates(
     "Extensiones Clásicas" vs "Volumen 5D"), pero solo cuentan si la
     categoría de ese servicio tiene has_maintenance/has_removal activado —
     solo algunas categorías lo necesitan (ej. Extensiones sí, Lifting no)."""
-    service = _resolve_service(db, appointment_id)
+    service = resolve_service(db, appointment_id)
     category = service.category if service else None
     if not service or not category:
         return None, None

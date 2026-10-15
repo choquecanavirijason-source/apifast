@@ -162,6 +162,8 @@ def update_existing_service(
         "name": existing.name, "price": existing.price,
         "discount_percent": existing.discount_percent, "is_active": existing.is_active,
     }
+    # Ausente del body != enviado en null (vaciar los días) — ver _UNSET.
+    sent = payload.model_dump(exclude_unset=True)
     result = update_service(
         db=db,
         service_id=service_id,
@@ -172,8 +174,8 @@ def update_existing_service(
         duration_minutes=payload.duration_minutes,
         price=payload.price,
         branch_ids=payload.branch_ids,
-        maintenance_days=payload.maintenance_days,
-        removal_days=payload.removal_days,
+        maintenance_days=sent.get("maintenance_days", _UNSET),
+        removal_days=sent.get("removal_days", _UNSET),
         is_active=payload.is_active,
         discount_percent=payload.discount_percent,
     )

@@ -1,5 +1,6 @@
 """
-Avisos programados de citas ("manana" / "hoy") para la app de la clienta.
+Avisos programados para la app de la clienta: de citas ("manana" / "hoy") y
+de seguimiento ("mantenimiento" / "retiro", recordar agendar el retoque).
 
 El backend decide qué avisar y cuándo; el teléfono los programa como
 notificaciones locales. Ver docs/Recordatorios_de_citas_sin_Firebase.pdf.
@@ -8,23 +9,32 @@ Todas las reglas se calculan en hora de Bolivia (America/La_Paz). Convenciones
 de fechas de la BD:
   - appointments.start_time: hora local de La Paz, naive.
   - appointments.created_at: UTC naive (como pos_sales/inventory).
+  - client_tracking.next_maintenance_date / next_removal_date: UTC naive
+    (last_application_date llega del panel como toISOString()).
 
-No confundir con reminder_service.py (mantenimiento/retiro), que es otro flujo.
+Con estos avisos activos, reminder_service.py (WebSocket) deja de enviar
+mantenimiento/retiro para no duplicarlos (ver client_notices_active).
 """
 import hashlib
+import sys
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.application.services.tracking_service import resolve_service
+from app.config.settings import settings
 from app.domain.entities.service_agenda import Appointment, AppointmentService
+from app.domain.entities.tracking import Tracking
 
 LA_PAZ = ZoneInfo("America/La_Paz")
 
 TIPO_MANANA = "manana"
 TIPO_HOY = "hoy"
+TIPO_MANTENIMIENTO = "mantenimiento"
+TIPO_RETIRO = "retiro"
 
 STATUS_CANCELLED = "cancelled"
 
@@ -39,12 +49,29 @@ HOY_MIN_ADVANCE = timedelta(hours=3)
 # manana: mostrar_en puede estar hasta ~30 h antes de la cita; margen amplio.
 _QUERY_LOOKAHEAD = timedelta(hours=WINDOW_HOURS + 32)
 
+# mantenimiento/retiro: un aviso 3 días antes y otro el mismo día, a las 10:00.
+SEGUIMIENTO_SHOW_HOUR = 10
+SEGUIMIENTO_DAYS_BEFORE = 3
+
+_TITULOS_SEGUIMIENTO = {
+    # tipo: (aviso previo, aviso del mismo día)
+    TIPO_MANTENIMIENTO: ("Te toca tu retoque", "Hoy te toca tu retoque"),
+    TIPO_RETIRO: ("Te toca tu retiro", "Hoy te toca tu retiro"),
+}
+
+
+def client_notices_active() -> bool:
+    """Misma condición con la que main.py monta /avisos/programados: solo en el
+    servidor, nunca en el instalador de escritorio (PyInstaller -> sys.frozen)."""
+    return settings.client_notices_enabled and not getattr(sys, "frozen", False)
+
 
 @dataclass(frozen=True)
 class Notice:
     tipo: str
     mostrar_en: datetime  # aware, La Paz
     expira_en: datetime  # aware, La Paz
+    el_mismo_dia: bool = False  # solo seguimiento: aviso del día objetivo
 
 
 def to_local_aware(naive_local: datetime) -> datetime:
@@ -57,12 +84,23 @@ def utc_naive_to_local(naive_utc: datetime) -> datetime:
     return naive_utc.replace(tzinfo=timezone.utc).astimezone(LA_PAZ)
 
 
+def _hash31(raw: str) -> int:
+    digest = hashlib.sha256(raw.encode("utf-8")).digest()
+    return int.from_bytes(digest[:4], "big") & 0x7FFFFFFF
+
+
 def make_aviso_id(appointment_id: int, tipo: str, start_time: datetime) -> int:
     """Entero positivo de 31 bits, estable para cita + tipo + fecha de la cita.
     Si la cita se reprograma cambia el id (el teléfono cancela el viejo)."""
-    raw = f"{appointment_id}|{tipo}|{start_time.replace(tzinfo=None).isoformat()}"
-    digest = hashlib.sha256(raw.encode("utf-8")).digest()
-    return int.from_bytes(digest[:4], "big") & 0x7FFFFFFF
+    return _hash31(f"{appointment_id}|{tipo}|{start_time.replace(tzinfo=None).isoformat()}")
+
+
+def make_tracking_aviso_id(tracking_id: int, tipo: str, target_day: date, show_day: date) -> int:
+    """Como make_aviso_id, para seguimiento + tipo + fecha objetivo. Incluye el
+    día en que se muestra para que el aviso previo y el del mismo día no
+    compartan id (si no, el teléfono reemplazaría uno con el otro). Prefijo "s"
+    para no chocar nunca con el formato de los ids de citas."""
+    return _hash31(f"s|{tracking_id}|{tipo}|{target_day.isoformat()}|{show_day.isoformat()}")
 
 
 def compute_notices(start_time: datetime, created_at: Optional[datetime]) -> list[Notice]:
@@ -101,6 +139,30 @@ def compute_notices(start_time: datetime, created_at: Optional[datetime]) -> lis
     return avisos
 
 
+def compute_tracking_notices(tipo: str, target_utc: datetime) -> list[Notice]:
+    """Avisos de mantenimiento/retiro para una fecha objetivo (naive, UTC), sin
+    filtrar por ventana de tiempo: el previo vale hasta la medianoche del día
+    objetivo; el del mismo día, hasta la medianoche siguiente."""
+    target_day = utc_naive_to_local(target_utc).date()
+
+    def at(day: date, hour: int = 0) -> datetime:
+        return datetime.combine(day, time(hour, 0), tzinfo=LA_PAZ)
+
+    return [
+        Notice(
+            tipo=tipo,
+            mostrar_en=at(target_day - timedelta(days=SEGUIMIENTO_DAYS_BEFORE), SEGUIMIENTO_SHOW_HOUR),
+            expira_en=at(target_day),
+        ),
+        Notice(
+            tipo=tipo,
+            mostrar_en=at(target_day, SEGUIMIENTO_SHOW_HOUR),
+            expira_en=at(target_day + timedelta(days=1)),
+            el_mismo_dia=True,
+        ),
+    ]
+
+
 def _service_names(appointment: Appointment) -> list[str]:
     """Nombres desde appointment_services + services (no appointments.service_id)."""
     links: list[AppointmentService] = sorted(
@@ -121,6 +183,70 @@ def _format_notice(tipo: str, appointment: Appointment) -> tuple[str, str]:
     if salon:
         cuerpo += f" · {salon}"
     return titulo, cuerpo
+
+
+def _tracking_notices(
+    db: Session, client_id: int, now: datetime, limit: datetime
+) -> list[dict]:
+    """Avisos de mantenimiento/retiro del último seguimiento de la clienta (uno
+    nuevo anula los anteriores). Ninguno si ya tiene una cita futura no
+    cancelada: el objetivo es recordarle agendar, no avisar de más."""
+    tracking = (
+        db.query(Tracking)
+        .options(
+            joinedload(Tracking.branch),
+            joinedload(Tracking.appointment).joinedload(Appointment.branch),
+        )
+        .filter(Tracking.client_id == client_id)
+        .order_by(Tracking.last_application_date.desc(), Tracking.id.desc())
+        .first()
+    )
+    if not tracking or not (tracking.next_maintenance_date or tracking.next_removal_date):
+        return []
+
+    has_future_appointment = (
+        db.query(Appointment.id)
+        .filter(Appointment.client_id == client_id)
+        .filter(Appointment.status != STATUS_CANCELLED)
+        .filter(Appointment.start_time > now.replace(tzinfo=None))
+        .first()
+        is not None
+    )
+    if has_future_appointment:
+        return []
+
+    # Mismo servicio con el que se calcularon los días (tracking_service).
+    service = resolve_service(db, tracking.appointment_id)
+    branch = tracking.branch or (tracking.appointment.branch if tracking.appointment else None)
+    cuerpo = " · ".join(p for p in (service.name if service else None, branch.name if branch else None) if p)
+
+    avisos = []
+    for tipo, target in (
+        (TIPO_MANTENIMIENTO, tracking.next_maintenance_date),
+        (TIPO_RETIRO, tracking.next_removal_date),
+    ):
+        if not target:
+            continue
+        for notice in compute_tracking_notices(tipo, target):
+            if notice.expira_en <= now or notice.mostrar_en > limit:
+                continue
+            previo, del_dia = _TITULOS_SEGUIMIENTO[tipo]
+            avisos.append(
+                {
+                    "aviso_id": make_tracking_aviso_id(
+                        tracking.id, tipo, utc_naive_to_local(target).date(), notice.mostrar_en.date()
+                    ),
+                    "cita_id": None,
+                    "seguimiento_id": tracking.id,
+                    "tipo": tipo,
+                    "mostrar_en": notice.mostrar_en.isoformat(),
+                    "expira_en": notice.expira_en.isoformat(),
+                    "titulo": del_dia if notice.el_mismo_dia else previo,
+                    "cuerpo": cuerpo or "Agenda tu cita",
+                    "_orden": notice.mostrar_en,
+                }
+            )
+    return avisos
 
 
 def get_scheduled_notices(
@@ -156,6 +282,7 @@ def get_scheduled_notices(
                 {
                     "aviso_id": make_aviso_id(appointment.id, notice.tipo, appointment.start_time),
                     "cita_id": appointment.id,
+                    "seguimiento_id": None,
                     "tipo": notice.tipo,
                     "mostrar_en": notice.mostrar_en.isoformat(),
                     "expira_en": notice.expira_en.isoformat(),
@@ -164,6 +291,7 @@ def get_scheduled_notices(
                     "_orden": notice.mostrar_en,
                 }
             )
+    avisos.extend(_tracking_notices(db, client_id, now, limit))
 
     avisos.sort(key=lambda a: (a["_orden"], a["aviso_id"]))
     for aviso in avisos:

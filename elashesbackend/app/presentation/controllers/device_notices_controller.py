@@ -50,8 +50,11 @@ class DeviceRegisterResponse(BaseModel):
 
 class AvisoResponse(BaseModel):
     aviso_id: int
-    cita_id: int
-    tipo: Literal["manana", "hoy"]
+    # Siempre presentes: cita_id es null en mantenimiento/retiro (recordar
+    # agendar, no hay cita) y seguimiento_id es null en manana/hoy.
+    cita_id: Optional[int]
+    seguimiento_id: Optional[int]
+    tipo: Literal["manana", "hoy", "mantenimiento", "retiro"]
     mostrar_en: str
     expira_en: str
     titulo: str

@@ -96,6 +96,7 @@ from app.presentation.controllers.marketplace_proxy_controller import router as 
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
 from app.core.ws_manager import REELS_CHANNEL, client_ws_manager, reels_ws_manager, ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
+from app.application.services.appointment_notice_service import LA_PAZ, client_notices_active
 from app.application.services.reminder_service import run_daily_reminder_check
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -186,7 +187,9 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
 
-    scheduler = AsyncIOScheduler()
+    # Hora de Bolivia: sin timezone usaría la del contenedor (UTC) y las 9:00
+    # serían las 05:00 en La Paz.
+    scheduler = AsyncIOScheduler(timezone=LA_PAZ)
     scheduler.add_job(_reminder_job, CronTrigger(hour=9, minute=0))
     scheduler.start()
 
@@ -279,7 +282,7 @@ def create_app() -> FastAPI:
 
     # Avisos programados de citas: solo en el servidor de producción, nunca en
     # el instalador de escritorio (PyInstaller -> sys.frozen).
-    if settings.client_notices_enabled and not getattr(sys, "frozen", False):
+    if client_notices_active():
         from app.presentation.controllers.device_notices_controller import (
             router as device_notices_router,
         )

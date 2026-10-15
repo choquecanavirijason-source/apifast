@@ -10,6 +10,7 @@ from app.domain.entities.branch import Branch
 from app.domain.entities.service_agenda import AppointmentService, BranchService, Service
 from app.domain.entities.user import Role, User
 
+from .appointments import _UNSET
 from .categories import _resolve_service_category_id
 
 
@@ -231,8 +232,9 @@ def update_service(
     duration_minutes: Optional[int] = None,
     price: Optional[float] = None,
     branch_ids: Optional[List[int]] = None,
-    maintenance_days: Optional[int] = None,
-    removal_days: Optional[int] = None,
+    # _UNSET = no vino en el PUT (no tocar); None = vaciar ("no requiere").
+    maintenance_days=_UNSET,
+    removal_days=_UNSET,
     is_active: Optional[bool] = None,
     discount_percent: Optional[float] = None,
 ) -> Service:
@@ -281,10 +283,10 @@ def update_service(
             )
         service.price = price
 
-    if maintenance_days is not None:
+    if maintenance_days is not _UNSET:
         service.maintenance_days = maintenance_days
 
-    if removal_days is not None:
+    if removal_days is not _UNSET:
         service.removal_days = removal_days
 
     if is_active is not None:
