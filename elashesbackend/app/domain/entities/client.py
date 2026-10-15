@@ -26,6 +26,10 @@ class Client(Base):
     last_activity_at = Column(DateTime(timezone=True), nullable=True)
     ci = Column(String(20), nullable=True)
     marketplace_enabled = Column(Boolean, nullable=False, default=True)
+    # Avisos de mantenimiento/retiro (app y WebSocket). Los avisos de citas
+    # ("manana"/"hoy") no dependen de esto. Se cambia desde el panel
+    # (PATCH /clients/{id}/notificaciones).
+    notificaciones_activas = Column(Boolean, nullable=False, default=True)
 
     eye_type = relationship("EyeType", back_populates="clients")
     branch = relationship("Branch", back_populates="clients")

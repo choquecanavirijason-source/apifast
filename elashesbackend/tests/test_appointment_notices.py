@@ -463,6 +463,39 @@ class TestAvisosDeSeguimiento:
         assert aviso["mostrar_en"] == "2026-11-05T10:00:00-04:00"
 
 
+class TestNotificacionesDesactivadas:
+    def test_desactivadas_no_recibe_mantenimiento_ni_retiro(self, db, seed):
+        add_tracking(db, seed, maintenance=OBJETIVO, removal=OBJETIVO)
+        seed["ana"].notificaciones_activas = False
+        db.commit()
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
+        assert seguimiento(result) == []
+
+    def test_activas_los_recibe_normalmente(self, db, seed):
+        add_tracking(db, seed, maintenance=OBJETIVO, removal=OBJETIVO)
+        assert seed["ana"].notificaciones_activas is True  # valor por defecto
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
+        assert sorted(a["tipo"] for a in seguimiento(result)) == [
+            "mantenimiento", "mantenimiento", "retiro", "retiro"
+        ]
+
+    def test_desactivadas_las_citas_siguen_avisando(self, db, seed):
+        add_appointment(db, seed, local(2026, 10, 14, 10, 0))
+        seed["ana"].notificaciones_activas = False
+        db.commit()
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 13, 12, 0)))
+        assert tipos(result) == ["manana", "hoy"]
+
+    def test_websocket_tampoco_envia_ni_marca(self, db, seed, monkeypatch):
+        monkeypatch.setattr(settings, "client_notices_enabled", False)
+        tracking = add_tracking(db, seed, maintenance=datetime.utcnow() + timedelta(days=3))
+        seed["ana"].notificaciones_activas = False
+        db.commit()
+        assert collect_due_reminders(db) == []
+        db.refresh(tracking)
+        assert tracking.maintenance_reminder_sent is False
+
+
 class TestReminderServiceConAvisosActivos:
     def _tracking_en_3_dias(self, db, seed) -> Tracking:
         return add_tracking(db, seed, maintenance=datetime.utcnow() + timedelta(days=3))

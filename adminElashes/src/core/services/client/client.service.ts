@@ -42,6 +42,41 @@ export interface ClientCreatePayload {
   ci?: string;
 }
 
+export type RetoqueTipo = "mantenimiento" | "retiro";
+
+/** Fila de "Estado de retoques" (GET /clients/retoques). */
+export interface RetoqueRow {
+  client_id: number;
+  seguimiento_id: number;
+  clienta: string;
+  servicio: string | null;
+  tipo: RetoqueTipo;
+  /** YYYY-MM-DD, día en hora de La Paz. */
+  fecha_objetivo: string;
+  /** Negativo = vencido. */
+  dias_restantes: number;
+  vencido: boolean;
+  /** Próxima cita no cancelada, hora de La Paz sin zona (YYYY-MM-DDTHH:mm:ss); null si no agendó. */
+  proxima_cita: string | null;
+  notificaciones_activas: boolean;
+  branch_id: number | null;
+}
+
+/** Fila de "Próximas citas" (GET /clients/citas-proximas). */
+export interface CitaProximaRow {
+  appointment_id: number;
+  client_id: number;
+  clienta: string;
+  servicio: string | null;
+  /** Hora de La Paz sin zona (YYYY-MM-DDTHH:mm:ss). */
+  fecha_hora: string;
+  sucursal: string | null;
+  branch_id: number | null;
+  estado: string;
+  /** De la clienta; aquí solo se muestra. */
+  notificaciones_activas: boolean;
+}
+
 export type ClientUpdatePayload = Partial<ClientCreatePayload> & {
   status?: string;
   marketplace_enabled?: boolean;
@@ -103,6 +138,22 @@ export const ClientService = {
 
   async remove(id: number) {
     const response = await api.delete(`/clients/${id}`);
+    return response.data;
+  },
+
+  async listRetoques(params: { dias: number; branch_id?: number }): Promise<RetoqueRow[]> {
+    const response = await api.get<RetoqueRow[]>("/clients/retoques", { params });
+    return response.data;
+  },
+
+  async listCitasProximas(params: { dias: number; branch_id?: number }): Promise<CitaProximaRow[]> {
+    const response = await api.get<CitaProximaRow[]>("/clients/citas-proximas", { params });
+    return response.data;
+  },
+
+  /** Activa/desactiva los avisos de mantenimiento/retiro de la clienta (los de citas siguen). */
+  async setNotificaciones(id: number, activas: boolean): Promise<{ id: number; notificaciones_activas: boolean }> {
+    const response = await api.patch(`/clients/${id}/notificaciones`, { notificaciones_activas: activas });
     return response.data;
   },
   

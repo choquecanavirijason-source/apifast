@@ -1,6 +1,6 @@
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from datetime import date, datetime, timezone, timedelta
+from typing import Literal, Optional
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StrictBool, model_validator
 from app.presentation.schemas.catalog import EyeTypeSummary
 from app.presentation.schemas.branch import BranchSummary
 
@@ -51,6 +51,7 @@ class ClientSummary(BaseModel):
     last_activity_at: Optional[datetime] = None
     ci: Optional[str] = None
     marketplace_enabled: bool = False
+    notificaciones_activas: bool = True
     visit_count: int = 0
 
     @model_validator(mode="after")
@@ -69,3 +70,46 @@ class ClientSummary(BaseModel):
 class ClientResponse(ClientSummary):
     eye_type: Optional[EyeTypeSummary] = None
     branch: Optional[BranchSummary] = None
+
+
+class ClientNotificacionesUpdate(BaseModel):
+    notificaciones_activas: StrictBool
+
+
+class ClientNotificacionesResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    notificaciones_activas: bool
+
+
+class RetoqueResponse(BaseModel):
+    """Fila de "Estado de retoques" (ver retoque_service.list_retoques)."""
+    client_id: int
+    seguimiento_id: int
+    clienta: str
+    servicio: Optional[str] = None
+    tipo: Literal["mantenimiento", "retiro"]
+    fecha_objetivo: date
+    # Negativo = vencido (la fecha ya pasó y no agendó).
+    dias_restantes: int
+    vencido: bool
+    # Próxima cita no cancelada (hora de La Paz); null si no agendó.
+    proxima_cita: Optional[datetime] = None
+    notificaciones_activas: bool
+    branch_id: Optional[int] = None
+
+
+class CitaProximaResponse(BaseModel):
+    """Fila de "Próximas citas" (ver retoque_service.list_citas_proximas)."""
+    appointment_id: int
+    client_id: int
+    clienta: str
+    servicio: Optional[str] = None
+    # Hora de La Paz, sin zona (como appointments.start_time).
+    fecha_hora: datetime
+    sucursal: Optional[str] = None
+    branch_id: Optional[int] = None
+    estado: str
+    # De la clienta; solo lectura aquí (se cambia en "Estado de retoques").
+    notificaciones_activas: bool

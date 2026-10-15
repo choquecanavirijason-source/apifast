@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,14 +15,25 @@ from app.core.rate_limit import rate_limit, rate_limit_check, rate_limit_record
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
-from app.presentation.schemas.client import ClientCreate, ClientUpdate, ClientResponse
+from app.core.audit import record_audit
+from app.presentation.schemas.client import (
+    CitaProximaResponse,
+    ClientCreate,
+    ClientNotificacionesResponse,
+    ClientNotificacionesUpdate,
+    ClientResponse,
+    ClientUpdate,
+    RetoqueResponse,
+)
 from app.application.services.client_service import (
     list_clients,
     get_client_by_id,
     create_client,
     update_client,
     delete_client,
+    set_client_notifications,
 )
+from app.application.services.retoque_service import list_citas_proximas, list_retoques
 
 
 router = APIRouter(
@@ -149,6 +160,68 @@ def get_clients(
 ):
     effective_branch = resolve_branch_id(branch_id, current_user)
     return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=effective_branch)
+
+
+# Antes de "/{client_id}": si no, "retoques" se tomaría como un id (422).
+@router.get(
+    "/retoques",
+    response_model=List[RetoqueResponse],
+)
+def get_retoques(
+    dias: int = Query(default=30, ge=1, le=365),
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients:view")),
+):
+    """Estado de retoques: mantenimiento/retiro en los próximos `dias` días,
+    más los vencidos de la última semana (ver retoque_service)."""
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    return list_retoques(db=db, dias=dias, branch_id=effective_branch)
+
+
+@router.get(
+    "/citas-proximas",
+    response_model=List[CitaProximaResponse],
+)
+def get_citas_proximas(
+    dias: int = Query(default=30, ge=1, le=365),
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients:view")),
+):
+    """Próximas citas no canceladas en los próximos `dias` días (ver retoque_service)."""
+    effective_branch = resolve_branch_id(branch_id, current_user)
+    return list_citas_proximas(db=db, dias=dias, branch_id=effective_branch)
+
+
+@router.patch(
+    "/{client_id}/notificaciones",
+    response_model=ClientNotificacionesResponse,
+)
+def update_client_notifications(
+    client_id: int,
+    payload: ClientNotificacionesUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients:manage")),
+):
+    """Activa/desactiva los avisos de mantenimiento/retiro de la clienta."""
+    client = get_client_by_id(db=db, client_id=client_id)
+    # Roles acotados a su sucursal (Operaria, Cajera) solo tocan clientas de
+    # esa sucursal; una clienta sin sucursal tampoco cuenta como suya.
+    if resolve_branch_id(client.branch_id, current_user) != client.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo puedes cambiar las notificaciones de clientas de tu sucursal.",
+        )
+
+    result = set_client_notifications(db=db, client=client, activas=payload.notificaciones_activas)
+    estado = "activó" if result.notificaciones_activas else "desactivó"
+    record_audit(
+        db, current_user, "update", "client", client_id,
+        f"{estado.capitalize()} las notificaciones de retoque de '{result.name} {result.last_name}'",
+        branch_id=result.branch_id,
+    )
+    return result
 
 
 @router.get(

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { ComponentType } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  Bell,
   Bot,
   Briefcase,
   Building2,
@@ -111,6 +112,13 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: "Base, historial y frecuencia",
         path: "/clients",
         icon: Users,
+        permission: ["clients:view", "clients:manage"],
+      },
+      {
+        label: "Notificaciones",
+        description: "Retoques y avisos a clientas",
+        path: "/admin/notificaciones",
+        icon: Bell,
         permission: ["clients:view", "clients:manage"],
       },
     ],
