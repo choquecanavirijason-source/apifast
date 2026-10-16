@@ -37,7 +37,6 @@ TIPO_HOY = "hoy"
 TIPO_MANTENIMIENTO = "mantenimiento"
 TIPO_RETIRO = "retiro"
 
-STATUS_CANCELLED = "cancelled"
 # Estados finales: la cita ya no va a ocurrir (o ya ocurrió), no se avisa.
 # Mismos valores que tratan como cerrados el panel y update_appointment
 # ("cancelado" solo lo usa el panel, por si llega así).
@@ -229,14 +228,14 @@ def latest_trackings(db: Session, client_ids: list[int]) -> dict[int, Tracking]:
 
 
 def next_appointments(db: Session, client_ids: list[int], now: datetime) -> dict[int, datetime]:
-    """Próxima cita no cancelada de cada clienta (start_time, hora de La Paz
-    naive). Las que no tienen ninguna no aparecen."""
+    """Próxima cita activa (no en estado final) de cada clienta (start_time,
+    hora de La Paz naive). Las que no tienen ninguna no aparecen."""
     if not client_ids:
         return {}
     rows = (
         db.query(Appointment.client_id, func.min(Appointment.start_time))
         .filter(Appointment.client_id.in_(client_ids))
-        .filter(Appointment.status != STATUS_CANCELLED)
+        .filter(Appointment.status.notin_(FINAL_STATUSES))
         .filter(Appointment.start_time > now.astimezone(LA_PAZ).replace(tzinfo=None))
         .group_by(Appointment.client_id)
         .all()
@@ -249,7 +248,7 @@ def _tracking_notices(
 ) -> list[dict]:
     """Avisos de mantenimiento/retiro del último seguimiento de la clienta.
     Ninguno si la clienta los tiene desactivados o si ya tiene una cita
-    futura no cancelada: el objetivo es recordarle agendar, no avisar de más."""
+    futura activa: el objetivo es recordarle agendar, no avisar de más."""
     tracking = latest_trackings(db, [client_id]).get(client_id)
     if not tracking or not tracking_targets(tracking):
         return []

@@ -418,6 +418,13 @@ class TestAvisosDeSeguimiento:
         result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
         assert len(seguimiento(result)) == 2
 
+    @pytest.mark.parametrize("estado", ["completed", "no_show", "finalizado", "atendido", "done"])
+    def test_cita_futura_en_estado_final_no_anula(self, db, seed, estado):
+        add_tracking(db, seed)
+        add_appointment(db, seed, local(2026, 11, 20, 10, 0), status=estado)
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
+        assert len(seguimiento(result)) == 2
+
     def test_seguimiento_nuevo_anula_los_anteriores(self, db, seed):
         add_tracking(db, seed, applied=LONG_AGO)
         # Seguimiento más reciente sin mantenimiento (ej. un lifting).

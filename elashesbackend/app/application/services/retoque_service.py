@@ -6,7 +6,7 @@ Tablas de Atención > Notificaciones en el panel:
   el salón debería llamar). Usa las mismas reglas que los avisos programados
   (appointment_notice_service): solo cuenta el último seguimiento de cada
   clienta y las fechas objetivo se leen en hora de La Paz.
-- "Próximas citas": citas no canceladas de los próximos días, las que
+- "Próximas citas": citas activas (no en estado final) de los próximos días, las que
   reciben los avisos "manana"/"hoy".
 """
 from datetime import date, datetime, time, timedelta, timezone
@@ -16,8 +16,8 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.appointment_notice_service import (
+    FINAL_STATUSES,
     LA_PAZ,
-    STATUS_CANCELLED,
     appointment_service_names,
     latest_trackings,
     next_appointments,
@@ -106,7 +106,7 @@ def list_citas_proximas(
     branch_id: Optional[int] = None,
     now_utc: Optional[datetime] = None,
 ) -> list[dict]:
-    """Citas no canceladas con start_time entre ahora y ahora + dias (hora de
+    """Citas activas (no en estado final) con start_time entre ahora y ahora + dias (hora de
     La Paz), ordenadas por fecha. branch_id filtra por la sucursal de la cita."""
     now_utc = now_utc or datetime.now(timezone.utc)
     now_local = now_utc.astimezone(LA_PAZ).replace(tzinfo=None)  # como start_time
@@ -119,7 +119,7 @@ def list_citas_proximas(
             joinedload(Appointment.service),
             joinedload(Appointment.appointment_services).joinedload(AppointmentService.service),
         )
-        .filter(Appointment.status != STATUS_CANCELLED)
+        .filter(Appointment.status.notin_(FINAL_STATUSES))
         .filter(Appointment.start_time > now_local)
         .filter(Appointment.start_time <= now_local + timedelta(days=dias))
     )
