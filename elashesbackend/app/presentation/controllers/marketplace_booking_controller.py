@@ -8,13 +8,14 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.countries import COUNTRY_CODE_TO_NAME
 from app.core.dependencies import get_db, require_permission
+from app.core.internal_auth import require_internal_key
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
 from app.domain.entities.branch import Branch
@@ -47,6 +48,9 @@ class _BookingPayload(BaseModel):
     branch_id: int
     start_iso: str  # "2026-07-10T10:30:00"
     notes: Optional[str] = None
+    # Ficha del salón ya vinculada (POST /clients/link-marketplace). Tiene
+    # prioridad sobre el email; solo se acepta con X-Internal-Key válida.
+    salon_client_id: Optional[int] = None
 
     def all_service_ids(self) -> list[int]:
         ids = list(self.service_ids or [])
@@ -57,48 +61,38 @@ class _BookingPayload(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _sync_client(db: Session, client: Client, phone: Optional[str], branch_id: int) -> Client:
+    # Cliente sin sucursal (ej. creado antes de este fix, o por otra vía sin
+    # branch_id): el selector de clientes en Caja filtra por sucursal activa
+    # (Client.branch_id == branch_id) y NULL nunca matchea — quedaba invisible
+    # ahí para siempre. Se la asignamos con la de su primera reserva real.
+    changed = False
+    if client.branch_id is None:
+        client.branch_id = branch_id
+        changed = True
+    # El teléfono viaja en cada reserva (viene de su perfil marketplace
+    # actual) — si lo cambió después de crear la ficha del salón, esa
+    # ficha quedaba con el dato viejo para siempre. Lo mantenemos al día.
+    if phone and (client.phone or "").strip() != phone.strip():
+        client.phone = phone
+        changed = True
+    if changed:
+        db.commit()
+        db.refresh(client)
+    return client
+
+
 def _find_or_create_client(
     db: Session, email: str, name: str, phone: Optional[str], branch_id: int
 ) -> Client:
     ident = email.strip().lower()
     client = db.query(Client).filter(func.lower(Client.email) == ident).first()
     if client:
-        # Cliente sin sucursal (ej. creado antes de este fix, o por otra vía sin
-        # branch_id): el selector de clientes en Caja filtra por sucursal activa
-        # (Client.branch_id == branch_id) y NULL nunca matchea — quedaba invisible
-        # ahí para siempre. Se la asignamos con la de su primera reserva real.
-        changed = False
-        if client.branch_id is None:
-            client.branch_id = branch_id
-            changed = True
-        # El teléfono viaja en cada reserva (viene de su perfil marketplace
-        # actual) — si lo cambió después de crear la ficha del salón, esa
-        # ficha quedaba con el dato viejo para siempre. Lo mantenemos al día.
-        if phone and (client.phone or "").strip() != phone.strip():
-            client.phone = phone
-            changed = True
-        if changed:
-            db.commit()
-            db.refresh(client)
-        return client
-    # Buscar por nombre completo (clientes del salón que entraron por nombre+CI,
-    # sin cuenta de email propia todavía).
-    full_name = func.lower(func.trim(Client.name + " " + func.coalesce(Client.last_name, "")))
-    client = db.query(Client).filter(full_name == func.lower(name.strip())).first()
-    if client:
-        # Si la ficha del salón no tenía este email (o tenía uno distinto),
-        # lo actualizamos: si no, sus citas nunca aparecerían en "Mis Citas"
-        # de la app, que busca por email exacto.
-        if "@" in email and (client.email or "").strip().lower() != ident:
-            client.email = email
-        if client.branch_id is None:
-            client.branch_id = branch_id
-        if phone and (client.phone or "").strip() != phone.strip():
-            client.phone = phone
-        db.commit()
-        db.refresh(client)
-        return client
-    # Cliente del app: crear ficha en el salón
+        return _sync_client(db, client, phone, branch_id)
+    # Sin coincidencia por email: ficha nueva. Ya no se busca por nombre — le
+    # sobrescribía email y teléfono a cualquier homónima. Para unir la cuenta
+    # con una ficha existente, el marketplace usa /clients/link-marketplace y
+    # manda salon_client_id.
     parts = name.strip().split(" ", 1)
     client = Client(
         name=parts[0] or name,
@@ -260,7 +254,16 @@ def get_availability(
 
 
 @router.post("/appointments", status_code=201)
-def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(get_db)):
+def create_marketplace_booking(
+    payload: _BookingPayload,
+    request: Request,
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
+    db: Session = Depends(get_db),
+):
+    # Este endpoint es público: sin la clave, cualquiera podría reservar a
+    # nombre de cualquier ficha probando ids.
+    if payload.salon_client_id is not None:
+        require_internal_key(request, x_internal_key, "booking-salon-client-bad-key")
     ids = payload.all_service_ids()
     if not ids:
         raise HTTPException(status_code=400, detail="Selecciona al menos un servicio")
@@ -304,7 +307,13 @@ def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(g
             detail="Ese horario acaba de ocuparse. Elige otro horario.",
         )
 
-    client = _find_or_create_client(db, payload.email, payload.name, payload.phone, branch.id)
+    if payload.salon_client_id is not None:
+        client = db.query(Client).filter(Client.id == payload.salon_client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        client = _sync_client(db, client, payload.phone, branch.id)
+    else:
+        client = _find_or_create_client(db, payload.email, payload.name, payload.phone, branch.id)
 
     appointment = create_appointment(
         db=db,
@@ -316,12 +325,14 @@ def create_marketplace_booking(payload: _BookingPayload, db: Session = Depends(g
         branch_id=branch.id,
         status_value="pending",
     )
-    return _appointment_dict(
+    result = _appointment_dict(
         db.query(Appointment)
         .options(joinedload(Appointment.service), joinedload(Appointment.branch))
         .filter(Appointment.id == appointment.id)
         .first()
     )
+    result["client_id"] = client.id
+    return result
 
 
 @router.get("/my-appointments")

@@ -10,7 +10,7 @@ from app.core.dependencies import (
     require_permission,
     resolve_branch_id,
 )
-from app.core.internal_auth import has_valid_internal_key
+from app.core.internal_auth import has_valid_internal_key, require_internal_key
 from app.core.rate_limit import rate_limit, rate_limit_check, rate_limit_record
 from app.domain.entities.client import Client
 from app.domain.entities.user import User
@@ -31,6 +31,7 @@ from app.application.services.client_service import (
     create_client,
     update_client,
     delete_client,
+    find_marketplace_link,
     set_client_notifications,
 )
 from app.application.services.retoque_service import list_citas_proximas, list_retoques
@@ -111,6 +112,32 @@ def verify_salon_login(
         "email": client.email,
         "phone": client.phone,
     }
+
+
+class _LinkMarketplacePayload(BaseModel):
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@router.post("/link-marketplace")
+def link_marketplace(
+    payload: _LinkMarketplacePayload,
+    request: Request,
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint INTERNO (X-Internal-Key): qué ficha del salón corresponde a una
+    cuenta del marketplace. Responde {"status": "found", "id": …},
+    {"status": "not_found"} o {"status": "ambiguous"} (varias fichas con el
+    mismo email/teléfono — no se devuelve id). El marketplace guarda el id y lo
+    envía como salon_client_id en POST /booking-public/appointments.
+    """
+    require_internal_key(request, x_internal_key, "link-marketplace-bad-key")
+    link_status, client_id = find_marketplace_link(db, payload.email, payload.phone)
+    if client_id is None:
+        return {"status": link_status}
+    return {"status": link_status, "id": client_id}
 
 
 @router.get("/lookup")

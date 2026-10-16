@@ -320,3 +320,37 @@ def delete_client(db: Session, client_id: int) -> None:
 
     db.delete(client)
     db.commit()
+
+
+def find_marketplace_link(
+    db: Session, email: Optional[str], phone: Optional[str]
+) -> tuple[str, Optional[int]]:
+    """Ficha del salón que corresponde a una cuenta del marketplace.
+
+    Devuelve (status, id): "found" con id, o "not_found"/"ambiguous" sin id.
+    Busca por email exacto sin distinguir mayúsculas; solo si ninguna ficha
+    tiene ese email, prueba con el teléfono normalizado a E.164 (+591 por
+    defecto). Más de una coincidencia es "ambiguous": nunca se elige al azar.
+    El email no está verificado todavía (opción b).
+    """
+    from app.application.services.whatsapp_service import normalize_phone_e164
+
+    ident = (email or "").strip().lower()
+    if ident:
+        ids = [
+            row.id
+            for row in db.query(Client.id).filter(func.lower(Client.email) == ident).limit(2)
+        ]
+        if ids:
+            return ("found", ids[0]) if len(ids) == 1 else ("ambiguous", None)
+
+    target = normalize_phone_e164(phone)
+    if target:
+        # Los teléfonos se guardan como texto libre ("7712 3456", "+591…"), así
+        # que se normalizan en Python en vez de compararlos en SQL.
+        rows = db.query(Client.id, Client.phone).filter(Client.phone.isnot(None)).all()
+        ids = [row.id for row in rows if normalize_phone_e164(row.phone) == target]
+        if ids:
+            return ("found", ids[0]) if len(ids) == 1 else ("ambiguous", None)
+
+    return "not_found", None
