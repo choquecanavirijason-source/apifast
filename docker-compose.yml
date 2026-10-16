@@ -42,6 +42,10 @@ services:
       - ./elashesbackend:/app
     ports:
       - "8000:8000"
+    # Secretos (INTERNAL_API_KEY, CLIENT_NOTICES_ENABLED...): no se suben a git.
+    # Crear con: cp elashesbackend/.env.example elashesbackend/.env
+    env_file:
+      - ./elashesbackend/.env
     environment:
       - DATABASE_URL=postgresql://elashes_user:cambiar_esto@database:5432/elashes
       - SECRET_KEY=tu_clave_secreta_aqui
