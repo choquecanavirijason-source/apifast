@@ -335,13 +335,40 @@ def create_marketplace_booking(
     return result
 
 
+def _resolve_client(
+    db: Session,
+    request: Request,
+    email: str,
+    salon_client_id: Optional[int],
+    x_internal_key: Optional[str],
+    bad_key_prefix: str,
+) -> Optional[Client]:
+    """Ficha de la clienta para los GET de la app. Con salon_client_id (ficha
+    ya vinculada, ver /clients/link-marketplace) exige X-Internal-Key, busca
+    por id e ignora el email; si no existe, 404. Sin él, busca por email como
+    siempre y devuelve None si no hay ficha (cada endpoint decide qué hacer)."""
+    if salon_client_id is not None:
+        # Sin la clave, cualquiera podría leer los datos de otra ficha probando ids.
+        require_internal_key(request, x_internal_key, bad_key_prefix)
+        client = db.query(Client).filter(Client.id == salon_client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        return client
+    ident = email.strip().lower()
+    return db.query(Client).filter(func.lower(Client.email) == ident).first()
+
+
 @router.get("/my-appointments")
 def my_appointments(
+    request: Request,
     email: str = Query(..., min_length=1),
+    salon_client_id: Optional[int] = Query(default=None),
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
     db: Session = Depends(get_db),
 ):
-    ident = email.strip().lower()
-    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    client = _resolve_client(
+        db, request, email, salon_client_id, x_internal_key, "my-appointments-bad-key"
+    )
     if not client:
         return []
     appointments = (
@@ -372,13 +399,20 @@ def my_appointments(
 
 
 @router.get("/ws-ticket")
-def get_ws_ticket(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+def get_ws_ticket(
+    request: Request,
+    email: str = Query(..., min_length=1),
+    salon_client_id: Optional[int] = Query(default=None),
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
+    db: Session = Depends(get_db),
+):
     """Token corto para que la app marketplace abra /ws/client/{client_id} y
     reciba en vivo el aviso de "servicio finalizado" mientras tiene la app
     abierta. 404 si la clienta todavía no tiene ficha en el salón (nunca
     reservó) — no hay nada que notificarle todavía."""
-    ident = email.strip().lower()
-    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    client = _resolve_client(
+        db, request, email, salon_client_id, x_internal_key, "ws-ticket-bad-key"
+    )
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
@@ -390,15 +424,22 @@ def get_ws_ticket(email: str = Query(..., min_length=1), db: Session = Depends(g
 
 
 @router.get("/pending-reminders")
-def get_pending_reminders(email: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+def get_pending_reminders(
+    request: Request,
+    email: str = Query(..., min_length=1),
+    salon_client_id: Optional[int] = Query(default=None),
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key"),
+    db: Session = Depends(get_db),
+):
     """Recordatorios de mantenimiento/retiro ya generados por el chequeo
     diario (ver reminder_service.py) para esta clienta. La app los pide al
     abrir/reanudar para no perderse los que llegaron mientras estaba
     cerrada — el WebSocket solo cubre el caso de que ya esté conectada
     cuando corre el chequeo. La app se encarga de no repetir la
     notificación local para un mismo id."""
-    ident = email.strip().lower()
-    client = db.query(Client).filter(func.lower(Client.email) == ident).first()
+    client = _resolve_client(
+        db, request, email, salon_client_id, x_internal_key, "pending-reminders-bad-key"
+    )
     if not client:
         return []
 
