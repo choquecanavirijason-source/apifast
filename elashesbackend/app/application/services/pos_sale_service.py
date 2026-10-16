@@ -17,7 +17,7 @@ from app.domain.entities.pos_sale import PosSale, PosSaleProduct
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleUpdate
-from app.application.services.service_agenda_service import create_appointment
+from app.application.services.service_agenda_service import create_appointment, mark_rescheduled
 from app.application.services.client_service import get_or_create_generic_client, update_client_status
 from app.application.services.inventory_service import deduct_stock_fifo, restock_from_sale, sale_stock_tag
 
@@ -329,6 +329,7 @@ def create_sale(
         starts = [item.start_time for item in payload.items]
         ends = [item.end_time for item in payload.items]
         link_appt.sale_id = sale.id
+        mark_rescheduled(link_appt, min(starts))
         link_appt.start_time = min(starts)
         link_appt.end_time = max(ends)
         first_item = payload.items[0]

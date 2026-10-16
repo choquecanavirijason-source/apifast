@@ -280,6 +280,15 @@ class TestEstadoDeRetoques:
         [row] = retoques(client, login(client, "admin_t"))
         assert row["proxima_cita"] == local_naive(12).isoformat()  # la cancelada no cuenta
 
+    @pytest.mark.parametrize("estado", ["completed", "no_show"])
+    def test_cita_en_estado_final_no_cuenta_como_proxima(self, client, db, seed, estado):
+        add_tracking(db, seed["ana"], maintenance=target(5))
+        db.add(Appointment(client_id=seed["ana"].id, branch_id=seed["centro"].id, start_time=local_naive(9),
+                           end_time=local_naive(9, 11), status=estado))
+        db.commit()
+        [row] = retoques(client, login(client, "admin_t"))
+        assert row["proxima_cita"] is None
+
     def test_filtro_por_sucursal(self, client, db, seed):
         add_tracking(db, seed["ana"], maintenance=target(5))
         add_tracking(db, seed["bea"], maintenance=target(6))
@@ -347,6 +356,12 @@ class TestProximasCitas:
     def test_no_salen_las_canceladas(self, client, db, seed):
         add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"], status="cancelled")
         keep = add_cita(db, seed["bea"], local_naive(2), branch=seed["norte"], status="pending")
+        assert [r["appointment_id"] for r in citas(client, login(client, "admin_t"))] == [keep.id]
+
+    def test_no_salen_las_de_estado_final(self, client, db, seed):
+        add_cita(db, seed["ana"], local_naive(2), branch=seed["centro"], status="completed")
+        add_cita(db, seed["cris"], local_naive(3), branch=seed["centro"], status="no_show")
+        keep = add_cita(db, seed["bea"], local_naive(2), branch=seed["norte"], status="confirmed")
         assert [r["appointment_id"] for r in citas(client, login(client, "admin_t"))] == [keep.id]
 
     def test_orden_por_fecha_hora(self, client, db, seed):

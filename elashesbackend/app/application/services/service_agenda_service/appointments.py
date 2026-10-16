@@ -490,6 +490,16 @@ def create_appointment(
     return get_appointment_by_id(db, appointment.id)
 
 
+def mark_rescheduled(appointment: Appointment, new_start_time: datetime) -> None:
+    """Actualiza scheduled_at si start_time cambia de verdad. Llamar ANTES de
+    asignar start_time. El panel reenvía la misma hora al cambiar solo el estado
+    o la operaria; eso no es reprogramar y no debe tocar el aviso "hoy"."""
+    if new_start_time is None or appointment.start_time is None:
+        return
+    if new_start_time.replace(tzinfo=None) != appointment.start_time.replace(tzinfo=None):
+        appointment.scheduled_at = datetime.utcnow()
+
+
 def update_appointment(
     db: Session,
     appointment_id: int,
@@ -554,6 +564,7 @@ def update_appointment(
     appointment.branch_id = final_branch_id
     if is_ia is not None:
         appointment.is_ia = is_ia
+    mark_rescheduled(appointment, final_start_time)
     appointment.start_time = final_start_time
     appointment.end_time = final_end_time
 

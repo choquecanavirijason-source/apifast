@@ -29,6 +29,11 @@ from app.application.services.appointment_notice_service import (
     make_aviso_id,
 )
 from app.application.services.reminder_service import collect_due_reminders
+from app.application.services.service_agenda_service import (
+    create_appointment,
+    mark_rescheduled,
+    update_appointment,
+)
 from app.application.services.tracking_service import create_tracking
 from app.config.settings import settings
 from app.core import dependencies
@@ -118,6 +123,7 @@ def add_appointment(
     *,
     client: str = "ana",
     created_at: datetime = LONG_AGO,
+    scheduled_at: datetime | None = None,
     status: str = "pending",
     services: tuple[str, ...] = ("ext",),
 ) -> Appointment:
@@ -130,6 +136,8 @@ def add_appointment(
         end_time=start + timedelta(hours=1),
         status=status,
         created_at=created_at,
+        # Por defecto como deja la migración a las citas existentes: = created_at.
+        scheduled_at=scheduled_at or created_at,
     )
     db.add(appt)
     db.flush()
@@ -226,6 +234,20 @@ class TestAvisosProgramados:
         add_appointment(db, seed, local(2026, 10, 14, 10, 0), status="cancelled")
         result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 13, 12, 0)))
         assert result["avisos"] == []
+
+    @pytest.mark.parametrize(
+        "estado", ["completed", "finalizado", "atendido", "no_show", "done", "cancelado"]
+    )
+    def test_cita_en_estado_final_se_ignora(self, db, seed, estado):
+        add_appointment(db, seed, local(2026, 10, 14, 10, 0), status=estado)
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 13, 12, 0)))
+        assert result["avisos"] == []
+
+    @pytest.mark.parametrize("estado", ["pending", "confirmed", "in_service"])
+    def test_cita_activa_si_avisa(self, db, seed, estado):
+        add_appointment(db, seed, local(2026, 10, 14, 10, 0), status=estado)
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 13, 12, 0)))
+        assert tipos(result) == ["manana", "hoy"]
 
     def test_cita_reprogramada_cambia_aviso_id(self, db, seed):
         appt = add_appointment(db, seed, local(2026, 10, 14, 10, 0))
@@ -393,6 +415,13 @@ class TestAvisosDeSeguimiento:
     def test_cita_futura_cancelada_no_anula(self, db, seed):
         add_tracking(db, seed)
         add_appointment(db, seed, local(2026, 11, 20, 10, 0), status="cancelled")
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
+        assert len(seguimiento(result)) == 2
+
+    @pytest.mark.parametrize("estado", ["completed", "no_show", "finalizado", "atendido", "done"])
+    def test_cita_futura_en_estado_final_no_anula(self, db, seed, estado):
+        add_tracking(db, seed)
+        add_appointment(db, seed, local(2026, 11, 20, 10, 0), status=estado)
         result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 11, 4, 12, 0)))
         assert len(seguimiento(result)) == 2
 
@@ -640,3 +669,69 @@ class TestDispositivos:
         for aviso in avisos:
             assert aviso["cita_id"] is None
             assert aviso["seguimiento_id"] == tracking.id
+
+
+# ── Reprogramación: scheduled_at manda en la regla de último momento ────────
+
+class TestReprogramacion:
+    def test_reservada_con_antelacion_y_movida_a_ultimo_momento_sin_aviso_hoy(self, db, seed):
+        # Creada hace días; a las 13:00 la mueven a las 15:00 del mismo día.
+        add_appointment(
+            db, seed, local(2026, 10, 14, 15, 0), scheduled_at=utc_naive(local(2026, 10, 14, 13, 0))
+        )
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 14, 13, 5)))
+        assert "hoy" not in tipos(result)
+
+    def test_reservada_a_ultimo_momento_y_movida_con_margen_si_avisa_hoy(self, db, seed):
+        # Creada a las 16:00 (para una cita cercana); a las 16:05 la mueven a las 21:00.
+        add_appointment(
+            db, seed, local(2026, 10, 14, 21, 0),
+            created_at=utc_naive(local(2026, 10, 14, 16, 0)),
+            scheduled_at=utc_naive(local(2026, 10, 14, 16, 5)),
+        )
+        result = get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 14, 16, 10)))
+        assert tipos(result) == ["hoy"]
+
+    def test_sin_scheduled_at_usa_created_at(self, db, seed):
+        appt = add_appointment(
+            db, seed, local(2026, 10, 14, 15, 0), created_at=utc_naive(local(2026, 10, 14, 13, 30))
+        )
+        appt.scheduled_at = None  # cita insertada a mano en SQLite (columna nullable ahí)
+        assert "hoy" not in tipos(
+            get_scheduled_notices(db, seed["ana"].id, now_at(local(2026, 10, 14, 13, 45)))
+        )
+
+
+class TestMarcaDeReprogramacion:
+    def test_crear_fija_scheduled_at(self, db, seed):
+        antes = datetime.utcnow()
+        appt = create_appointment(
+            db, client_id=seed["ana"].id, start_time=local(2026, 12, 1, 10, 0),
+            end_time=local(2026, 12, 1, 11, 0), branch_id=seed["branch"].id,
+        )
+        assert appt.scheduled_at >= antes - timedelta(seconds=1)
+
+    def test_misma_hora_no_toca_scheduled_at(self, db, seed):
+        appt = add_appointment(db, seed, local(2026, 12, 1, 10, 0))
+        update_appointment(
+            db, appt.id, start_time=local(2026, 12, 1, 10, 0), end_time=local(2026, 12, 1, 11, 0),
+            skip_availability_check=True,
+        )
+        update_appointment(db, appt.id, is_ia=True, skip_availability_check=True)
+        db.refresh(appt)
+        assert appt.scheduled_at == LONG_AGO
+
+    def test_cambiar_la_hora_actualiza_scheduled_at(self, db, seed):
+        appt = add_appointment(db, seed, local(2026, 12, 1, 10, 0))
+        antes = datetime.utcnow()
+        update_appointment(
+            db, appt.id, start_time=local(2026, 12, 1, 15, 0), end_time=local(2026, 12, 1, 16, 0),
+            skip_availability_check=True,
+        )
+        db.refresh(appt)
+        assert appt.scheduled_at >= antes - timedelta(seconds=1)
+
+    def test_mark_rescheduled_ignora_tzinfo(self, db, seed):
+        appt = add_appointment(db, seed, local(2026, 12, 1, 10, 0))
+        mark_rescheduled(appt, local(2026, 12, 1, 10, 0).replace(tzinfo=LA_PAZ))
+        assert appt.scheduled_at == LONG_AGO
