@@ -79,6 +79,7 @@ import app.infrastructure.database.migrations.add_audit_logs_table as m46
 import app.infrastructure.database.migrations.add_created_at_and_indexes_to_appointments as m47
 import app.infrastructure.database.migrations.add_client_devices_table as m48
 import app.infrastructure.database.migrations.add_notificaciones_activas_to_clients as m49
+import app.infrastructure.database.migrations.add_scheduled_at_to_appointments as m50
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -158,6 +159,7 @@ async def lifespan(app: FastAPI):
         ("appointments_created_at_and_indexes", m47.upgrade),
         ("client_devices_table", m48.upgrade),
         ("notificaciones_activas_to_clients", m49.upgrade),
+        ("appointments_scheduled_at", m50.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

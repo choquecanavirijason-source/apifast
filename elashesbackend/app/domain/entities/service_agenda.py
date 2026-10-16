@@ -104,6 +104,16 @@ class Appointment(Base):
         default=datetime.utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    # Cuándo se fijó por última vez start_time (crear o reprogramar), UTC naive.
+    # Lo usa la regla de "reserva de último momento" de los avisos: con
+    # created_at, una cita reprogramada se juzgaba por la reserva original.
+    # Las citas anteriores a la migración quedan con su created_at.
+    scheduled_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
 
     client = relationship("Client", back_populates="appointments")
     created_by = relationship(

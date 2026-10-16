@@ -15,6 +15,7 @@ from .appointments import (
     get_appointment_by_id,
     list_appointments,
     list_mobile_available_appointments,
+    mark_rescheduled,
     update_appointment,
 )
 from .categories import (
@@ -54,5 +55,6 @@ __all__ = [
     "get_appointment_by_id",
     "list_appointments",
     "list_mobile_available_appointments",
+    "mark_rescheduled",
     "update_appointment",
 ]

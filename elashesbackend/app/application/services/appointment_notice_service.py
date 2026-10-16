@@ -8,7 +8,7 @@ notificaciones locales. Ver docs/Recordatorios_de_citas_sin_Firebase.pdf.
 Todas las reglas se calculan en hora de Bolivia (America/La_Paz). Convenciones
 de fechas de la BD:
   - appointments.start_time: hora local de La Paz, naive.
-  - appointments.created_at: UTC naive (como pos_sales/inventory).
+  - appointments.created_at / scheduled_at: UTC naive (como pos_sales/inventory).
   - client_tracking.next_maintenance_date / next_removal_date: UTC naive
     (last_application_date llega del panel como toISOString()).
 
@@ -38,6 +38,12 @@ TIPO_MANTENIMIENTO = "mantenimiento"
 TIPO_RETIRO = "retiro"
 
 STATUS_CANCELLED = "cancelled"
+# Estados finales: la cita ya no va a ocurrir (o ya ocurrió), no se avisa.
+# Mismos valores que tratan como cerrados el panel y update_appointment
+# ("cancelado" solo lo usa el panel, por si llega así).
+FINAL_STATUSES = (
+    "cancelled", "cancelado", "completed", "finalizado", "atendido", "no_show", "done",
+)
 
 WINDOW_HOURS = 48
 MANANA_SHOW_HOUR = 18
@@ -104,11 +110,12 @@ def make_tracking_aviso_id(tracking_id: int, tipo: str, target_day: date, show_d
     return _hash31(f"s|{tracking_id}|{tipo}|{target_day.isoformat()}|{show_day.isoformat()}")
 
 
-def compute_notices(start_time: datetime, created_at: Optional[datetime]) -> list[Notice]:
+def compute_notices(start_time: datetime, scheduled_at: Optional[datetime]) -> list[Notice]:
     """Avisos que corresponden a una cita, sin filtrar por ventana de tiempo.
 
-    start_time: naive, hora de La Paz.  created_at: naive, UTC (None = se
-    asume que la cita no es de última hora).
+    start_time: naive, hora de La Paz.  scheduled_at: naive, UTC, cuándo se
+    fijó por última vez start_time (al crear o reprogramar). None = se asume
+    que la cita no es de última hora.
     """
     start = to_local_aware(start_time)
     avisos: list[Notice] = []
@@ -127,7 +134,7 @@ def compute_notices(start_time: datetime, created_at: Optional[datetime]) -> lis
     earliest = datetime.combine(start.date(), time(HOY_EARLIEST_HOUR, 0), tzinfo=LA_PAZ)
     mostrar_hoy = max(start - HOY_LEAD, earliest)
     booked_last_minute = (
-        created_at is not None and start - utc_naive_to_local(created_at) < HOY_MIN_ADVANCE
+        scheduled_at is not None and start - utc_naive_to_local(scheduled_at) < HOY_MIN_ADVANCE
     )
     if start - mostrar_hoy >= HOY_MIN_GAP and not booked_last_minute:
         avisos.append(
@@ -297,7 +304,7 @@ def get_scheduled_notices(
             joinedload(Appointment.appointment_services).joinedload(AppointmentService.service),
         )
         .filter(Appointment.client_id == client_id)
-        .filter(Appointment.status != STATUS_CANCELLED)
+        .filter(Appointment.status.notin_(FINAL_STATUSES))
         .filter(Appointment.start_time > now_naive_local)
         .filter(Appointment.start_time <= now_naive_local + _QUERY_LOOKAHEAD)
         .all()
@@ -305,7 +312,9 @@ def get_scheduled_notices(
 
     avisos = []
     for appointment in appointments:
-        for notice in compute_notices(appointment.start_time, appointment.created_at):
+        # scheduled_at puede faltar en SQLite si la cita se insertó a mano.
+        scheduled_at = appointment.scheduled_at or appointment.created_at
+        for notice in compute_notices(appointment.start_time, scheduled_at):
             if notice.expira_en <= now or notice.mostrar_en > limit:
                 continue
             titulo, cuerpo = _format_notice(notice.tipo, appointment)
