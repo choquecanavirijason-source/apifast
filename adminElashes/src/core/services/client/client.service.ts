@@ -75,6 +75,8 @@ export interface CitaProximaRow {
   estado: string;
   /** De la clienta; aquí solo se muestra. */
   notificaciones_activas: boolean;
+  /** Último recordatorio manual de esta cita, ISO en UTC ("...Z"), o null. */
+  ultimo_recordatorio: string | null;
 }
 
 export type ClientUpdatePayload = Partial<ClientCreatePayload> & {

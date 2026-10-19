@@ -39,6 +39,7 @@ const ENTITY_LABELS: Record<string, string> = {
   user: "Usuario",
   expense: "Gasto",
   cash_session: "Caja",
+  manual_reminder: "Recordatorio a clienta",
 };
 
 // ─── Modal: detalle de un movimiento ─────────────────────────────────────────

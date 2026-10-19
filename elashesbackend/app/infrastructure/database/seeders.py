@@ -62,6 +62,9 @@ def seed_permissions(db: Session):
         "appointments:view", "appointments:manage",
         "branches:view", "branches:manage",
         "ai:view", "ai:manage",
+        # Enviar recordatorios manuales a una clienta desde Atención >
+        # Próximas citas (llegan a su app). Solo SuperAdmin/Admin por defecto.
+        "reminders:send",
         # Ver el Dashboard general (ingresos, reportes, exports) — aparte de
         # clients/payments/etc porque combina datos de varios módulos a la
         # vez y no todo rol con esos permisos individuales debería verlo junto.
@@ -109,6 +112,7 @@ def seed_roles(db: Session):
             permission_map["ai:manage"],
             permission_map["dashboard:view"],
             permission_map["audit:view"],
+            permission_map["reminders:send"],
         ],
         "Operaria": [
             permission_map["clients:view"],

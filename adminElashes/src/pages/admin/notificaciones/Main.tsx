@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { CalendarClock, RefreshCcw } from "lucide-react";
+import { BellRing, CalendarClock, RefreshCcw } from "lucide-react";
 import { ClientService, type CitaProximaRow, type RetoqueRow } from "@/core/services/client/client.service";
+import { MANUAL_REMINDER_COOLDOWN_MS } from "@/core/services/agenda/agenda.service";
+import ReminderModal from "./ReminderModal";
 import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
@@ -38,6 +40,20 @@ const formatDay = (isoDate: string) => {
 
 const formatAppointment = (isoDateTime: string) => `${formatDay(isoDateTime)} · ${isoDateTime.slice(11, 16)}`;
 
+// El backend manda microsegundos ("...35.600533Z"); se recortan a milisegundos
+// para que cualquier navegador lo parsee.
+const parseUtc = (iso: string) => Date.parse(iso.replace(/(\.\d{3})\d+/, "$1"));
+
+const haceLabel = (ms: number) => {
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "hace un momento";
+  if (min < 60) return `hace ${min} min`;
+  const horas = Math.floor(min / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.floor(horas / 24);
+  return `hace ${dias} ${dias === 1 ? "día" : "días"}`;
+};
+
 const diasLabel = (row: RetoqueRow) => {
   if (row.vencido) {
     const dias = Math.abs(row.dias_restantes);
@@ -52,6 +68,7 @@ export default function NotificacionesPage() {
   // Admin y Secretaria eligen sucursal; el resto queda en la suya (lo fuerza el backend).
   const canChooseBranch = isAdmin() || hasRole("Secretaria");
   const canManage = isAdmin() || hasPermissionByName("clients:manage");
+  const canSendReminder = isAdmin() || hasPermissionByName("reminders:send");
 
   // En la URL (?tab=citas) para que la pestaña sobreviva a una recarga.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -71,6 +88,16 @@ export default function NotificacionesPage() {
   };
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [pending, setPending] = useState<Set<number>>(new Set());
+  const [reminderCita, setReminderCita] = useState<CitaProximaRow | null>(null);
+  // Reloj para "Enviado hace X min" y la espera de 10 min entre envíos.
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (tab !== "citas") return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [tab]);
 
   useEffect(() => {
     const handleChange = () => setBranchIdState(getSelectedBranchId());
@@ -159,6 +186,14 @@ export default function NotificacionesPage() {
         return copy;
       });
     }
+  };
+
+  const handleReminderSent = (appointmentId: number, createdAt: string) => {
+    setCitas((current) =>
+      current.map((row) => (row.appointment_id === appointmentId ? { ...row, ultimo_recordatorio: createdAt } : row)),
+    );
+    setNow(Date.now());
+    setReminderCita(null);
   };
 
   const columns: DataTableColumn<RetoqueTableRow>[] = [
@@ -300,20 +335,53 @@ export default function NotificacionesPage() {
       filterable: true,
     },
     {
-      // Solo lectura: se cambia en "Estado de retoques".
+      // El estado es solo lectura: se cambia en "Estado de retoques". Debajo,
+      // el último recordatorio manual de esta cita.
       key: "notificaciones_activas",
       header: "Notificaciones",
       getValue: (row) => (row.notificaciones_activas ? "Activas" : "Inactivas"),
       render: (row) => (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            row.notificaciones_activas ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {row.notificaciones_activas ? "Activas" : "Inactivas"}
-        </span>
+        <div className="flex flex-col items-start gap-1">
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              row.notificaciones_activas ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {row.notificaciones_activas ? "Activas" : "Inactivas"}
+          </span>
+          {row.ultimo_recordatorio ? (
+            <span className="text-xs text-slate-500">
+              Enviado {haceLabel(Math.max(0, now - parseUtc(row.ultimo_recordatorio)))}
+            </span>
+          ) : null}
+        </div>
       ),
     },
+    ...(canSendReminder
+      ? [
+          {
+            key: "recordatorio",
+            header: "Recordatorio",
+            render: (row: CitaTableRow) => {
+              const sentAgo = row.ultimo_recordatorio ? now - parseUtc(row.ultimo_recordatorio) : null;
+              const waitMs = sentAgo !== null ? MANUAL_REMINDER_COOLDOWN_MS - sentAgo : 0;
+              const waitMin = Math.ceil(waitMs / 60_000);
+              return (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<BellRing className="h-3.5 w-3.5" />}
+                  disabled={waitMs > 0}
+                  title={waitMs > 0 ? `Podrás reenviarlo en ${waitMin} min` : undefined}
+                  onClick={() => setReminderCita(row)}
+                >
+                  Enviar recordatorio
+                </Button>
+              );
+            },
+          } satisfies DataTableColumn<CitaTableRow>,
+        ]
+      : []),
   ];
 
   const isEmpty = !isLoading && !error && (tab === "citas" ? citas.length === 0 : rows.length === 0);
@@ -413,6 +481,14 @@ export default function NotificacionesPage() {
           globalSearchPlaceholder="Buscar por clienta o servicio..."
         />
       )}
+
+      <ReminderModal
+        cita={reminderCita}
+        fecha={reminderCita ? formatDay(reminderCita.fecha_hora) : ""}
+        hora={reminderCita ? reminderCita.fecha_hora.slice(11, 16) : ""}
+        onClose={() => setReminderCita(null)}
+        onSent={(result) => handleReminderSent(result.appointment_id, result.created_at)}
+      />
     </div>
   );
 }

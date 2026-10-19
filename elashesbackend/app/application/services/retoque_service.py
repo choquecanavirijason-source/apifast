@@ -24,6 +24,7 @@ from app.application.services.appointment_notice_service import (
     tracking_targets,
     utc_naive_to_local,
 )
+from app.application.services.manual_reminder_service import last_reminders_by_appointment
 from app.application.services.tracking_service import resolve_service
 from app.domain.entities.client import Client
 from app.domain.entities.service_agenda import Appointment, AppointmentService
@@ -126,9 +127,13 @@ def list_citas_proximas(
     if branch_id is not None:
         query = query.filter(Appointment.branch_id == branch_id)
 
+    appointments = query.order_by(Appointment.start_time, Appointment.id).all()
+    ultimos = last_reminders_by_appointment(db, [a.id for a in appointments])
+
     rows = []
-    for appointment in query.order_by(Appointment.start_time, Appointment.id).all():
+    for appointment in appointments:
         client = appointment.client
+        ultimo = ultimos.get(appointment.id)
         names = appointment_service_names(appointment) or (
             [appointment.service.name] if appointment.service else []
         )
@@ -143,6 +148,7 @@ def list_citas_proximas(
                 "branch_id": appointment.branch_id,
                 "estado": appointment.status,
                 "notificaciones_activas": client.notificaciones_activas,
+                "ultimo_recordatorio": ultimo.replace(tzinfo=timezone.utc) if ultimo else None,
             }
         )
     return rows
