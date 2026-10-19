@@ -338,3 +338,49 @@ class TestUltimoRecordatorioEnProximasCitas:
             2026, 1, 1, 12, 30, tzinfo=timezone.utc
         )
         assert by_id[sin.id]["ultimo_recordatorio"] is None
+
+
+# ── Bloqueo de la cita en PostgreSQL ─────────────────────────────────────────
+# SQLite ignora FOR UPDATE, así que estos tests no ejecutan contra Postgres:
+# capturan los SELECT que hace el envío y los compilan con el dialecto de
+# PostgreSQL, que rechaza FOR UPDATE sobre el lado nullable de un LEFT OUTER
+# JOIN (el 500 de producción venía de un joinedload en la consulta bloqueada).
+
+def _pg_selects_while(db: Session, action) -> list[str]:
+    from sqlalchemy import event
+    from sqlalchemy.dialects import postgresql
+
+    captured: list[str] = []
+
+    def on_execute(state):
+        if state.is_select:
+            captured.append(str(state.statement.compile(dialect=postgresql.dialect())))
+
+    event.listen(db, "do_orm_execute", on_execute)
+    try:
+        action()
+    finally:
+        event.remove(db, "do_orm_execute", on_execute)
+    return captured
+
+
+class TestBloqueoEnPostgres:
+    def test_el_select_for_update_no_lleva_outer_join(self, db, seed):
+        from app.application.services.manual_reminder_service import send_manual_reminder
+
+        appt = add_cita(db, seed)
+        admin = db.query(User).filter(User.username == "admin_r").one()
+        selects = _pg_selects_while(db, lambda: send_manual_reminder(db, appt.id, MSG, admin))
+
+        locking = [sql for sql in selects if "FOR UPDATE" in sql]
+        assert len(locking) == 1, selects  # hay bloqueo, y uno solo
+        [sql] = locking
+        assert "JOIN" not in sql.upper(), sql
+        assert "FOR UPDATE OF appointments" in sql, sql
+
+    def test_la_consulta_de_bloqueo_solo_toca_appointments(self, db, seed):
+        from sqlalchemy.dialects import postgresql
+        from app.application.services.manual_reminder_service import lock_appointment_query
+
+        sql = str(lock_appointment_query(db, 1).limit(1).statement.compile(dialect=postgresql.dialect()))
+        assert "JOIN" not in sql.upper() and "FOR UPDATE OF appointments" in sql, sql

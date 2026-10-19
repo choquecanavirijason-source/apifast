@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Query, Session
 
 from app.application.services.appointment_notice_service import (
     FINAL_STATUSES,
@@ -39,6 +39,22 @@ def last_reminders_by_appointment(db: Session, appointment_ids: list[int]) -> di
     return dict(rows)
 
 
+def lock_appointment_query(db: Session, appointment_id: int) -> Query:
+    """SELECT ... FOR UPDATE de la fila de la cita, sin joins.
+
+    No añadir joinedload aquí: el LEFT OUTER JOIN que genera hace que
+    PostgreSQL rechace el FOR UPDATE ("cannot be applied to the nullable side
+    of an outer join"). SQLite ignora FOR UPDATE, así que los tests con SQLite
+    no lo ven (ver test_manual_reminders.TestBloqueoEnPostgres). La clienta se
+    carga después, en una consulta aparte. `of=Appointment` acota el bloqueo a
+    appointments aunque alguien sume un join en el futuro."""
+    return (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id)
+        .with_for_update(of=Appointment)
+    )
+
+
 def send_manual_reminder(
     db: Session,
     appointment_id: int,
@@ -53,13 +69,7 @@ def send_manual_reminder(
 
     # Bloquea la fila de la cita hasta el commit: sin esto, dos clics
     # simultáneos pasarían ambos el límite de frecuencia de abajo.
-    appointment = (
-        db.query(Appointment)
-        .options(joinedload(Appointment.client))
-        .filter(Appointment.id == appointment_id)
-        .with_for_update()
-        .first()
-    )
+    appointment = lock_appointment_query(db, appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
 
@@ -105,6 +115,7 @@ def send_manual_reminder(
     db.commit()
     db.refresh(reminder)
 
+    # La clienta se carga aquí (consulta aparte, sin bloqueo), no en la de arriba.
     clienta = f"{appointment.client.name} {appointment.client.last_name}".strip()
     record_audit(
         db, user, "create", "manual_reminder", reminder.id,
