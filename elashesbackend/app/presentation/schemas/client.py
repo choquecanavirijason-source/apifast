@@ -113,3 +113,5 @@ class CitaProximaResponse(BaseModel):
     estado: str
     # De la clienta; solo lectura aquí (se cambia en "Estado de retoques").
     notificaciones_activas: bool
+    # Último recordatorio manual enviado para esta cita, UTC con zona ("Z").
+    ultimo_recordatorio: Optional[datetime] = None

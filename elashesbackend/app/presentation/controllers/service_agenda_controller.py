@@ -5,7 +5,7 @@ Las categorías se registran en main.py con el mismo prefijo /agenda (ver servic
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import describe_changes, record_audit
 from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, require_permission
-from app.core.ws_manager import ws_manager
+from app.core.ws_manager import client_ws_manager, ws_manager
 from app.domain.entities.user import User
 from app.domain.entities.service_agenda import Appointment
 from app.presentation.schemas.base_response import MessageResponse
@@ -26,12 +26,15 @@ from app.presentation.schemas.service_agenda import (
     AppointmentResponse,
     AppointmentUpdate,
     CallNextAppointment,
+    ManualReminderCreate,
+    ManualReminderResponse,
     ServiceCreate,
     ServiceImageUploadResponse,
     ServiceResponse,
     ServiceUpdate,
 )
 from app.application.services.client_service import list_clients as list_clients_service
+from app.application.services.manual_reminder_service import send_manual_reminder
 from app.application.services.service_agenda_service import (
     call_next_appointment,
     create_appointment,
@@ -466,6 +469,39 @@ async def call_next_ticket(
             "professional_id": result.professional_id,
         })
     return result
+
+
+@router.post(
+    "/appointments/{appointment_id}/reminder",
+    response_model=ManualReminderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def send_appointment_reminder(
+    appointment_id: int,
+    payload: ManualReminderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("reminders:send")),
+):
+    """Recordatorio manual a la clienta de la cita (Atención > Próximas citas).
+    Máx. uno cada 10 min por cita (429) y nunca en citas cerradas (409) o ya
+    pasadas (400). Le llega a la app como aviso "recordatorio_manual" en
+    /avisos/programados y, si la tiene abierta, en vivo por su WebSocket."""
+    reminder, aviso = await run_in_threadpool(
+        send_manual_reminder,
+        db=db,
+        appointment_id=appointment_id,
+        message=payload.message,
+        user=current_user,
+    )
+    await client_ws_manager.broadcast(reminder.client_id, {"event": "manual_reminder", **aviso})
+    return ManualReminderResponse(
+        id=reminder.id,
+        appointment_id=reminder.appointment_id,
+        client_id=reminder.client_id,
+        message=reminder.message,
+        sent_by=reminder.sent_by,
+        created_at=reminder.created_at.replace(tzinfo=timezone.utc),
+    )
 
 
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)

@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.tracking_service import resolve_service
 from app.config.settings import settings
+from app.domain.entities.manual_reminder import ManualReminder
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.tracking import Tracking
 
@@ -36,6 +37,10 @@ TIPO_MANANA = "manana"
 TIPO_HOY = "hoy"
 TIPO_MANTENIMIENTO = "mantenimiento"
 TIPO_RETIRO = "retiro"
+# Enviado a mano desde el panel (Atención > Próximas citas): visible desde que
+# se envía hasta la hora de la cita. Ver manual_reminder_service.
+TIPO_RECORDATORIO_MANUAL = "recordatorio_manual"
+RECORDATORIO_MANUAL_TITULO = "Recordatorio de tu cita"
 
 # Estados finales: la cita ya no va a ocurrir (o ya ocurrió), no se avisa.
 # Mismos valores que tratan como cerrados el panel y update_appointment
@@ -286,6 +291,46 @@ def _tracking_notices(
     return avisos
 
 
+def manual_reminder_aviso(reminder: ManualReminder, appointment: Appointment) -> dict:
+    """Aviso "recordatorio_manual" (mismo formato que los demás, sin _orden).
+    Lo usan /avisos/programados y el evento del WebSocket, así la app recibe lo
+    mismo por las dos vías y no lo muestra dos veces (mismo aviso_id)."""
+    return {
+        # Prefijo "r" para no chocar con los ids de citas ni de seguimientos.
+        "aviso_id": _hash31(f"r|{reminder.id}"),
+        "cita_id": appointment.id,
+        "seguimiento_id": None,
+        "tipo": TIPO_RECORDATORIO_MANUAL,
+        "mostrar_en": utc_naive_to_local(reminder.created_at).isoformat(),
+        # Si la cita se reprograma, vale hasta la hora nueva.
+        "expira_en": to_local_aware(appointment.start_time).isoformat(),
+        "titulo": RECORDATORIO_MANUAL_TITULO,
+        "cuerpo": reminder.message,
+    }
+
+
+def _manual_reminder_notices(db: Session, client_id: int, now: datetime) -> list[dict]:
+    """Recordatorios manuales de citas activas de la clienta que todavía no
+    llegaron a su hora. No los filtra notificaciones_activas (eso es solo para
+    mantenimiento/retiro) ni la ventana de 48 h: el salón decidió enviarlo ya."""
+    rows = (
+        db.query(ManualReminder, Appointment)
+        .join(Appointment, Appointment.id == ManualReminder.appointment_id)
+        .filter(ManualReminder.client_id == client_id)
+        # Si la cita pasó a otra clienta, el recordatorio no la sigue.
+        .filter(Appointment.client_id == client_id)
+        .filter(Appointment.status.notin_(FINAL_STATUSES))
+        .filter(Appointment.start_time > now.replace(tzinfo=None))
+        .all()
+    )
+    avisos = []
+    for reminder, appointment in rows:
+        aviso = manual_reminder_aviso(reminder, appointment)
+        aviso["_orden"] = utc_naive_to_local(reminder.created_at)
+        avisos.append(aviso)
+    return avisos
+
+
 def get_scheduled_notices(
     db: Session, client_id: int, now_utc: Optional[datetime] = None
 ) -> dict:
@@ -331,6 +376,7 @@ def get_scheduled_notices(
                 }
             )
     avisos.extend(_tracking_notices(db, client_id, now, limit))
+    avisos.extend(_manual_reminder_notices(db, client_id, now))
 
     avisos.sort(key=lambda a: (a["_orden"], a["aviso_id"]))
     for aviso in avisos:

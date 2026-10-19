@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Annotated, Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.domain.entities.manual_reminder import MANUAL_REMINDER_MAX_LENGTH
 from app.presentation.schemas.branch import BranchSummary
 from app.presentation.schemas.client import ClientSummary
 from app.presentation.schemas.user import UserSummary
@@ -182,3 +183,19 @@ class AppointmentResponse(BaseModel):
     service: Optional[ServiceResponse] = None
     services: Optional[List[ServiceResponse]] = None
     branch: Optional[BranchSummary] = None
+
+class ManualReminderCreate(BaseModel):
+    # Se recortan los espacios antes de validar: un mensaje en blanco no vale.
+    message: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MANUAL_REMINDER_MAX_LENGTH)
+    ]
+
+
+class ManualReminderResponse(BaseModel):
+    id: int
+    appointment_id: int
+    client_id: int
+    message: str
+    sent_by: Optional[int] = None
+    # UTC con zona ("Z") para que el panel calcule "hace X min" sin adivinar.
+    created_at: datetime

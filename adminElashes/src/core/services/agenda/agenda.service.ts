@@ -185,6 +185,20 @@ export interface AppointmentUpdatePayload {
   skip_availability_check?: boolean;
 }
 
+export const MANUAL_REMINDER_MAX_LENGTH = 200;
+/** Mismo límite que el backend: un recordatorio por cita cada 10 min. */
+export const MANUAL_REMINDER_COOLDOWN_MS = 10 * 60 * 1000;
+
+export interface ManualReminderResult {
+  id: number;
+  appointment_id: number;
+  client_id: number;
+  message: string;
+  sent_by: number | null;
+  /** ISO en UTC ("...Z"). */
+  created_at: string;
+}
+
 export interface TicketClientInfo {
   id: number;
   name: string;
@@ -554,6 +568,14 @@ export const AgendaService = {
     };
     const response = await api.put<BackendAppointment>(`/agenda/appointments/${id}`, body);
     return mapToTicket(response.data);
+  },
+
+  /** Recordatorio manual a la clienta (llega a su app). 429 si ya se envió hace < 10 min. */
+  async sendReminder(appointmentId: number, message: string): Promise<ManualReminderResult> {
+    const response = await api.post<ManualReminderResult>(`/agenda/appointments/${appointmentId}/reminder`, {
+      message,
+    });
+    return response.data;
   },
 
   async callNextAppointment(payload: { branch_id: number; professional_id?: number | null }): Promise<TicketItem> {
