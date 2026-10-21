@@ -19,6 +19,8 @@ const ACTION_LABELS: Record<string, string> = {
   update: "Editó",
   delete: "Eliminó",
   cancel: "Canceló",
+  pay: "Pagó",
+  void: "Anuló",
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -26,6 +28,8 @@ const ACTION_COLORS: Record<string, string> = {
   update: "bg-sky-100 text-sky-800",
   delete: "bg-rose-100 text-rose-800",
   cancel: "bg-amber-100 text-amber-800",
+  pay: "bg-emerald-100 text-emerald-800",
+  void: "bg-rose-100 text-rose-800",
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -40,6 +44,7 @@ const ENTITY_LABELS: Record<string, string> = {
   expense: "Gasto",
   cash_session: "Caja",
   manual_reminder: "Recordatorio a clienta",
+  commission_payment: "Pago de comisión",
 };
 
 // ─── Modal: detalle de un movimiento ─────────────────────────────────────────

@@ -63,6 +63,8 @@ interface DataTableProps<T> {
   enableColumnFilters?: boolean;
   defaultLimit?: number;
   tableMinWidth?: string;
+  /** Clase de fondo para una fila (reemplaza el rayado alterno). undefined = rayado normal. */
+  rowClassName?: (item: T) => string | undefined;
 }
 
 function DataTable<T extends { id: number | string }>({
@@ -84,6 +86,7 @@ function DataTable<T extends { id: number | string }>({
   enableColumnFilters = true,
   defaultLimit,
   tableMinWidth = "min-w-[760px]",
+  rowClassName,
 }: DataTableProps<T>) {
   const initialLimit = defaultLimit ?? pagination?.limit ?? availableLimits[0] ?? 10;
   const [globalSearch, setGlobalSearch] = useState("");
@@ -426,8 +429,9 @@ function DataTable<T extends { id: number | string }>({
               </tr>
             ) : (
               visibleData.map((item, index) => {
-                const stripe = index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]";
-                const stickyStripe = index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]";
+                const custom = rowClassName?.(item);
+                const stripe = custom ?? (index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]");
+                const stickyStripe = custom ?? (index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]");
                 return (
                   <tr
                     key={item.id}

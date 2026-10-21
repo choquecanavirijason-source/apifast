@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, joinedload
 
+from app.application.services.commission_payout_service import unmark_tickets_of_payment
 from app.core.dependencies import get_db, require_any_permission
 from app.domain.entities.commission_payment import CommissionPayment
 from app.domain.entities.user import User
@@ -136,5 +137,8 @@ def delete_commission_payment(
     payment = db.query(CommissionPayment).filter(CommissionPayment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Registro no encontrado.")
+    # Si el pago salió de "Confirmar pago" en Historial de tickets, sus tickets
+    # vuelven a quedar pendientes (en la misma transacción).
+    unmark_tickets_of_payment(db, payment.id)
     db.delete(payment)
     db.commit()

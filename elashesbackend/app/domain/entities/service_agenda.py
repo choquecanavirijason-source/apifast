@@ -114,8 +114,20 @@ class Appointment(Base):
         default=datetime.utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    # Comisión de la operaria pagada (Historial de tickets > Confirmar pago).
+    # pagado_en: UTC naive. pagado_monto: comisión al momento de pagar (para
+    # descontarla exacta al anular aunque luego cambien precios o tasas).
+    # commission_payment_id: el pago agregado por operaria en commission_payments.
+    pagado = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    pagado_en = Column(DateTime, nullable=True)
+    pagado_por = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    pagado_monto = Column(Float, nullable=True)
+    commission_payment_id = Column(
+        Integer, ForeignKey("commission_payments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     client = relationship("Client", back_populates="appointments")
+    pagador = relationship("User", foreign_keys=[pagado_por])
     created_by = relationship(
         "User",
         back_populates="created_appointments",

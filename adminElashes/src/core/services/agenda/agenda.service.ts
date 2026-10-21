@@ -242,6 +242,27 @@ export interface TicketItem {
   sale_id?: number | null;
   branch_id?: number | null;
   branch_name?: string | null;
+  /** Comisión de la operaria ya pagada (Historial de tickets › Confirmar pago). */
+  pagado?: boolean;
+  /** ISO en UTC (con zona). */
+  pagado_en?: string | null;
+  pagado_por?: number | null;
+  pagado_por_nombre?: string | null;
+  pagado_monto?: number | null;
+}
+
+export interface CommissionPayResult {
+  pagados: Array<{
+    id: number;
+    pagado_en: string;
+    pagado_por: number;
+    pagado_monto: number;
+    commission_payment_id: number;
+  }>;
+  tickets: number;
+  operarias: number;
+  total: number;
+  pagado_por_nombre: string;
 }
 
 interface BackendAppointment {
@@ -272,6 +293,11 @@ interface BackendAppointment {
   service?: { id: number; name: string; price?: number; commission_rate?: number | null } | null;
   services?: Array<{ id: number; name: string; price?: number; commission_rate?: number | null }> | null;
   branch?: { id: number; name: string } | null;
+  pagado?: boolean;
+  pagado_en?: string | null;
+  pagado_por?: number | null;
+  pagado_monto?: number | null;
+  pagador?: { id: number; username: string } | null;
 }
 
 const mapToTicket = (a: BackendAppointment): TicketItem => {
@@ -317,6 +343,11 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   sale_id: a.sale_id ?? null,
   branch_id: a.branch?.id ?? null,
   branch_name: a.branch?.name ?? null,
+  pagado: a.pagado ?? false,
+  pagado_en: a.pagado_en ?? null,
+  pagado_por: a.pagado_por ?? null,
+  pagado_por_nombre: a.pagador?.username ?? null,
+  pagado_monto: a.pagado_monto ?? null,
   };
 };
 
@@ -567,6 +598,23 @@ export const AgendaService = {
       ...(payload.skip_availability_check && { skip_availability_check: true }),
     };
     const response = await api.put<BackendAppointment>(`/agenda/appointments/${id}`, body);
+    return mapToTicket(response.data);
+  },
+
+  /** Marca como pagada la comisión de un lote de tickets (todo o nada: 409/403 si alguno no vale). */
+  async payCommissions(appointmentIds: number[]): Promise<CommissionPayResult> {
+    const response = await api.post<CommissionPayResult>("/agenda/appointments/commission-payments", {
+      appointment_ids: appointmentIds,
+    });
+    return response.data;
+  },
+
+  /** Anula el pago de comisión de un ticket (el servidor exige confirmar=true). */
+  async voidCommissionPayment(appointmentId: number, motivo?: string): Promise<TicketItem> {
+    const response = await api.post<BackendAppointment>(
+      `/agenda/appointments/${appointmentId}/commission-payment/void`,
+      { confirmar: true, motivo: motivo?.trim() || null },
+    );
     return mapToTicket(response.data);
   },
 

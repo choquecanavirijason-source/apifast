@@ -26,6 +26,9 @@ from app.presentation.schemas.service_agenda import (
     AppointmentResponse,
     AppointmentUpdate,
     CallNextAppointment,
+    CommissionPayRequest,
+    CommissionPayResponse,
+    CommissionVoidRequest,
     ManualReminderCreate,
     ManualReminderResponse,
     ServiceCreate,
@@ -34,6 +37,7 @@ from app.presentation.schemas.service_agenda import (
     ServiceUpdate,
 )
 from app.application.services.client_service import list_clients as list_clients_service
+from app.application.services.commission_payout_service import pay_commissions, void_commission_payment
 from app.application.services.manual_reminder_service import send_manual_reminder
 from app.application.services.service_agenda_service import (
     call_next_appointment,
@@ -502,6 +506,38 @@ async def send_appointment_reminder(
         sent_by=reminder.sent_by,
         created_at=reminder.created_at.replace(tzinfo=timezone.utc),
     )
+
+
+@router.post("/appointments/commission-payments", response_model=CommissionPayResponse)
+def pay_appointment_commissions(
+    payload: CommissionPayRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("commissions:pay")),
+):
+    """Marca como pagada la comisión de un lote de tickets (Comisiones por
+    operaria > Historial de tickets). Todo o nada: si algún ticket no existe,
+    no está completado, no tiene comisión, ya estaba pagado (409) o es de otra
+    sucursal (403), no se guarda ninguno. Crea un pago por operaria en
+    "Comisiones y pagos" y lo audita."""
+    return pay_commissions(db, payload.appointment_ids, current_user)
+
+
+@router.post("/appointments/{appointment_id}/commission-payment/void", response_model=AppointmentResponse)
+def void_appointment_commission(
+    appointment_id: int,
+    payload: CommissionVoidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("commissions:void")),
+):
+    """Anula el pago de comisión de un ticket (exige confirmar=true). Descuenta
+    su monto del pago de la operaria en "Comisiones y pagos" y lo audita."""
+    if not payload.confirmar:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirma la anulación del pago (confirmar=true).",
+        )
+    void_commission_payment(db, appointment_id, current_user, payload.motivo)
+    return get_appointment_by_id(db, appointment_id)
 
 
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)

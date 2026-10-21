@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Download, List, X } from "lucide-react";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { Banknote, BadgeCheck, CheckCircle2, Download, List, X } from "lucide-react";
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
+import { getApiErrorMessage } from "@/core/utils/apiError";
 import useAuth from "@/core/hooks/useAuth";
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
+import GenericModal from "@/components/common/modal/GenericModal";
 import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
@@ -79,6 +83,46 @@ function getInitials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
 }
 
+// Fila con la comisión pagada: verde suave del tema (acento mezclado con la
+// superficie, opaco) — el texto oscuro normal conserva buen contraste.
+const PAID_ROW_CLASS = "bg-[color-mix(in_srgb,var(--ui-accent)_9%,var(--ui-surface))]";
+
+// Recorta microsegundos ("...12.345678+00:00") para que cualquier navegador lo parsee.
+const parseIso = (iso: string) => new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
+
+const paidDateLabel = (iso?: string | null) =>
+  iso
+    ? parseIso(iso).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "";
+
+/** Por qué no se puede marcar el ticket para pagar (null = se puede). */
+function payBlockReason(t: TicketItem, canPay: boolean): string | null {
+  if (!canPay) return "No tienes permiso para confirmar pagos de comisiones.";
+  if (t.status !== "completed") return "Solo se pagan tickets completados.";
+  if (!t.professional_id) return "El ticket no tiene operaria asignada.";
+  if (getTicketCommission(t) <= 0) return "Este ticket no tiene comisión.";
+  return null;
+}
+
+/** El lote es todo o nada: el servidor devuelve qué tickets lo impidieron. */
+function payErrorMessage(err: unknown, tickets: TicketItem[]): string {
+  if (axios.isAxiosError(err)) {
+    const detail = (err.response?.data as { detail?: unknown } | undefined)?.detail as
+      | { message?: string; errores?: { id: number; motivo: string }[] }
+      | undefined;
+    if (detail && typeof detail === "object" && Array.isArray(detail.errores)) {
+      const label = (id: number) => {
+        const t = tickets.find((x) => x.id === id);
+        return t ? (t.ticket_code ?? `#${t.id}`) : `#${id}`;
+      };
+      return `${detail.message ?? "No se registró ningún pago."} ${detail.errores
+        .map((e) => `${label(e.id)}: ${e.motivo}`)
+        .join(" · ")}`;
+    }
+  }
+  return getApiErrorMessage(err, "No se pudo registrar el pago.");
+}
+
 function getDurationLabel(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
@@ -93,9 +137,20 @@ function getDurationLabel(start: string, end: string) {
 }
 
 export default function ProfessionalServiceHistory() {
-  const { user, isAdmin, hasRole } = useAuth();
+  const { user, isAdmin, hasRole, hasPermissionByName } = useAuth();
   const canSeeCards = isAdmin() || hasRole("Operaria");
   const isOperaria = hasRole("Operaria") && !isAdmin();
+  const canPay = isAdmin() || hasPermissionByName("commissions:pay");
+  const canVoid = isAdmin() || hasPermissionByName("commissions:void");
+
+  // Selección en pantalla para "Confirmar pago" (solo ids; no se guarda nada
+  // hasta confirmar el diálogo).
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [confirmPayOpen, setConfirmPayOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<TicketItem | null>(null);
+  const [voidMotivo, setVoidMotivo] = useState("");
+  const [voiding, setVoiding] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"tickets" | "comisiones">("tickets");
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -258,6 +313,123 @@ export default function ProfessionalServiceHistory() {
     [completedTickets]
   );
 
+  // Cambiar filtros (sucursal, operaria, fechas) o de pestaña limpia la
+  // selección: lo marcado podría dejar de verse y pagarse sin querer.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeBranchId, selectedProfessionalId, fromDate, toDate, activeTab]);
+
+  // Tras "Actualizar", conserva solo lo que sigue visible y pagable.
+  useEffect(() => {
+    setSelectedIds((current) => {
+      if (current.size === 0) return current;
+      const still = new Set(
+        filteredTickets
+          .filter((t) => current.has(t.id) && !t.pagado && payBlockReason(t, canPay) === null)
+          .map((t) => t.id),
+      );
+      return still.size === current.size ? current : still;
+    });
+  }, [filteredTickets, canPay]);
+
+  const toggleSelected = useCallback((id: number) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectedTickets = useMemo(
+    () => filteredTickets.filter((t) => selectedIds.has(t.id)),
+    [filteredTickets, selectedIds],
+  );
+
+  const selectedSummary = useMemo(() => {
+    const byPro = new Map<string, { count: number; total: number }>();
+    selectedTickets.forEach((t) => {
+      const name = t.professional_name ?? `#${t.professional_id}`;
+      const entry = byPro.get(name) ?? { count: 0, total: 0 };
+      entry.count += 1;
+      entry.total += getTicketCommission(t);
+      byPro.set(name, entry);
+    });
+    const total = selectedTickets.reduce((s, t) => s + getTicketCommission(t), 0);
+    return { byPro: Array.from(byPro.entries()), total };
+  }, [selectedTickets]);
+
+  const totalPaidCommission = useMemo(
+    () => filteredTickets.reduce((s, t) => s + (t.pagado ? (t.pagado_monto ?? getTicketCommission(t)) : 0), 0),
+    [filteredTickets],
+  );
+
+  const handleConfirmPay = async () => {
+    const ids = selectedTickets.map((t) => t.id);
+    if (ids.length === 0) return;
+    setPaying(true);
+    try {
+      const result = await AgendaService.payCommissions(ids);
+      const byId = new Map(result.pagados.map((p) => [p.id, p]));
+      setTickets((current) =>
+        current.map((t) => {
+          const p = byId.get(t.id);
+          return p
+            ? {
+                ...t,
+                pagado: true,
+                pagado_en: p.pagado_en,
+                pagado_por: p.pagado_por,
+                pagado_por_nombre: result.pagado_por_nombre,
+                pagado_monto: p.pagado_monto,
+              }
+            : t;
+        }),
+      );
+      setSelectedIds(new Set());
+      setConfirmPayOpen(false);
+      toast.success(
+        `Pago registrado: ${result.tickets} ticket${result.tickets !== 1 ? "s" : ""} · ` +
+          `${result.operarias} operaria${result.operarias !== 1 ? "s" : ""} · ${moneyFormatter.format(result.total)}.`,
+      );
+    } catch (err) {
+      // Todo o nada: no se guardó ninguno; la selección queda para corregirla.
+      setConfirmPayOpen(false);
+      toast.error(payErrorMessage(err, tickets), { autoClose: 8000 });
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidTarget) return;
+    setVoiding(true);
+    try {
+      const updated = await AgendaService.voidCommissionPayment(voidTarget.id, voidMotivo);
+      setTickets((current) =>
+        current.map((t) =>
+          t.id === updated.id
+            ? {
+                ...t,
+                pagado: updated.pagado,
+                pagado_en: updated.pagado_en,
+                pagado_por: updated.pagado_por,
+                pagado_por_nombre: updated.pagado_por_nombre,
+                pagado_monto: updated.pagado_monto,
+              }
+            : t,
+        ),
+      );
+      toast.success(`Pago anulado: ${voidTarget.ticket_code ?? `#${voidTarget.id}`}.`);
+      setVoidTarget(null);
+      setVoidMotivo("");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "No se pudo anular el pago."));
+    } finally {
+      setVoiding(false);
+    }
+  };
+
   const columns = useMemo<DataTableColumn<TicketItem>[]>(() => [
     {
       key: "ticket_code",
@@ -396,7 +568,57 @@ export default function ProfessionalServiceHistory() {
         );
       },
     },
-  ], [trackingByAppointment]);
+    {
+      key: "pago",
+      header: "Pago",
+      getValue: (t) => (t.pagado ? "Pagado" : ""),
+      render: (t) => {
+        if (t.pagado) {
+          const detail = [
+            t.pagado_en ? `Pagado el ${paidDateLabel(t.pagado_en)}` : "Pagado",
+            t.pagado_por_nombre ? `por ${t.pagado_por_nombre}` : "",
+          ].filter(Boolean).join(" ");
+          return (
+            <div className="flex flex-col items-start gap-0.5">
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--ui-accent)] px-2 py-0.5 text-[10px] font-bold text-white"
+                title={detail}
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Pagado
+              </span>
+              {canVoid && (
+                <button
+                  type="button"
+                  onClick={() => { setVoidMotivo(""); setVoidTarget(t); }}
+                  className="text-[10px] font-semibold text-[var(--ui-text-muted)] underline-offset-2 hover:text-rose-700 hover:underline"
+                >
+                  Anular
+                </button>
+              )}
+            </div>
+          );
+        }
+        const reason = payBlockReason(t, canPay);
+        const label = `Marcar para pagar la comisión de ${t.ticket_code ?? `#${t.id}`}`;
+        return (
+          <label
+            className={`inline-flex p-1 ${reason ? "cursor-not-allowed" : "cursor-pointer"}`}
+            title={reason ?? "Marcar para confirmar el pago"}
+          >
+            <input
+              type="checkbox"
+              className="h-4 w-4 cursor-[inherit] accent-[var(--ui-accent)] disabled:opacity-40"
+              checked={selectedIds.has(t.id)}
+              disabled={reason !== null}
+              onChange={() => toggleSelected(t.id)}
+              aria-label={label}
+            />
+          </label>
+        );
+      },
+    },
+  ], [trackingByAppointment, selectedIds, canPay, canVoid, toggleSelected]);
 
   // Rango de fechas en texto, para el subtítulo del PDF — igual en las dos
   // pestañas ya que ambas comparten los mismos filtros de arriba.
@@ -415,6 +637,7 @@ export default function ProfessionalServiceHistory() {
         { label: "Completados", value: String(completedTickets.length) },
         { label: "Ingresos", value: moneyFormatter.format(totalRevenue) },
         { label: "Comisiones", value: moneyFormatter.format(totalCommission) },
+        { label: "Comisiones pagadas", value: moneyFormatter.format(totalPaidCommission) },
       ],
       columns: [
         { header: "Código", key: "ticket_code" },
@@ -427,6 +650,7 @@ export default function ProfessionalServiceHistory() {
         { header: "Precio", key: "precio" },
         { header: "Comisión", key: "comision" },
         { header: "Sucursal", key: "branch_name" },
+        { header: "Pago", key: "pago" },
       ],
       rows: filteredTickets.map((t) => ({
         ticket_code: t.ticket_code ?? `#${t.id}`,
@@ -443,6 +667,11 @@ export default function ProfessionalServiceHistory() {
           ? moneyFormatter.format(getTicketCommission(t))
           : "—",
         branch_name: t.branch_name ?? "",
+        pago: t.pagado
+          ? `Pagado ${paidDateLabel(t.pagado_en)}`.trim()
+          : t.status === "completed" && getTicketCommission(t) > 0
+            ? "Pendiente"
+            : "—",
       })),
     });
   };
@@ -496,6 +725,17 @@ export default function ProfessionalServiceHistory() {
       left={<h2 className="text-lg font-semibold text-slate-800">Comisiones por operaria</h2>}
       right={
         <div className="flex items-center gap-2">
+          {activeTab === "tickets" && canPay && (
+            <Button
+              size="sm"
+              onClick={() => setConfirmPayOpen(true)}
+              disabled={selectedTickets.length === 0}
+              title={selectedTickets.length === 0 ? "Marca tickets en la columna Pago" : undefined}
+              leftIcon={<BadgeCheck className="h-3.5 w-3.5" />}
+            >
+              Confirmar pago ({selectedTickets.length})
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -637,11 +877,99 @@ export default function ProfessionalServiceHistory() {
           enableGlobalSearch={false}
           enableColumnFilters={false}
           defaultLimit={25}
-          tableMinWidth="min-w-[1200px]"
+          tableMinWidth="min-w-[1280px]"
+          rowClassName={(t) => (t.pagado ? PAID_ROW_CLASS : undefined)}
         />
       </SectionCard>
         </>
       )}
+
+      {/* ── Diálogo: confirmar pago del lote ─────────────────────────────── */}
+      <GenericModal
+        isOpen={confirmPayOpen}
+        onClose={() => { if (!paying) setConfirmPayOpen(false); }}
+        title="Confirmar pago de comisiones"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmPayOpen(false)} disabled={paying}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={() => void handleConfirmPay()} disabled={paying || selectedTickets.length === 0}>
+              {paying ? "Guardando…" : "Confirmar"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-[var(--ui-text)]">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg border border-[var(--ui-border)] p-2">
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Tickets</p>
+              <p className="text-lg font-bold">{selectedTickets.length}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--ui-border)] p-2">
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Operarias</p>
+              <p className="text-lg font-bold">{selectedSummary.byPro.length}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-accent-soft)] p-2">
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Total</p>
+              <p className="text-lg font-bold text-[var(--ui-accent)]">{moneyFormatter.format(selectedSummary.total)}</p>
+            </div>
+          </div>
+          <ul className="divide-y divide-[var(--ui-border)] rounded-lg border border-[var(--ui-border)]">
+            {selectedSummary.byPro.map(([name, { count, total }]) => (
+              <li key={name} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                <span className="font-medium">{name} · {count} ticket{count !== 1 ? "s" : ""}</span>
+                <span className="tabular-nums font-semibold">{moneyFormatter.format(total)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-[var(--ui-text-muted)]">
+            Se guarda todo junto o nada. Se registrará un pago por operaria en "Comisiones y pagos".
+          </p>
+        </div>
+      </GenericModal>
+
+      {/* ── Diálogo: anular el pago de un ticket ──────────────────────────── */}
+      <GenericModal
+        isOpen={voidTarget !== null}
+        onClose={() => { if (!voiding) setVoidTarget(null); }}
+        title="Anular pago de comisión"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setVoidTarget(null)} disabled={voiding}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => void handleConfirmVoid()} disabled={voiding}>
+              {voiding ? "Anulando…" : "Anular pago"}
+            </Button>
+          </>
+        }
+      >
+        {voidTarget && (
+          <div className="space-y-3 text-sm text-[var(--ui-text)]">
+            <p>
+              El ticket <strong>{voidTarget.ticket_code ?? `#${voidTarget.id}`}</strong> de{" "}
+              <strong>{voidTarget.professional_name ?? "sin operaria"}</strong> volverá a quedar pendiente y se
+              descontará{" "}
+              <strong>{moneyFormatter.format(voidTarget.pagado_monto ?? getTicketCommission(voidTarget))}</strong>{" "}
+              de su pago en "Comisiones y pagos".
+            </p>
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--ui-text-muted)]">Motivo (opcional)</span>
+              <input
+                type="text"
+                value={voidMotivo}
+                maxLength={300}
+                onChange={(e) => setVoidMotivo(e.target.value)}
+                className={`${fieldClass} mt-1`}
+                placeholder="Ej. se marcó por error"
+              />
+            </label>
+          </div>
+        )}
+      </GenericModal>
     </Layout>
   );
 }

@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
 
 from app.domain.entities.manual_reminder import MANUAL_REMINDER_MAX_LENGTH
 from app.presentation.schemas.branch import BranchSummary
@@ -183,6 +183,59 @@ class AppointmentResponse(BaseModel):
     service: Optional[ServiceResponse] = None
     services: Optional[List[ServiceResponse]] = None
     branch: Optional[BranchSummary] = None
+
+    # Pago de la comisión (Historial de tickets > Confirmar pago).
+    pagado: bool = False
+    pagado_en: Optional[datetime] = None
+    pagado_por: Optional[int] = None
+    pagado_monto: Optional[float] = None
+    pagador: Optional[UserSummary] = None
+
+    @field_serializer("pagado_en")
+    def _pagado_en_utc(self, value: Optional[datetime]) -> Optional[str]:
+        # Se guarda en UTC naive: se manda con zona para que el panel no lo
+        # interprete como hora local.
+        return _as_utc_iso(value)
+
+
+def _as_utc_iso(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
+class CommissionPayRequest(BaseModel):
+    appointment_ids: List[int] = Field(..., min_length=1, max_length=500)
+
+
+class CommissionPaidTicket(BaseModel):
+    id: int
+    pagado_en: datetime
+    pagado_por: int
+    pagado_monto: float
+    commission_payment_id: int
+
+    @field_serializer("pagado_en")
+    def _pagado_en_utc(self, value: datetime) -> Optional[str]:
+        return _as_utc_iso(value)
+
+
+class CommissionPayResponse(BaseModel):
+    pagados: List[CommissionPaidTicket]
+    tickets: int
+    operarias: int
+    total: float
+    pagado_por_nombre: str
+
+
+class CommissionVoidRequest(BaseModel):
+    # La anulación tiene que confirmarse explícitamente (el panel muestra un
+    # diálogo); sin esto, un PUT/POST accidental deshacía un pago.
+    confirmar: bool
+    motivo: Optional[str] = Field(default=None, max_length=300)
+
 
 class ManualReminderCreate(BaseModel):
     # Se recortan los espacios antes de validar: un mensaje en blanco no vale.
