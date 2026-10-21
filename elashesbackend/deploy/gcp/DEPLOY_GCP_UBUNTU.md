@@ -175,6 +175,47 @@ npm run build
 sudo systemctl reload nginx
 ```
 
+## 10) Push por Firebase Cloud Messaging (opcional)
+
+Los recordatorios manuales (Atención → Próximas citas) llegan a la app por
+`/avisos/programados` y por WebSocket. Con FCM llegan además con la app
+cerrada. Sin FCM todo sigue funcionando: el backend solo deja en el log
+`FCM desactivado: ...`.
+
+1. En la consola de Firebase del proyecto de la app: **Configuración del
+   proyecto → Cuentas de servicio → Generar nueva clave privada**. Se descarga
+   un JSON (`<proyecto>-firebase-adminsdk-xxxxx.json`). Es un secreto: no lo
+   subas al repo, no lo pegues en chats ni en tickets.
+2. Guárdalo **fuera del repo**, legible solo por el servicio:
+
+   ```bash
+   sudo mkdir -p /opt/elashes/elashes-secrets
+   sudo mv ~/<proyecto>-firebase-adminsdk-*.json /opt/elashes/elashes-secrets/fcm-service-account.json
+   sudo chmod 700 /opt/elashes/elashes-secrets
+   sudo chmod 600 /opt/elashes/elashes-secrets/fcm-service-account.json
+   ```
+
+3. Apunta el backend al archivo:
+
+   - **Con Docker Compose** (`/opt/elashes/apifast/docker-compose.yml`): no hay
+     que editar nada. El servicio `backend` monta `../elashes-secrets` (o
+     `ELASHES_SECRETS_DIR`, si lo defines) en `/run/secrets/elashes` en modo
+     solo lectura, y ya define
+     `FCM_CREDENTIALS_FILE=/run/secrets/elashes/fcm-service-account.json`.
+     Dentro del contenedor se lee como root, así que basta con `chmod 600`.
+   - **Con systemd** (sin Docker): agrega a `elashesbackend/.env`
+     `FCM_CREDENTIALS_FILE=/opt/elashes/elashes-secrets/fcm-service-account.json`
+     y deja el archivo legible para `www-data`
+     (`sudo chown -R www-data:www-data /opt/elashes/elashes-secrets`).
+
+4. Reinicia (`docker compose up -d --build backend` o
+   `sudo systemctl restart elashesbackend`) y revisa el log: debe aparecer
+   `FCM activado para el proyecto <id>` la primera vez que se envía un
+   recordatorio, o `FCM desactivado: ...` con el motivo.
+
+La cuenta de servicio solo necesita el rol **Firebase Cloud Messaging API
+Admin** y la API "Firebase Cloud Messaging API (V1)" habilitada en Google Cloud.
+
 ## Notas
 
 - El token JWT ya queda configurado a 24 horas (`1440` minutos).
