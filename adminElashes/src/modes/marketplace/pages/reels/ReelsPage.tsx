@@ -112,6 +112,9 @@ export default function ReelsPage() {
   // reproducirlo (H.265: ver el modal más abajo).
   const [previewTarget, setPreviewTarget] = useState<MarketplaceReel | null>(null);
   const [previewError, setPreviewError] = useState(false);
+  // Primero la vista previa H.264; si no existe (reel viejo o en H.264), el
+  // video normal. Recién si ese también falla se muestra el aviso.
+  const [previewUseMain, setPreviewUseMain] = useState(false);
   const [likesEntries, setLikesEntries] = useState<ReelLikeEntry[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
 
@@ -386,6 +389,7 @@ export default function ReelsPage() {
   // igual, por si hay que recuperar el archivo tal como se subió.
   const openPreview = (r: MarketplaceReel) => {
     setPreviewError(false);
+    setPreviewUseMain(!r.video_preview_url || r.video_preview_url === r.video_url);
     setPreviewTarget(r);
   };
 
@@ -394,7 +398,9 @@ export default function ReelsPage() {
       toast.warning("Este reel no tiene un archivo original para descargar (es un link externo).");
       return;
     }
-    window.open(`${MARKETPLACE_MEDIA_BASE}${r.video_download_url}`, "_blank");
+    // img(): los reels en AWS ya traen la URL completa de CloudFront; solo
+    // los viejos en /media/ necesitan el prefijo del proxy.
+    window.open(img(r.video_download_url) ?? undefined, "_blank");
   };
 
   const actions: DataTableAction<MarketplaceReel>[] = [
@@ -825,13 +831,13 @@ export default function ReelsPage() {
             </div>
           ) : (
             <video
-              key={previewTarget.id}
-              src={img(previewTarget.video_url) ?? undefined}
+              key={`${previewTarget.id}-${previewUseMain ? "main" : "preview"}`}
+              src={img(previewUseMain ? previewTarget.video_url : previewTarget.video_preview_url) ?? undefined}
               poster={img(previewTarget.thumbnail_url) ?? undefined}
               controls
               autoPlay
               playsInline
-              onError={() => setPreviewError(true)}
+              onError={() => (previewUseMain ? setPreviewError(true) : setPreviewUseMain(true))}
               className="mx-auto max-h-[70vh] w-auto rounded-xl bg-black"
             />
           )

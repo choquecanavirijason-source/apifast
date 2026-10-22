@@ -464,6 +464,10 @@ export interface MarketplaceReel {
   id: number;
   video_url: string;
   video_download_url: string | null;
+  /** Versión liviana en H.264 para ver en el navegador del admin (muchos
+   *  Chrome/Brave de PC no reproducen H.265). Puede no existir en reels
+   *  viejos o en H.264: entonces se usa video_url. */
+  video_preview_url: string | null;
   thumbnail_url: string | null;
   caption: string | null;
   product_id: number | null;
