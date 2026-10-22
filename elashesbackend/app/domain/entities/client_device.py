@@ -8,6 +8,9 @@ from app.infrastructure.database import Base
 PLATFORM_ANDROID = "android"
 PLATFORM_IOS = "ios"
 DEVICE_PLATFORMS = (PLATFORM_ANDROID, PLATFORM_IOS)
+# Los tokens FCM rondan los 150-200 caracteres; 512 deja margen y cabe en un
+# índice btree de Postgres.
+FCM_TOKEN_MAX_LENGTH = 512
 
 
 class ClientDevice(Base):
@@ -34,5 +37,10 @@ class ClientDevice(Base):
     )
     last_seen_at = Column(DateTime, nullable=True)
     revoked_at = Column(DateTime, nullable=True)
+    # Token de Firebase Cloud Messaging de esta instalación (push con la app
+    # cerrada). Lo registra la app tras iniciar sesión; se borra al revocar el
+    # dispositivo, al reasignarlo a otra sesión o si FCM lo da por inválido.
+    fcm_token = Column(String(FCM_TOKEN_MAX_LENGTH), nullable=True, index=True)
+    fcm_token_updated_at = Column(DateTime, nullable=True)
 
     client = relationship("Client", back_populates="devices")

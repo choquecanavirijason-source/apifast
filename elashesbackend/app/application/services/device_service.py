@@ -1,7 +1,8 @@
 """
 Dispositivos (instalaciones de la app) de clientas. El token se genera con
 secrets.token_urlsafe(32), se entrega una sola vez y en la BD solo queda su
-hash SHA-256.
+hash SHA-256. El token FCM (push) se guarda tal cual: Firebase lo necesita
+para enviar, y no da acceso a nada del salón.
 """
 import hashlib
 import secrets
@@ -48,6 +49,10 @@ def register_device(
     device.created_at = datetime.utcnow()
     device.last_seen_at = None
     device.revoked_at = None
+    # Sesión nueva (quizá de otra clienta): el token FCM anterior no se reusa;
+    # la app lo vuelve a registrar ya autenticada como la clienta actual.
+    device.fcm_token = None
+    device.fcm_token_updated_at = None
     db.commit()
     db.refresh(device)
     return device, token
@@ -70,4 +75,31 @@ def authenticate_token(db: Session, token: str) -> Optional[ClientDevice]:
 
 def revoke_device(db: Session, device: ClientDevice) -> None:
     device.revoked_at = datetime.utcnow()
+    # Cerró sesión: sin token, ningún push le llega aunque la fila siga.
+    device.fcm_token = None
+    device.fcm_token_updated_at = None
+    db.commit()
+
+
+def set_fcm_token(db: Session, device: ClientDevice, fcm_token: str) -> None:
+    """Registra o actualiza el token FCM de la instalación. Si otra fila lo
+    tenía (p. ej. una instalación anterior en el mismo celular), se le quita:
+    un token apunta a un solo celular y solo debe recibir los pushes de la
+    sesión actual."""
+    (
+        db.query(ClientDevice)
+        .filter(ClientDevice.fcm_token == fcm_token, ClientDevice.id != device.id)
+        .update(
+            {ClientDevice.fcm_token: None, ClientDevice.fcm_token_updated_at: None},
+            synchronize_session=False,
+        )
+    )
+    device.fcm_token = fcm_token
+    device.fcm_token_updated_at = datetime.utcnow()
+    db.commit()
+
+
+def clear_fcm_token(db: Session, device: ClientDevice) -> None:
+    device.fcm_token = None
+    device.fcm_token_updated_at = datetime.utcnow()
     db.commit()

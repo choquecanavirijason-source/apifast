@@ -52,3 +52,10 @@ elashesbackend/media/
 *.mov
 *.avi
 *.pdf
+
+# Secretos de Firebase (push FCM): nunca en el repo. El JSON de la cuenta de
+# servicio va en ../elashes-secrets/ (fuera del repo, ver docker-compose.yml).
+secrets/
+elashes-secrets/
+*service-account*.json
+*firebase-adminsdk*.json
