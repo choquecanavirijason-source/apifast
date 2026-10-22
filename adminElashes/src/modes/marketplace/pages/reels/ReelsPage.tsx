@@ -813,15 +813,15 @@ export default function ReelsPage() {
       >
         {previewTarget && (
           previewError ? (
-            // Los reels nuevos están en H.265: el celular lo reproduce, pero
-            // algunos navegadores de PC no (Firefox; Chrome sin decodificación
-            // H.265 en la placa de video). No es un problema del reel.
+            // Causas posibles: reel viejo en HLS (.m3u8, Chrome no lo reproduce
+            // directo), reel en H.265 sin vista previa (muchos navegadores de
+            // PC no lo reproducen) o el archivo ya no existe.
             <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-slate-500">
               <AlertTriangle className="h-8 w-8 text-amber-500" />
               <p>
-                Este navegador no puede reproducir el video (formato H.265).
-                <br />
-                En la app se ve normal. Prueba con Chrome, Edge o Safari, o descarga el original.
+                {previewTarget.video_url.endsWith(".m3u8")
+                  ? "Este reel es del formato anterior (HLS) y el navegador no puede reproducirlo directo. Vuelve a subir el video para verlo aquí."
+                  : "No se pudo reproducir el video en este navegador. Si en la app se ve bien, es un tema del navegador (formato H.265); si tampoco se ve en la app, vuelve a subir el video."}
               </p>
               {previewTarget.video_download_url && (
                 <Button variant="secondary" onClick={() => handleDownload(previewTarget)} leftIcon={<Download className="h-4 w-4" />}>
