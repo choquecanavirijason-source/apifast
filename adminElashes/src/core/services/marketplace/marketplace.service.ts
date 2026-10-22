@@ -469,6 +469,11 @@ export interface MarketplaceReel {
   product_id: number | null;
   product: ReelProductSummary | null;
   is_active: boolean;
+  /** El video se procesa en segundo plano (H.265 tarda minutos). Mientras
+   *  está "processing", un reel nuevo no se ve en la app; uno editado sigue
+   *  mostrando su video anterior hasta que el nuevo esté listo. */
+  processing_status: "ready" | "processing" | "failed";
+  processing_error: string | null;
   sort_order: number;
   created_at: string;
   like_count: number;

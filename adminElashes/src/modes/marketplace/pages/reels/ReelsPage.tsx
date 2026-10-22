@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
   ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown, Download,
+  Loader2, AlertTriangle,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -42,6 +43,38 @@ const emptyForm: Form = {
   product_id: "",
   sort_order: 0,
 };
+
+/** Cada cuánto se refresca la lista mientras algún video se procesa. */
+const PROCESSING_POLL_MS = 10_000;
+
+/** Aviso del procesamiento del video, para la lista y la cuadrícula. */
+function ProcessingBadge({ reel, overlay = false }: { reel: MarketplaceReel; overlay?: boolean }) {
+  if (reel.processing_status === "processing") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          overlay ? "bg-amber-500/90 text-white backdrop-blur-sm" : "bg-amber-100 text-amber-700"
+        }`}
+        title={reel.video_url ? "Se sigue mostrando el video anterior hasta que termine" : "No se ve en la app hasta que termine"}
+      >
+        <Loader2 className="h-3 w-3 animate-spin" /> Procesando video…
+      </span>
+    );
+  }
+  if (reel.processing_status === "failed") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          overlay ? "bg-rose-600/90 text-white backdrop-blur-sm" : "bg-rose-100 text-rose-700"
+        }`}
+        title={reel.processing_error ?? "No se pudo procesar el video"}
+      >
+        <AlertTriangle className="h-3 w-3" /> Error al procesar: vuelve a subir el video
+      </span>
+    );
+  }
+  return null;
+}
 
 function img(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -108,6 +141,17 @@ export default function ReelsPage() {
     void load();
     fetchAdminProducts(false).then(setProducts).catch(() => {});
   }, []);
+
+  // Mientras algún video se procesa en el servidor, refresca la lista en
+  // silencio (sin spinner) para mostrar cuándo termina o si falló.
+  const anyProcessing = reels.some((r) => r.processing_status === "processing");
+  useEffect(() => {
+    if (!anyProcessing) return;
+    const timer = window.setInterval(() => {
+      fetchAdminReels().then(setReels).catch(() => {});
+    }, PROCESSING_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [anyProcessing]);
 
   // ── form ─────────────────────────────────────────────────────────────────────
 
@@ -185,6 +229,9 @@ export default function ReelsPage() {
       run: (onProgress) =>
         targetId !== null ? updateReel(targetId, payload, onProgress) : createReel(payload, onProgress),
       onDone: (result) => {
+        if (result.processing_status === "processing") {
+          toast.info("Video subido. Se está procesando: puede tardar unos minutos y aparecerá en la app al terminar.");
+        }
         setReels((prev) =>
           targetId !== null
             ? prev.map((r) => (r.id === targetId ? result : r))
@@ -318,6 +365,15 @@ export default function ReelsPage() {
         </button>
       ),
       getValue: (r) => (r.is_active ? "activo" : "inactivo"),
+    },
+    {
+      key: "processing_status",
+      header: "Video",
+      render: (r) =>
+        r.processing_status === "ready"
+          ? <span className="text-xs text-slate-400">Listo</span>
+          : <ProcessingBadge reel={r} />,
+      getValue: (r) => r.processing_status,
     },
   ];
 
@@ -486,6 +542,11 @@ export default function ReelsPage() {
                         #{i + 1}
                       </div>
                     </div>
+                    {r.processing_status !== "ready" && (
+                      <div className="absolute inset-x-2 top-10 flex justify-center">
+                        <ProcessingBadge reel={r} overlay />
+                      </div>
+                    )}
                     {r.product && (
                       <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
                         <ShoppingBag className="h-3 w-3 shrink-0" />
