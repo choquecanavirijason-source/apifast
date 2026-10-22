@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
   ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown, Download,
-  Loader2, AlertTriangle,
+  Loader2, AlertTriangle, Play,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -108,6 +108,10 @@ export default function ReelsPage() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const [likesTarget, setLikesTarget] = useState<MarketplaceReel | null>(null);
+  // Reel cuyo video se está viendo en el modal, y si el navegador no pudo
+  // reproducirlo (H.265: ver el modal más abajo).
+  const [previewTarget, setPreviewTarget] = useState<MarketplaceReel | null>(null);
+  const [previewError, setPreviewError] = useState(false);
   const [likesEntries, setLikesEntries] = useState<ReelLikeEntry[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
 
@@ -380,6 +384,11 @@ export default function ReelsPage() {
   // El video que reproduce la app es el HLS (varios archivos chiquitos) —
   // esto abre el .mp4/.mov original de respaldo que el servidor guarda
   // igual, por si hay que recuperar el archivo tal como se subió.
+  const openPreview = (r: MarketplaceReel) => {
+    setPreviewError(false);
+    setPreviewTarget(r);
+  };
+
   const handleDownload = (r: MarketplaceReel) => {
     if (!r.video_download_url) {
       toast.warning("Este reel no tiene un archivo original para descargar (es un link externo).");
@@ -401,6 +410,7 @@ export default function ReelsPage() {
       onClick: (r) => void handleMove(r, 1),
       show: (r) => sortedReels.findIndex((x) => x.id === r.id) < sortedReels.length - 1,
     },
+    { label: "Ver video", icon: <Play className="h-4 w-4" />, onClick: openPreview, show: (r) => !!r.video_url },
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
     { label: "Descargar video original", icon: <Download className="h-4 w-4" />, onClick: handleDownload, show: (r) => !!r.video_download_url },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
@@ -520,6 +530,15 @@ export default function ReelsPage() {
                       <div className="h-full w-full flex items-center justify-center">
                         <Video className="h-10 w-10 text-white/30" />
                       </div>
+                    )}
+                    {r.video_url && (
+                      <button
+                        onClick={() => openPreview(r)}
+                        className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-black/70"
+                        title="Ver video"
+                      >
+                        <Play className="h-6 w-6 translate-x-0.5 fill-current" />
+                      </button>
                     )}
                     <button
                       onClick={() => void handleToggle(r)}
@@ -776,6 +795,46 @@ export default function ReelsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </GenericModal>
+
+      {/* ── Modal: ver el video del reel ─────────────────────────────────────── */}
+      <GenericModal
+        isOpen={!!previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        title={previewTarget?.caption || (previewTarget ? `Reel #${previewTarget.id}` : "")}
+        size="sm"
+      >
+        {previewTarget && (
+          previewError ? (
+            // Los reels nuevos están en H.265: el celular lo reproduce, pero
+            // algunos navegadores de PC no (Firefox; Chrome sin decodificación
+            // H.265 en la placa de video). No es un problema del reel.
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-slate-500">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
+              <p>
+                Este navegador no puede reproducir el video (formato H.265).
+                <br />
+                En la app se ve normal. Prueba con Chrome, Edge o Safari, o descarga el original.
+              </p>
+              {previewTarget.video_download_url && (
+                <Button variant="secondary" onClick={() => handleDownload(previewTarget)} leftIcon={<Download className="h-4 w-4" />}>
+                  Descargar original
+                </Button>
+              )}
+            </div>
+          ) : (
+            <video
+              key={previewTarget.id}
+              src={img(previewTarget.video_url) ?? undefined}
+              poster={img(previewTarget.thumbnail_url) ?? undefined}
+              controls
+              autoPlay
+              playsInline
+              onError={() => setPreviewError(true)}
+              className="mx-auto max-h-[70vh] w-auto rounded-xl bg-black"
+            />
+          )
         )}
       </GenericModal>
 
