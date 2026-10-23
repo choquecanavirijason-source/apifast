@@ -281,7 +281,11 @@ function AperturaCierreTab() {
   };
 
   const handleClose = () => {
-    if (!session) return;
+    if (!session || submitting) return;
+    if (!countedAmount.trim() || !nextFundAmount.trim()) {
+      toast.warning('Para cerrar la caja, completá "Monto contado" y "Fondo para el siguiente turno" en los campos de abajo. Si no dejás fondo, ingresá 0.');
+      return;
+    }
     const counted = parseFloat(countedAmount);
     if (!countedAmount.trim() || Number.isNaN(counted) || counted < 0) {
       toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
@@ -556,7 +560,9 @@ function AperturaCierreTab() {
           <Button
             variant="danger"
             onClick={handleClose}
-            disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
+            disabled={submitting}
+            aria-disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
+            className={!countedAmount.trim() || !nextFundAmount.trim() ? "cursor-not-allowed opacity-60 hover:!bg-rose-600" : ""}
             leftIcon={<DoorOpen className="h-4 w-4" />}
           >
             {submitting ? "Cerrando…" : "Cerrar caja"}
