@@ -484,7 +484,7 @@ async def send_appointment_reminder(
     current_user: User = Depends(require_permission("reminders:send")),
 ):
     """Recordatorio manual a la clienta de la cita (Atención > Próximas citas).
-    Máx. uno cada 10 min por cita (429) y nunca en citas cerradas (409) o ya
+    Sin límite de frecuencia; nunca en citas cerradas (409) o ya
     pasadas (400). Le llega a la app como aviso "recordatorio_manual" en
     /avisos/programados, en vivo por su WebSocket si la tiene abierta y por
     FCM (push) si está configurado, aunque la tenga cerrada."""
