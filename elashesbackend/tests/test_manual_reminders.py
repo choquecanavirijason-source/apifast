@@ -1,7 +1,7 @@
 """
 Recordatorio manual desde Atención > Próximas citas:
   - POST /agenda/appointments/{id}/reminder: permiso reminders:send, sucursal,
-    un envío cada 10 min por cita, nunca en citas cerradas o pasadas;
+    reenvíos sin espera por cita, nunca en citas cerradas o pasadas;
   - entrega: aviso "recordatorio_manual" en /avisos/programados y evento
     "manual_reminder" por el WebSocket de la clienta (mismo aviso_id);
   - GET /clients/citas-proximas devuelve el último envío.
@@ -207,16 +207,15 @@ class TestPermisos:
         assert send(client, login(client, "admin_r"), 99999).status_code == 404
 
 
-class TestLimiteDeFrecuencia:
-    def test_segundo_envio_antes_de_10_min_429(self, client, db, seed, ws_events):
+class TestReenvios:
+    def test_segundo_envio_inmediato_permitido(self, client, db, seed, ws_events):
         appt = add_cita(db, seed)
         h = login(client, "admin_r")
         assert send(client, h, appt.id).status_code == 201
         resp = send(client, h, appt.id, "Otro mensaje")
-        assert resp.status_code == 429
-        assert "10 minutos" in resp.json()["detail"]
-        assert int(resp.headers["Retry-After"]) > 0
-        assert db.query(ManualReminder).count() == 1 and len(ws_events) == 1
+        assert resp.status_code == 201
+        assert resp.json()["id"] != db.query(ManualReminder).order_by(ManualReminder.id).first().id
+        assert db.query(ManualReminder).count() == 2 and len(ws_events) == 2
 
     def test_pasados_10_min_se_puede_reenviar(self, client, db, seed, ws_events):
         appt = add_cita(db, seed)
@@ -227,7 +226,7 @@ class TestLimiteDeFrecuencia:
         db.commit()
         assert send(client, h, appt.id).status_code == 201
 
-    def test_el_limite_es_por_cita(self, client, db, seed, ws_events):
+    def test_envios_en_distintas_citas(self, client, db, seed, ws_events):
         h = login(client, "admin_r")
         primera, segunda = add_cita(db, seed), add_cita(db, seed, in_hours=48)
         assert send(client, h, primera.id).status_code == 201

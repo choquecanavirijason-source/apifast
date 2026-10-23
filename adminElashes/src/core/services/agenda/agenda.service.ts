@@ -186,8 +186,6 @@ export interface AppointmentUpdatePayload {
 }
 
 export const MANUAL_REMINDER_MAX_LENGTH = 200;
-/** Mismo límite que el backend: un recordatorio por cita cada 10 min. */
-export const MANUAL_REMINDER_COOLDOWN_MS = 10 * 60 * 1000;
 
 export interface ManualReminderResult {
   id: number;
@@ -570,7 +568,7 @@ export const AgendaService = {
     return mapToTicket(response.data);
   },
 
-  /** Recordatorio manual a la clienta (llega a su app). 429 si ya se envió hace < 10 min. */
+  /** Recordatorio manual a la clienta (llega a su app). Sin tiempo de espera entre envíos. */
   async sendReminder(appointmentId: number, message: string): Promise<ManualReminderResult> {
     const response = await api.post<ManualReminderResult>(`/agenda/appointments/${appointmentId}/reminder`, {
       message,

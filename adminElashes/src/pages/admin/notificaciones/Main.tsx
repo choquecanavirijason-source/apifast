@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { BellRing, CalendarClock, RefreshCcw } from "lucide-react";
 import { ClientService, type CitaProximaRow, type RetoqueRow } from "@/core/services/client/client.service";
-import { MANUAL_REMINDER_COOLDOWN_MS } from "@/core/services/agenda/agenda.service";
 import ReminderModal from "./ReminderModal";
 import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
@@ -89,7 +88,7 @@ export default function NotificacionesPage() {
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [reminderCita, setReminderCita] = useState<CitaProximaRow | null>(null);
-  // Reloj para "Enviado hace X min" y la espera de 10 min entre envíos.
+  // Reloj para "Enviado hace X min" del último recordatorio.
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -363,16 +362,11 @@ export default function NotificacionesPage() {
             key: "recordatorio",
             header: "Recordatorio",
             render: (row: CitaTableRow) => {
-              const sentAgo = row.ultimo_recordatorio ? now - parseUtc(row.ultimo_recordatorio) : null;
-              const waitMs = sentAgo !== null ? MANUAL_REMINDER_COOLDOWN_MS - sentAgo : 0;
-              const waitMin = Math.ceil(waitMs / 60_000);
               return (
                 <Button
                   variant="outline"
                   size="sm"
                   leftIcon={<BellRing className="h-3.5 w-3.5" />}
-                  disabled={waitMs > 0}
-                  title={waitMs > 0 ? `Podrás reenviarlo en ${waitMin} min` : undefined}
                   onClick={() => setReminderCita(row)}
                 >
                   Enviar recordatorio

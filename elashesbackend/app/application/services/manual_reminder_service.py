@@ -4,7 +4,7 @@ cita desde Atención > Próximas citas. Se guarda en manual_reminders y la app
 lo recibe como aviso "recordatorio_manual" (GET /avisos/programados) y, si
 está conectada, por el WebSocket de la clienta (lo emite el controller).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -21,10 +21,6 @@ from app.core.dependencies import resolve_branch_id
 from app.domain.entities.manual_reminder import ManualReminder
 from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.user import User
-
-# Un envío por cita cada MANUAL_REMINDER_COOLDOWN.
-MANUAL_REMINDER_COOLDOWN = timedelta(minutes=10)
-
 
 def last_reminders_by_appointment(db: Session, appointment_ids: list[int]) -> dict[int, datetime]:
     """Último envío (UTC naive) de cada cita; las que no tienen no aparecen."""
@@ -67,8 +63,7 @@ def send_manual_reminder(
     now_utc = now_utc or datetime.now(timezone.utc)
     now_utc_naive = now_utc.replace(tzinfo=None)
 
-    # Bloquea la fila de la cita hasta el commit: sin esto, dos clics
-    # simultáneos pasarían ambos el límite de frecuencia de abajo.
+    # Mantiene estable la cita mientras se valida y registra el envío.
     appointment = lock_appointment_query(db, appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
@@ -89,19 +84,6 @@ def send_manual_reminder(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La hora de la cita ya pasó; no se puede enviar un recordatorio.",
-        )
-
-    last = last_reminders_by_appointment(db, [appointment.id]).get(appointment.id)
-    if last is not None and now_utc_naive - last < MANUAL_REMINDER_COOLDOWN:
-        wait = MANUAL_REMINDER_COOLDOWN - (now_utc_naive - last)
-        minutes = max(1, -(-int(wait.total_seconds()) // 60))  # redondeo hacia arriba
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                "Ya se envió un recordatorio para esta cita hace menos de 10 minutos. "
-                f"Podrás reenviarlo en {minutes} min."
-            ),
-            headers={"Retry-After": str(int(wait.total_seconds()) + 1)},
         )
 
     reminder = ManualReminder(
