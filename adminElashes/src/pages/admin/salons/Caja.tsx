@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Banknote, DoorOpen, Download, Eye, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 import Layout from "@/components/common/layout";
@@ -837,28 +837,55 @@ function NuevoGastoTab() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [checkingCash, setCheckingCash] = useState(false);
+  const checkingCashRef = useRef(false);
+
   const total = draft.reduce((s, d) => s + d.amount, 0);
 
-  const addDraft = () => {
-    const amt = parseFloat(amount);
-    if (!date || Number.isNaN(amt) || amt <= 0 || !description.trim()) {
-      toast.warning("Completá fecha, monto y descripción.");
+  const addDraft = async () => {
+    if (checkingCashRef.current || saving) return;
+    const branchId = getSelectedBranchId();
+    if (!branchId) {
+      toast.warning('Seleccioná una sucursal específica en la cabecera. No se pueden agregar gastos en "Todas las sucursales".');
       return;
     }
-    setDraft((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random()}`,
-        expense_date: date,
-        amount: amt,
-        description: description.trim(),
-        photoFile,
-        photoName: photoFile?.name ?? null,
-      },
-    ]);
-    setAmount("");
-    setDescription("");
-    setPhotoFile(null);
+    checkingCashRef.current = true;
+    setCheckingCash(true);
+    try {
+      const session = await CashSessionService.getCurrent(branchId);
+      if (getSelectedBranchId() !== branchId) {
+        toast.warning("La sucursal cambió durante la verificación. Volvé a pulsar Agregar.");
+        return;
+      }
+      if (!session || session.status !== "open") {
+        toast.warning("No hay una caja abierta en la sucursal seleccionada. Abrí la caja en Apertura y Cierre antes de agregar gastos.");
+        return;
+      }
+      const amt = parseFloat(amount);
+      if (!date || Number.isNaN(amt) || amt <= 0 || !description.trim()) {
+        toast.warning("Completá fecha, monto y descripción.");
+        return;
+      }
+      setDraft((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          expense_date: date,
+          amount: amt,
+          description: description.trim(),
+          photoFile,
+          photoName: photoFile?.name ?? null,
+        },
+      ]);
+      setAmount("");
+      setDescription("");
+      setPhotoFile(null);
+    } catch {
+      toast.error("No se pudo verificar si la caja está abierta. Intentá nuevamente.");
+    } finally {
+      checkingCashRef.current = false;
+      setCheckingCash(false);
+    }
   };
 
   const removeDraft = (id: string) => {
@@ -1012,8 +1039,8 @@ function NuevoGastoTab() {
       </div>
 
       <div className="mt-4">
-        <Button onClick={addDraft} leftIcon={<Plus className="h-4 w-4" />}>
-          Agregar
+        <Button onClick={() => void addDraft()} disabled={checkingCash || saving} leftIcon={<Plus className="h-4 w-4" />}>
+          {checkingCash ? "Verificando…" : "Agregar"}
         </Button>
       </div>
 
@@ -1049,7 +1076,7 @@ function NuevoGastoTab() {
           >
             Limpiar todo
           </button>
-          <Button onClick={() => void saveAll()} disabled={draft.length === 0 || saving} leftIcon={<Save className="h-4 w-4" />}>
+          <Button onClick={() => void saveAll()} disabled={draft.length === 0 || saving || checkingCash} leftIcon={<Save className="h-4 w-4" />}>
             {saving ? "Guardando…" : "Guardar gastos"}
           </Button>
         </div>
