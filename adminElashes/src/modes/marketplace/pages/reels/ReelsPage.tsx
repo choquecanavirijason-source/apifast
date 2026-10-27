@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import {
   Clapperboard, Plus, Pencil, Trash2, Upload, Eye, EyeOff, Video,
   ArrowUp, ArrowDown, ShoppingBag, X, LayoutList, LayoutGrid, Heart, FileDown, Download,
+  Loader2, AlertTriangle, Play,
 } from "lucide-react";
 
 import Layout from "@/components/common/layout";
@@ -43,6 +44,38 @@ const emptyForm: Form = {
   sort_order: 0,
 };
 
+/** Cada cuánto se refresca la lista mientras algún video se procesa. */
+const PROCESSING_POLL_MS = 10_000;
+
+/** Aviso del procesamiento del video, para la lista y la cuadrícula. */
+function ProcessingBadge({ reel, overlay = false }: { reel: MarketplaceReel; overlay?: boolean }) {
+  if (reel.processing_status === "processing") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          overlay ? "bg-amber-500/90 text-white backdrop-blur-sm" : "bg-amber-100 text-amber-700"
+        }`}
+        title={reel.video_url ? "Se sigue mostrando el video anterior hasta que termine" : "No se ve en la app hasta que termine"}
+      >
+        <Loader2 className="h-3 w-3 animate-spin" /> Procesando video…
+      </span>
+    );
+  }
+  if (reel.processing_status === "failed") {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          overlay ? "bg-rose-600/90 text-white backdrop-blur-sm" : "bg-rose-100 text-rose-700"
+        }`}
+        title={reel.processing_error ?? "No se pudo procesar el video"}
+      >
+        <AlertTriangle className="h-3 w-3" /> Error al procesar: vuelve a subir el video
+      </span>
+    );
+  }
+  return null;
+}
+
 function img(url: string | null | undefined): string | null {
   if (!url) return null;
   return url.startsWith("http") ? url : `${MARKETPLACE_MEDIA_BASE}${url}`;
@@ -75,6 +108,13 @@ export default function ReelsPage() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const [likesTarget, setLikesTarget] = useState<MarketplaceReel | null>(null);
+  // Reel cuyo video se está viendo en el modal, y si el navegador no pudo
+  // reproducirlo (H.265: ver el modal más abajo).
+  const [previewTarget, setPreviewTarget] = useState<MarketplaceReel | null>(null);
+  const [previewError, setPreviewError] = useState(false);
+  // Primero la vista previa H.264; si no existe (reel viejo o en H.264), el
+  // video normal. Recién si ese también falla se muestra el aviso.
+  const [previewUseMain, setPreviewUseMain] = useState(false);
   const [likesEntries, setLikesEntries] = useState<ReelLikeEntry[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
 
@@ -108,6 +148,17 @@ export default function ReelsPage() {
     void load();
     fetchAdminProducts(false).then(setProducts).catch(() => {});
   }, []);
+
+  // Mientras algún video se procesa en el servidor, refresca la lista en
+  // silencio (sin spinner) para mostrar cuándo termina o si falló.
+  const anyProcessing = reels.some((r) => r.processing_status === "processing");
+  useEffect(() => {
+    if (!anyProcessing) return;
+    const timer = window.setInterval(() => {
+      fetchAdminReels().then(setReels).catch(() => {});
+    }, PROCESSING_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [anyProcessing]);
 
   // ── form ─────────────────────────────────────────────────────────────────────
 
@@ -185,6 +236,9 @@ export default function ReelsPage() {
       run: (onProgress) =>
         targetId !== null ? updateReel(targetId, payload, onProgress) : createReel(payload, onProgress),
       onDone: (result) => {
+        if (result.processing_status === "processing") {
+          toast.info("Video subido. Se está procesando: puede tardar unos minutos y aparecerá en la app al terminar.");
+        }
         setReels((prev) =>
           targetId !== null
             ? prev.map((r) => (r.id === targetId ? result : r))
@@ -319,17 +373,34 @@ export default function ReelsPage() {
       ),
       getValue: (r) => (r.is_active ? "activo" : "inactivo"),
     },
+    {
+      key: "processing_status",
+      header: "Video",
+      render: (r) =>
+        r.processing_status === "ready"
+          ? <span className="text-xs text-slate-400">Listo</span>
+          : <ProcessingBadge reel={r} />,
+      getValue: (r) => r.processing_status,
+    },
   ];
 
   // El video que reproduce la app es el HLS (varios archivos chiquitos) —
   // esto abre el .mp4/.mov original de respaldo que el servidor guarda
   // igual, por si hay que recuperar el archivo tal como se subió.
+  const openPreview = (r: MarketplaceReel) => {
+    setPreviewError(false);
+    setPreviewUseMain(!r.video_preview_url || r.video_preview_url === r.video_url);
+    setPreviewTarget(r);
+  };
+
   const handleDownload = (r: MarketplaceReel) => {
     if (!r.video_download_url) {
       toast.warning("Este reel no tiene un archivo original para descargar (es un link externo).");
       return;
     }
-    window.open(`${MARKETPLACE_MEDIA_BASE}${r.video_download_url}`, "_blank");
+    // img(): los reels en AWS ya traen la URL completa de CloudFront; solo
+    // los viejos en /media/ necesitan el prefijo del proxy.
+    window.open(img(r.video_download_url) ?? undefined, "_blank");
   };
 
   const actions: DataTableAction<MarketplaceReel>[] = [
@@ -345,6 +416,7 @@ export default function ReelsPage() {
       onClick: (r) => void handleMove(r, 1),
       show: (r) => sortedReels.findIndex((x) => x.id === r.id) < sortedReels.length - 1,
     },
+    { label: "Ver video", icon: <Play className="h-4 w-4" />, onClick: openPreview, show: (r) => !!r.video_url },
     { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: openEdit },
     { label: "Descargar video original", icon: <Download className="h-4 w-4" />, onClick: handleDownload, show: (r) => !!r.video_download_url },
     { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: (r) => setDeleteTarget(r), variant: "danger" },
@@ -465,6 +537,15 @@ export default function ReelsPage() {
                         <Video className="h-10 w-10 text-white/30" />
                       </div>
                     )}
+                    {r.video_url && (
+                      <button
+                        onClick={() => openPreview(r)}
+                        className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-black/70"
+                        title="Ver video"
+                      >
+                        <Play className="h-6 w-6 translate-x-0.5 fill-current" />
+                      </button>
+                    )}
                     <button
                       onClick={() => void handleToggle(r)}
                       disabled={toggling === r.id}
@@ -486,6 +567,11 @@ export default function ReelsPage() {
                         #{i + 1}
                       </div>
                     </div>
+                    {r.processing_status !== "ready" && (
+                      <div className="absolute inset-x-2 top-10 flex justify-center">
+                        <ProcessingBadge reel={r} overlay />
+                      </div>
+                    )}
                     {r.product && (
                       <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
                         <ShoppingBag className="h-3 w-3 shrink-0" />
@@ -715,6 +801,46 @@ export default function ReelsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </GenericModal>
+
+      {/* ── Modal: ver el video del reel ─────────────────────────────────────── */}
+      <GenericModal
+        isOpen={!!previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        title={previewTarget?.caption || (previewTarget ? `Reel #${previewTarget.id}` : "")}
+        size="sm"
+      >
+        {previewTarget && (
+          previewError ? (
+            // Causas posibles: reel viejo en HLS (.m3u8, Chrome no lo reproduce
+            // directo), reel en H.265 sin vista previa (muchos navegadores de
+            // PC no lo reproducen) o el archivo ya no existe.
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-slate-500">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
+              <p>
+                {previewTarget.video_url.endsWith(".m3u8")
+                  ? "Este reel es del formato anterior (HLS) y el navegador no puede reproducirlo directo. Vuelve a subir el video para verlo aquí."
+                  : "No se pudo reproducir el video en este navegador. Si en la app se ve bien, es un tema del navegador (formato H.265); si tampoco se ve en la app, vuelve a subir el video."}
+              </p>
+              {previewTarget.video_download_url && (
+                <Button variant="secondary" onClick={() => handleDownload(previewTarget)} leftIcon={<Download className="h-4 w-4" />}>
+                  Descargar original
+                </Button>
+              )}
+            </div>
+          ) : (
+            <video
+              key={`${previewTarget.id}-${previewUseMain ? "main" : "preview"}`}
+              src={img(previewUseMain ? previewTarget.video_url : previewTarget.video_preview_url) ?? undefined}
+              poster={img(previewTarget.thumbnail_url) ?? undefined}
+              controls
+              autoPlay
+              playsInline
+              onError={() => (previewUseMain ? setPreviewError(true) : setPreviewUseMain(true))}
+              className="mx-auto max-h-[70vh] w-auto rounded-xl bg-black"
+            />
+          )
         )}
       </GenericModal>
 
