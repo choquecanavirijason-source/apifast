@@ -40,6 +40,12 @@ services:
     restart: always
     volumes:
       - ./elashesbackend:/app
+      # Push FCM: carpeta de secretos FUERA del repo, solo lectura. Por defecto
+      # ../elashes-secrets (al lado del repo); en el servidor se puede cambiar
+      # con ELASHES_SECRETS_DIR. Dentro va fcm-service-account.json (la cuenta
+      # de servicio de Firebase). Si no existe, el push queda desactivado y
+      # todo lo demás funciona igual.
+      - ${ELASHES_SECRETS_DIR:-../elashes-secrets}:/run/secrets/elashes:ro
     ports:
       - "8000:8000"
     # Secretos (INTERNAL_API_KEY, CLIENT_NOTICES_ENABLED...): no se suben a git.
@@ -52,6 +58,8 @@ services:
       # microservicioMarketplace corre en el host (puerto 8001), fuera de este compose.
       # Desde dentro del contenedor "localhost" se refiere al propio contenedor, no al host.
       - MARKETPLACE_BACKEND_URL=http://host.docker.internal:8001
+      # Ruta DENTRO del contenedor (ver el volumen de secretos de arriba).
+      - FCM_CREDENTIALS_FILE=/run/secrets/elashes/fcm-service-account.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

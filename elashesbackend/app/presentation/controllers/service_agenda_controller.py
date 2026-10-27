@@ -39,6 +39,7 @@ from app.presentation.schemas.service_agenda import (
 from app.application.services.client_service import list_clients as list_clients_service
 from app.application.services.commission_payout_service import pay_commissions, void_commission_payment
 from app.application.services.manual_reminder_service import send_manual_reminder
+from app.application.services.push_service import push_manual_reminder
 from app.application.services.service_agenda_service import (
     call_next_appointment,
     create_appointment,
@@ -487,9 +488,10 @@ async def send_appointment_reminder(
     current_user: User = Depends(require_permission("reminders:send")),
 ):
     """Recordatorio manual a la clienta de la cita (Atención > Próximas citas).
-    Máx. uno cada 10 min por cita (429) y nunca en citas cerradas (409) o ya
+    Sin límite de frecuencia; nunca en citas cerradas (409) o ya
     pasadas (400). Le llega a la app como aviso "recordatorio_manual" en
-    /avisos/programados y, si la tiene abierta, en vivo por su WebSocket."""
+    /avisos/programados, en vivo por su WebSocket si la tiene abierta y por
+    FCM (push) si está configurado, aunque la tenga cerrada."""
     reminder, aviso = await run_in_threadpool(
         send_manual_reminder,
         db=db,
@@ -497,8 +499,7 @@ async def send_appointment_reminder(
         message=payload.message,
         user=current_user,
     )
-    await client_ws_manager.broadcast(reminder.client_id, {"event": "manual_reminder", **aviso})
-    return ManualReminderResponse(
+    response = ManualReminderResponse(
         id=reminder.id,
         appointment_id=reminder.appointment_id,
         client_id=reminder.client_id,
@@ -506,6 +507,11 @@ async def send_appointment_reminder(
         sent_by=reminder.sent_by,
         created_at=reminder.created_at.replace(tzinfo=timezone.utc),
     )
+    await client_ws_manager.broadcast(reminder.client_id, {"event": "manual_reminder", **aviso})
+    # Ya guardado y fuera de la transacción: el push es de mejor esfuerzo
+    # (no lanza) y tiene su propio tope de tiempo; no cambia la respuesta.
+    await run_in_threadpool(push_manual_reminder, db, reminder, aviso)
+    return response
 
 
 @router.post("/appointments/commission-payments", response_model=CommissionPayResponse)

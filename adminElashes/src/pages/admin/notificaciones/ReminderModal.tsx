@@ -107,7 +107,6 @@ export default function ReminderModal({ cita, fecha, hora, onClose, onSent }: Re
         </label>
         <p className="text-xs text-slate-500">
           Le llega como notificación a la app de la clienta (si tiene la app instalada y la sesión iniciada).
-          Se puede enviar un recordatorio por cita cada 10 minutos.
         </p>
       </div>
     </GenericModal>

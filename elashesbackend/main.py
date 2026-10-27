@@ -81,6 +81,7 @@ import app.infrastructure.database.migrations.add_client_devices_table as m48
 import app.infrastructure.database.migrations.add_notificaciones_activas_to_clients as m49
 import app.infrastructure.database.migrations.add_scheduled_at_to_appointments as m50
 import app.infrastructure.database.migrations.add_manual_reminders as m51
+import app.infrastructure.database.migrations.add_fcm_token_to_client_devices as m52
 import app.infrastructure.database.migrations.add_commission_paid_to_appointments as m53
 
 from app.presentation.controllers import (
@@ -163,6 +164,7 @@ async def lifespan(app: FastAPI):
         ("notificaciones_activas_to_clients", m49.upgrade),
         ("appointments_scheduled_at", m50.upgrade),
         ("manual_reminders", m51.upgrade),
+        ("client_devices_fcm_token", m52.upgrade),
         ("appointments_commission_paid", m53.upgrade),
     ]
 

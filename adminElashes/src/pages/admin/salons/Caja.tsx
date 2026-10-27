@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Banknote, DoorOpen, Download, Eye, History, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 import Layout from "@/components/common/layout";
@@ -14,6 +14,8 @@ import {
 } from "@/core/services/cash-session/cash-session.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import useAuth from "@/core/hooks/useAuth";
+import { expenseDraftKey, readExpenseDraft, writeExpenseDraft, readExpensePhoto, restoreExpensePhoto, type DraftExpense } from "@/core/services/expense/expense-draft.storage";
 import variables from "@/core/config/variables";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -281,7 +283,11 @@ function AperturaCierreTab() {
   };
 
   const handleClose = () => {
-    if (!session) return;
+    if (!session || submitting) return;
+    if (!countedAmount.trim() || !nextFundAmount.trim()) {
+      toast.warning('Para cerrar la caja, completá "Monto contado" y "Fondo para el siguiente turno" en los campos de abajo. Si no dejás fondo, ingresá 0.');
+      return;
+    }
     const counted = parseFloat(countedAmount);
     if (!countedAmount.trim() || Number.isNaN(counted) || counted < 0) {
       toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
@@ -556,7 +562,9 @@ function AperturaCierreTab() {
           <Button
             variant="danger"
             onClick={handleClose}
-            disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
+            disabled={submitting}
+            aria-disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
+            className={!countedAmount.trim() || !nextFundAmount.trim() ? "cursor-not-allowed opacity-60 hover:!bg-rose-600" : ""}
             leftIcon={<DoorOpen className="h-4 w-4" />}
           >
             {submitting ? "Cerrando…" : "Cerrar caja"}
@@ -818,58 +826,132 @@ function AperturaCierreTab() {
 
 // ─── Pestaña: Nuevo Gasto ─────────────────────────────────────────────────────
 
-interface DraftExpense {
-  id: string;
-  expense_date: string;
-  amount: number;
-  description: string;
-  photoFile: File | null;
-  photoName: string | null;
-}
-
 const today = () => new Date().toISOString().slice(0, 10);
 
 function NuevoGastoTab() {
-  const [draft, setDraft] = useState<DraftExpense[]>([]);
+  const { user } = useAuth();
+  const [branchId, setBranchId] = useState(() => getSelectedBranchId());
+  useEffect(() => {
+    const onBranchChange = () => setBranchId(getSelectedBranchId());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === BRANCH_STORAGE_KEY) onBranchChange();
+    };
+    window.addEventListener("branchchange", onBranchChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("branchchange", onBranchChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+  if (!user?.id) return null;
+  const storageKey = expenseDraftKey(user.id, branchId);
+  return <NuevoGastoDraft key={storageKey} storageKey={storageKey} draftBranchId={branchId} />;
+}
+
+function NuevoGastoDraft({ storageKey, draftBranchId }: { storageKey: string; draftBranchId: number | null }) {
+  const [draft, setDraftState] = useState<DraftExpense[]>([]);
+  const draftRef = useRef<DraftExpense[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => {
+    try {
+      const rows = readExpenseDraft(storageKey);
+      draftRef.current = rows;
+      setDraftState(rows);
+      setDraftReady(true);
+    } catch {
+      toast.error("No se pudo recuperar el borrador local de gastos. No se sobrescribieron sus datos.");
+    }
+  }, [storageKey]);
+  // Persistir antes de actualizar la pantalla: una cuota agotada no debe perder el formulario.
+  const setDraft = (next: DraftExpense[] | ((previous: DraftExpense[]) => DraftExpense[])) => {
+    const rows = typeof next === "function" ? next(draftRef.current) : next;
+    writeExpenseDraft(storageKey, rows);
+    draftRef.current = rows;
+    setDraftState(rows);
+  };
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [checkingCash, setCheckingCash] = useState(false);
+  const checkingCashRef = useRef(false);
+
   const total = draft.reduce((s, d) => s + d.amount, 0);
 
-  const addDraft = () => {
-    const amt = parseFloat(amount);
-    if (!date || Number.isNaN(amt) || amt <= 0 || !description.trim()) {
-      toast.warning("Completá fecha, monto y descripción.");
+  const addDraft = async () => {
+    if (checkingCashRef.current || saving || !draftReady) return;
+    const branchId = getSelectedBranchId();
+    if (!branchId) {
+      toast.warning('Seleccioná una sucursal específica en la cabecera. No se pueden agregar gastos en "Todas las sucursales".');
       return;
     }
-    setDraft((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random()}`,
-        expense_date: date,
-        amount: amt,
-        description: description.trim(),
-        photoFile,
-        photoName: photoFile?.name ?? null,
-      },
-    ]);
-    setAmount("");
-    setDescription("");
-    setPhotoFile(null);
+    checkingCashRef.current = true;
+    setCheckingCash(true);
+    try {
+      const session = await CashSessionService.getCurrent(branchId);
+      if (getSelectedBranchId() !== branchId) {
+        toast.warning("La sucursal cambió durante la verificación. Volvé a pulsar Agregar.");
+        return;
+      }
+      if (!session || session.status !== "open") {
+        toast.warning("No hay una caja abierta en la sucursal seleccionada. Abrí la caja en Apertura y Cierre antes de agregar gastos.");
+        return;
+      }
+      const amt = parseFloat(amount);
+      if (!date || Number.isNaN(amt) || amt <= 0 || !description.trim()) {
+        toast.warning("Completá fecha, monto y descripción.");
+        return;
+      }
+      const photoDataUrl = photoFile ? await readExpensePhoto(photoFile) : null;
+      if (getSelectedBranchId() !== branchId) return;
+      try {
+        setDraft((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            expense_date: date,
+            amount: amt,
+            description: description.trim(),
+            photoDataUrl,
+            photoName: photoFile?.name ?? null,
+          },
+        ]);
+      } catch {
+        toast.error("No se pudo guardar el borrador en este navegador. Puede faltar espacio; probá con una foto más pequeña o sin foto.");
+        return;
+      }
+      setAmount("");
+      setDescription("");
+      setPhotoFile(null);
+    } catch {
+      toast.error("No se pudo verificar si la caja está abierta. Intentá nuevamente.");
+    } finally {
+      checkingCashRef.current = false;
+      setCheckingCash(false);
+    }
   };
 
   const removeDraft = (id: string) => {
-    setDraft((prev) => prev.filter((d) => d.id !== id));
+    if (saving || checkingCash) return;
+    try { setDraft((prev) => prev.filter((d) => d.id !== id)); }
+    catch { toast.error("No se pudo actualizar el borrador local."); }
   };
 
-  const clearAll = () => setDraft([]);
+  const clearAll = () => {
+    if (saving || checkingCash) return;
+    try { setDraft([]); }
+    catch { toast.error("No se pudo limpiar el borrador local."); }
+  };
 
   const saveAll = async () => {
-    if (draft.length === 0) return;
+    if (draft.length === 0 || saving || checkingCash || !draftReady) return;
     const branchId = getSelectedBranchId();
+    if (branchId !== draftBranchId) {
+      toast.warning("La sucursal cambió. Revisá su borrador antes de guardar.");
+      return;
+    }
     if (!branchId) {
       toast.warning("Elegí una sucursal en el selector de arriba antes de guardar.");
       return;
@@ -883,8 +965,9 @@ function NuevoGastoTab() {
     for (const item of draft) {
       try {
         let photo_url: string | null = null;
-        if (item.photoFile) {
-          photo_url = await ExpenseService.uploadPhoto(item.photoFile);
+        const photo = restoreExpensePhoto(item);
+        if (photo) {
+          photo_url = await ExpenseService.uploadPhoto(photo);
         }
         await ExpenseService.create({
           branch_id: branchId,
@@ -894,11 +977,18 @@ function NuevoGastoTab() {
           photo_url,
         });
         savedCount++;
+        // Retirar cada éxito inmediatamente, incluso si se navega mientras sigue el lote.
+        const remaining = draftRef.current.filter((row) => row.id !== item.id);
+        try { setDraft(remaining); }
+        catch {
+          draftRef.current = remaining;
+          setDraftState(remaining);
+          toast.error("El gasto se guardó en la BD, pero no se pudo actualizar el borrador local. Revisá el historial antes de reintentar.");
+        }
       } catch {
         failed.push(item);
       }
     }
-    setDraft(failed);
     setSaving(false);
 
     if (savedCount > 0) {
@@ -973,6 +1063,9 @@ function NuevoGastoTab() {
 
   return (
     <SectionCard title="Registro de gastos">
+      <p className="mb-3 text-xs text-[var(--ui-text-muted)]">
+        Borrador guardado en este navegador por usuario y sucursal. Pulsá Guardar gastos para registrarlo en la base de datos.
+      </p>
       <div className="grid gap-3 sm:grid-cols-4">
         <div>
           <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Fecha</label>
@@ -1012,8 +1105,8 @@ function NuevoGastoTab() {
       </div>
 
       <div className="mt-4">
-        <Button onClick={addDraft} leftIcon={<Plus className="h-4 w-4" />}>
-          Agregar
+        <Button onClick={() => void addDraft()} disabled={checkingCash || saving || !draftReady} leftIcon={<Plus className="h-4 w-4" />}>
+          {checkingCash ? "Verificando…" : "Agregar"}
         </Button>
       </div>
 
@@ -1044,12 +1137,12 @@ function NuevoGastoTab() {
           <button
             type="button"
             onClick={clearAll}
-            disabled={draft.length === 0 || saving}
+            disabled={draft.length === 0 || saving || checkingCash}
             className="rounded-xl border border-[var(--ui-border-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Limpiar todo
           </button>
-          <Button onClick={() => void saveAll()} disabled={draft.length === 0 || saving} leftIcon={<Save className="h-4 w-4" />}>
+          <Button onClick={() => void saveAll()} disabled={draft.length === 0 || saving || checkingCash} leftIcon={<Save className="h-4 w-4" />}>
             {saving ? "Guardando…" : "Guardar gastos"}
           </Button>
         </div>

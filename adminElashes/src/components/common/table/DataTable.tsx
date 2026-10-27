@@ -19,6 +19,7 @@ type SortDirection = "asc" | "desc";
 export interface DataTableColumn<T> {
   key: string;
   header: string;
+  renderHeader?: () => ReactNode;
   render: (item: T) => ReactNode;
   sortable?: boolean;
   searchable?: boolean;
@@ -317,7 +318,7 @@ function DataTable<T extends { id: number | string }>({
                     className={`${headerCell} min-w-0`}
                   >
                     <div className="flex items-start justify-between gap-1">
-                      {showColFilter ? (
+                      {col.renderHeader ? col.renderHeader() : showColFilter ? (
                         <button
                           type="button"
                           className={`min-w-0 flex-1 rounded-md px-0.5 py-0.5 text-left leading-snug transition-colors hover:bg-[var(--ui-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-secondary ${

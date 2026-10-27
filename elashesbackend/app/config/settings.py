@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # Secreto server-to-server: backend_marketplace lo envía en X-Internal-Key al
     # registrar un dispositivo tras el login de la clienta. Vacío = registro deshabilitado.
     internal_api_key: Optional[str] = None
+    # Firebase Cloud Messaging: ruta al JSON de la cuenta de servicio, montado
+    # fuera del repo (ver docker-compose.yml). Vacío o inválido = sin push; el
+    # resto (WebSocket, /avisos/programados) funciona igual.
+    fcm_credentials_file: Optional[str] = None
 
     @model_validator(mode="after")
     def resolve_database_url(self):

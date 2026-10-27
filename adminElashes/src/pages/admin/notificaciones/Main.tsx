@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { BellRing, CalendarClock, RefreshCcw } from "lucide-react";
 import { ClientService, type CitaProximaRow, type RetoqueRow } from "@/core/services/client/client.service";
-import { MANUAL_REMINDER_COOLDOWN_MS } from "@/core/services/agenda/agenda.service";
-import ReminderModal from "./ReminderModal";
+import ReminderModal, { buildReminderTemplate } from "./ReminderModal";
+import { AgendaService } from "@/core/services/agenda/agenda.service";
 import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
@@ -89,7 +89,17 @@ export default function NotificacionesPage() {
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [reminderCita, setReminderCita] = useState<CitaProximaRow | null>(null);
-  // Reloj para "Enviado hace X min" y la espera de 10 min entre envíos.
+  const [selectedCitas, setSelectedCitas] = useState<Set<number>>(new Set());
+  const [isSendingBatch, setIsSendingBatch] = useState(false);
+  const sendingBatch = useRef(false);
+  useEffect(() => {
+    setSelectedCitas(new Set());
+  }, [dias, branchId, tab]);
+  useEffect(() => {
+    const ids = new Set(citas.map((row) => row.appointment_id));
+    setSelectedCitas((current) => new Set([...current].filter((id) => ids.has(id))));
+  }, [citas]);
+  // Reloj para "Enviado hace X min" del último recordatorio.
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -194,6 +204,40 @@ export default function NotificacionesPage() {
     );
     setNow(Date.now());
     setReminderCita(null);
+  };
+
+  const selectedRows = citas.filter((row) => selectedCitas.has(row.appointment_id));
+  const allSelected = citas.length > 0 && selectedRows.length === citas.length;
+
+  const handleSendSelected = async () => {
+    if (sendingBatch.current || isLoading || !canSendReminder || !selectedRows.length) return;
+    sendingBatch.current = true;
+    setIsSendingBatch(true);
+    const targets = [...selectedRows];
+    let sent = 0;
+    const failures: string[] = [];
+    try {
+      for (const cita of targets) {
+        try {
+          const message = buildReminderTemplate(cita, formatDay(cita.fecha_hora), cita.fecha_hora.slice(11, 16));
+          const result = await AgendaService.sendReminder(cita.appointment_id, message);
+          handleReminderSent(result.appointment_id, result.created_at);
+          setSelectedCitas((current) => {
+            const next = new Set(current);
+            next.delete(cita.appointment_id);
+            return next;
+          });
+          sent++;
+        } catch (err) {
+          failures.push(`${cita.clienta}: ${getApiErrorMessage(err, "No se pudo enviar el recordatorio.")}`);
+        }
+      }
+      if (sent) toast.success(`Recordatorios enviados: ${sent} de ${targets.length}.`);
+      if (failures.length) toast.error(`${failures.length} envío(s) fallaron y siguen seleccionados. ${failures[0]}`);
+    } finally {
+      sendingBatch.current = false;
+      setIsSendingBatch(false);
+    }
   };
 
   const columns: DataTableColumn<RetoqueTableRow>[] = [
@@ -360,19 +404,54 @@ export default function NotificacionesPage() {
     ...(canSendReminder
       ? [
           {
+            key: "seleccion",
+            header: "Seleccionar",
+            searchable: false,
+            filterable: false,
+            renderHeader: () => (
+              <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium">
+                <input
+                  type="checkbox"
+                  aria-label="Marcar todas las citas del rango y sucursal seleccionados"
+                  title="Selecciona todas las citas cargadas, incluidas las de otras páginas"
+                  checked={allSelected}
+                  ref={(input) => { if (input) input.indeterminate = selectedRows.length > 0 && !allSelected; }}
+                  disabled={isLoading || isSendingBatch || !citas.length}
+                  onChange={(event) => setSelectedCitas(event.target.checked ? new Set(citas.map((row) => row.appointment_id)) : new Set())}
+                  className="h-4 w-4 accent-brand"
+                />
+                Todos
+              </label>
+            ),
+            render: (row: CitaTableRow) => (
+              <input
+                type="checkbox"
+                aria-label={`Seleccionar cita de ${row.clienta} del ${formatAppointment(row.fecha_hora)}`}
+                checked={selectedCitas.has(row.appointment_id)}
+                disabled={isLoading || isSendingBatch}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setSelectedCitas((current) => {
+                    const next = new Set(current);
+                    if (checked) next.add(row.appointment_id);
+                    else next.delete(row.appointment_id);
+                    return next;
+                  });
+                }}
+                className="h-4 w-4 accent-brand"
+              />
+            ),
+          } satisfies DataTableColumn<CitaTableRow>,
+          {
             key: "recordatorio",
             header: "Recordatorio",
             render: (row: CitaTableRow) => {
-              const sentAgo = row.ultimo_recordatorio ? now - parseUtc(row.ultimo_recordatorio) : null;
-              const waitMs = sentAgo !== null ? MANUAL_REMINDER_COOLDOWN_MS - sentAgo : 0;
-              const waitMin = Math.ceil(waitMs / 60_000);
               return (
                 <Button
                   variant="outline"
                   size="sm"
                   leftIcon={<BellRing className="h-3.5 w-3.5" />}
-                  disabled={waitMs > 0}
-                  title={waitMs > 0 ? `Podrás reenviarlo en ${waitMin} min` : undefined}
+                  disabled={isSendingBatch}
                   onClick={() => setReminderCita(row)}
                 >
                   Enviar recordatorio
@@ -408,6 +487,7 @@ export default function NotificacionesPage() {
                 onChange={(event) => setBranchId(event.target.value ? Number(event.target.value) : null)}
                 className={fieldClass}
                 aria-label="Sucursal"
+                disabled={isSendingBatch}
               >
                 <option value="">Todas las sucursales</option>
                 {branches.map((branch) => (
@@ -422,6 +502,7 @@ export default function NotificacionesPage() {
               onChange={(event) => setDias(Number(event.target.value))}
               className={fieldClass}
               aria-label="Rango de días"
+              disabled={isSendingBatch}
             >
               {RANGOS.map((rango) => (
                 <option key={rango} value={rango}>
@@ -429,7 +510,18 @@ export default function NotificacionesPage() {
                 </option>
               ))}
             </select>
-            <Button variant="secondary" size="sm" onClick={() => void load()}>
+            {tab === "citas" && canSendReminder && (
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<BellRing className="h-3.5 w-3.5" />}
+                disabled={isLoading || isSendingBatch || !selectedRows.length}
+                onClick={() => void handleSendSelected()}
+              >
+                {isSendingBatch ? "Enviando..." : `Enviar a seleccionados (${selectedRows.length})`}
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" disabled={isLoading || isSendingBatch} onClick={() => void load()}>
               Actualizar
             </Button>
           </div>
