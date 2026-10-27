@@ -15,6 +15,7 @@ from app.application.services.appointment_notice_service import (
     RECORDATORIO_MANUAL_TITULO,
     appointment_service_names,
 )
+from app.application.services.reminder_sender_service import resolve_sender
 from app.domain.entities.manual_reminder import (
     EMAIL_FAILED,
     EMAIL_NO_ADDRESS,
@@ -134,7 +135,8 @@ def send_reminder_email(
     if status_value is None:
         try:
             subject, html, text = build_reminder_email(appointment, reminder.message)
-            sent = send_email(client_email(appointment), subject, html, text, from_email=email_from)
+            sender = resolve_sender(db, email_from)
+            sent = send_email(client_email(appointment), subject, html, text, from_email=sender)
         except Exception as exc:
             logger.warning("Correo: falló el recordatorio %s: %s", reminder.id, type(exc).__name__)
             sent = False

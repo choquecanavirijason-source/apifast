@@ -8,6 +8,7 @@ from app.domain.entities.client import Client
 from app.domain.entities.client_device import ClientDevice, FcmNoticeDelivery
 from app.domain.entities.manual_reminder import ManualReminder
 from app.domain.entities.operator_bonus import OperatorBonus
+from app.domain.entities.reminder_email_sender import ReminderEmailSender
 from app.domain.entities.tracking import EyeType, Effect, Volume, LashDesign, Questionnaire, Question, Tracking
 from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment, BranchService, AppointmentService
 from app.domain.entities.payment import Payment

@@ -85,6 +85,7 @@ import app.infrastructure.database.migrations.add_fcm_token_to_client_devices as
 import app.infrastructure.database.migrations.add_commission_paid_to_appointments as m53
 import app.infrastructure.database.migrations.add_operator_bonuses_table as m54
 import app.infrastructure.database.migrations.add_channels_to_manual_reminders as m55
+import app.infrastructure.database.migrations.add_reminder_email_senders_table as m56
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -174,6 +175,7 @@ async def lifespan(app: FastAPI):
         ("appointments_commission_paid", m53.upgrade),
         ("operator_bonuses_table", m54.upgrade),
         ("manual_reminders_channels", m55.upgrade),
+        ("reminder_email_senders_table", m56.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

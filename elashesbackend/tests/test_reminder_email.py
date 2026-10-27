@@ -169,14 +169,14 @@ class TestRemitente:
         resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from=ALIAS.upper())
         assert resp.status_code == 201, resp.text
         [mail] = outbox
-        # EmailStr baja el dominio a minúsculas; resolve_sender ignora mayúsculas.
-        assert smtp_client.resolve_sender(mail["from"]) == ALIAS
+        # Se envía con la dirección tal como está autorizada.
+        assert mail["from"] == ALIAS
 
     def test_remitente_no_autorizado_400(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
         appt = add_cita(db, seed)
         resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from="otro@gmail.com")
         assert resp.status_code == 400
-        assert "no está autorizado" in resp.json()["detail"]
+        assert "remitentes autorizados" in resp.json()["detail"]
         assert db.query(ManualReminder).count() == 0
         assert outbox == [] and ws_events == []
 
@@ -190,7 +190,54 @@ class TestRemitente:
         appt = add_cita(db, seed)
         resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from="  ")
         assert resp.status_code == 201, resp.text
-        assert outbox[0]["from"] is None
+        assert outbox[0]["from"] == "elashes.notificaciones@gmail.com"
+
+
+class TestRemitentesDesdeElPanel:
+    def test_admin_agrega_y_queda_disponible(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
+        h = login(client, "admin_r")
+        resp = client.post("/agenda/reminders/email-senders", json={"email": "Nuevo@Elashes.com"}, headers=h)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert "nuevo@elashes.com" in body["allowed"]
+        assert [r["email"] for r in body["registered"]] == ["nuevo@elashes.com"]
+        assert body["can_manage"] is True
+        # Persistente: sigue en la lista y se puede usar para enviar.
+        assert "nuevo@elashes.com" in client.get("/agenda/reminders/email-sender", headers=h).json()["allowed"]
+        appt = add_cita(db, seed)
+        assert send(client, h, appt.id, send_email=True, email_from="nuevo@elashes.com").status_code == 201
+        assert outbox[0]["from"] == "nuevo@elashes.com"
+
+    def test_duplicado_409_incluido_el_del_env(self, client, db, seed, remitentes):
+        h = login(client, "admin_r")
+        url = "/agenda/reminders/email-senders"
+        assert client.post(url, json={"email": ALIAS.upper()}, headers=h).status_code == 409
+        assert client.post(url, json={"email": "x@elashes.com"}, headers=h).status_code == 201
+        assert client.post(url, json={"email": "X@elashes.com"}, headers=h).status_code == 409
+
+    def test_quitar(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
+        h = login(client, "admin_r")
+        added = client.post("/agenda/reminders/email-senders", json={"email": "x@elashes.com"}, headers=h).json()
+        sender_id = added["registered"][0]["id"]
+        resp = client.delete(f"/agenda/reminders/email-senders/{sender_id}", headers=h)
+        assert resp.status_code == 200, resp.text
+        assert "x@elashes.com" not in resp.json()["allowed"]
+        appt = add_cita(db, seed)
+        assert send(client, h, appt.id, send_email=True, email_from="x@elashes.com").status_code == 400
+        assert client.delete(f"/agenda/reminders/email-senders/{sender_id}", headers=h).status_code == 404
+
+    def test_solo_admin_gestiona(self, client, db, seed, remitentes):
+        h = login(client, "operaria_r")  # puede enviar recordatorios, no es admin
+        assert client.get("/agenda/reminders/email-sender", headers=h).json()["can_manage"] is False
+        resp = client.post("/agenda/reminders/email-senders", json={"email": "x@elashes.com"}, headers=h)
+        assert resp.status_code == 403
+        assert client.delete("/agenda/reminders/email-senders/1", headers=h).status_code == 403
+
+    def test_correo_invalido_422(self, client, db, seed):
+        resp = client.post(
+            "/agenda/reminders/email-senders", json={"email": "no-es-correo"}, headers=login(client, "admin_r")
+        )
+        assert resp.status_code == 422
 
 
 class TestProximasCitas:
@@ -289,9 +336,10 @@ class TestSmtpClient:
         [server] = FakeSMTP.instances
         assert ALIAS in server.sent[0]["From"]
 
-    def test_from_no_autorizado_no_envia(self, gmail):
-        assert smtp_client.send_email(ANA_EMAIL, "s", "<p>h</p>", "t", from_email="otro@gmail.com") is False
-        assert FakeSMTP.instances == []
+    def test_sin_from_usa_el_por_defecto(self, gmail):
+        assert smtp_client.send_email(ANA_EMAIL, "s", "<p>h</p>", "t") is True
+        [server] = FakeSMTP.instances
+        assert "salon@gmail.com" in server.sent[0]["From"]
 
     def test_error_smtp_devuelve_false_sin_exponer_datos(self, gmail, monkeypatch, caplog):
         def boom(self, message):

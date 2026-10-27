@@ -214,8 +214,12 @@ export interface ReminderEmailSender {
   /** Remitente por defecto. */
   from_email: string | null;
   from_name: string | null;
-  /** Remitentes que se pueden elegir (SMTP_ALLOWED_FROM, el por defecto incluido). */
+  /** Remitentes que se pueden elegir (.env + agregados en el panel, el por defecto primero). */
   allowed: string[];
+  /** Los agregados desde el panel; son los únicos que se pueden quitar. */
+  registered: { id: number; email: string }[];
+  /** Si el usuario puede agregar o quitar remitentes (Admin / SuperAdmin). */
+  can_manage: boolean;
 }
 
 export interface TicketClientInfo {
@@ -656,6 +660,17 @@ export const AgendaService = {
 
   async getReminderEmailSender(): Promise<ReminderEmailSender> {
     const response = await api.get<ReminderEmailSender>("/agenda/reminders/email-sender");
+    return response.data;
+  },
+
+  /** Agrega un remitente (queda guardado en la BD). Devuelve la lista actualizada. */
+  async addReminderEmailSender(email: string): Promise<ReminderEmailSender> {
+    const response = await api.post<ReminderEmailSender>("/agenda/reminders/email-senders", { email });
+    return response.data;
+  },
+
+  async deleteReminderEmailSender(id: number): Promise<ReminderEmailSender> {
+    const response = await api.delete<ReminderEmailSender>(`/agenda/reminders/email-senders/${id}`);
     return response.data;
   },
 

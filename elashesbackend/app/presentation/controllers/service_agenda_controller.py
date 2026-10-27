@@ -16,7 +16,13 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.audit import describe_changes, record_audit
-from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, require_permission
+from app.core.dependencies import (
+    enforce_own_branch,
+    get_db,
+    require_any_permission,
+    require_any_role,
+    require_permission,
+)
 from app.core.ws_manager import client_ws_manager, ws_manager
 from app.domain.entities.user import User
 from app.domain.entities.service_agenda import Appointment
@@ -31,6 +37,7 @@ from app.presentation.schemas.service_agenda import (
     CommissionVoidRequest,
     ManualReminderCreate,
     ManualReminderResponse,
+    ReminderEmailSenderCreate,
     ReminderEmailSenderResponse,
     ServiceCreate,
     ServiceImageUploadResponse,
@@ -43,7 +50,13 @@ from app.application.services.manual_reminder_service import send_manual_reminde
 from app.application.services.push_service import push_manual_reminder
 from app.application.services.reminder_email_service import send_reminder_email
 from app.config.settings import settings
-from app.infrastructure.email.smtp_client import allowed_senders, is_email_configured, sender_address
+from app.application.services.reminder_sender_service import (
+    add_sender,
+    allowed_senders,
+    delete_sender,
+    registered_senders,
+)
+from app.infrastructure.email.smtp_client import is_email_configured, sender_address
 from app.application.services.service_agenda_service import (
     call_next_appointment,
     create_appointment,
@@ -533,19 +546,57 @@ async def send_appointment_reminder(
     return response
 
 
-@router.get("/reminders/email-sender", response_model=ReminderEmailSenderResponse)
-def get_reminder_email_sender(
-    current_user: User = Depends(require_permission("reminders:send")),
-):
-    """Remitente de los correos de recordatorio y los que se pueden elegir
-    (SMTP_ALLOWED_FROM), para el modal "Enviar recordatorio".
-    configured=False si falta la configuración SMTP."""
+SENDER_ADMIN_ROLES = ("SuperAdmin", "Admin")
+
+
+def _email_sender_response(db: Session, user: User) -> ReminderEmailSenderResponse:
     return ReminderEmailSenderResponse(
         configured=is_email_configured(),
         from_email=sender_address(),
         from_name=settings.smtp_from_name,
-        allowed=allowed_senders(),
+        allowed=allowed_senders(db),
+        registered=registered_senders(db),
+        can_manage=bool(user.role and user.role.name in SENDER_ADMIN_ROLES),
     )
+
+
+@router.get("/reminders/email-sender", response_model=ReminderEmailSenderResponse)
+def get_reminder_email_sender(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("reminders:send")),
+):
+    """Remitente de los correos de recordatorio y los que se pueden elegir
+    (SMTP_ALLOWED_FROM del .env + los agregados desde el panel), para la barra
+    y el modal "Enviar recordatorio". configured=False si falta SMTP."""
+    return _email_sender_response(db, current_user)
+
+
+@router.post(
+    "/reminders/email-senders",
+    response_model=ReminderEmailSenderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_reminder_email_sender(
+    payload: ReminderEmailSenderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role(*SENDER_ADMIN_ROLES)),
+):
+    """Agrega un remitente (persistente, sin reiniciar). 409 si ya existe.
+    Con Gmail debe estar verificado como "Enviar correo como" en la cuenta
+    SMTP o Gmail lo reemplaza por esa cuenta. Devuelve la lista actualizada."""
+    add_sender(db, payload.email, current_user)
+    return _email_sender_response(db, current_user)
+
+
+@router.delete("/reminders/email-senders/{sender_id}", response_model=ReminderEmailSenderResponse)
+def delete_reminder_email_sender(
+    sender_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_any_role(*SENDER_ADMIN_ROLES)),
+):
+    """Quita un remitente agregado desde el panel. Devuelve la lista actualizada."""
+    delete_sender(db, sender_id, current_user)
+    return _email_sender_response(db, current_user)
 
 
 @router.post("/appointments/commission-payments", response_model=CommissionPayResponse)

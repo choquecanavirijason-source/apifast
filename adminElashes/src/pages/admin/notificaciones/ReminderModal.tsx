@@ -13,6 +13,7 @@ import {
 } from "@/core/services/agenda/agenda.service";
 import type { CitaProximaRow } from "@/core/services/client/client.service";
 import { getApiErrorMessage } from "@/core/utils/apiError";
+import { EmailSenderSelect, effectiveSender } from "./EmailSenderControls";
 
 interface ReminderModalProps {
   cita: CitaProximaRow | null;
@@ -23,9 +24,11 @@ interface ReminderModalProps {
   defaultChannels: ReminderChannels;
   /** Remitente del servidor (null mientras carga o si falló). */
   emailSender: ReminderEmailSender | null;
-  /** Remitente con el que abre; al enviar se avisa el elegido para reusarlo. */
-  defaultEmailFrom: string;
+  /** Remitente elegido; compartido con la barra (cambiarlo aquí la actualiza). */
+  emailFrom: string;
   onEmailFromChange: (value: string) => void;
+  /** Abre el modal "Agregar correo remitente". */
+  onAddSender: () => void;
   onClose: () => void;
   onSent: (result: ManualReminderResult) => void;
 }
@@ -42,12 +45,6 @@ export function emailStatusWarning(status: ReminderEmailStatus | null): string |
     default:
       return null;
   }
-}
-
-/** El remitente elegido tal como está autorizado, o null si no está en la lista. */
-export function matchAllowedSender(sender: ReminderEmailSender | null, value: string): string | null {
-  const wanted = value.trim().toLowerCase();
-  return sender?.allowed.find((address) => address.toLowerCase() === wanted) ?? null;
 }
 
 interface ReminderChannelPickerProps {
@@ -125,26 +122,23 @@ export default function ReminderModal({
   hora,
   defaultChannels,
   emailSender,
-  defaultEmailFrom,
+  emailFrom,
   onEmailFromChange,
+  onAddSender,
   onClose,
   onSent,
 }: ReminderModalProps) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [channels, setChannels] = useState<ReminderChannels>(defaultChannels);
-  const [emailFrom, setEmailFrom] = useState(defaultEmailFrom);
 
   useEffect(() => {
     if (cita) setMessage(buildReminderTemplate(cita, fecha, hora));
   }, [cita, fecha, hora]);
 
-  // Al abrir para otra cita, vuelve a los canales y al remitente de la barra.
+  // Al abrir para otra cita, vuelve a los canales de la barra.
   useEffect(() => {
-    if (cita) {
-      setChannels(defaultChannels);
-      setEmailFrom(defaultEmailFrom);
-    }
+    if (cita) setChannels(defaultChannels);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cita]);
 
@@ -153,24 +147,16 @@ export default function ReminderModal({
   const trimmed = message.trim();
   // Solo correo y sin correo registrado: no hay a dónde enviarlo.
   const emailOnlyWithoutAddress = channels.email && !channels.push && !cita.tiene_email;
-  // El backend rechaza remitentes fuera de SMTP_ALLOWED_FROM; se avisa antes.
-  const senderAllowed = matchAllowedSender(emailSender, emailFrom);
-  const senderInvalid = channels.email && !!emailSender?.configured && !senderAllowed;
   const canSend =
-    trimmed.length > 0 &&
-    message.length <= MANUAL_REMINDER_MAX_LENGTH &&
-    !isSending &&
-    !emailOnlyWithoutAddress &&
-    !senderInvalid;
+    trimmed.length > 0 && message.length <= MANUAL_REMINDER_MAX_LENGTH && !isSending && !emailOnlyWithoutAddress;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSend) return;
     setIsSending(true);
     try {
-      const from = channels.email ? senderAllowed : null;
+      const from = channels.email ? effectiveSender(emailSender, emailFrom) : null;
       const result = await AgendaService.sendReminder(cita.appointment_id, trimmed, channels, from);
-      if (from) onEmailFromChange(from);
       const warning = emailStatusWarning(result.email_status);
       if (warning && result.send_push) {
         toast.warning(`Recordatorio enviado a ${cita.clienta} por push, pero no por correo: ${warning}.`);
@@ -238,40 +224,16 @@ export default function ReminderModal({
         </div>
         {channels.email ? (
           emailSender?.configured ? (
-            <label className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <span className="text-xs font-medium text-slate-600">
-                Enviando desde: <span className="font-semibold text-slate-800">{senderAllowed ?? emailFrom}</span>
-              </span>
-              <input
-                type="email"
+            <label className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <span className="text-xs font-medium text-slate-600">Enviando desde:</span>
+              <EmailSenderSelect
+                sender={emailSender}
                 value={emailFrom}
-                onChange={(event) => setEmailFrom(event.target.value)}
-                list="reminder-email-senders"
+                onChange={onEmailFromChange}
+                onAddRequest={onAddSender}
                 disabled={isSending}
-                aria-label="Correo emisor"
-                aria-invalid={senderInvalid}
-                className={`h-9 w-full rounded-lg border bg-white px-3 text-sm text-slate-700 outline-none transition focus:ring-2 ${
-                  senderInvalid
-                    ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                    : "border-slate-200 focus:border-slate-400 focus:ring-slate-100"
-                }`}
+                className="flex-1"
               />
-              <datalist id="reminder-email-senders">
-                {emailSender.allowed.map((address) => (
-                  <option key={address} value={address} />
-                ))}
-              </datalist>
-              {senderInvalid ? (
-                <span className="text-xs font-medium text-rose-600">
-                  Este correo no está autorizado en el servidor. Puedes usar: {emailSender.allowed.join(", ")}.
-                </span>
-              ) : (
-                <span className="text-xs text-slate-500">
-                  {emailSender.allowed.length > 1
-                    ? "Puedes cambiarlo por otra cuenta autorizada."
-                    : "Para enviar desde otra cuenta, agrégala en SMTP_ALLOWED_FROM del servidor."}
-                </span>
-              )}
             </label>
           ) : (
             <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-700">

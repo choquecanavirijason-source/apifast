@@ -39,9 +39,10 @@ def sender_address() -> Optional[str]:
     return (settings.smtp_from_email or settings.smtp_username or "").strip() or None
 
 
-def allowed_senders() -> list[str]:
-    """Remitentes que se pueden elegir: el por defecto primero y luego los de
-    smtp_allowed_from, sin repetir (comparando sin mayúsculas)."""
+def env_senders() -> list[str]:
+    """Remitentes del .env: el por defecto primero y luego los de
+    smtp_allowed_from, sin repetir (comparando sin mayúsculas). Los agregados
+    desde el panel se suman en reminder_sender_service."""
     candidates = [sender_address() or ""] + (settings.smtp_allowed_from or "").split(",")
     result: list[str] = []
     for address in (c.strip() for c in candidates):
@@ -50,29 +51,17 @@ def allowed_senders() -> list[str]:
     return result
 
 
-def resolve_sender(from_email: Optional[str]) -> Optional[str]:
-    """La dirección autorizada que corresponde a from_email (vacío = la por
-    defecto), o None si no está en allowed_senders()."""
-    wanted = (from_email or "").strip().lower()
-    if not wanted:
-        return sender_address()
-    return next((a for a in allowed_senders() if a.lower() == wanted), None)
-
-
 def is_email_configured() -> bool:
     return bool((settings.smtp_host or "").strip() and sender_address())
 
 
 def send_email(to: str, subject: str, html: str, text: str, from_email: Optional[str] = None) -> bool:
     """Envía un correo HTML con alternativa en texto plano. Nunca lanza:
-    devuelve True si el servidor lo aceptó. from_email debe ser uno de
-    allowed_senders(); si no, no se envía."""
+    devuelve True si el servidor lo aceptó. from_email ya debe venir validado
+    (ver reminder_sender_service); vacío = sender_address()."""
     if not is_email_configured():
         return False
-    sender = resolve_sender(from_email)
-    if not sender:
-        logger.warning("Correo: remitente no autorizado %s.", mask_email(from_email))
-        return False
+    sender = (from_email or "").strip() or sender_address()
 
     message = EmailMessage()
     message["Subject"] = subject

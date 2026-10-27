@@ -7,8 +7,8 @@ import ReminderModal, {
   ReminderChannelPicker,
   buildReminderTemplate,
   emailStatusWarning,
-  matchAllowedSender,
 } from "./ReminderModal";
+import { AddEmailSenderModal, EmailSenderSelect, effectiveSender } from "./EmailSenderControls";
 import { AgendaService, type ReminderChannels, type ReminderEmailSender } from "@/core/services/agenda/agenda.service";
 import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
@@ -103,6 +103,7 @@ export default function NotificacionesPage() {
   // se reusa en los siguientes envíos (también en "Enviar a seleccionados").
   const [emailSender, setEmailSender] = useState<ReminderEmailSender | null>(null);
   const [emailFrom, setEmailFrom] = useState("");
+  const [addSenderOpen, setAddSenderOpen] = useState(false);
   useEffect(() => {
     if (tab !== "citas" || !canSendReminder || emailSender) return;
     AgendaService.getReminderEmailSender()
@@ -235,7 +236,7 @@ export default function NotificacionesPage() {
     setIsSendingBatch(true);
     const targets = [...selectedRows];
     const batchChannels = channels;
-    const batchFrom = batchChannels.email ? matchAllowedSender(emailSender, emailFrom) : null;
+    const batchFrom = batchChannels.email ? effectiveSender(emailSender, emailFrom) : null;
     let sent = 0;
     const failures: string[] = [];
     // Con push y correo: el push salió pero el correo no (sin email, SMTP...).
@@ -559,31 +560,20 @@ export default function NotificacionesPage() {
               <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSendingBatch} />
             )}
             {tab === "citas" && canSendReminder && channels.email && emailSender?.configured && (
-              // Solo ofrece remitentes autorizados (SMTP_ALLOWED_FROM): la misma
-              // regla que valida el modal y el backend.
               <label
                 className="inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 pl-2.5 pr-1"
-                title={
-                  emailSender.allowed.length > 1
-                    ? "Correo emisor de los recordatorios"
-                    : "Para enviar desde otra cuenta, agrégala en SMTP_ALLOWED_FROM del servidor"
-                }
+                title="Correo emisor de los recordatorios"
               >
                 <Mail className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                 <span className="whitespace-nowrap text-xs font-semibold text-slate-600">Desde:</span>
-                <select
-                  value={matchAllowedSender(emailSender, emailFrom) ?? emailSender.from_email ?? ""}
-                  onChange={(event) => setEmailFrom(event.target.value)}
-                  disabled={isSendingBatch || emailSender.allowed.length < 2}
-                  aria-label="Correo emisor"
-                  className="h-7 min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:opacity-100"
-                >
-                  {emailSender.allowed.map((address) => (
-                    <option key={address} value={address}>
-                      {address}
-                    </option>
-                  ))}
-                </select>
+                <EmailSenderSelect
+                  sender={emailSender}
+                  value={emailFrom}
+                  onChange={setEmailFrom}
+                  onAddRequest={() => setAddSenderOpen(true)}
+                  disabled={isSendingBatch}
+                  className="!h-7 !text-xs"
+                />
               </label>
             )}
             {tab === "citas" && canSendReminder && (
@@ -656,10 +646,25 @@ export default function NotificacionesPage() {
         hora={reminderCita ? reminderCita.fecha_hora.slice(11, 16) : ""}
         defaultChannels={channels}
         emailSender={emailSender}
-        defaultEmailFrom={emailFrom}
+        emailFrom={emailFrom}
         onEmailFromChange={setEmailFrom}
+        onAddSender={() => setAddSenderOpen(true)}
         onClose={() => setReminderCita(null)}
         onSent={(result) => handleReminderSent(result.appointment_id, result.created_at)}
+      />
+
+      {/* Después del modal de envío para quedar encima de él. */}
+      <AddEmailSenderModal
+        isOpen={addSenderOpen}
+        sender={emailSender}
+        onClose={() => setAddSenderOpen(false)}
+        onSaved={(updated, addedEmail) => {
+          setEmailSender(updated);
+          if (addedEmail) {
+            setEmailFrom(addedEmail);
+            setAddSenderOpen(false);
+          }
+        }}
       />
     </div>
   );

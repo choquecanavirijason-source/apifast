@@ -257,14 +257,30 @@ class ManualReminderCreate(BaseModel):
         return value
 
 
+class ReminderEmailSenderItem(BaseModel):
+    """Remitente agregado desde el panel."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+
+
 class ReminderEmailSenderResponse(BaseModel):
     """Remitente de los correos de recordatorio (se muestra en el modal)."""
     configured: bool
     # Remitente por defecto.
     from_email: Optional[str] = None
     from_name: Optional[str] = None
-    # Remitentes que se pueden elegir (el por defecto incluido).
+    # Remitentes que se pueden elegir (.env + panel, el por defecto primero).
     allowed: List[str] = []
+    # Los agregados desde el panel (se pueden quitar); los del .env no.
+    registered: List[ReminderEmailSenderItem] = []
+    # Si el usuario puede agregar o quitar remitentes (Admin / SuperAdmin).
+    can_manage: bool = False
+
+
+class ReminderEmailSenderCreate(BaseModel):
+    email: EmailStr
 
 
 class ManualReminderResponse(BaseModel):
