@@ -559,12 +559,32 @@ export default function NotificacionesPage() {
               <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSendingBatch} />
             )}
             {tab === "citas" && canSendReminder && channels.email && emailSender?.configured && (
-              <span
-                className="max-w-56 truncate text-xs text-slate-500"
-                title="Correo emisor; se cambia en el modal de envío"
+              // Solo ofrece remitentes autorizados (SMTP_ALLOWED_FROM): la misma
+              // regla que valida el modal y el backend.
+              <label
+                className="inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 pl-2.5 pr-1"
+                title={
+                  emailSender.allowed.length > 1
+                    ? "Correo emisor de los recordatorios"
+                    : "Para enviar desde otra cuenta, agrégala en SMTP_ALLOWED_FROM del servidor"
+                }
               >
-                Desde: <span className="font-medium text-slate-700">{matchAllowedSender(emailSender, emailFrom) ?? emailSender.from_email}</span>
-              </span>
+                <Mail className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                <span className="whitespace-nowrap text-xs font-semibold text-slate-600">Desde:</span>
+                <select
+                  value={matchAllowedSender(emailSender, emailFrom) ?? emailSender.from_email ?? ""}
+                  onChange={(event) => setEmailFrom(event.target.value)}
+                  disabled={isSendingBatch || emailSender.allowed.length < 2}
+                  aria-label="Correo emisor"
+                  className="h-7 min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:opacity-100"
+                >
+                  {emailSender.allowed.map((address) => (
+                    <option key={address} value={address}>
+                      {address}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
             {tab === "citas" && canSendReminder && (
               <Button
