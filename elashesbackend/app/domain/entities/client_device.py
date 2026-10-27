@@ -44,3 +44,19 @@ class ClientDevice(Base):
     fcm_token_updated_at = Column(DateTime, nullable=True)
 
     client = relationship("Client", back_populates="devices")
+
+
+class FcmNoticeDelivery(Base):
+    """Avisos programados ya aceptados por FCM, para no reenviarlos en cada sondeo."""
+
+    __tablename__ = "fcm_notice_deliveries"
+
+    device_id = Column(
+        Integer,
+        ForeignKey("client_devices.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    notice_key = Column(String(128), primary_key=True)
+    sent_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP")
+    )

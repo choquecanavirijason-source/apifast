@@ -23,8 +23,50 @@ export interface ExpenseCreate {
 export interface CashSummary {
   cash_in_register: { ventas_efectivo: number; gastos_efectivo: number; saldo: number };
   income_by_method: { efectivo: number; tarjeta: number; transferencia: number; qr: number; total: number };
-  expenses: { gastos: number; total: number };
+  /** total = gastos + comisiones_pagadas + extras. */
+  expenses: { gastos: number; comisiones_pagadas: number; extras: number; total: number };
+  /** saldo = total_ingresos - total_egresos. */
+  balance: { total_ingresos: number; total_egresos: number; saldo: number };
 }
+
+export interface OperatorBonusOut {
+  id: number;
+  professional_id: number;
+  professional_name: string;
+  branch_id: number | null;
+  branch_name: string | null;
+  amount: number;
+  /** YYYY-MM-DD */
+  bonus_date: string;
+  reason: string;
+  created_at: string;
+  created_by_name: string | null;
+}
+
+export interface OperatorBonusCreate {
+  professional_id: number;
+  amount: number;
+  bonus_date: string;
+  reason: string;
+  branch_id?: number;
+}
+
+/** Pagos extra / bonos a operarias (Corte de Caja). Cuentan como egreso. */
+export const OperatorBonusService = {
+  async list(params?: { branch_id?: number; from_date?: string; to_date?: string }): Promise<OperatorBonusOut[]> {
+    const res = await api.get<OperatorBonusOut[]>("/operator-bonuses", { params });
+    return res.data;
+  },
+
+  async create(body: OperatorBonusCreate): Promise<OperatorBonusOut> {
+    const res = await api.post<OperatorBonusOut>("/operator-bonuses", body);
+    return res.data;
+  },
+
+  async remove(id: number): Promise<void> {
+    await api.delete(`/operator-bonuses/${id}`);
+  },
+};
 
 export const ExpenseService = {
   async list(params?: { branch_id?: number; from_date?: string; to_date?: string }): Promise<ExpenseOut[]> {

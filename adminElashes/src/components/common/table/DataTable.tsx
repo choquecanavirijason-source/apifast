@@ -20,6 +20,8 @@ export interface DataTableColumn<T> {
   key: string;
   header: string;
   renderHeader?: () => ReactNode;
+  /** Control extra en la cabecera, junto al título (p. ej. "marcar todos"). */
+  headerExtra?: ReactNode;
   render: (item: T) => ReactNode;
   sortable?: boolean;
   searchable?: boolean;
@@ -345,6 +347,9 @@ function DataTable<T extends { id: number | string }>({
                           {col.header}
                         </span>
                       )}
+                      {col.headerExtra ? (
+                        <span className="flex shrink-0 items-center self-center">{col.headerExtra}</span>
+                      ) : null}
                       {col.sortable ? (
                         <button
                           type="button"

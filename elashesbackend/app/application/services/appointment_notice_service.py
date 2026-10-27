@@ -2,8 +2,8 @@
 Avisos programados para la app de la clienta: de citas ("manana" / "hoy") y
 de seguimiento ("mantenimiento" / "retiro", recordar agendar el retoque).
 
-El backend decide qué avisar y cuándo; el teléfono los programa como
-notificaciones locales. Ver docs/Recordatorios_de_citas_sin_Firebase.pdf.
+El backend decide qué avisar y cuándo. La app programa notificaciones locales
+al sincronizar y el servidor puede entregarlas por FCM si está configurado.
 
 Todas las reglas se calculan en hora de Bolivia (America/La_Paz). Convenciones
 de fechas de la BD:

@@ -4,7 +4,9 @@ cliente de FCM simulado (nunca se llama a Google):
   - PUT/DELETE /dispositivos/actual/fcm-token (autenticados con device_token);
   - push_manual_reminder: envío correcto, token inválido que se borra, FCM
     caído que no rompe el recordatorio, sin credenciales, sin token;
-  - FcmClient/classify_fcm_error: formato del mensaje y respuestas de FCM.
+  - FcmClient/classify_fcm_error: formato del mensaje y respuestas de FCM;
+  - send_due_fcm_notices: avisos programados enviados una vez por
+    dispositivo, sin repetir los recordatorios manuales.
 
 Ejecutar:
   cd elashesbackend
@@ -14,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -25,7 +27,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from main import app as main_app
-from app.application.services import push_service
+from app.application.services import fcm_notice_service, push_service
 from app.application.services.appointment_notice_service import LA_PAZ
 from app.application.services.device_service import register_device, revoke_device
 from app.config.settings import settings
@@ -33,7 +35,7 @@ from app.core.dependencies import get_db
 from app.core.ws_manager import client_ws_manager
 from app.domain.entities.branch import Branch
 from app.domain.entities.client import Client
-from app.domain.entities.client_device import ClientDevice
+from app.domain.entities.client_device import ClientDevice, FcmNoticeDelivery
 from app.domain.entities.manual_reminder import ManualReminder
 from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.user import Permission, Role, User
@@ -422,3 +424,84 @@ class TestFcmClient:
     )
     def test_clasificacion_de_errores(self, status, body, expected):
         assert classify_fcm_error(status, body) is expected
+
+
+# ── Avisos programados (job cada minuto) ─────────────────────────────────────
+
+NOW_UTC = datetime(2026, 10, 14, 12, 0, tzinfo=timezone.utc)  # 08:00 en La Paz
+
+AVISO_HOY = {
+    "aviso_id": 123, "tipo": "hoy", "cita_id": 55, "seguimiento_id": None,
+    "mostrar_en": "2026-10-14T08:00:00-04:00", "expira_en": "2026-10-14T09:30:00-04:00",
+    "titulo": "Hoy te toca tu cita", "cuerpo": "Extensiones de pestañas",
+}
+# Aún no toca mostrarlo (09:00 > 08:00).
+AVISO_FUTURO = {
+    "aviso_id": 124, "tipo": "manana", "cita_id": 56, "seguimiento_id": None,
+    "mostrar_en": "2026-10-14T09:00:00-04:00", "expira_en": "2026-10-14T23:59:00-04:00",
+    "titulo": "Mañana te toca tu cita", "cuerpo": "Retoque",
+}
+# Ya lo envía push_service al crearlo: el job no debe repetirlo.
+AVISO_MANUAL = {
+    "aviso_id": 125, "tipo": "recordatorio_manual", "cita_id": 55, "seguimiento_id": None,
+    "mostrar_en": "2026-10-14T07:00:00-04:00", "expira_en": "2026-10-14T09:30:00-04:00",
+    "titulo": "Recordatorio", "cuerpo": "Te esperamos",
+}
+
+
+@pytest.fixture
+def notices_job(monkeypatch):
+    """notices_job(fake) prepara el job con ese cliente FCM y avisos fijos."""
+    def _use(fake, avisos=(AVISO_HOY, AVISO_FUTURO, AVISO_MANUAL)):
+        monkeypatch.setattr(fcm_notice_service, "client_notices_active", lambda: True)
+        monkeypatch.setattr(fcm_notice_service, "get_fcm_client", lambda: fake)
+        monkeypatch.setattr(
+            fcm_notice_service, "get_scheduled_notices", lambda *_a: {"avisos": list(avisos)}
+        )
+        return fake
+    return _use
+
+
+class TestAvisosProgramados:
+    def test_envia_una_vez_por_dispositivo(self, db, seed, notices_job):
+        fake = notices_job(FakeFcm())
+        add_device(db, seed["ana"], "install-0001", fcm_token=TOKEN_A)
+        add_device(db, seed["ana"], "install-0002", fcm_token=TOKEN_B)
+        add_device(db, seed["ana"], "install-0003")  # sin token FCM
+        add_device(db, seed["ana"], "install-0004", fcm_token="revocado", revoked=True)
+
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 2
+        assert sorted(token for token, _ in fake.calls) == sorted([TOKEN_A, TOKEN_B])
+        assert fake.calls[0][1] == {
+            "type": "scheduled_notice", "aviso_id": "123", "tipo": "hoy", "cita_id": "55",
+            "titulo": "Hoy te toca tu cita", "cuerpo": "Extensiones de pestañas",
+            "mostrar_en": AVISO_HOY["mostrar_en"], "expira_en": AVISO_HOY["expira_en"],
+        }
+        assert db.query(FcmNoticeDelivery).count() == 2
+
+        # El siguiente sondeo no reenvía.
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 0
+        assert len(fake.calls) == 2
+
+    def test_error_transitorio_se_reintenta(self, db, seed, notices_job):
+        fake = notices_job(FakeFcm({TOKEN_A: FcmResult.ERROR}))
+        add_device(db, seed["ana"], "install-0001", fcm_token=TOKEN_A)
+
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 0
+        assert db.query(FcmNoticeDelivery).count() == 0
+        fake.results = {}
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 1
+
+    def test_token_invalido_se_borra(self, db, seed, notices_job):
+        notices_job(FakeFcm({TOKEN_A: FcmResult.INVALID_TOKEN}))
+        device = add_device(db, seed["ana"], "install-0001", fcm_token=TOKEN_A)
+
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 0
+        db.refresh(device)
+        assert device.fcm_token is None
+        assert db.query(FcmNoticeDelivery).count() == 0
+
+    def test_sin_credenciales_no_hace_nada(self, db, seed, notices_job):
+        notices_job(None)
+        add_device(db, seed["ana"], "install-0001", fcm_token=TOKEN_A)
+        assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 0

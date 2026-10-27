@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +13,7 @@ from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
+from app.application.services.commission_payout_service import paid_commissions_summary
 from app.application.services.service_agenda_service.appointments import update_appointment
 from app.presentation.schemas.reports import (
     DEFAULT_COMMISSION_RATE,
@@ -278,17 +279,33 @@ def get_low_stock(
     ]
 
 
-@router.get("/cash-summary")
-def get_cash_summary(
+@router.get("/paid-commissions")
+def get_paid_commissions(
     branch_id: Optional[int] = Query(default=None, ge=1),
-    start_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
-    end_date: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
+    start_date: Optional[date] = Query(default=None, description="YYYY-MM-DD"),
+    end_date: Optional[date] = Query(default=None, description="YYYY-MM-DD"),
     db: Session = Depends(get_db),
     _: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
-    """Corte de Caja: ingresos por método de pago vs. gastos, en un rango de
-    fechas y sucursal — ver Salones → Corte de Caja."""
+    """Comisiones de tickets marcados como "Pagado" (Historial de tickets)
+    cuya fecha de pago cae en el rango (días de La Paz), con el detalle por
+    operaria."""
+    return paid_commissions_summary(db, branch_id, start_date, end_date)
+
+
+@router.get("/cash-summary")
+def get_cash_summary(
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    start_date: Optional[date] = Query(default=None, description="YYYY-MM-DD"),
+    end_date: Optional[date] = Query(default=None, description="YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+):
+    """Corte de Caja: ingresos por método de pago vs. egresos (gastos +
+    comisiones pagadas + pagos extra a operarias), en un rango de fechas y
+    sucursal — ver Salones → Corte de Caja."""
     from app.domain.entities.expense import Expense
+    from app.domain.entities.operator_bonus import OperatorBonus
 
     payments_q = db.query(Payment).filter(Payment.status == "paid")
     if branch_id:
@@ -311,8 +328,21 @@ def get_cash_summary(
         expenses_q = expenses_q.filter(Expense.expense_date <= end_date)
 
     total_expenses = sum(e.amount for e in expenses_q.all())
+
+    bonuses_q = db.query(func.coalesce(func.sum(OperatorBonus.amount), 0.0))
+    if branch_id:
+        bonuses_q = bonuses_q.filter(OperatorBonus.branch_id == branch_id)
+    if start_date:
+        bonuses_q = bonuses_q.filter(OperatorBonus.bonus_date >= start_date)
+    if end_date:
+        bonuses_q = bonuses_q.filter(OperatorBonus.bonus_date <= end_date)
+    total_extras = round(float(bonuses_q.scalar() or 0.0), 2)
+
+    total_commissions = paid_commissions_summary(db, branch_id, start_date, end_date)["total"]
+
     cash_income = by_method.get("cash", 0.0)
     total_income = sum(by_method.values())
+    total_egresos = round(total_expenses + total_commissions + total_extras, 2)
 
     return {
         "cash_in_register": {
@@ -329,6 +359,14 @@ def get_cash_summary(
         },
         "expenses": {
             "gastos": total_expenses,
-            "total": total_expenses,
+            "comisiones_pagadas": total_commissions,
+            "extras": total_extras,
+            "total": total_egresos,
+        },
+        # Saldo final: todo lo que entró menos todo lo que salió.
+        "balance": {
+            "total_ingresos": total_income,
+            "total_egresos": total_egresos,
+            "saldo": round(total_income - total_egresos, 2),
         },
     }

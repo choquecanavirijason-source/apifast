@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { Banknote, BadgeCheck, CheckCircle2, Download, List, X } from "lucide-react";
@@ -102,6 +102,49 @@ function payBlockReason(t: TicketItem, canPay: boolean): string | null {
   if (!t.professional_id) return "El ticket no tiene operaria asignada.";
   if (getTicketCommission(t) <= 0) return "Este ticket no tiene comisión.";
   return null;
+}
+
+/** Checkbox de "marcar todos" con estado indeterminado (React no tiene la
+ *  prop `indeterminate`: se fija en el elemento con un ref). */
+function SelectAllCheckbox({
+  checked,
+  indeterminate,
+  disabled,
+  title,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  disabled: boolean;
+  title: string;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  // El texto va dentro de la misma <label>: un clic en "Seleccionar todos"
+  // también cambia la casilla, y el tooltip cubre todo el conjunto.
+  return (
+    <label
+      className={`flex items-center gap-1.5 select-none whitespace-nowrap rounded-md px-1 py-0.5 text-[11px] font-medium leading-none transition-colors ${
+        disabled
+          ? "cursor-not-allowed text-[var(--ui-text-muted)] opacity-60"
+          : "cursor-pointer text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]"
+      }`}
+      title={title}
+    >
+      <input
+        ref={ref}
+        type="checkbox"
+        className="h-3.5 w-3.5 shrink-0 cursor-[inherit] accent-[var(--ui-accent)]"
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+      />
+      <span>Seleccionar todos</span>
+    </label>
+  );
 }
 
 /** El lote es todo o nada: el servidor devuelve qué tickets lo impidieron. */
@@ -346,6 +389,22 @@ export default function ProfessionalServiceHistory() {
     [filteredTickets, selectedIds],
   );
 
+  // Pendientes de pago y pagables de la lista filtrada (todas las páginas):
+  // lo único que el "marcar todos" de la cabecera puede seleccionar.
+  const eligibleIds = useMemo(
+    () => filteredTickets.filter((t) => !t.pagado && payBlockReason(t, canPay) === null).map((t) => t.id),
+    [filteredTickets, canPay],
+  );
+  const selectedEligibleCount = useMemo(
+    () => eligibleIds.filter((id) => selectedIds.has(id)).length,
+    [eligibleIds, selectedIds],
+  );
+  const allEligibleSelected = eligibleIds.length > 0 && selectedEligibleCount === eligibleIds.length;
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(allEligibleSelected ? new Set() : new Set(eligibleIds));
+  }, [allEligibleSelected, eligibleIds]);
+
   const selectedSummary = useMemo(() => {
     const byPro = new Map<string, { count: number; total: number }>();
     selectedTickets.forEach((t) => {
@@ -571,6 +630,23 @@ export default function ProfessionalServiceHistory() {
     {
       key: "pago",
       header: "Pago",
+      headerExtra: (
+        <SelectAllCheckbox
+          checked={allEligibleSelected}
+          indeterminate={selectedEligibleCount > 0 && !allEligibleSelected}
+          disabled={eligibleIds.length === 0}
+          title={
+            !canPay
+              ? "No tienes permiso para confirmar pagos de comisiones."
+              : eligibleIds.length === 0
+                ? "No hay tickets pendientes de pago en la lista."
+                : allEligibleSelected
+                  ? "Desmarcar todos"
+                  : `Seleccionar todas las comisiones pendientes de pago (${eligibleIds.length})`
+          }
+          onChange={toggleSelectAll}
+        />
+      ),
       getValue: (t) => (t.pagado ? "Pagado" : ""),
       render: (t) => {
         if (t.pagado) {
@@ -618,7 +694,10 @@ export default function ProfessionalServiceHistory() {
         );
       },
     },
-  ], [trackingByAppointment, selectedIds, canPay, canVoid, toggleSelected]);
+  ], [
+    trackingByAppointment, selectedIds, canPay, canVoid, toggleSelected,
+    allEligibleSelected, selectedEligibleCount, eligibleIds, toggleSelectAll,
+  ]);
 
   // Rango de fechas en texto, para el subtítulo del PDF — igual en las dos
   // pestañas ya que ambas comparten los mismos filtros de arriba.

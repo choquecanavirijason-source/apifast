@@ -83,6 +83,7 @@ import app.infrastructure.database.migrations.add_scheduled_at_to_appointments a
 import app.infrastructure.database.migrations.add_manual_reminders as m51
 import app.infrastructure.database.migrations.add_fcm_token_to_client_devices as m52
 import app.infrastructure.database.migrations.add_commission_paid_to_appointments as m53
+import app.infrastructure.database.migrations.add_operator_bonuses_table as m54
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -94,6 +95,7 @@ from app.presentation.controllers.notifications_controller import router as noti
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
 from app.presentation.controllers.expense_controller import router as expenses_router
+from app.presentation.controllers.operator_bonus_controller import router as operator_bonuses_router
 from app.presentation.controllers.cash_session_controller import router as cash_sessions_router
 from app.presentation.controllers.audit_log_controller import router as audit_logs_router
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
@@ -102,9 +104,12 @@ from app.presentation.controllers.marketplace_booking_controller import router a
 from app.core.ws_manager import REELS_CHANNEL, client_ws_manager, reels_ws_manager, ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
 from app.application.services.appointment_notice_service import LA_PAZ, client_notices_active
+from app.application.services.fcm_notice_service import send_due_fcm_notices
+from app.infrastructure.push.fcm_client import get_fcm_client
 from app.application.services.reminder_service import run_daily_reminder_check
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -166,6 +171,7 @@ async def lifespan(app: FastAPI):
         ("manual_reminders", m51.upgrade),
         ("client_devices_fcm_token", m52.upgrade),
         ("appointments_commission_paid", m53.upgrade),
+        ("operator_bonuses_table", m54.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -201,6 +207,27 @@ async def lifespan(app: FastAPI):
     # serían las 05:00 en La Paz.
     scheduler = AsyncIOScheduler(timezone=LA_PAZ)
     scheduler.add_job(_reminder_job, CronTrigger(hour=9, minute=0))
+    # Push de avisos programados: solo con FCM_CREDENTIALS_FILE válida (si no,
+    # get_fcm_client() avisa en el log y devuelve None).
+    if client_notices_active() and get_fcm_client() is not None:
+
+        def _fcm_notice_job():
+            db = SessionLocal()
+            try:
+                send_due_fcm_notices(db)
+            except Exception as e:
+                print(f"Error al enviar avisos FCM: {e}")
+                traceback.print_exc()
+            finally:
+                db.close()
+
+        scheduler.add_job(
+            _fcm_notice_job,
+            IntervalTrigger(seconds=60),
+            id="fcm_scheduled_notices",
+            max_instances=1,
+            coalesce=True,
+        )
     scheduler.start()
 
     yield
@@ -283,6 +310,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_router)
     app.include_router(commission_payments_router)
     app.include_router(expenses_router)
+    app.include_router(operator_bonuses_router)
     app.include_router(cash_sessions_router)
     app.include_router(audit_logs_router)
     app.include_router(marketplace_router)

@@ -11,12 +11,14 @@ La auditoría se escribe en la MISMA transacción (AuditLog directo): record_aud
 hace su propio commit y rompería el "todo o nada".
 """
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.application.services.appointment_notice_service import LA_PAZ
 from app.core.dependencies import resolve_branch_id
 from app.domain.entities.audit_log import AuditLog
 from app.domain.entities.commission_payment import CommissionPayment
@@ -224,6 +226,56 @@ def void_commission_payment(
     db.commit()
     db.refresh(appt)
     return appt
+
+
+def _la_paz_day_start_utc(day: date) -> datetime:
+    """Medianoche de La Paz de ese día, en UTC naive (como pagado_en)."""
+    return datetime.combine(day, time(0, 0), tzinfo=LA_PAZ).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def paid_commissions_summary(
+    db: Session,
+    branch_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> dict:
+    """Comisiones de tickets marcados como pagados, por fecha de PAGO (cuando
+    sale la plata de caja), en días de La Paz, ambos extremos incluidos. Por
+    sucursal del ticket. Usa pagado_monto: lo que se pagó, no la comisión
+    recalculada hoy."""
+    q = (
+        db.query(
+            Appointment.professional_id,
+            User.username,
+            func.count(Appointment.id),
+            func.coalesce(func.sum(Appointment.pagado_monto), 0.0),
+        )
+        .outerjoin(User, User.id == Appointment.professional_id)
+        .filter(Appointment.pagado.is_(True))
+    )
+    if branch_id:
+        q = q.filter(Appointment.branch_id == branch_id)
+    if start_date:
+        q = q.filter(Appointment.pagado_en >= _la_paz_day_start_utc(start_date))
+    if end_date:
+        q = q.filter(Appointment.pagado_en < _la_paz_day_start_utc(end_date + timedelta(days=1)))
+    rows = q.group_by(Appointment.professional_id, User.username).all()
+
+    by_professional = [
+        {
+            "professional_id": professional_id,
+            "professional_name": username or (f"#{professional_id}" if professional_id else "—"),
+            "tickets": count,
+            "total": round(float(total), 2),
+        }
+        for professional_id, username, count, total in rows
+    ]
+    by_professional.sort(key=lambda r: r["total"], reverse=True)
+    return {
+        "total": round(sum(r["total"] for r in by_professional), 2),
+        "tickets": sum(r["tickets"] for r in by_professional),
+        "by_professional": by_professional,
+    }
 
 
 def unmark_tickets_of_payment(db: Session, payment_id: int) -> int:

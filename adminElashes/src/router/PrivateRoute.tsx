@@ -70,6 +70,7 @@ const PrivateRoute = () => {
     "/settings": ["settings:view"] as IPermission[],
     "/admin/salons": ["branches:manage"] as IPermission[],
     "/admin/salons/corte-caja": ["payments:view", "payments:manage"] as IPermission[],
+    "/admin/salons/extras-bonos": ["payments:view", "payments:manage"] as IPermission[],
     "/admin/salons/caja": ["payments:view", "payments:manage"] as IPermission[],
     "/admin/products": ["inventory:view", "inventory:manage"] as IPermission[],
     "/admin/ai": ["ai:view", "ai:manage"] as IPermission[],
