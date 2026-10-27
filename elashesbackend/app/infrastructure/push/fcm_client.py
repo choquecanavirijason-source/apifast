@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import threading
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -37,6 +38,17 @@ _SEND_URL = "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
 # Tiempo máximo por llamada (token OAuth o envío). El recordatorio ya está
 # guardado cuando se llega aquí: mejor perder un push que colgar la respuesta.
 DEFAULT_TIMEOUT_SECONDS = 4.0
+
+
+@dataclass(frozen=True)
+class FcmNotification:
+    """Notificación del sistema que acompaña a un data message (ver send_data)."""
+
+    title: str
+    body: str
+    # Canal de Android de la app (debe existir: lo crea la app al iniciar).
+    channel_id: str
+    tag: str
 
 
 class FcmResult(str, Enum):
@@ -99,8 +111,20 @@ class FcmClient:
                 self._credentials.refresh(timed_request)
             return self._credentials.token
 
-    def send_data(self, token: str, data: dict[str, str]) -> FcmResult:
-        """Data message de prioridad alta. Nunca lanza: devuelve el resultado."""
+    def send_data(
+        self,
+        token: str,
+        data: dict[str, str],
+        notification: Optional["FcmNotification"] = None,
+    ) -> FcmResult:
+        """Data message de prioridad alta. Nunca lanza: devuelve el resultado.
+
+        Con [notification] lleva además una notificación del sistema: Android
+        la muestra solo aunque la app esté cerrada (un data message necesita
+        que el sistema despierte la app, y muchos celulares no lo hacen si la
+        clienta la cerró deslizándola). Sin ella, solo datos (la app decide
+        si mostrar), que es lo que necesitan los avisos que el teléfono ya
+        programa como alarmas locales."""
         message = {
             "token": token,
             # FCM exige que todos los valores de data sean strings.
@@ -113,6 +137,15 @@ class FcmClient:
                 "payload": {"aps": {"content-available": 1}},
             },
         }
+        if notification is not None:
+            message["notification"] = {"title": notification.title, "body": notification.body}
+            message["android"]["notification"] = {
+                "channel_id": notification.channel_id,
+                # Misma etiqueta = Android reemplaza en vez de apilar repetidas.
+                "tag": notification.tag,
+            }
+            # Con alerta visible, iOS acepta tipo "alert" y prioridad 10.
+            message["apns"]["headers"] = {"apns-push-type": "alert", "apns-priority": "10"}
         try:
             access_token = self._access_token()
             response = httpx.post(

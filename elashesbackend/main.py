@@ -190,6 +190,12 @@ async def lifespan(app: FastAPI):
     try:
         run_seeders(db)
         print(">>> Sistema listo para operar <<<")
+        # Configuración que, si falta, rompe los avisos sin ningún error visible.
+        from app.core.internal_auth import missing_internal_key_warning
+
+        warning = missing_internal_key_warning()
+        if warning:
+            print(f"!!! ATENCIÓN: {warning}")
     except Exception as e:
         print(f"Error al ejecutar seeders: {e}")
     finally:
