@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
-import { Trash2 } from "lucide-react";
+import { CircleHelp, Trash2, TriangleAlert } from "lucide-react";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 import { AgendaService, type ReminderEmailSender } from "@/core/services/agenda/agenda.service";
@@ -69,9 +69,13 @@ export function AddEmailSenderModal({ isOpen, sender, onClose, onSaved }: AddEma
   const [email, setEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setEmail("");
+    if (isOpen) {
+      setEmail("");
+      setShowHelp(false);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -141,13 +145,60 @@ export function AddEmailSenderModal({ isOpen, sender, onClose, onSaved }: AddEma
           />
           {isDuplicate ? (
             <span className="text-xs font-medium text-amber-700">Ese correo ya está en la lista.</span>
-          ) : (
-            <span className="text-xs text-slate-500">
-              Con Gmail, debe estar verificado en la cuenta de envío (Configuración › Cuentas › “Enviar correo
-              como”); si no, Gmail lo reemplaza por la cuenta principal.
-            </span>
-          )}
+          ) : null}
         </label>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="flex gap-1.5">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              Con Gmail, el correo debe estar verificado en la cuenta principal; si no, Gmail lo reemplaza por esa
+              cuenta.{" "}
+              <button
+                type="button"
+                onClick={() => setShowHelp((current) => !current)}
+                aria-expanded={showHelp}
+                aria-controls="email-sender-help"
+                className="inline-flex items-center gap-1 font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950"
+              >
+                <CircleHelp className="h-3.5 w-3.5" aria-hidden />
+                {showHelp ? "Ocultar pasos" : "Ver pasos detallados"}
+              </button>
+            </span>
+          </p>
+          {showHelp ? (
+            <ol id="email-sender-help" className="mt-2 flex flex-col gap-1.5 border-t border-amber-200 pt-2 text-slate-700">
+              {[
+                <>
+                  Entra a la cuenta principal
+                  {sender?.from_email ? (
+                    <>
+                      {" "}
+                      (<span className="font-semibold break-all">{sender.from_email}</span>)
+                    </>
+                  ) : null}
+                  .
+                </>,
+                <>
+                  Ve a <span className="font-semibold">Configuración ⚙️ › Cuentas e importación › “Enviar correo como”</span>.
+                </>,
+                <>
+                  Haz clic en <span className="font-semibold">“Añadir otra dirección de correo electrónico”</span> y
+                  completa la verificación (Gmail envía un código o enlace a esa dirección).
+                </>,
+                <>Guarda el correo aquí, en esta plataforma.</>,
+              ].map((step, index) => (
+                <li key={index} className="flex gap-2">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900">
+                    {index + 1}
+                  </span>
+                  <span>
+                    <span className="font-semibold">Paso {index + 1}:</span> {step}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
         {sender?.registered.length ? (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-slate-600">Agregados desde el panel</span>
