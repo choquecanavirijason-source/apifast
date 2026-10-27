@@ -317,6 +317,8 @@ def _manual_reminder_notices(db: Session, client_id: int, now: datetime) -> list
         db.query(ManualReminder, Appointment)
         .join(Appointment, Appointment.id == ManualReminder.appointment_id)
         .filter(ManualReminder.client_id == client_id)
+        # Los enviados solo por correo no llegan a la app.
+        .filter(ManualReminder.send_push.is_(True))
         # Si la cita pasó a otra clienta, el recordatorio no la sigue.
         .filter(Appointment.client_id == client_id)
         .filter(Appointment.status.notin_(FINAL_STATUSES))

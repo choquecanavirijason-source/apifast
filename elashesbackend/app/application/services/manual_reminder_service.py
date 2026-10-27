@@ -16,9 +16,14 @@ from app.application.services.appointment_notice_service import (
     LA_PAZ,
     manual_reminder_aviso,
 )
+from app.application.services.reminder_email_service import email_unavailable_reason
 from app.core.audit import record_audit
 from app.core.dependencies import resolve_branch_id
-from app.domain.entities.manual_reminder import ManualReminder
+from app.domain.entities.manual_reminder import (
+    EMAIL_NO_ADDRESS,
+    EMAIL_NOT_CONFIGURED,
+    ManualReminder,
+)
 from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.user import User
 
@@ -57,9 +62,13 @@ def send_manual_reminder(
     message: str,
     user: User,
     now_utc: Optional[datetime] = None,
+    send_push: bool = True,
+    send_email: bool = False,
 ) -> tuple[ManualReminder, dict]:
     """Valida y guarda el recordatorio. Devuelve (recordatorio, aviso) — el
-    aviso es el mismo que verá en /avisos/programados, para emitirlo por WS."""
+    aviso es el mismo que verá en /avisos/programados, para emitirlo por WS.
+    El correo no se envía aquí (lo hace el controller después de guardar);
+    solo se rechaza de antemano si es el único canal y no se puede enviar."""
     now_utc = now_utc or datetime.now(timezone.utc)
     now_utc_naive = now_utc.replace(tzinfo=None)
 
@@ -86,22 +95,44 @@ def send_manual_reminder(
             detail="La hora de la cita ya pasó; no se puede enviar un recordatorio.",
         )
 
+    if not send_push and not send_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Elige al menos un canal de envío (push o correo).",
+        )
+    # La clienta se carga aquí (consulta aparte, sin bloqueo), no en la de arriba.
+    if send_email and not send_push:
+        reason = email_unavailable_reason(appointment)
+        if reason == EMAIL_NOT_CONFIGURED:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="El envío de correos no está configurado en el servidor.",
+            )
+        if reason == EMAIL_NO_ADDRESS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La clienta no tiene correo registrado.",
+            )
+
     reminder = ManualReminder(
         appointment_id=appointment.id,
         client_id=appointment.client_id,
         message=message,
         sent_by=user.id,
         created_at=now_utc_naive,
+        send_push=send_push,
     )
     db.add(reminder)
     db.commit()
     db.refresh(reminder)
 
-    # La clienta se carga aquí (consulta aparte, sin bloqueo), no en la de arriba.
     clienta = f"{appointment.client.name} {appointment.client.last_name}".strip()
+    canales = " y ".join(
+        nombre for nombre, activo in (("push", send_push), ("correo", send_email)) if activo
+    )
     record_audit(
         db, user, "create", "manual_reminder", reminder.id,
-        f"Envió un recordatorio de la cita #{appointment.id} a '{clienta}'",
+        f"Envió un recordatorio ({canales}) de la cita #{appointment.id} a '{clienta}'",
         branch_id=appointment.branch_id,
     )
     return reminder, manual_reminder_aviso(reminder, appointment)

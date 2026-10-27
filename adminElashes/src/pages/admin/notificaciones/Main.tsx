@@ -3,8 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { BellRing, CalendarClock, RefreshCcw } from "lucide-react";
 import { ClientService, type CitaProximaRow, type RetoqueRow } from "@/core/services/client/client.service";
-import ReminderModal, { buildReminderTemplate } from "./ReminderModal";
-import { AgendaService } from "@/core/services/agenda/agenda.service";
+import ReminderModal, { ReminderChannelPicker, buildReminderTemplate, emailStatusWarning } from "./ReminderModal";
+import { AgendaService, type ReminderChannels } from "@/core/services/agenda/agenda.service";
 import { STATUS_LABELS } from "@/pages/admin/calendar/calendar.constants";
 import { BranchService } from "@/core/services/branch/branch.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
@@ -92,6 +92,8 @@ export default function NotificacionesPage() {
   const [selectedCitas, setSelectedCitas] = useState<Set<number>>(new Set());
   const [isSendingBatch, setIsSendingBatch] = useState(false);
   const sendingBatch = useRef(false);
+  // Canales de "Enviar a seleccionados" y con los que abre el modal de cada cita.
+  const [channels, setChannels] = useState<ReminderChannels>({ push: true, email: false });
   useEffect(() => {
     setSelectedCitas(new Set());
   }, [dias, branchId, tab]);
@@ -214,13 +216,25 @@ export default function NotificacionesPage() {
     sendingBatch.current = true;
     setIsSendingBatch(true);
     const targets = [...selectedRows];
+    const batchChannels = channels;
     let sent = 0;
     const failures: string[] = [];
+    // Con push y correo: el push salió pero el correo no (sin email, SMTP...).
+    const emailWarnings: string[] = [];
     try {
       for (const cita of targets) {
         try {
           const message = buildReminderTemplate(cita, formatDay(cita.fecha_hora), cita.fecha_hora.slice(11, 16));
-          const result = await AgendaService.sendReminder(cita.appointment_id, message);
+          const result = await AgendaService.sendReminder(cita.appointment_id, message, batchChannels);
+          const warning = emailStatusWarning(result.email_status);
+          if (warning) {
+            if (!result.send_push) {
+              // Solo correo y no salió: no le llegó nada, queda seleccionada.
+              failures.push(`${cita.clienta}: no se pudo enviar el correo (${warning}).`);
+              continue;
+            }
+            emailWarnings.push(`${cita.clienta}: ${warning}`);
+          }
           handleReminderSent(result.appointment_id, result.created_at);
           setSelectedCitas((current) => {
             const next = new Set(current);
@@ -233,6 +247,8 @@ export default function NotificacionesPage() {
         }
       }
       if (sent) toast.success(`Recordatorios enviados: ${sent} de ${targets.length}.`);
+      if (emailWarnings.length)
+        toast.warning(`${emailWarnings.length} recibieron solo el push, sin correo. ${emailWarnings[0]}.`);
       if (failures.length) toast.error(`${failures.length} envío(s) fallaron y siguen seleccionados. ${failures[0]}`);
     } finally {
       sendingBatch.current = false;
@@ -393,6 +409,11 @@ export default function NotificacionesPage() {
           >
             {row.notificaciones_activas ? "Activas" : "Inactivas"}
           </span>
+          {channels.email && !row.tiene_email ? (
+            <span className="text-xs font-medium text-amber-700" title="No se le puede enviar el recordatorio por correo">
+              Sin correo
+            </span>
+          ) : null}
           {row.ultimo_recordatorio ? (
             <span className="text-xs text-slate-500">
               Enviado {haceLabel(Math.max(0, now - parseUtc(row.ultimo_recordatorio)))}
@@ -511,6 +532,9 @@ export default function NotificacionesPage() {
               ))}
             </select>
             {tab === "citas" && canSendReminder && (
+              <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSendingBatch} />
+            )}
+            {tab === "citas" && canSendReminder && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -578,6 +602,7 @@ export default function NotificacionesPage() {
         cita={reminderCita}
         fecha={reminderCita ? formatDay(reminderCita.fecha_hora) : ""}
         hora={reminderCita ? reminderCita.fecha_hora.slice(11, 16) : ""}
+        defaultChannels={channels}
         onClose={() => setReminderCita(null)}
         onSent={(result) => handleReminderSent(result.appointment_id, result.created_at)}
       />

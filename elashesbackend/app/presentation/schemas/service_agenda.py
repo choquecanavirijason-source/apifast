@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated, Optional, List
+from typing import Annotated, Literal, Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
 
@@ -242,6 +242,9 @@ class ManualReminderCreate(BaseModel):
     message: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MANUAL_REMINDER_MAX_LENGTH)
     ]
+    # Canales: push (app de la clienta) y/o correo a Client.email. Al menos uno.
+    send_push: bool = True
+    send_email: bool = False
 
 
 class ManualReminderResponse(BaseModel):
@@ -252,3 +255,6 @@ class ManualReminderResponse(BaseModel):
     sent_by: Optional[int] = None
     # UTC con zona ("Z") para que el panel calcule "hace X min" sin adivinar.
     created_at: datetime
+    send_push: bool = True
+    # Resultado del correo: sent / no_email / not_configured / failed; null si no se pidió.
+    email_status: Optional[Literal["sent", "no_email", "not_configured", "failed"]] = None

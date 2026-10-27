@@ -195,6 +195,17 @@ export interface ManualReminderResult {
   sent_by: number | null;
   /** ISO en UTC ("...Z"). */
   created_at: string;
+  send_push: boolean;
+  /** Resultado del correo; null si no se pidió. */
+  email_status: ReminderEmailStatus | null;
+}
+
+export type ReminderEmailStatus = "sent" | "no_email" | "not_configured" | "failed";
+
+/** Canales del recordatorio manual: push a la app y/o correo a la clienta. */
+export interface ReminderChannels {
+  push: boolean;
+  email: boolean;
 }
 
 export interface TicketClientInfo {
@@ -617,9 +628,15 @@ export const AgendaService = {
   },
 
   /** Recordatorio manual a la clienta (llega a su app). Sin tiempo de espera entre envíos. */
-  async sendReminder(appointmentId: number, message: string): Promise<ManualReminderResult> {
+  async sendReminder(
+    appointmentId: number,
+    message: string,
+    channels: ReminderChannels = { push: true, email: false },
+  ): Promise<ManualReminderResult> {
     const response = await api.post<ManualReminderResult>(`/agenda/appointments/${appointmentId}/reminder`, {
       message,
+      send_push: channels.push,
+      send_email: channels.email,
     });
     return response.data;
   },

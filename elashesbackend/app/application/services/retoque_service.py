@@ -148,6 +148,7 @@ def list_citas_proximas(
                 "branch_id": appointment.branch_id,
                 "estado": appointment.status,
                 "notificaciones_activas": client.notificaciones_activas,
+                "tiene_email": bool((client.email or "").strip()),
                 "ultimo_recordatorio": ultimo.replace(tzinfo=timezone.utc) if ultimo else None,
             }
         )

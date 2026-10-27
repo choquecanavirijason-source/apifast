@@ -79,6 +79,19 @@ class Settings(BaseSettings):
     # fuera del repo (ver docker-compose.yml). Vacío o inválido = sin push; el
     # resto (WebSocket, /avisos/programados) funciona igual.
     fcm_credentials_file: Optional[str] = None
+    # Correo SMTP (recordatorios manuales por email). Con Gmail: smtp.gmail.com,
+    # puerto 587 (STARTTLS) y una "contraseña de aplicación" de la cuenta, no
+    # la contraseña normal. Sin host o sin remitente = correo desactivado.
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    # Remitente; si se deja vacío se usa smtp_username.
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: str = "Elashes"
+    # True = STARTTLS (587); False con puerto 465 = SSL directo.
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: float = 10.0
 
     @model_validator(mode="after")
     def resolve_database_url(self):

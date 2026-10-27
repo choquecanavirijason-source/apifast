@@ -75,6 +75,8 @@ export interface CitaProximaRow {
   estado: string;
   /** De la clienta; aquí solo se muestra. */
   notificaciones_activas: boolean;
+  /** Si la clienta tiene correo registrado (canal "Correo" del recordatorio). */
+  tiene_email: boolean;
   /** Último recordatorio manual de esta cita, ISO en UTC ("...Z"), o null. */
   ultimo_recordatorio: string | null;
 }

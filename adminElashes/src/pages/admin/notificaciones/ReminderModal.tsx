@@ -6,6 +6,8 @@ import {
   AgendaService,
   MANUAL_REMINDER_MAX_LENGTH,
   type ManualReminderResult,
+  type ReminderChannels,
+  type ReminderEmailStatus,
 } from "@/core/services/agenda/agenda.service";
 import type { CitaProximaRow } from "@/core/services/client/client.service";
 import { getApiErrorMessage } from "@/core/utils/apiError";
@@ -15,8 +17,62 @@ interface ReminderModalProps {
   /** Texto de fecha ya formateado ("21 oct 2026") y hora ("10:00"), en hora de La Paz. */
   fecha: string;
   hora: string;
+  /** Canales con los que abre (los de la barra de la tabla); se pueden cambiar aquí. */
+  defaultChannels: ReminderChannels;
   onClose: () => void;
   onSent: (result: ManualReminderResult) => void;
+}
+
+/** Aviso para el panel cuando el correo pedido no salió; null si salió o no se pidió. */
+export function emailStatusWarning(status: ReminderEmailStatus | null): string | null {
+  switch (status) {
+    case "no_email":
+      return "la clienta no tiene correo registrado";
+    case "not_configured":
+      return "el envío de correos no está configurado en el servidor";
+    case "failed":
+      return "el servidor de correo no lo aceptó";
+    default:
+      return null;
+  }
+}
+
+interface ReminderChannelPickerProps {
+  value: ReminderChannels;
+  onChange: (value: ReminderChannels) => void;
+  disabled?: boolean;
+}
+
+/** Casillas Push / Correo. No deja desmarcar las dos: siempre queda un canal. */
+export function ReminderChannelPicker({ value, onChange, disabled }: ReminderChannelPickerProps) {
+  const toggle = (key: keyof ReminderChannels) => {
+    const next = { ...value, [key]: !value[key] };
+    if (next.push || next.email) onChange(next);
+  };
+  const options: { key: keyof ReminderChannels; label: string; title: string }[] = [
+    { key: "push", label: "Push", title: "Notificación en la app de la clienta" },
+    { key: "email", label: "Correo", title: "Correo al email registrado de la clienta" },
+  ];
+  return (
+    <div className="flex items-center gap-3" role="group" aria-label="Canales del recordatorio">
+      {options.map((option) => (
+        <label
+          key={option.key}
+          title={option.title}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-slate-600"
+        >
+          <input
+            type="checkbox"
+            checked={value[option.key]}
+            disabled={disabled || (value[option.key] && !(option.key === "push" ? value.email : value.push))}
+            onChange={() => toggle(option.key)}
+            className="h-4 w-4 accent-brand"
+          />
+          {option.label}
+        </label>
+      ))}
+    </div>
+  );
 }
 
 /** Plantilla por defecto. Si con todos los datos pasa del límite, se van
@@ -34,26 +90,43 @@ export function buildReminderTemplate(cita: CitaProximaRow, fecha: string, hora:
   return fits ?? variants[variants.length - 1].slice(0, MANUAL_REMINDER_MAX_LENGTH);
 }
 
-export default function ReminderModal({ cita, fecha, hora, onClose, onSent }: ReminderModalProps) {
+export default function ReminderModal({ cita, fecha, hora, defaultChannels, onClose, onSent }: ReminderModalProps) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [channels, setChannels] = useState<ReminderChannels>(defaultChannels);
 
   useEffect(() => {
     if (cita) setMessage(buildReminderTemplate(cita, fecha, hora));
   }, [cita, fecha, hora]);
 
+  // Al abrir para otra cita, vuelve a los canales de la barra.
+  useEffect(() => {
+    if (cita) setChannels(defaultChannels);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cita]);
+
   if (!cita) return null;
 
   const trimmed = message.trim();
-  const canSend = trimmed.length > 0 && message.length <= MANUAL_REMINDER_MAX_LENGTH && !isSending;
+  // Solo correo y sin correo registrado: no hay a dónde enviarlo.
+  const emailOnlyWithoutAddress = channels.email && !channels.push && !cita.tiene_email;
+  const canSend =
+    trimmed.length > 0 && message.length <= MANUAL_REMINDER_MAX_LENGTH && !isSending && !emailOnlyWithoutAddress;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSend) return;
     setIsSending(true);
     try {
-      const result = await AgendaService.sendReminder(cita.appointment_id, trimmed);
-      toast.success(`Recordatorio enviado a ${cita.clienta}.`);
+      const result = await AgendaService.sendReminder(cita.appointment_id, trimmed, channels);
+      const warning = emailStatusWarning(result.email_status);
+      if (warning && result.send_push) {
+        toast.warning(`Recordatorio enviado a ${cita.clienta} por push, pero no por correo: ${warning}.`);
+      } else if (warning) {
+        toast.error(`No se pudo enviar el correo a ${cita.clienta}: ${warning}.`);
+      } else {
+        toast.success(`Recordatorio enviado a ${cita.clienta}.`);
+      }
       onSent(result);
     } catch (err) {
       // Se queda abierto para que pueda reintentar sin perder el texto.
@@ -105,9 +178,25 @@ export default function ReminderModal({ cita, fecha, hora, onClose, onSent }: Re
             {message.length}/{MANUAL_REMINDER_MAX_LENGTH}
           </span>
         </label>
-        <p className="text-xs text-slate-500">
-          Le llega como notificación a la app de la clienta (si tiene la app instalada y la sesión iniciada).
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-slate-600">Enviar por</span>
+          <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSending} />
+        </div>
+        <ul className="flex flex-col gap-1 text-xs text-slate-500">
+          {channels.push ? (
+            <li>Push: le llega como notificación a la app (si la tiene instalada y la sesión iniciada).</li>
+          ) : null}
+          {channels.email ? (
+            cita.tiene_email ? (
+              <li>Correo: se envía a su email registrado con los datos de la cita.</li>
+            ) : (
+              <li className="font-medium text-amber-700">
+                Correo: la clienta no tiene email registrado
+                {channels.push ? "; solo se enviará el push." : ". Agrégalo en su ficha para enviarlo."}
+              </li>
+            )
+          ) : null}
+        </ul>
       </div>
     </GenericModal>
   );

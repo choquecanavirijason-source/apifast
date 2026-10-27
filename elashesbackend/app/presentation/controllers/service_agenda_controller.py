@@ -40,6 +40,7 @@ from app.application.services.client_service import list_clients as list_clients
 from app.application.services.commission_payout_service import pay_commissions, void_commission_payment
 from app.application.services.manual_reminder_service import send_manual_reminder
 from app.application.services.push_service import push_manual_reminder
+from app.application.services.reminder_email_service import send_reminder_email
 from app.application.services.service_agenda_service import (
     call_next_appointment,
     create_appointment,
@@ -491,14 +492,21 @@ async def send_appointment_reminder(
     Sin límite de frecuencia; nunca en citas cerradas (409) o ya
     pasadas (400). Le llega a la app como aviso "recordatorio_manual" en
     /avisos/programados, en vivo por su WebSocket si la tiene abierta y por
-    FCM (push) si está configurado, aunque la tenga cerrada."""
+    FCM (push) si está configurado, aunque la tenga cerrada.
+
+    Canales: send_push=False no lo manda a la app; send_email=True lo envía
+    además por correo a la clienta (resultado en email_status). Solo correo
+    sin correo registrado (400) o sin SMTP configurado (503) no se guarda."""
     reminder, aviso = await run_in_threadpool(
         send_manual_reminder,
         db=db,
         appointment_id=appointment_id,
         message=payload.message,
         user=current_user,
+        send_push=payload.send_push,
+        send_email=payload.send_email,
     )
+    # Datos para la respuesta antes de los envíos (que hacen commit y expiran el objeto).
     response = ManualReminderResponse(
         id=reminder.id,
         appointment_id=reminder.appointment_id,
@@ -506,11 +514,18 @@ async def send_appointment_reminder(
         message=reminder.message,
         sent_by=reminder.sent_by,
         created_at=reminder.created_at.replace(tzinfo=timezone.utc),
+        send_push=reminder.send_push,
     )
-    await client_ws_manager.broadcast(reminder.client_id, {"event": "manual_reminder", **aviso})
-    # Ya guardado y fuera de la transacción: el push es de mejor esfuerzo
-    # (no lanza) y tiene su propio tope de tiempo; no cambia la respuesta.
-    await run_in_threadpool(push_manual_reminder, db, reminder, aviso)
+    if payload.send_push:
+        await client_ws_manager.broadcast(reminder.client_id, {"event": "manual_reminder", **aviso})
+        # Ya guardado y fuera de la transacción: el push es de mejor esfuerzo
+        # (no lanza) y tiene su propio tope de tiempo; no cambia la respuesta.
+        await run_in_threadpool(push_manual_reminder, db, reminder, aviso)
+    if payload.send_email:
+        # También de mejor esfuerzo: un fallo SMTP no deshace el recordatorio.
+        response.email_status = await run_in_threadpool(
+            send_reminder_email, db, reminder, reminder.appointment
+        )
     return response
 
 
