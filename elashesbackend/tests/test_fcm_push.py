@@ -88,9 +88,12 @@ class FakeFcm:
         self.results = results or {}
         self.raises = raises
         self.calls: list[tuple[str, dict]] = []
+        # Notificación del sistema de cada llamada (None = solo datos).
+        self.notifications: list = []
 
-    def send_data(self, token: str, data: dict) -> FcmResult:
+    def send_data(self, token: str, data: dict, notification=None) -> FcmResult:
         self.calls.append((token, data))
+        self.notifications.append(notification)
         if self.raises:
             raise self.raises
         return self.results.get(token, FcmResult.SENT)
@@ -253,6 +256,12 @@ class TestPush:
             "expira_en": aviso["expira_en"],
         }
         assert all(isinstance(v, str) for v in data.values())
+        # Notificación del sistema: así llega con la app cerrada.
+        [notification] = fake.notifications
+        assert notification.title == "Recordatorio de tu cita"
+        assert notification.body == "Te esperamos mañana"
+        assert notification.channel_id == "elashes_marketplace_citas"
+        assert notification.tag == f"aviso_{aviso['aviso_id']}"
 
     def test_token_invalido_se_borra(self, db, seed, use_fcm):
         use_fcm(FakeFcm({TOKEN_A: FcmResult.INVALID_TOKEN}))
@@ -391,6 +400,27 @@ class TestFcmClient:
         assert message["android"] == {"priority": "HIGH"}
         assert "notification" not in message  # data message, sin notificación del sistema
 
+    def test_formato_con_notificacion_del_sistema(self, monkeypatch):
+        seen = {}
+
+        def fake_post(url, json, headers, timeout):
+            seen.update(json=json)
+            return httpx.Response(200, json={"name": "projects/p/messages/1"})
+
+        monkeypatch.setattr(fcm_client.httpx, "post", fake_post)
+        note = fcm_client.FcmNotification(
+            title="Recordatorio", body="Te esperamos", channel_id="canal", tag="aviso_7"
+        )
+        assert FcmClient(_Creds(), "p").send_data(TOKEN_A, {"aviso_id": 7}, note) is FcmResult.SENT
+        message = seen["json"]["message"]
+        assert message["data"] == {"aviso_id": "7"}  # los datos siguen viajando
+        assert message["notification"] == {"title": "Recordatorio", "body": "Te esperamos"}
+        assert message["android"] == {
+            "priority": "HIGH",
+            "notification": {"channel_id": "canal", "tag": "aviso_7"},
+        }
+        assert message["apns"]["headers"] == {"apns-push-type": "alert", "apns-priority": "10"}
+
     def test_unregistered_es_token_invalido_y_no_se_loguea_completo(self, monkeypatch, caplog):
         body = {"error": {"code": 404, "status": "NOT_FOUND", "details": [{"errorCode": "UNREGISTERED"}]}}
         monkeypatch.setattr(fcm_client.httpx, "post", lambda *a, **k: httpx.Response(404, json=body))
@@ -478,6 +508,9 @@ class TestAvisosProgramados:
             "mostrar_en": AVISO_HOY["mostrar_en"], "expira_en": AVISO_HOY["expira_en"],
         }
         assert db.query(FcmNoticeDelivery).count() == 2
+        # Solo datos: el teléfono ya los muestra con alarmas locales; con una
+        # notificación del sistema saldrían duplicados.
+        assert fake.notifications == [None, None]
 
         # El siguiente sondeo no reenvía.
         assert fcm_notice_service.send_due_fcm_notices(db, NOW_UTC) == 0

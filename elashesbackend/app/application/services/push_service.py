@@ -11,9 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.domain.entities.client_device import ClientDevice
 from app.domain.entities.manual_reminder import ManualReminder
-from app.infrastructure.push.fcm_client import FcmResult, get_fcm_client, mask_token
+from app.infrastructure.push.fcm_client import FcmNotification, FcmResult, get_fcm_client, mask_token
 
 logger = logging.getLogger("elashes.fcm")
+
+# Canal de avisos de la app de marketplace (NotificationService,
+# 'elashes_marketplace_citas'): el mismo que usa la app para los avisos.
+ANDROID_AVISOS_CHANNEL = "elashes_marketplace_citas"
 
 # Tope para todos los dispositivos de la clienta juntos (cada llamada tiene
 # además su propio timeout en el cliente).
@@ -39,6 +43,17 @@ def manual_reminder_push_data(aviso: dict, appointment_id: int) -> dict[str, str
     }
 
 
+def manual_reminder_notification(aviso: dict) -> FcmNotification:
+    """Notificación del sistema del recordatorio: así llega aunque la clienta
+    haya cerrado la app (ver FcmClient.send_data)."""
+    return FcmNotification(
+        title=aviso["titulo"],
+        body=aviso["cuerpo"],
+        channel_id=ANDROID_AVISOS_CHANNEL,
+        tag=f"aviso_{aviso['aviso_id']}",
+    )
+
+
 def push_manual_reminder(db: Session, reminder: ManualReminder, aviso: dict) -> dict[str, int]:
     """Envía el recordatorio a los dispositivos activos (no revocados, con
     token FCM) de la clienta y borra los tokens que FCM da por inválidos.
@@ -61,13 +76,14 @@ def push_manual_reminder(db: Session, reminder: ManualReminder, aviso: dict) -> 
             return summary
 
         data = manual_reminder_push_data(aviso, reminder.appointment_id)
+        notification = manual_reminder_notification(aviso)
         deadline = time.monotonic() + PUSH_DEADLINE_SECONDS
         invalid: list[ClientDevice] = []
         for device in devices:
             if time.monotonic() >= deadline:
                 summary["failed"] += 1
                 continue
-            result = client.send_data(device.fcm_token, data)
+            result = client.send_data(device.fcm_token, data, notification)
             if result is FcmResult.SENT:
                 summary["sent"] += 1
             elif result is FcmResult.INVALID_TOKEN:
