@@ -26,6 +26,7 @@ from app.domain.entities.manual_reminder import (
 )
 from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.user import User
+from app.infrastructure.email.smtp_client import resolve_sender, sender_address
 
 def last_reminders_by_appointment(db: Session, appointment_ids: list[int]) -> dict[int, datetime]:
     """Último envío (UTC naive) de cada cita; las que no tienen no aparecen."""
@@ -64,11 +65,13 @@ def send_manual_reminder(
     now_utc: Optional[datetime] = None,
     send_push: bool = True,
     send_email: bool = False,
+    email_from: Optional[str] = None,
 ) -> tuple[ManualReminder, dict]:
     """Valida y guarda el recordatorio. Devuelve (recordatorio, aviso) — el
     aviso es el mismo que verá en /avisos/programados, para emitirlo por WS.
     El correo no se envía aquí (lo hace el controller después de guardar);
-    solo se rechaza de antemano si es el único canal y no se puede enviar."""
+    solo se rechaza de antemano si es el único canal y no se puede enviar.
+    email_from: remitente elegido en el panel; debe estar en allowed_senders()."""
     now_utc = now_utc or datetime.now(timezone.utc)
     now_utc_naive = now_utc.replace(tzinfo=None)
 
@@ -100,6 +103,13 @@ def send_manual_reminder(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Elige al menos un canal de envío (push o correo).",
         )
+    # Un remitente no autorizado se rechaza aunque también vaya push: si no,
+    # el panel creería que el correo salió desde esa cuenta.
+    if send_email and email_from and not resolve_sender(email_from):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El correo emisor {email_from} no está autorizado en el servidor (SMTP_ALLOWED_FROM).",
+        )
     # La clienta se carga aquí (consulta aparte, sin bloqueo), no en la de arriba.
     if send_email and not send_push:
         reason = email_unavailable_reason(appointment)
@@ -130,6 +140,9 @@ def send_manual_reminder(
     canales = " y ".join(
         nombre for nombre, activo in (("push", send_push), ("correo", send_email)) if activo
     )
+    sender = resolve_sender(email_from) if send_email else None
+    if sender and sender != sender_address():
+        canales += f"; desde {sender}"
     record_audit(
         db, user, "create", "manual_reminder", reminder.id,
         f"Envió un recordatorio ({canales}) de la cita #{appointment.id} a '{clienta}'",

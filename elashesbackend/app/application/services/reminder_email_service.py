@@ -124,14 +124,17 @@ def build_reminder_email(appointment: Appointment, message: str) -> tuple[str, s
     return subject, html, text
 
 
-def send_reminder_email(db: Session, reminder: ManualReminder, appointment: Appointment) -> str:
-    """Envía el correo y guarda el resultado en reminder.email_status. Nunca
-    lanza; devuelve el estado (ver EMAIL_STATUSES)."""
+def send_reminder_email(
+    db: Session, reminder: ManualReminder, appointment: Appointment, email_from: Optional[str] = None
+) -> str:
+    """Envía el correo (desde email_from si viene; ya validado en
+    send_manual_reminder) y guarda el resultado en reminder.email_status.
+    Nunca lanza; devuelve el estado (ver EMAIL_STATUSES)."""
     status_value = email_unavailable_reason(appointment)
     if status_value is None:
         try:
             subject, html, text = build_reminder_email(appointment, reminder.message)
-            sent = send_email(client_email(appointment), subject, html, text)
+            sent = send_email(client_email(appointment), subject, html, text, from_email=email_from)
         except Exception as exc:
             logger.warning("Correo: falló el recordatorio %s: %s", reminder.id, type(exc).__name__)
             sent = False

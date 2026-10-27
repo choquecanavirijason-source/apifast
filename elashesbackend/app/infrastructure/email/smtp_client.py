@@ -34,23 +34,49 @@ def mask_email(address: Optional[str]) -> str:
     return f"{local[:1]}…@{domain}"
 
 
-def _sender() -> Optional[str]:
+def sender_address() -> Optional[str]:
+    """Dirección desde la que salen los correos (se muestra en el panel)."""
     return (settings.smtp_from_email or settings.smtp_username or "").strip() or None
 
 
+def allowed_senders() -> list[str]:
+    """Remitentes que se pueden elegir: el por defecto primero y luego los de
+    smtp_allowed_from, sin repetir (comparando sin mayúsculas)."""
+    candidates = [sender_address() or ""] + (settings.smtp_allowed_from or "").split(",")
+    result: list[str] = []
+    for address in (c.strip() for c in candidates):
+        if address and address.lower() not in {r.lower() for r in result}:
+            result.append(address)
+    return result
+
+
+def resolve_sender(from_email: Optional[str]) -> Optional[str]:
+    """La dirección autorizada que corresponde a from_email (vacío = la por
+    defecto), o None si no está en allowed_senders()."""
+    wanted = (from_email or "").strip().lower()
+    if not wanted:
+        return sender_address()
+    return next((a for a in allowed_senders() if a.lower() == wanted), None)
+
+
 def is_email_configured() -> bool:
-    return bool((settings.smtp_host or "").strip() and _sender())
+    return bool((settings.smtp_host or "").strip() and sender_address())
 
 
-def send_email(to: str, subject: str, html: str, text: str) -> bool:
+def send_email(to: str, subject: str, html: str, text: str, from_email: Optional[str] = None) -> bool:
     """Envía un correo HTML con alternativa en texto plano. Nunca lanza:
-    devuelve True si el servidor lo aceptó."""
+    devuelve True si el servidor lo aceptó. from_email debe ser uno de
+    allowed_senders(); si no, no se envía."""
     if not is_email_configured():
+        return False
+    sender = resolve_sender(from_email)
+    if not sender:
+        logger.warning("Correo: remitente no autorizado %s.", mask_email(from_email))
         return False
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = formataddr((settings.smtp_from_name, _sender()))
+    message["From"] = formataddr((settings.smtp_from_name, sender))
     message["To"] = to
     message.set_content(text)
     message.add_alternative(html, subtype="html")

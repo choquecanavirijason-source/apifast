@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     # Remitente; si se deja vacío se usa smtp_username.
     smtp_from_email: Optional[str] = None
     smtp_from_name: str = "Elashes"
+    # Otros remitentes que el panel puede elegir al enviar (separados por coma).
+    # Con Gmail deben estar verificados en la cuenta (Configuración > Cuentas >
+    # "Enviar correo como"); si no, Gmail los reemplaza por smtp_username.
+    smtp_allowed_from: Optional[str] = None
     # True = STARTTLS (587); False con puerto 465 = SSL directo.
     smtp_use_tls: bool = True
     smtp_timeout_seconds: float = 10.0

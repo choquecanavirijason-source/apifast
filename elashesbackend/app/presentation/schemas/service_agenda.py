@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal, Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_serializer, field_validator
 
 from app.domain.entities.manual_reminder import MANUAL_REMINDER_MAX_LENGTH
 from app.presentation.schemas.branch import BranchSummary
@@ -245,6 +245,26 @@ class ManualReminderCreate(BaseModel):
     # Canales: push (app de la clienta) y/o correo a Client.email. Al menos uno.
     send_push: bool = True
     send_email: bool = False
+    # Remitente del correo para este envío; vacío = el por defecto del servidor.
+    # Debe ser uno de ReminderEmailSenderResponse.allowed.
+    email_from: Optional[EmailStr] = None
+
+    @field_validator("email_from", mode="before")
+    @classmethod
+    def _blank_email_from(cls, value):
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+
+class ReminderEmailSenderResponse(BaseModel):
+    """Remitente de los correos de recordatorio (se muestra en el modal)."""
+    configured: bool
+    # Remitente por defecto.
+    from_email: Optional[str] = None
+    from_name: Optional[str] = None
+    # Remitentes que se pueden elegir (el por defecto incluido).
+    allowed: List[str] = []
 
 
 class ManualReminderResponse(BaseModel):

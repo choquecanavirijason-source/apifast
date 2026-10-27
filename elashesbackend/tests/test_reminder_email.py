@@ -42,8 +42,8 @@ def outbox(monkeypatch) -> list[dict]:
     """SMTP configurado y simulado: cada correo enviado queda en la lista."""
     sent: list[dict] = []
 
-    def fake_send(to, subject, html, text):
-        sent.append({"to": to, "subject": subject, "html": html, "text": text})
+    def fake_send(to, subject, html, text, from_email=None):
+        sent.append({"to": to, "subject": subject, "html": html, "text": text, "from": from_email})
         return True
 
     monkeypatch.setattr(reminder_email_service, "is_email_configured", lambda: True)
@@ -129,12 +129,68 @@ class TestCanales:
 
     def test_fallo_smtp_no_deshace_el_recordatorio(self, client, db, seed, ws_events, ana_con_email, monkeypatch):
         monkeypatch.setattr(reminder_email_service, "is_email_configured", lambda: True)
-        monkeypatch.setattr(reminder_email_service, "send_email", lambda *a: False)
+        monkeypatch.setattr(reminder_email_service, "send_email", lambda *a, **k: False)
         appt = add_cita(db, seed)
         resp = send(client, login(client, "admin_r"), appt.id, send_email=True)
         assert resp.status_code == 201
         assert resp.json()["email_status"] == "failed"
         assert db.query(ManualReminder).one().email_status == "failed"
+
+
+ALIAS = "citas@elashes.com"
+
+
+@pytest.fixture
+def remitentes(monkeypatch):
+    """Remitente por defecto + un alias autorizado (SMTP_ALLOWED_FROM)."""
+    monkeypatch.setattr(settings, "smtp_host", "smtp.gmail.com")
+    monkeypatch.setattr(settings, "smtp_username", "salon@gmail.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "elashes.notificaciones@gmail.com")
+    monkeypatch.setattr(settings, "smtp_allowed_from", f" {ALIAS} , ELASHES.notificaciones@gmail.com,")
+
+
+class TestRemitente:
+    def test_endpoint_devuelve_remitente_y_permitidos(self, client, db, seed, remitentes):
+        resp = client.get("/agenda/reminders/email-sender", headers=login(client, "admin_r"))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["configured"] is True
+        assert body["from_email"] == "elashes.notificaciones@gmail.com"
+        assert body["allowed"] == ["elashes.notificaciones@gmail.com", ALIAS]  # sin repetidos
+
+    def test_endpoint_sin_smtp(self, client, db, seed, monkeypatch):
+        monkeypatch.setattr(settings, "smtp_host", None)
+        resp = client.get("/agenda/reminders/email-sender", headers=login(client, "admin_r"))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["configured"] is False
+
+    def test_envia_desde_alias_autorizado(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
+        appt = add_cita(db, seed)
+        resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from=ALIAS.upper())
+        assert resp.status_code == 201, resp.text
+        [mail] = outbox
+        # EmailStr baja el dominio a minúsculas; resolve_sender ignora mayúsculas.
+        assert smtp_client.resolve_sender(mail["from"]) == ALIAS
+
+    def test_remitente_no_autorizado_400(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
+        appt = add_cita(db, seed)
+        resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from="otro@gmail.com")
+        assert resp.status_code == 400
+        assert "no está autorizado" in resp.json()["detail"]
+        assert db.query(ManualReminder).count() == 0
+        assert outbox == [] and ws_events == []
+
+    def test_remitente_invalido_422(self, client, db, seed, ws_events, outbox, ana_con_email):
+        appt = add_cita(db, seed)
+        resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from="no-es-correo")
+        assert resp.status_code == 422
+        assert db.query(ManualReminder).count() == 0
+
+    def test_vacio_usa_el_por_defecto(self, client, db, seed, ws_events, outbox, ana_con_email, remitentes):
+        appt = add_cita(db, seed)
+        resp = send(client, login(client, "admin_r"), appt.id, send_email=True, email_from="  ")
+        assert resp.status_code == 201, resp.text
+        assert outbox[0]["from"] is None
 
 
 class TestProximasCitas:
@@ -226,6 +282,16 @@ class TestSmtpClient:
         assert "salon@gmail.com" in message["From"]  # remitente = usuario si no hay from
         assert message.get_body(("html",)).get_content().strip() == "<p>Hola</p>"
         assert message.get_body(("plain",)).get_content().strip() == "Hola"
+
+    def test_from_con_alias_autorizado(self, gmail, monkeypatch):
+        monkeypatch.setattr(settings, "smtp_allowed_from", ALIAS)
+        assert smtp_client.send_email(ANA_EMAIL, "s", "<p>h</p>", "t", from_email=ALIAS) is True
+        [server] = FakeSMTP.instances
+        assert ALIAS in server.sent[0]["From"]
+
+    def test_from_no_autorizado_no_envia(self, gmail):
+        assert smtp_client.send_email(ANA_EMAIL, "s", "<p>h</p>", "t", from_email="otro@gmail.com") is False
+        assert FakeSMTP.instances == []
 
     def test_error_smtp_devuelve_false_sin_exponer_datos(self, gmail, monkeypatch, caplog):
         def boom(self, message):

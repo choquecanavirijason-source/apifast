@@ -31,6 +31,7 @@ from app.presentation.schemas.service_agenda import (
     CommissionVoidRequest,
     ManualReminderCreate,
     ManualReminderResponse,
+    ReminderEmailSenderResponse,
     ServiceCreate,
     ServiceImageUploadResponse,
     ServiceResponse,
@@ -41,6 +42,8 @@ from app.application.services.commission_payout_service import pay_commissions, 
 from app.application.services.manual_reminder_service import send_manual_reminder
 from app.application.services.push_service import push_manual_reminder
 from app.application.services.reminder_email_service import send_reminder_email
+from app.config.settings import settings
+from app.infrastructure.email.smtp_client import allowed_senders, is_email_configured, sender_address
 from app.application.services.service_agenda_service import (
     call_next_appointment,
     create_appointment,
@@ -505,6 +508,7 @@ async def send_appointment_reminder(
         user=current_user,
         send_push=payload.send_push,
         send_email=payload.send_email,
+        email_from=payload.email_from,
     )
     # Datos para la respuesta antes de los envíos (que hacen commit y expiran el objeto).
     response = ManualReminderResponse(
@@ -524,9 +528,24 @@ async def send_appointment_reminder(
     if payload.send_email:
         # También de mejor esfuerzo: un fallo SMTP no deshace el recordatorio.
         response.email_status = await run_in_threadpool(
-            send_reminder_email, db, reminder, reminder.appointment
+            send_reminder_email, db, reminder, reminder.appointment, payload.email_from
         )
     return response
+
+
+@router.get("/reminders/email-sender", response_model=ReminderEmailSenderResponse)
+def get_reminder_email_sender(
+    current_user: User = Depends(require_permission("reminders:send")),
+):
+    """Remitente de los correos de recordatorio y los que se pueden elegir
+    (SMTP_ALLOWED_FROM), para el modal "Enviar recordatorio".
+    configured=False si falta la configuración SMTP."""
+    return ReminderEmailSenderResponse(
+        configured=is_email_configured(),
+        from_email=sender_address(),
+        from_name=settings.smtp_from_name,
+        allowed=allowed_senders(),
+    )
 
 
 @router.post("/appointments/commission-payments", response_model=CommissionPayResponse)

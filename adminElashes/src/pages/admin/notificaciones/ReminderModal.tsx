@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
+import { Check, Mail, Smartphone } from "lucide-react";
 import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 import {
@@ -7,6 +8,7 @@ import {
   MANUAL_REMINDER_MAX_LENGTH,
   type ManualReminderResult,
   type ReminderChannels,
+  type ReminderEmailSender,
   type ReminderEmailStatus,
 } from "@/core/services/agenda/agenda.service";
 import type { CitaProximaRow } from "@/core/services/client/client.service";
@@ -19,6 +21,11 @@ interface ReminderModalProps {
   hora: string;
   /** Canales con los que abre (los de la barra de la tabla); se pueden cambiar aquí. */
   defaultChannels: ReminderChannels;
+  /** Remitente del servidor (null mientras carga o si falló). */
+  emailSender: ReminderEmailSender | null;
+  /** Remitente con el que abre; al enviar se avisa el elegido para reusarlo. */
+  defaultEmailFrom: string;
+  onEmailFromChange: (value: string) => void;
   onClose: () => void;
   onSent: (result: ManualReminderResult) => void;
 }
@@ -37,40 +44,62 @@ export function emailStatusWarning(status: ReminderEmailStatus | null): string |
   }
 }
 
+/** El remitente elegido tal como está autorizado, o null si no está en la lista. */
+export function matchAllowedSender(sender: ReminderEmailSender | null, value: string): string | null {
+  const wanted = value.trim().toLowerCase();
+  return sender?.allowed.find((address) => address.toLowerCase() === wanted) ?? null;
+}
+
 interface ReminderChannelPickerProps {
   value: ReminderChannels;
   onChange: (value: ReminderChannels) => void;
   disabled?: boolean;
 }
 
-/** Casillas Push / Correo. No deja desmarcar las dos: siempre queda un canal. */
+const CHANNEL_OPTIONS: { key: keyof ReminderChannels; label: string; title: string; icon: typeof Smartphone }[] = [
+  { key: "push", label: "Push", title: "Notificación en la app de la clienta", icon: Smartphone },
+  { key: "email", label: "Correo", title: "Correo al email registrado de la clienta", icon: Mail },
+];
+
+/** Casillas Push / Correo como chips: marcado = relleno oscuro con ✓. No deja
+ *  desmarcar las dos: siempre queda un canal. */
 export function ReminderChannelPicker({ value, onChange, disabled }: ReminderChannelPickerProps) {
   const toggle = (key: keyof ReminderChannels) => {
     const next = { ...value, [key]: !value[key] };
     if (next.push || next.email) onChange(next);
   };
-  const options: { key: keyof ReminderChannels; label: string; title: string }[] = [
-    { key: "push", label: "Push", title: "Notificación en la app de la clienta" },
-    { key: "email", label: "Correo", title: "Correo al email registrado de la clienta" },
-  ];
   return (
-    <div className="flex items-center gap-3" role="group" aria-label="Canales del recordatorio">
-      {options.map((option) => (
-        <label
-          key={option.key}
-          title={option.title}
-          className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-slate-600"
-        >
-          <input
-            type="checkbox"
-            checked={value[option.key]}
-            disabled={disabled || (value[option.key] && !(option.key === "push" ? value.email : value.push))}
-            onChange={() => toggle(option.key)}
-            className="h-4 w-4 accent-brand"
-          />
-          {option.label}
-        </label>
-      ))}
+    <div
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 pl-2.5 pr-1"
+      role="group"
+      aria-label="Canales del recordatorio"
+    >
+      <span className="whitespace-nowrap text-xs font-semibold text-slate-600">Enviar por:</span>
+      {CHANNEL_OPTIONS.map(({ key, label, title, icon: Icon }) => {
+        const checked = value[key];
+        const isLast = checked && !(key === "push" ? value.email : value.push);
+        return (
+          <label
+            key={key}
+            title={isLast ? `${title}. Debe quedar al menos un canal.` : title}
+            className={`inline-flex h-7 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-300 has-[:disabled]:cursor-not-allowed ${
+              checked
+                ? "border-slate-800 bg-slate-800 text-white"
+                : "border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-700"
+            } ${disabled ? "opacity-60" : ""}`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={disabled || isLast}
+              onChange={() => toggle(key)}
+              className="sr-only"
+            />
+            {checked ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+            {label}
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -90,18 +119,32 @@ export function buildReminderTemplate(cita: CitaProximaRow, fecha: string, hora:
   return fits ?? variants[variants.length - 1].slice(0, MANUAL_REMINDER_MAX_LENGTH);
 }
 
-export default function ReminderModal({ cita, fecha, hora, defaultChannels, onClose, onSent }: ReminderModalProps) {
+export default function ReminderModal({
+  cita,
+  fecha,
+  hora,
+  defaultChannels,
+  emailSender,
+  defaultEmailFrom,
+  onEmailFromChange,
+  onClose,
+  onSent,
+}: ReminderModalProps) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [channels, setChannels] = useState<ReminderChannels>(defaultChannels);
+  const [emailFrom, setEmailFrom] = useState(defaultEmailFrom);
 
   useEffect(() => {
     if (cita) setMessage(buildReminderTemplate(cita, fecha, hora));
   }, [cita, fecha, hora]);
 
-  // Al abrir para otra cita, vuelve a los canales de la barra.
+  // Al abrir para otra cita, vuelve a los canales y al remitente de la barra.
   useEffect(() => {
-    if (cita) setChannels(defaultChannels);
+    if (cita) {
+      setChannels(defaultChannels);
+      setEmailFrom(defaultEmailFrom);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cita]);
 
@@ -110,15 +153,24 @@ export default function ReminderModal({ cita, fecha, hora, defaultChannels, onCl
   const trimmed = message.trim();
   // Solo correo y sin correo registrado: no hay a dónde enviarlo.
   const emailOnlyWithoutAddress = channels.email && !channels.push && !cita.tiene_email;
+  // El backend rechaza remitentes fuera de SMTP_ALLOWED_FROM; se avisa antes.
+  const senderAllowed = matchAllowedSender(emailSender, emailFrom);
+  const senderInvalid = channels.email && !!emailSender?.configured && !senderAllowed;
   const canSend =
-    trimmed.length > 0 && message.length <= MANUAL_REMINDER_MAX_LENGTH && !isSending && !emailOnlyWithoutAddress;
+    trimmed.length > 0 &&
+    message.length <= MANUAL_REMINDER_MAX_LENGTH &&
+    !isSending &&
+    !emailOnlyWithoutAddress &&
+    !senderInvalid;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSend) return;
     setIsSending(true);
     try {
-      const result = await AgendaService.sendReminder(cita.appointment_id, trimmed, channels);
+      const from = channels.email ? senderAllowed : null;
+      const result = await AgendaService.sendReminder(cita.appointment_id, trimmed, channels, from);
+      if (from) onEmailFromChange(from);
       const warning = emailStatusWarning(result.email_status);
       if (warning && result.send_push) {
         toast.warning(`Recordatorio enviado a ${cita.clienta} por push, pero no por correo: ${warning}.`);
@@ -180,8 +232,55 @@ export default function ReminderModal({ cita, fecha, hora, defaultChannels, onCl
         </label>
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-slate-600">Enviar por</span>
-          <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSending} />
+          <div>
+            <ReminderChannelPicker value={channels} onChange={setChannels} disabled={isSending} />
+          </div>
         </div>
+        {channels.email ? (
+          emailSender?.configured ? (
+            <label className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <span className="text-xs font-medium text-slate-600">
+                Enviando desde: <span className="font-semibold text-slate-800">{senderAllowed ?? emailFrom}</span>
+              </span>
+              <input
+                type="email"
+                value={emailFrom}
+                onChange={(event) => setEmailFrom(event.target.value)}
+                list="reminder-email-senders"
+                disabled={isSending}
+                aria-label="Correo emisor"
+                aria-invalid={senderInvalid}
+                className={`h-9 w-full rounded-lg border bg-white px-3 text-sm text-slate-700 outline-none transition focus:ring-2 ${
+                  senderInvalid
+                    ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                    : "border-slate-200 focus:border-slate-400 focus:ring-slate-100"
+                }`}
+              />
+              <datalist id="reminder-email-senders">
+                {emailSender.allowed.map((address) => (
+                  <option key={address} value={address} />
+                ))}
+              </datalist>
+              {senderInvalid ? (
+                <span className="text-xs font-medium text-rose-600">
+                  Este correo no está autorizado en el servidor. Puedes usar: {emailSender.allowed.join(", ")}.
+                </span>
+              ) : (
+                <span className="text-xs text-slate-500">
+                  {emailSender.allowed.length > 1
+                    ? "Puedes cambiarlo por otra cuenta autorizada."
+                    : "Para enviar desde otra cuenta, agrégala en SMTP_ALLOWED_FROM del servidor."}
+                </span>
+              )}
+            </label>
+          ) : (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-700">
+              {emailSender
+                ? "El envío de correos no está configurado en el servidor."
+                : "Se usará el correo emisor configurado en el servidor."}
+            </p>
+          )
+        ) : null}
         <ul className="flex flex-col gap-1 text-xs text-slate-500">
           {channels.push ? (
             <li>Push: le llega como notificación a la app (si la tiene instalada y la sesión iniciada).</li>

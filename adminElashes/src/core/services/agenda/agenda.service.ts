@@ -208,6 +208,16 @@ export interface ReminderChannels {
   email: boolean;
 }
 
+/** Remitente de los correos de recordatorio (GET /agenda/reminders/email-sender). */
+export interface ReminderEmailSender {
+  configured: boolean;
+  /** Remitente por defecto. */
+  from_email: string | null;
+  from_name: string | null;
+  /** Remitentes que se pueden elegir (SMTP_ALLOWED_FROM, el por defecto incluido). */
+  allowed: string[];
+}
+
 export interface TicketClientInfo {
   id: number;
   name: string;
@@ -627,17 +637,25 @@ export const AgendaService = {
     return mapToTicket(response.data);
   },
 
-  /** Recordatorio manual a la clienta (llega a su app). Sin tiempo de espera entre envíos. */
+  /** Recordatorio manual a la clienta (llega a su app). Sin tiempo de espera entre envíos.
+   *  emailFrom: remitente del correo (uno de getReminderEmailSender().allowed); sin él, el por defecto. */
   async sendReminder(
     appointmentId: number,
     message: string,
     channels: ReminderChannels = { push: true, email: false },
+    emailFrom?: string | null,
   ): Promise<ManualReminderResult> {
     const response = await api.post<ManualReminderResult>(`/agenda/appointments/${appointmentId}/reminder`, {
       message,
       send_push: channels.push,
       send_email: channels.email,
+      ...(channels.email && emailFrom?.trim() ? { email_from: emailFrom.trim() } : {}),
     });
+    return response.data;
+  },
+
+  async getReminderEmailSender(): Promise<ReminderEmailSender> {
+    const response = await api.get<ReminderEmailSender>("/agenda/reminders/email-sender");
     return response.data;
   },
 
