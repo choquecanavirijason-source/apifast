@@ -292,13 +292,30 @@ class TestAvisoProgramado:
         assert aviso["expira_en"] == appt.start_time.replace(tzinfo=LA_PAZ).isoformat()
         assert aviso["aviso_id"] != reminder.id  # hash propio, no el id de la tabla
 
-    def test_cada_envio_es_un_aviso_distinto(self, db, seed):
+    def test_solo_el_ultimo_envio_de_cada_cita(self, db, seed):
+        # Enviar varios a la misma cita no debe mostrar varios al sincronizar
+        # (al iniciar sesión salían todos de golpe).
         appt = add_cita(db, seed)
-        add_reminder(db, appt, datetime.utcnow() - timedelta(minutes=30), "Primero")
+        primero = add_reminder(db, appt, datetime.utcnow() - timedelta(minutes=30), "Primero")
         add_reminder(db, appt, datetime.utcnow() - timedelta(minutes=5), "Segundo")
+        [aviso] = manuales(get_scheduled_notices(db, seed["ana"].id))
+        assert aviso["cuerpo"] == "Segundo"
+        assert aviso["aviso_id"] != primero.id
+
+    def test_uno_por_cita_con_varias_citas(self, db, seed):
+        a, b = add_cita(db, seed), add_cita(db, seed, in_hours=30)
+        add_reminder(db, a, datetime.utcnow() - timedelta(minutes=20), "A1")
+        add_reminder(db, b, datetime.utcnow() - timedelta(minutes=10), "B1")
+        add_reminder(db, a, datetime.utcnow() - timedelta(minutes=5), "A2")
         avisos = manuales(get_scheduled_notices(db, seed["ana"].id))
-        assert [a["cuerpo"] for a in avisos] == ["Primero", "Segundo"]  # por mostrar_en
-        assert avisos[0]["aviso_id"] != avisos[1]["aviso_id"]
+        assert [x["cuerpo"] for x in avisos] == ["B1", "A2"]  # por mostrar_en
+
+    def test_no_se_reenvia_pasadas_24_horas(self, db, seed):
+        appt = add_cita(db, seed, in_hours=72)
+        add_reminder(db, appt, datetime.utcnow() - timedelta(hours=25), "Viejo")
+        assert manuales(get_scheduled_notices(db, seed["ana"].id)) == []
+        add_reminder(db, appt, datetime.utcnow() - timedelta(hours=23), "Reciente")
+        assert [x["cuerpo"] for x in manuales(get_scheduled_notices(db, seed["ana"].id))] == ["Reciente"]
 
     def test_expira_a_la_hora_de_la_cita(self, db, seed):
         appt = add_cita(db, seed, in_hours=2)

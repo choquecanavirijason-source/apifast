@@ -309,10 +309,22 @@ def manual_reminder_aviso(reminder: ManualReminder, appointment: Appointment) ->
     }
 
 
+# Un recordatorio manual se entrega en el momento (push + WebSocket); por
+# /avisos/programados solo vuelve como respaldo para quien no tenía conexión.
+# Pasado este tiempo ya no se reenvía: si no, al iniciar sesión (la app borra
+# lo ya mostrado al cerrar sesión) aparecían de golpe todos los de los días
+# anteriores.
+MANUAL_REMINDER_SYNC_MAX_AGE = timedelta(hours=24)
+
+
 def _manual_reminder_notices(db: Session, client_id: int, now: datetime) -> list[dict]:
-    """Recordatorios manuales de citas activas de la clienta que todavía no
-    llegaron a su hora. No los filtra notificaciones_activas (eso es solo para
-    mantenimiento/retiro) ni la ventana de 48 h: el salón decidió enviarlo ya."""
+    """El último recordatorio manual de cada cita activa de la clienta que
+    todavía no llegó a su hora, si se envió hace menos de
+    MANUAL_REMINDER_SYNC_MAX_AGE. Uno nuevo reemplaza a los anteriores de la
+    misma cita (enviar 20 no debe mostrar 20 al sincronizar). No los filtra
+    notificaciones_activas (eso es solo para mantenimiento/retiro) ni la
+    ventana de 48 h: el salón decidió enviarlo ya."""
+    now_utc_naive = now.astimezone(timezone.utc).replace(tzinfo=None)
     rows = (
         db.query(ManualReminder, Appointment)
         .join(Appointment, Appointment.id == ManualReminder.appointment_id)
@@ -323,10 +335,16 @@ def _manual_reminder_notices(db: Session, client_id: int, now: datetime) -> list
         .filter(Appointment.client_id == client_id)
         .filter(Appointment.status.notin_(FINAL_STATUSES))
         .filter(Appointment.start_time > now.replace(tzinfo=None))
+        .filter(ManualReminder.created_at >= now_utc_naive - MANUAL_REMINDER_SYNC_MAX_AGE)
+        .order_by(ManualReminder.created_at, ManualReminder.id)
         .all()
     )
-    avisos = []
+    # Ordenados por envío: el último de cada cita pisa a los anteriores.
+    latest: dict[int, tuple] = {}
     for reminder, appointment in rows:
+        latest[appointment.id] = (reminder, appointment)
+    avisos = []
+    for reminder, appointment in sorted(latest.values(), key=lambda ra: ra[0].created_at):
         aviso = manual_reminder_aviso(reminder, appointment)
         aviso["_orden"] = utc_naive_to_local(reminder.created_at)
         avisos.append(aviso)
