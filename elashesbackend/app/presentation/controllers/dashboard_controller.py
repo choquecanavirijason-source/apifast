@@ -7,13 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import String, case, cast, distinct, func
 from sqlalchemy.orm import Session, aliased, joinedload
 
-from app.core.dependencies import get_db, require_any_permission
+from app.core.dependencies import get_db, require_any_permission, require_permission, resolve_branch_id, SUPER_ADMIN_ROLE
 from app.domain.entities.branch import Branch
 from app.domain.entities.client import Client
 from app.domain.entities.inventory import Batch, Product
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
-from app.domain.entities.service_agenda import Appointment, Service
+from app.domain.entities.service_agenda import Appointment, Service, BranchService
 from app.domain.entities.user import User
 
 
@@ -104,6 +104,34 @@ def _csv_response(filename: str, headers: list[str], rows: list[list[object]]) -
     )
 
 
+def _dashboard_branch(requested: Optional[int], user: User) -> Optional[int]:
+    branch_id = resolve_branch_id(requested, user)
+    if branch_id is None and (not user.role or user.role.name not in (SUPER_ADMIN_ROLE, "Admin", "Secretaria")):
+        raise HTTPException(status_code=403, detail="El usuario no tiene una sucursal asignada.")
+    return branch_id
+
+
+@router.get("/dashboard/filters")
+def get_dashboard_filters(
+    branch_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("dashboard:view")),
+):
+    branch_id = _dashboard_branch(branch_id, current_user)
+    # Opciones mínimas para el Dashboard; no expone fichas de citas ni el catálogo completo.
+    branches = db.query(Branch.id, Branch.name)
+    services = db.query(Service.id, Service.name)
+    if branch_id is not None:
+        branches = branches.filter(Branch.id == branch_id)
+        services = services.filter(Service.branch_services.any(
+            (BranchService.branch_id == branch_id) & BranchService.is_active.is_(True)
+        ))
+    return {
+        "branches": [{"id": row.id, "name": row.name} for row in branches.order_by(Branch.name).all()],
+        "services": [{"id": row.id, "name": row.name} for row in services.order_by(Service.name).all()],
+    }
+
+
 @router.get("/dashboard/overview")
 def get_dashboard_overview(
     from_date: Optional[str] = Query(default=None, alias="from"),
@@ -114,6 +142,7 @@ def get_dashboard_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_any_permission(
+            "dashboard:view",
             "payments:view",
             "appointments:view",
             "inventory:view",
@@ -122,6 +151,7 @@ def get_dashboard_overview(
         )
     ),
 ):
+    branch_id = _dashboard_branch(branch_id, current_user)
     start_at, end_at = _parse_date_range(from_date, to_date)
 
     appointment_summary = (
@@ -189,7 +219,10 @@ def get_dashboard_overview(
         or 0
     )
 
-    clients_total = db.query(func.count(Client.id)).scalar() or 0
+    clients_query = db.query(func.count(Client.id))
+    if branch_id is not None:
+        clients_query = clients_query.filter(Client.branch_id == branch_id)
+    clients_total = clients_query.scalar() or 0
 
     active_employees_query = db.query(func.count(User.id)).filter(User.is_active.is_(True))
     if branch_id is not None:
@@ -257,8 +290,9 @@ def get_dashboard_revenue_series(
     service_id: Optional[int] = Query(default=None, ge=1),
     group_by: DashboardGroupBy = Query(default="day"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("payments:view", "appointments:view")),
+    current_user: User = Depends(require_any_permission("dashboard:view", "payments:view", "appointments:view")),
 ):
+    branch_id = _dashboard_branch(branch_id, current_user)
     start_at, end_at = _parse_date_range(from_date, to_date)
     bucket = _bucket_expression(Payment.paid_at, group_by).label("bucket")
 
@@ -300,8 +334,9 @@ def get_dashboard_service_distribution(
     service_id: Optional[int] = Query(default=None, ge=1),
     limit: int = Query(default=8, ge=1, le=20),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("appointments:view", "services:view")),
+    current_user: User = Depends(require_any_permission("dashboard:view", "appointments:view", "services:view")),
 ):
+    branch_id = _dashboard_branch(branch_id, current_user)
     start_at, end_at = _parse_date_range(from_date, to_date)
 
     rows = (
@@ -349,8 +384,9 @@ def get_dashboard_inventory_distribution(
     branch_id: Optional[int] = Query(default=None, ge=1),
     limit: int = Query(default=8, ge=1, le=20),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_any_permission("inventory:view", "branches:view")),
+    current_user: User = Depends(require_any_permission("dashboard:view", "inventory:view", "branches:view")),
 ):
+    branch_id = _dashboard_branch(branch_id, current_user)
     query = (
         db.query(
             Product.id.label("product_id"),

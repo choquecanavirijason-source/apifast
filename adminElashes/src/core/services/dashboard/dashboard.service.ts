@@ -1,5 +1,7 @@
 import api from "../api";
 
+export interface DashboardFilterOption { id: number; name: string; }
+
 export interface DashboardFilters {
   from?: string;
   to?: string;
@@ -64,6 +66,13 @@ const buildParams = (filters?: DashboardFilters) => ({
 });
 
 export const DashboardService = {
+  async getFilters(branchId?: number) {
+    const response = await api.get<{ branches: DashboardFilterOption[]; services: DashboardFilterOption[] }>("/dashboard/filters", {
+      params: { branch_id: branchId },
+    });
+    return response.data;
+  },
+
   async getOverview(filters?: DashboardFilters) {
     const response = await api.get<DashboardOverview>("/dashboard/overview", {
       params: buildParams(filters),

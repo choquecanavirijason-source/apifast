@@ -36,9 +36,8 @@ import Layout from "@/components/common/layout";
 import { Button, SectionCard, StatCard } from "@/components/common/ui";
 import DownloadActions from "@/components/common/ui/DownloadActions";
 import FilterField from "@/components/common/ui/FilterField";
-import { DashboardService, type DashboardOverview } from "@/core/services/dashboard/dashboard.service";
-import { BranchService } from "@/core/services/branch/branch.service";
-import { AgendaService, type ServiceOption } from "@/core/services/agenda/agenda.service";
+import { DashboardService, type DashboardFilterOption, type DashboardOverview } from "@/core/services/dashboard/dashboard.service";
+import useAuth from "@/core/hooks/useAuth";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/core/utils/branch";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 
@@ -127,8 +126,16 @@ const emptyOverview: DashboardOverview = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { hasPermissionByName, isAdmin } = useAuth();
+  const canAccess = (...permissions: string[]) => isAdmin() || permissions.some(hasPermissionByName);
+  const canDownloadReports = canAccess("payments:view", "appointments:view");
+  const canNavigate = (path: string) => path === "/clients"
+    ? canAccess("clients:view", "clients:manage")
+    : path === "/admin/pos-tracking"
+      ? canAccess("appointments:view", "appointments:manage", "payments:view", "payments:manage")
+      : canAccess("appointments:view", "appointments:manage");
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [services, setServices] = useState<ServiceOption[]>([]);
+  const [services, setServices] = useState<DashboardFilterOption[]>([]);
   const [overview, setOverview] = useState<DashboardOverview>(emptyOverview);
   const [revenueSeries, setRevenueSeries] = useState<Array<{ bucket: string; paid_amount: number; payments_count: number }>>([]);
   const [serviceDistribution, setServiceDistribution] = useState<
@@ -192,24 +199,21 @@ export default function Dashboard() {
   const wsBranchId = branchFilter ? Number(branchFilter) : null;
   useWebSocket(wsBranchId, () => { void loadDashboard(); });
 
-  const loadContext = async () => {
+  const loadContext = useCallback(async () => {
     try {
-      const [branchesData, servicesData] = await Promise.all([
-        BranchService.list({ limit: 200 }),
-        AgendaService.listServices({ limit: 200 }),
-      ]);
-      setBranches(branchesData);
-      setServices(servicesData);
+      const data = await DashboardService.getFilters(branchFilter ? Number(branchFilter) : undefined);
+      setBranches(data.branches);
+      setServices(data.services);
     } catch (err) {
       console.error("Error cargando filtros del dashboard:", err);
       setBranches([]);
       setServices([]);
     }
-  };
+  }, [branchFilter]);
 
   useEffect(() => {
     void loadContext();
-  }, []);
+  }, [loadContext]);
 
   useEffect(() => {
     const syncBranchFromGlobal = () => {
@@ -300,7 +304,7 @@ export default function Dashboard() {
     { label: "Calendario", helper: "Agenda por día, semana, mes o año", path: "/admin/calendar/agenda" },
     { label: "Agenda del día", helper: "Planilla diaria de reservas (sin venta POS)", path: "/admin/calendar/agenda" },
     { label: "Caja & Seguimiento", helper: "Ventas y seguimiento técnico", path: "/admin/pos-tracking" },
-  ];
+  ].filter((item) => canNavigate(item.path));
 
   const downloadSectionReport = (section: ExportSection, format: ExportFormat) => {
     try {
@@ -450,7 +454,7 @@ export default function Dashboard() {
               {isLoading ? "Actualizando..." : "Actualizar"}
             </button>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={canDownloadReports ? "flex flex-wrap items-center gap-2" : "hidden"}>
               <span className="text-[11px] font-medium text-slate-400">
                 Descargar CSV
               </span>
@@ -768,7 +772,7 @@ export default function Dashboard() {
         </SectionCard>
       </div>
 
-      <div className="mt-4">
+      <div className={quickLinks.length ? "mt-4" : "hidden"}>
         <SectionCard
           variant="business"
           title="Accesos directos"
@@ -799,18 +803,26 @@ export default function Dashboard() {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
+            {canNavigate("/admin/tickets") && (
             <Button variant="secondary" size="sm" leftIcon={<Ticket className="h-4 w-4" />} onClick={() => navigate("/admin/tickets")}>
               Gestionar tickets
             </Button>
+            )}
+            {canNavigate("/admin/calendar/agenda") && (
             <Button variant="secondary" size="sm" leftIcon={<CalendarDays className="h-4 w-4" />} onClick={() => navigate("/admin/calendar/agenda")}>
               Ver calendario
             </Button>
+            )}
+            {canNavigate("/admin/calendar/agenda") && (
             <Button variant="secondary" size="sm" leftIcon={<CalendarClock className="h-4 w-4" />} onClick={() => navigate("/admin/calendar/agenda")}>
               Agenda del día
             </Button>
+            )}
+            {canNavigate("/admin/pos-tracking") && (
             <Button size="sm" leftIcon={<ClipboardList className="h-4 w-4" />} onClick={() => navigate("/admin/pos-tracking")}>
               Abrir Caja POS
             </Button>
+            )}
           </div>
         </SectionCard>
       </div>
