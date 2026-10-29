@@ -1,6 +1,7 @@
+from datetime import date
 from typing import Optional
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import and_, case, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -175,6 +176,7 @@ def _user_query(db: Session):
         joinedload(User.role).joinedload(Role.permissions),
         joinedload(User.direct_permissions),
         joinedload(User.branch),
+        joinedload(User.temp_branch),
     )
 
 
@@ -210,7 +212,12 @@ def list_users(
     query = _user_query(db)
 
     if branch_id is not None:
-        query = query.filter(User.branch_id == branch_id)
+        # Misma regla que User.effective_branch_id: la temporal activa prevalece.
+        effective_branch = case(
+            (and_(User.temp_branch_id.isnot(None), User.temp_branch_until >= date.today()), User.temp_branch_id),
+            else_=User.branch_id,
+        )
+        query = query.filter(effective_branch == branch_id)
 
     if search:
         search_term = f"%{search.strip()}%"

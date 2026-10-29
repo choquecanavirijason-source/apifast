@@ -31,6 +31,9 @@ export interface UserItem {
   skill_level?: number | null;
   direct_permissions?: PermissionItem[];
   /** Asignación temporal de sucursal */
+  temp_branch?: BranchItem | null;
+  effective_branch_id?: number | null;
+  is_temp_assigned?: boolean;
   temp_branch_id?: number | null;
   temp_branch_until?: string | null;
 }
@@ -42,3 +45,14 @@ export const getRoleName = (role: UserItem["role"]) => {
   if (role && typeof role === "object" && "name" in role) return String(role.name ?? "");
   return "Sin rol";
 };
+
+/** La API determina si la asignación temporal sigue activa. */
+export const hasTemporaryBranch = (user: UserItem) => user.is_temp_assigned === true;
+
+export const getEffectiveBranchId = (user: UserItem): number | null =>
+  user.effective_branch_id ?? (hasTemporaryBranch(user) ? user.temp_branch_id ?? null : user.branch_id ?? user.branch?.id ?? null);
+
+export const getEffectiveBranchName = (user: UserItem): string =>
+  hasTemporaryBranch(user)
+    ? user.temp_branch?.name ?? `Sucursal #${user.temp_branch_id}`
+    : user.branch?.name ?? "Sin sucursal";

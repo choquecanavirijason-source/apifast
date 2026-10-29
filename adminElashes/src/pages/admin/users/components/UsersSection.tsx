@@ -4,7 +4,7 @@ import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableAction, type DataTableColumn } from "@/components/common/table/DataTable";
 
 import type { UserItem } from "../types";
-import { getRoleName } from "../types";
+import { getEffectiveBranchName, getRoleName, hasTemporaryBranch } from "../types";
 
 interface UsersSectionProps {
   users: UserItem[];
@@ -15,7 +15,6 @@ interface UsersSectionProps {
 }
 
 export default function UsersSection({ users, loading, onEditUser, onDeleteUser, onAssignBranch }: UsersSectionProps) {
-  const today = new Date().toISOString().slice(0, 10);
   const formatCreatedAt = (value?: string | null) => {
     if (!value) return "Sin fecha";
     const parsed = new Date(value);
@@ -62,15 +61,17 @@ export default function UsersSection({ users, loading, onEditUser, onDeleteUser,
       key: "branch",
       header: "Sucursal",
       sortable: true,
-      getValue: (item) => item.branch?.name ?? "Sin sucursal",
+      getValue: getEffectiveBranchName,
       render: (item) => {
-        const hasTempActive =
-          !!item.temp_branch_id &&
-          !!item.temp_branch_until &&
-          item.temp_branch_until >= today;
+        const hasTempActive = hasTemporaryBranch(item);
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-[var(--ui-text)]">{item.branch?.name ?? "Sin sucursal"}</span>
+            <span className="text-xs text-[var(--ui-text)]">{getEffectiveBranchName(item)}</span>
+            {hasTempActive && (
+              <span className="text-[10px] text-[var(--ui-text-muted)]">
+                Origen: {item.branch?.name ?? "Sin sucursal"}
+              </span>
+            )}
             {hasTempActive && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4ce] px-1.5 py-0.5 text-[9px] font-bold text-[#8a6a1f]">
                 ⚡ Temp. hasta {item.temp_branch_until}

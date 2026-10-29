@@ -1,7 +1,7 @@
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from app.presentation.schemas.branch import BranchSummary
-from datetime import datetime
+from datetime import date, datetime
 import re
 
 
@@ -109,6 +109,11 @@ class SkillLevelUpdate(BaseModel):
 
 
 class UserResponse(UserSummary):
+    temp_branch_id: Optional[int] = None
+    temp_branch_until: Optional[date] = None
+    temp_branch: Optional[BranchSummary] = None
+    effective_branch_id: Optional[int] = None
+    is_temp_assigned: bool = False
     role_id: Optional[int] = None
     branch_id: Optional[int] = None
     role: Optional[RoleResponse] = None

@@ -3,6 +3,7 @@ import { ArrowLeftRight, Building2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "@/core/services/api";
 import Button from "@/components/common/ui/Button";
+import { getEffectiveBranchId, getEffectiveBranchName, hasTemporaryBranch } from "../types";
 import type { BranchItem, UserItem } from "../types";
 
 interface Props {
@@ -15,14 +16,11 @@ interface Props {
 export default function BranchAssignModal({ user, branches, onClose, onSuccess }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const homeBranchName = user.branch?.name ?? "Sin sucursal";
-  const hasTempActive =
-    !!user.temp_branch_id &&
-    !!user.temp_branch_until &&
-    user.temp_branch_until >= today;
+  const hasTempActive = hasTemporaryBranch(user);
 
   const [mode, setMode] = useState<"temp" | "permanent">("temp");
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    String(user.branch_id ?? "")
+    String(getEffectiveBranchId(user) ?? "")
   );
   const [tempUntil, setTempUntil] = useState(
     hasTempActive ? (user.temp_branch_until ?? "") : ""
@@ -102,7 +100,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
               <div>
                 <p className="text-[11px] font-semibold text-[#8a6a1f]">Asignación temporal activa</p>
                 <p className="text-[11px] text-[var(--ui-text-muted)]">
-                  Trabajando en otra sucursal hasta el {user.temp_branch_until}
+                  Trabajando en {getEffectiveBranchName(user)} hasta el {user.temp_branch_until}
                 </p>
               </div>
               <Button
@@ -176,7 +174,7 @@ export default function BranchAssignModal({ user, branches, onClose, onSuccess }
                 className="w-full rounded-lg border border-[var(--ui-border)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-brand-secondary"
               />
               <p className="mt-1 text-[10px] text-[var(--ui-text-muted)]">
-                A partir de esta fecha, la operaria vuelve automáticamente a {homeBranchName}.
+                La asignación incluye esta fecha. Al día siguiente, la operaria vuelve automáticamente a {homeBranchName}.
               </p>
             </div>
           )}

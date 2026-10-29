@@ -21,6 +21,7 @@ import UsersSection from "./components/UsersSection";
 import BranchAssignModal from "./components/BranchAssignModal";
 import UsersStats from "./components/UsersStats";
 import UsersTabs from "./components/UsersTabs";
+import { getEffectiveBranchId, getEffectiveBranchName } from "./types";
 import type { BranchItem, PermissionItem, RoleItem, SectionTab, UserItem } from "./types";
 
 export default function UsersMain() {
@@ -206,7 +207,7 @@ export default function UsersMain() {
     const branchExists = branches.some((b) => b.id === activeBranchId);
     if (!branchExists) return users;
     return users.filter((item) => {
-      const branchId = item.branch_id ?? item.branch?.id ?? null;
+      const branchId = getEffectiveBranchId(item);
       // mostrar usuarios de la sucursal seleccionada O sin sucursal asignada
       return branchId === null || Number(branchId) === activeBranchId;
     });
@@ -448,7 +449,7 @@ export default function UsersMain() {
         email: u.email,
         phone: u.phone ?? "—",
         role: getRoleName(u.role),
-        branch: u.branch?.name ?? "—",
+        branch: getEffectiveBranchName(u),
         status: u.is_active ? "Activo" : "Inactivo",
         created_at: u.created_at ? new Date(u.created_at).toLocaleDateString("es-BO") : "—",
       })),
