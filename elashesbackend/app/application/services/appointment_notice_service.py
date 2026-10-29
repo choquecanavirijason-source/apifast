@@ -106,6 +106,11 @@ def make_aviso_id(appointment_id: int, tipo: str, start_time: datetime) -> int:
     return _hash31(f"{appointment_id}|{tipo}|{start_time.replace(tzinfo=None).isoformat()}")
 
 
+def make_broadcast_aviso_id(broadcast_id: int) -> int:
+    """Como make_aviso_id, para un comunicado (prefijo "b": no choca con los demás)."""
+    return _hash31(f"b|{broadcast_id}")
+
+
 def make_tracking_aviso_id(tracking_id: int, tipo: str, target_day: date, show_day: date) -> int:
     """Como make_aviso_id, para seguimiento + tipo + fecha objetivo. Incluye el
     día en que se muestra para que el aviso previo y el del mismo día no

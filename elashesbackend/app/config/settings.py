@@ -96,6 +96,16 @@ class Settings(BaseSettings):
     # True = STARTTLS (587); False con puerto 465 = SSL directo.
     smtp_use_tls: bool = True
     smtp_timeout_seconds: float = 10.0
+    # Correos por día que acepta la cuenta SMTP. Gmail personal: ~500; Google
+    # Workspace: ~2000. Solo sirve para avisar en el panel antes de un envío
+    # masivo; el servidor de correo es quien corta de verdad.
+    smtp_daily_limit: int = 500
+
+    # URL pública con la que los celulares llegan a este backend, sin "/" al
+    # final (ej. https://elashes.com/api). Firebase solo acepta la imagen de un
+    # push por URL: vacía = el push sale sin imagen (el correo la lleva
+    # incrustada y no la necesita).
+    public_base_url: Optional[str] = None
 
     @model_validator(mode="after")
     def resolve_database_url(self):
