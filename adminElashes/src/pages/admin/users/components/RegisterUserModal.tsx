@@ -14,7 +14,7 @@ interface RegisterUserPayload {
   password: string;
   phone: string | null;
   role_id: number;
-  branch_id: number | null;
+  branch_id: number;
 }
 
 interface RegisterUserModalProps {
@@ -71,11 +71,16 @@ export default function RegisterUserModal({
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     formRef.current = event.currentTarget;
+    if (!event.currentTarget.reportValidity()) return;
     setIsConfirmOpen(true);
   };
 
   const handleConfirm = () => {
     if (!formRef.current) return;
+    if (!formRef.current.reportValidity()) {
+      setIsConfirmOpen(false);
+      return;
+    }
 
     const formData = new FormData(formRef.current);
     const username = String(formData.get("username") ?? "").trim();
@@ -85,9 +90,13 @@ export default function RegisterUserModal({
     const roleIdRaw = String(formData.get("role_id") ?? "").trim();
     const branchIdRaw = String(formData.get("branch_id") ?? "").trim();
     const roleId = Number(roleIdRaw);
-    const branchId = branchIdRaw ? Number(branchIdRaw) : null;
+    const branchId = Number(branchIdRaw);
 
     if (!username || !email || !password || !roleId) return;
+    if (!Number.isInteger(branchId) || branchId <= 0 || !branches.some((branch) => branch.id === branchId)) {
+      setIsConfirmOpen(false);
+      return;
+    }
 
     onSubmit({
       username,
@@ -95,7 +104,7 @@ export default function RegisterUserModal({
       password,
       phone: phoneRaw || null,
       role_id: roleId,
-      branch_id: Number.isFinite(Number(branchId)) ? branchId : null,
+      branch_id: branchId,
     });
     setIsConfirmOpen(false);
   };
@@ -192,11 +201,12 @@ export default function RegisterUserModal({
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Sucursal</label>
             <select
               name="branch_id"
+              required
               value={values.branch_id}
               onChange={(event) => setValues((prev) => ({ ...prev, branch_id: event.target.value }))}
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#094732]"
             >
-              <option value="">Sin sucursal</option>
+              <option value="" disabled hidden>Selecciona una sucursal</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={String(branch.id)}>
                   {branch.name}

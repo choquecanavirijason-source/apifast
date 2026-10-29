@@ -382,6 +382,11 @@ export default function UsersMain() {
       return;
     }
 
+    if (!payload.branch_id || !branches.some((branch) => branch.id === payload.branch_id)) {
+      toast.error("Selecciona una sucursal para el usuario");
+      return;
+    }
+
     setCreatingUser(true);
     try {
       await api.post("/admin/users", {
