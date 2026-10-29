@@ -18,6 +18,8 @@ export const MODULE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   audit: "Auditoría",
   commissions: "pagos de comisiones",
+  reminders: "recordatorios",
+  broadcasts: "comunicados",
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -25,6 +27,7 @@ const ACTION_LABELS: Record<string, string> = {
   manage: "Gestionar",
   pay: "Confirmar",
   void: "Anular",
+  send: "Enviar",
 };
 
 /** "ai" -> "Asistente IA". Si no reconoce el módulo, devuelve la clave tal cual. */

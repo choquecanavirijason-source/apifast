@@ -54,6 +54,41 @@ export function EmailSenderSelect({ sender, value, onChange, onAddRequest, disab
   );
 }
 
+interface EmailFromFieldProps {
+  sender: ReminderEmailSender | null;
+  value: string;
+  onChange: (value: string) => void;
+  onAddRequest: () => void;
+  disabled?: boolean;
+}
+
+/** "Enviando desde: [remitente]" en un formulario, o el aviso si el servidor
+ *  no tiene correo (o aún no se sabe y se usará el por defecto). */
+export function EmailFromField({ sender, value, onChange, onAddRequest, disabled }: EmailFromFieldProps) {
+  if (!sender?.configured) {
+    return (
+      <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-700">
+        {sender
+          ? "El envío de correos no está configurado en el servidor."
+          : "Se usará el correo emisor configurado en el servidor."}
+      </p>
+    );
+  }
+  return (
+    <label className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <span className="text-xs font-medium text-slate-600">Enviando desde:</span>
+      <EmailSenderSelect
+        sender={sender}
+        value={value}
+        onChange={onChange}
+        onAddRequest={onAddRequest}
+        disabled={disabled}
+        className="flex-1"
+      />
+    </label>
+  );
+}
+
 interface AddEmailSenderModalProps {
   isOpen: boolean;
   sender: ReminderEmailSender | null;
