@@ -25,6 +25,12 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def get_session_factory() -> Callable[[], Session]:
+    """Para trabajos que siguen después de responder (BackgroundTasks) y abren
+    su propia sesión: la del request ya está cerrada. Los tests la reemplazan."""
+    return SessionLocal
+
+
 _device_bearer = HTTPBearer(auto_error=False)
 
 

@@ -10,7 +10,7 @@ import uuid
 
 from fastapi import HTTPException, UploadFile, status
 
-from app.config.settings import get_external_path
+from app.config.settings import get_external_path, settings
 
 # La carpeta vive junto al .exe / proyecto (igual que la base de datos SQLite),
 # para que persista entre despliegues locales.
@@ -18,10 +18,12 @@ MEDIA_ROOT = os.path.join(get_external_path(), "media")
 MEDIA_URL_PREFIX = "/media"
 
 # Carpetas permitidas para subir (evita escritura arbitraria de rutas).
-ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "designs", "misc", "marketplace", "branding", "expenses"}
+ALLOWED_FOLDERS = {"lash-designs", "eye-types", "effects", "volumes", "designs", "misc", "marketplace", "branding", "expenses", "broadcasts"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 MAX_LOGO_BYTES = 500 * 1024  # 500 KB
+# Firebase descarta las imágenes de notificación de más de 1 MB.
+MAX_NOTIFICATION_IMAGE_BYTES = 1024 * 1024
 
 # Modelos 3D de diseños (vista previa AR/3D en el admin).
 MODEL_3D_FOLDER = "design-models"
@@ -78,6 +80,28 @@ def save_catalog_image(file: UploadFile, folder: str, max_bytes: int = MAX_IMAGE
         out.write(data)
 
     return f"{MEDIA_URL_PREFIX}/{folder}/{filename}"
+
+
+def public_media_url(relative_url: str | None) -> str | None:
+    """URL absoluta de `/media/...` para quien está fuera del panel (push,
+    correo). None si no hay imagen o falta settings.public_base_url."""
+    base = (settings.public_base_url or "").strip().rstrip("/")
+    if not relative_url or not base:
+        return None
+    return f"{base}{relative_url}"
+
+
+def read_media_file(relative_url: str | None) -> bytes | None:
+    """Contenido de un archivo `/media/...`, o None si no existe. Nunca lee
+    fuera de MEDIA_ROOT (aunque la ruta traiga "..")."""
+    if not relative_url or not relative_url.startswith(f"{MEDIA_URL_PREFIX}/"):
+        return None
+    root = os.path.realpath(MEDIA_ROOT)
+    path = os.path.realpath(os.path.join(root, relative_url[len(MEDIA_URL_PREFIX) + 1:]))
+    if not path.startswith(root + os.sep) or not os.path.isfile(path):
+        return None
+    with open(path, "rb") as fh:
+        return fh.read()
 
 
 def delete_media_file(relative_url: str | None) -> None:

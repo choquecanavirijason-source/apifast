@@ -49,6 +49,9 @@ class FcmNotification:
     # Canal de Android de la app (debe existir: lo crea la app al iniciar).
     channel_id: str
     tag: str
+    # URL https pública (máx. 1 MB). Android la muestra solo; iOS necesita una
+    # Notification Service Extension en la app.
+    image: Optional[str] = None
 
 
 class FcmResult(str, Enum):
@@ -146,6 +149,11 @@ class FcmClient:
             }
             # Con alerta visible, iOS acepta tipo "alert" y prioridad 10.
             message["apns"]["headers"] = {"apns-push-type": "alert", "apns-priority": "10"}
+            if notification.image:
+                message["notification"]["image"] = notification.image
+                # iOS: la extensión de la app descarga la imagen (mutable-content).
+                message["apns"]["payload"]["aps"]["mutable-content"] = 1
+                message["apns"]["fcm_options"] = {"image": notification.image}
         try:
             access_token = self._access_token()
             response = httpx.post(

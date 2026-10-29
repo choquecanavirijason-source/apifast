@@ -13,7 +13,7 @@ import {
 } from "@/core/services/agenda/agenda.service";
 import type { CitaProximaRow } from "@/core/services/client/client.service";
 import { getApiErrorMessage } from "@/core/utils/apiError";
-import { EmailSenderSelect, effectiveSender } from "./EmailSenderControls";
+import { EmailFromField, effectiveSender } from "./EmailSenderControls";
 
 interface ReminderModalProps {
   cita: CitaProximaRow | null;
@@ -51,6 +51,7 @@ interface ReminderChannelPickerProps {
   value: ReminderChannels;
   onChange: (value: ReminderChannels) => void;
   disabled?: boolean;
+  ariaLabel?: string;
 }
 
 const CHANNEL_OPTIONS: { key: keyof ReminderChannels; label: string; title: string; icon: typeof Smartphone }[] = [
@@ -60,7 +61,12 @@ const CHANNEL_OPTIONS: { key: keyof ReminderChannels; label: string; title: stri
 
 /** Casillas Push / Correo como chips: marcado = relleno oscuro con ✓. No deja
  *  desmarcar las dos: siempre queda un canal. */
-export function ReminderChannelPicker({ value, onChange, disabled }: ReminderChannelPickerProps) {
+export function ReminderChannelPicker({
+  value,
+  onChange,
+  disabled,
+  ariaLabel = "Canales del recordatorio",
+}: ReminderChannelPickerProps) {
   const toggle = (key: keyof ReminderChannels) => {
     const next = { ...value, [key]: !value[key] };
     if (next.push || next.email) onChange(next);
@@ -69,7 +75,7 @@ export function ReminderChannelPicker({ value, onChange, disabled }: ReminderCha
     <div
       className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 pl-2.5 pr-1"
       role="group"
-      aria-label="Canales del recordatorio"
+      aria-label={ariaLabel}
     >
       <span className="whitespace-nowrap text-xs font-semibold text-slate-600">Enviar por:</span>
       {CHANNEL_OPTIONS.map(({ key, label, title, icon: Icon }) => {
@@ -223,25 +229,13 @@ export default function ReminderModal({
           </div>
         </div>
         {channels.email ? (
-          emailSender?.configured ? (
-            <label className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <span className="text-xs font-medium text-slate-600">Enviando desde:</span>
-              <EmailSenderSelect
-                sender={emailSender}
-                value={emailFrom}
-                onChange={onEmailFromChange}
-                onAddRequest={onAddSender}
-                disabled={isSending}
-                className="flex-1"
-              />
-            </label>
-          ) : (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-700">
-              {emailSender
-                ? "El envío de correos no está configurado en el servidor."
-                : "Se usará el correo emisor configurado en el servidor."}
-            </p>
-          )
+          <EmailFromField
+            sender={emailSender}
+            value={emailFrom}
+            onChange={onEmailFromChange}
+            onAddRequest={onAddSender}
+            disabled={isSending}
+          />
         ) : null}
         <ul className="flex flex-col gap-1 text-xs text-slate-500">
           {channels.push ? (

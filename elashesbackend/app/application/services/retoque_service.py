@@ -38,17 +38,11 @@ def _utc_naive_start_of(day: date) -> datetime:
     return datetime.combine(day, time(0, 0), tzinfo=LA_PAZ).astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def list_retoques(
-    db: Session,
-    dias: int,
-    branch_id: Optional[int] = None,
-    now_utc: Optional[datetime] = None,
-) -> list[dict]:
-    """Una fila por clienta y tipo con fecha objetivo entre hoy - VENCIDOS_DIAS
-    y hoy + dias, ordenadas por fecha objetivo. branch_id filtra por la
-    sucursal de la clienta."""
-    now_utc = now_utc or datetime.now(timezone.utc)
-    today = now_utc.astimezone(LA_PAZ).date()
+def _due_targets(
+    db: Session, dias: int, branch_id: Optional[int], today: date
+) -> list[tuple[Tracking, list[tuple[str, date]]]]:
+    """(último seguimiento, [(tipo, fecha objetivo)]) de cada clienta con
+    mantenimiento/retiro entre hoy - VENCIDOS_DIAS y hoy + dias."""
     desde = today - timedelta(days=VENCIDOS_DIAS)
     hasta = today + timedelta(days=dias)
 
@@ -64,19 +58,43 @@ def list_retoques(
 
     # Las candidatas salen de cualquier seguimiento, pero solo cuenta el último:
     # si es más nuevo y sin fechas en rango (ej. un lifting), la clienta no sale.
-    latest = latest_trackings(db, client_ids)
-    proximas = next_appointments(db, client_ids, now_utc)
-
-    rows = []
-    for client_id, tracking in latest.items():
+    due = []
+    for tracking in latest_trackings(db, client_ids).values():
         targets = [
             (tipo, day)
             for tipo, target in tracking_targets(tracking)
             if desde <= (day := utc_naive_to_local(target).date()) <= hasta
         ]
-        if not targets:
-            continue
+        if targets:
+            due.append((tracking, targets))
+    return due
 
+
+def retouch_due_client_ids(
+    db: Session, dias: int, branch_id: Optional[int] = None, now_utc: Optional[datetime] = None
+) -> set[int]:
+    """Las clientas que aparecen en "Estado de retoques" con el mismo rango."""
+    today = (now_utc or datetime.now(timezone.utc)).astimezone(LA_PAZ).date()
+    return {tracking.client_id for tracking, _ in _due_targets(db, dias, branch_id, today)}
+
+
+def list_retoques(
+    db: Session,
+    dias: int,
+    branch_id: Optional[int] = None,
+    now_utc: Optional[datetime] = None,
+) -> list[dict]:
+    """Una fila por clienta y tipo con fecha objetivo entre hoy - VENCIDOS_DIAS
+    y hoy + dias, ordenadas por fecha objetivo. branch_id filtra por la
+    sucursal de la clienta."""
+    now_utc = now_utc or datetime.now(timezone.utc)
+    today = now_utc.astimezone(LA_PAZ).date()
+    due = _due_targets(db, dias, branch_id, today)
+    proximas = next_appointments(db, [tracking.client_id for tracking, _ in due], now_utc)
+
+    rows = []
+    for tracking, targets in due:
+        client_id = tracking.client_id
         client = tracking.client
         service = resolve_service(db, tracking.appointment_id)
         for tipo, day in targets:

@@ -65,6 +65,10 @@ def seed_permissions(db: Session):
         # Enviar recordatorios manuales a una clienta desde Atención >
         # Próximas citas (llegan a su app). Solo SuperAdmin/Admin por defecto.
         "reminders:send",
+        # Enviar comunicados (avisos/promociones) a un grupo o a todas las
+        # clientas desde Notificaciones > Comunicados. Aparte de
+        # reminders:send porque llega a muchas a la vez.
+        "broadcasts:send",
         # Pago de comisiones por ticket (Comisiones por operaria > Historial
         # de tickets): confirmar un lote de pagos y anular un pago. Separados
         # para poder dar uno sin el otro. SuperAdmin/Admin por defecto.
@@ -117,6 +121,7 @@ def seed_roles(db: Session):
             permission_map["dashboard:view"],
             permission_map["audit:view"],
             permission_map["reminders:send"],
+            permission_map["broadcasts:send"],
             permission_map["commissions:pay"],
             permission_map["commissions:void"],
         ],

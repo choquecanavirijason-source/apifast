@@ -11,7 +11,6 @@ Cada aviso aceptado por FCM se anota en fcm_notice_deliveries por
 dispositivo, para no reenviarlo en el siguiente sondeo. La app deduplica por
 aviso_id contra las notificaciones locales que programó al sincronizar.
 """
-import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -23,10 +22,9 @@ from app.application.services.appointment_notice_service import (
     client_notices_active,
     get_scheduled_notices,
 )
+from app.application.services.push_service import active_devices_query, clear_invalid_tokens
 from app.domain.entities.client_device import ClientDevice, FcmNoticeDelivery
-from app.infrastructure.push.fcm_client import FcmResult, get_fcm_client, mask_token
-
-logger = logging.getLogger("elashes.fcm")
+from app.infrastructure.push.fcm_client import FcmResult, get_fcm_client
 
 
 def _notice_key(notice: dict) -> str:
@@ -66,12 +64,7 @@ def send_due_fcm_notices(db: Session, now_utc: Optional[datetime] = None) -> int
 
     now_utc = now_utc or datetime.now(timezone.utc)
     now_local = now_utc.astimezone(LA_PAZ)
-    devices = (
-        db.query(ClientDevice)
-        .filter(ClientDevice.revoked_at.is_(None))
-        .filter(ClientDevice.fcm_token.isnot(None))
-        .all()
-    )
+    devices = active_devices_query(db).all()
     by_client: dict[int, list[ClientDevice]] = {}
     for device in devices:
         by_client.setdefault(device.client_id, []).append(device)
@@ -104,14 +97,7 @@ def send_due_fcm_notices(db: Session, now_utc: Optional[datetime] = None) -> int
 
                 result = client.send_data(device.fcm_token, scheduled_notice_push_data(notice))
                 if result is FcmResult.INVALID_TOKEN:
-                    logger.info(
-                        "FCM: se borra el token %s del dispositivo %s",
-                        mask_token(device.fcm_token),
-                        device.id,
-                    )
-                    device.fcm_token = None
-                    device.fcm_token_updated_at = None
-                    db.commit()
+                    clear_invalid_tokens(db, [device])
                     break
                 if result is not FcmResult.SENT:
                     # Error transitorio: se reintenta en el siguiente sondeo.

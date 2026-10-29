@@ -86,6 +86,7 @@ import app.infrastructure.database.migrations.add_commission_paid_to_appointment
 import app.infrastructure.database.migrations.add_operator_bonuses_table as m54
 import app.infrastructure.database.migrations.add_channels_to_manual_reminders as m55
 import app.infrastructure.database.migrations.add_reminder_email_senders_table as m56
+import app.infrastructure.database.migrations.add_delivery_status_to_broadcast_recipients as m57
 
 from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
@@ -103,6 +104,8 @@ from app.presentation.controllers.audit_log_controller import router as audit_lo
 from app.presentation.controllers.marketplace_controller import router as marketplace_router
 from app.presentation.controllers.marketplace_proxy_controller import router as marketplace_proxy_router
 from app.presentation.controllers.marketplace_booking_controller import router as marketplace_booking_router
+from app.presentation.controllers.broadcast_controller import router as broadcasts_router
+from app.application.services.broadcast_service import mark_interrupted_broadcasts
 from app.core.ws_manager import REELS_CHANNEL, client_ws_manager, reels_ws_manager, ws_manager
 from app.infrastructure.security.jwt import decode_token, JWTError
 from app.application.services.appointment_notice_service import LA_PAZ, client_notices_active
@@ -176,6 +179,7 @@ async def lifespan(app: FastAPI):
         ("operator_bonuses_table", m54.upgrade),
         ("manual_reminders_channels", m55.upgrade),
         ("reminder_email_senders_table", m56.upgrade),
+        ("broadcast_recipients_delivery_status", m57.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -189,6 +193,9 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         run_seeders(db)
+        interrupted = mark_interrupted_broadcasts(db)
+        if interrupted:
+            print(f"!!! {interrupted} comunicado(s) quedaron a medio enviar por el reinicio.")
         print(">>> Sistema listo para operar <<<")
         # Configuración que, si falta, rompe los avisos sin ningún error visible.
         from app.core.internal_auth import missing_internal_key_warning
@@ -326,6 +333,7 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_router)
     app.include_router(marketplace_proxy_router)
     app.include_router(marketplace_booking_router)
+    app.include_router(broadcasts_router)
     app.include_router(auth_routes.router)
 
     # Avisos programados de citas: solo en el servidor de producción, nunca en

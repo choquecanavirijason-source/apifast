@@ -11,11 +11,13 @@ los logs (ver mask_email).
 import logging
 import smtplib
 import ssl
+from contextlib import contextmanager
 from email.message import EmailMessage
 from email.utils import formataddr
-from typing import Optional
+from typing import Iterator, Optional, Sequence
 
 from app.config.settings import settings
+from app.infrastructure.email.inline_image import InlineImage
 
 logger = logging.getLogger("elashes.email")
 # Igual que en fcm_client: sin handler propio solo se verían los WARNING.
@@ -55,36 +57,62 @@ def is_email_configured() -> bool:
     return bool((settings.smtp_host or "").strip() and sender_address())
 
 
-def send_email(to: str, subject: str, html: str, text: str, from_email: Optional[str] = None) -> bool:
-    """Envía un correo HTML con alternativa en texto plano. Nunca lanza:
-    devuelve True si el servidor lo aceptó. from_email ya debe venir validado
-    (ver reminder_sender_service); vacío = sender_address()."""
-    if not is_email_configured():
-        return False
-    sender = (from_email or "").strip() or sender_address()
+def build_message(
+    to: str,
+    subject: str,
+    html: str,
+    text: str,
+    from_email: Optional[str] = None,
+    inline_images: Sequence[InlineImage] = (),
+) -> EmailMessage:
+    """Correo HTML con alternativa en texto plano. from_email ya debe venir
+    validado (ver reminder_sender_service); vacío = sender_address().
 
+    inline_images van dentro del mensaje, junto al HTML que las usa
+    (multipart/alternative > multipart/related)."""
+    sender = (from_email or "").strip() or sender_address()
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = formataddr((settings.smtp_from_name, sender))
     message["To"] = to
     message.set_content(text)
     message.add_alternative(html, subtype="html")
+    html_part = message.get_payload()[-1]
+    for image in inline_images:
+        html_part.add_related(
+            image.data, maintype="image", subtype=image.subtype,
+            cid=f"<{image.cid}>", disposition="inline", filename=image.filename,
+        )
+    return message
 
+
+@contextmanager
+def smtp_connection() -> Iterator[smtplib.SMTP]:
+    """Conexión autenticada para uno o varios envíos (un envío masivo no debe
+    iniciar sesión por cada correo). Lanza si no se puede conectar."""
     host = settings.smtp_host.strip()
     port = settings.smtp_port
     timeout = settings.smtp_timeout_seconds
     context = ssl.create_default_context()
-    try:
+    if settings.smtp_use_tls:
+        server = smtplib.SMTP(host, port, timeout=timeout)
+    else:
+        server = smtplib.SMTP_SSL(host, port, timeout=timeout, context=context)
+    with server:
         if settings.smtp_use_tls:
-            server = smtplib.SMTP(host, port, timeout=timeout)
-        else:
-            server = smtplib.SMTP_SSL(host, port, timeout=timeout, context=context)
-        with server:
-            if settings.smtp_use_tls:
-                server.starttls(context=context)
-            if settings.smtp_username and settings.smtp_password:
-                server.login(settings.smtp_username, settings.smtp_password)
-            server.send_message(message)
+            server.starttls(context=context)
+        if settings.smtp_username and settings.smtp_password:
+            server.login(settings.smtp_username, settings.smtp_password)
+        yield server
+
+
+def send_email(to: str, subject: str, html: str, text: str, from_email: Optional[str] = None) -> bool:
+    """Envía un correo. Nunca lanza: devuelve True si el servidor lo aceptó."""
+    if not is_email_configured():
+        return False
+    try:
+        with smtp_connection() as server:
+            server.send_message(build_message(to, subject, html, text, from_email))
     except Exception as exc:  # red, timeout, credenciales rechazadas...
         logger.warning("Correo: no se pudo enviar a %s: %s", mask_email(to), type(exc).__name__)
         return False

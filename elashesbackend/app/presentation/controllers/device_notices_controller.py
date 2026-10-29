@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
 from app.application.services.appointment_notice_service import get_scheduled_notices
+from app.application.services.broadcast_service import client_broadcast_feed
 from app.application.services.device_service import (
     ClientNotFoundError,
     clear_fcm_token,
@@ -81,6 +82,21 @@ class AvisosProgramadosResponse(BaseModel):
     avisos: list[AvisoResponse]
 
 
+class ComunicadoResponse(BaseModel):
+    # Mismo aviso_id que el push del comunicado, para no mostrarlo dos veces.
+    aviso_id: int
+    categoria: Literal["aviso", "promocion", "novedad"]
+    titulo: str
+    cuerpo: str
+    # URL absoluta; null si no tiene imagen o el servidor no tiene PUBLIC_BASE_URL.
+    imagen_url: Optional[str]
+    enviado_en: str
+
+
+class ComunicadosResponse(BaseModel):
+    comunicados: list[ComunicadoResponse]
+
+
 @router.post("/dispositivos", response_model=DeviceRegisterResponse, status_code=status.HTTP_201_CREATED)
 def register_device_endpoint(
     payload: DeviceRegisterRequest,
@@ -111,6 +127,17 @@ def scheduled_notices(
     db: Session = Depends(get_db),
 ):
     return get_scheduled_notices(db, client_id)
+
+
+@router.get("/avisos/comunicados", response_model=ComunicadosResponse)
+def broadcast_feed(
+    client_id: int = Depends(get_current_device_client_id),
+    db: Session = Depends(get_db),
+):
+    """Bandeja de comunicados (avisos/promociones) de la última semana, del
+    más nuevo al más viejo. Aparte de /avisos/programados para no meterle a
+    la app un tipo de aviso que su versión actual no conoce."""
+    return {"comunicados": client_broadcast_feed(db, client_id)}
 
 
 @router.delete("/dispositivos/actual", status_code=status.HTTP_204_NO_CONTENT)

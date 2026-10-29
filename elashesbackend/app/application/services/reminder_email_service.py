@@ -24,6 +24,7 @@ from app.domain.entities.manual_reminder import (
     ManualReminder,
 )
 from app.domain.entities.service_agenda import Appointment
+from app.infrastructure.email.layout import paragraph_html, render_email
 from app.infrastructure.email.smtp_client import is_email_configured, send_email
 
 logger = logging.getLogger("elashes.email")
@@ -93,29 +94,13 @@ def build_reminder_email(appointment: Appointment, message: str) -> tuple[str, s
         f'font-size:15px;font-weight:600;">{escape(value)}</td></tr>'
         for label, value in rows
     )
-    message_html = escape(message).replace("\n", "<br>")
-
-    html = f"""<!doctype html>
-<html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{escape(subject)}</title></head>
-<body style="margin:0;padding:0;background:#f7f2f4;font-family:Helvetica,Arial,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f2f4;padding:24px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;">
-<tr><td style="background:#2d1f27;padding:22px 28px;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:.5px;">Elashes</td></tr>
-<tr><td style="padding:28px;">
-<p style="margin:0 0 6px;color:#2d1f27;font-size:18px;font-weight:700;">{escape(RECORDATORIO_MANUAL_TITULO)}</p>
-<p style="margin:0 0 20px;color:#5c4a54;font-size:15px;line-height:1.5;">{message_html}</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
-<p style="margin:22px 0 0;color:#8a7380;font-size:13px;line-height:1.5;">Si necesitas cambiar o cancelar tu cita, comunícate con la sucursal.</p>
-</td></tr>
-<tr><td style="padding:16px 28px;background:#fbf7f9;color:#a8949f;font-size:11px;">Este es un mensaje automático; no respondas a este correo.</td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>"""
+    content_html = (
+        f'<p style="margin:0 0 20px;color:#5c4a54;font-size:15px;line-height:1.5;">{paragraph_html(message)}</p>'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>'
+        '<p style="margin:22px 0 0;color:#8a7380;font-size:13px;line-height:1.5;">'
+        "Si necesitas cambiar o cancelar tu cita, comunícate con la sucursal.</p>"
+    )
+    html = render_email(RECORDATORIO_MANUAL_TITULO, content_html)
 
     text = "\n".join(
         [RECORDATORIO_MANUAL_TITULO, "", message, ""]
