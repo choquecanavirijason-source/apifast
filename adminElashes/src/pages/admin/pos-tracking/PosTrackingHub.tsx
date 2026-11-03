@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { LucideIcon } from "lucide-react";
@@ -12,6 +12,8 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "@/
 import useAuth from "@/core/hooks/useAuth";
 import { logout as logoutAction } from "@/core/reducer/auth.reducer";
 import type { AppDispatch } from "@/store";
+import api from "@/core/services/api";
+import { PosContext } from "../pos/pos.context";
 
 type HubSection = "pos" | "tracking" | "queue" | "agenda";
 
@@ -45,12 +47,13 @@ export default function PosTrackingHub() {
   // completa (ver .pos-hub-clean-fullscreen en styles.css) — sin esto acá,
   // no había forma de ver ni cambiar la sucursal activa desde esta pantalla.
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
-  const [selectedBranchId, setSelectedBranchIdState] = useState<number | null>(() => getSelectedBranchId());
+  const operationalContext = useMemo(() => new PosContext(user?.id ?? 0,
+    async () => (await api.get("/auth/me", { timeout: 10000 })).data, getSelectedBranchId), [user?.id]);
+  const branchContext = useSyncExternalStore(operationalContext.subscribe, operationalContext.snapshot);
+  const selectedBranchId = branchContext.branchId;
 
-  // Cajera está atada a su propia sucursal — ni ve ni puede elegir otra acá,
-  // para no terminar operando (o simplemente no viendo sus propios tickets)
-  // en la sucursal equivocada por error.
-  const ownBranchId = isCajera ? (user?.branch_id ?? null) : null;
+  // The hub and embedded queue consume the same verified scope as the POS.
+  const ownBranchId = !branchContext.multibranch ? selectedBranchId : null;
 
   useEffect(() => {
     BranchService.list({ limit: 200 })
@@ -59,7 +62,7 @@ export default function PosTrackingHub() {
   }, []);
 
   useEffect(() => {
-    const handleChange = () => setSelectedBranchIdState(getSelectedBranchId());
+    const handleChange = () => { if (operationalContext.state.multibranch) void operationalContext.refresh(); };
     const handleStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
     window.addEventListener("storage", handleStorage);
     window.addEventListener("branchchange", handleChange);
@@ -67,22 +70,12 @@ export default function PosTrackingHub() {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("branchchange", handleChange);
     };
-  }, []);
-
-  // Si la sucursal guardada no es la suya (quedó de una sesión anterior, o
-  // alguien la cambió antes), la corrige sola apenas se sabe cuál es la suya.
-  useEffect(() => {
-    if (ownBranchId && selectedBranchId !== ownBranchId) {
-      setSelectedBranchId(ownBranchId);
-      setSelectedBranchIdState(ownBranchId);
-    }
-  }, [ownBranchId, selectedBranchId]);
+  }, [operationalContext]);
 
   const handleBranchChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    if (ownBranchId) return;
+    if (!branchContext.multibranch || branchContext.busy) return;
     const value = Number(event.target.value);
     const next = Number.isFinite(value) && value > 0 ? value : null;
-    setSelectedBranchIdState(next);
     setSelectedBranchId(next);
   };
 
@@ -153,7 +146,7 @@ export default function PosTrackingHub() {
               <select
                 value={selectedBranchId ?? ""}
                 onChange={handleBranchChange}
-                disabled={Boolean(ownBranchId)}
+                disabled={!branchContext.multibranch || branchContext.busy}
                 className="max-w-40 truncate bg-transparent text-xs font-semibold text-slate-700 outline-none disabled:cursor-not-allowed disabled:text-slate-500 sm:max-w-none"
                 aria-label="Sucursal activa"
                 title={ownBranchId ? "Tu cuenta está fija a esta sucursal" : "Sucursal activa"}
@@ -232,6 +225,13 @@ export default function PosTrackingHub() {
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
+      {(branchContext.changed || branchContext.error) && (
+        <div role="status" className="border-b border-slate-200 px-4 py-2 text-sm">
+          {branchContext.error || "La sucursal autorizada cambió. Las operaciones quedan bloqueadas; los cambios pendientes se conservan."}
+          <button type="button" disabled={branchContext.busy} onClick={() => void operationalContext.refresh()} className="ml-3 border px-2 py-1">Verificar sucursal</button>
+          {branchContext.changed && <button type="button" disabled={branchContext.busy || !branchContext.verified} onClick={operationalContext.acceptChange} className="ml-2 border px-2 py-1">Cambiar al nuevo contexto</button>}
+        </div>
+      )}
       <div className={`relative min-h-0 flex-1 overflow-hidden ${isFullscreen ? "px-4 pb-4 pt-3" : "pt-4"}`}>
         <div className={`mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-2 sm:px-4 ${isFullscreen ? "" : "min-h-[min(100%,calc(100vh-11rem))]"}`}>
 
@@ -247,6 +247,7 @@ export default function PosTrackingHub() {
           >
             <PosPage
               embedded
+              operationalContext={operationalContext}
               onCartCountChange={setPosCartCount}
               onPendingPaymentCountChange={setPosPendingPayCount}
               cartDrawerSignal={cartDrawerSignal}
@@ -255,7 +256,7 @@ export default function PosTrackingHub() {
           </div>
 
           {effectiveSection === "tracking" ? <FollowUpPage embedded /> : null}
-          {effectiveSection === "queue" ? <QueuePage embedded /> : null}
+          {effectiveSection === "queue" && branchContext.initialized ? <QueuePage embedded operationalContext={operationalContext} /> : null}
           {effectiveSection === "agenda" ? (
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <DailyAgendaPage embedded />

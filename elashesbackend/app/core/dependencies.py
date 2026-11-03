@@ -161,11 +161,24 @@ def resolve_branch_id(requested: Optional[int], current_user: User) -> Optional[
     return current_user.branch_id
 
 
-def enforce_own_branch(payload_branch_id: Optional[int], current_user: User) -> None:
+def enforce_own_branch(
+    payload_branch_id: Optional[int], current_user: User, *, use_effective_branch: bool = False
+) -> None:
+    # Opt-in for work operations only; query scopes keep resolve_branch_id unchanged.
     """Bloquea a un rol acotado a su sucursal (ej. Cajera, Operaria) de vender
     o crear turnos en OTRA sucursal distinta a la suya — antes solo la UI
     ocultaba el selector, pero nada impedía mandar otro branch_id directo
     a la API. SuperAdmin/Admin/Secretaria quedan exentos (ver resolve_branch_id)."""
+    if use_effective_branch:
+        if current_user.role and current_user.role.name in (SUPER_ADMIN_ROLE, "Admin", "Secretaria"):
+            return
+        allowed = current_user.effective_branch_id
+        if payload_branch_id is None or allowed is None or allowed != payload_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No puedes operar fuera de tu sucursal efectiva.",
+            )
+        return
     if payload_branch_id is None:
         return
     allowed = resolve_branch_id(payload_branch_id, current_user)

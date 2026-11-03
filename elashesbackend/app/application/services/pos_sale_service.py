@@ -143,9 +143,14 @@ def create_sale(
     payload: PosSaleCreate,
     current_user: User,
 ) -> PosSale:
-    enforce_own_branch(payload.branch_id, current_user)
+    enforce_own_branch(payload.branch_id, current_user, use_effective_branch=True)
     for item in payload.items:
-        enforce_own_branch(item.branch_id, current_user)
+        enforce_own_branch(item.branch_id or payload.branch_id, current_user, use_effective_branch=True)
+
+    if payload.link_appointment_id is not None:
+        linked = db.query(Appointment).filter(Appointment.id == payload.link_appointment_id).first()
+        if linked is not None:
+            enforce_own_branch(linked.branch_id, current_user, use_effective_branch=True)
 
     # Sin clienta elegida: se usa el "Cliente Mostrador" de la sucursal para no
     # frenar el servicio — se puede completar con los datos reales después.
