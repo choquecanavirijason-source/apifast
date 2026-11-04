@@ -26,6 +26,7 @@ from app.core.dependencies import (
 from app.core.ws_manager import client_ws_manager, ws_manager
 from app.domain.entities.user import User
 from app.domain.entities.service_agenda import Appointment
+from app.domain.entities.pos_sale import PosSale
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.service_agenda import (
     AppointmentCreate,
@@ -441,7 +442,12 @@ async def create_new_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    enforce_own_branch(payload.branch_id, current_user)
+    enforce_own_branch(payload.branch_id, current_user, use_effective_branch=True)
+    if payload.sale_id is not None:
+        sale = db.query(PosSale).filter(PosSale.id == payload.sale_id).first()
+        if sale is None:
+            raise HTTPException(status_code=404, detail="Venta no encontrada")
+        enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     result = await run_in_threadpool(
         create_appointment,
         db=db,
@@ -638,7 +644,15 @@ async def update_existing_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    enforce_own_branch(payload.branch_id, current_user)
+    appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
+    enforce_own_branch(appointment.branch_id, current_user, use_effective_branch=True)
+    if payload.branch_id is not None:
+        enforce_own_branch(payload.branch_id, current_user, use_effective_branch=True)
+    if payload.sale_id is not None:
+        sale = db.query(PosSale).filter(PosSale.id == payload.sale_id).first()
+        if sale is None:
+            raise HTTPException(status_code=404, detail="Venta no encontrada")
+        enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     # "professional_id" ausente del body != enviado explícitamente en null
     # (quitar la operaria asignada) — ver _UNSET en update_appointment. Sin
     # esto, mover un ticket de columna (que no toca professional_id) lo
@@ -690,6 +704,7 @@ async def delete_existing_appointment(
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
     appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
+    enforce_own_branch(appointment.branch_id, current_user, use_effective_branch=True)
     branch_id = appointment.branch_id
     professional_id = appointment.professional_id
     await run_in_threadpool(delete_appointment, db=db, appointment_id=appointment_id)

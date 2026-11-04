@@ -1,11 +1,12 @@
-from typing import List, Optional
+from typing import Callable, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import (
     get_db,
+    get_session_factory,
     get_current_active_user,
     require_permission,
     resolve_branch_id,
@@ -13,6 +14,10 @@ from app.core.dependencies import (
 from app.core.internal_auth import has_valid_internal_key, require_internal_key
 from app.core.rate_limit import rate_limit, rate_limit_check, rate_limit_record
 from app.domain.entities.client import Client
+from app.application.services.retouch_reminder_service import preview_reminder, create_reminder, deliver_reminder
+from app.presentation.schemas.retouch_reminder import (
+    RetouchType, RetouchReminderPreview, RetouchReminderSend, RetouchReminderResult,
+)
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.core.audit import record_audit
@@ -189,6 +194,32 @@ def get_clients(
     return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=effective_branch)
 
 
+# Manual reminders are explicit operations, never appointment lifecycle hooks.
+@router.get("/retoques/{tracking_id}/recordatorio/{tipo}", response_model=RetouchReminderPreview)
+def retouch_reminder_preview(
+    tracking_id: int, tipo: RetouchType,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("reminders:send")),
+    _viewer: User = Depends(require_permission("clients:view")),
+):
+    return preview_reminder(db, tracking_id, tipo, current_user)[0]
+
+
+@router.post("/retoques/{tracking_id}/recordatorio/{tipo}", response_model=RetouchReminderResult)
+def send_retouch_reminder(
+    tracking_id: int, tipo: RetouchType, payload: RetouchReminderSend,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
+    current_user: User = Depends(require_permission("reminders:send")),
+    _viewer: User = Depends(require_permission("clients:view")),
+):
+    result, created = create_reminder(db, tracking_id, tipo, payload, current_user)
+    if created:
+        background_tasks.add_task(deliver_reminder, result.broadcast_id, tracking_id, tipo, session_factory)
+    return result
+
+
 # Antes de "/{client_id}": si no, "retoques" se tomaría como un id (422).
 @router.get(
     "/retoques",
@@ -197,13 +228,16 @@ def get_clients(
 def get_retoques(
     dias: int = Query(default=30, ge=1, le=365),
     branch_id: Optional[int] = Query(default=None, ge=1),
+    tipo: Optional[Literal["mantenimiento", "retiro"]] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("clients:view")),
 ):
     """Estado de retoques: mantenimiento/retiro en los próximos `dias` días,
     más los vencidos de la última semana (ver retoque_service)."""
     effective_branch = resolve_branch_id(branch_id, current_user)
-    return list_retoques(db=db, dias=dias, branch_id=effective_branch)
+    if effective_branch is None and not (current_user.role and current_user.role.name in ("SuperAdmin", "Admin", "Secretaria")):
+        return []
+    return list_retoques(db=db, dias=dias, branch_id=effective_branch, tipo=tipo)
 
 
 @router.get(

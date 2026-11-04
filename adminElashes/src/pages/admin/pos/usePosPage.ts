@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -26,6 +26,8 @@ import { ProductService } from "../../../core/services/product/product.service";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/branch";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
 import type { RootState } from "../../../store";
+import api from "../../../core/services/api";
+import { PosContext, posDraftKey, persistPosDraft } from "./pos.context";
 import type { Product } from "../../../core/types/IProduct";
 import type { CartLine, PosSaleDraft, ProductCartLine, ReceiptTicketEdit } from "./pos.types";
 
@@ -33,7 +35,6 @@ import {
   getLocalDateInputValue,
   getLocalTimeValue,
   formatLocalDateTime,
-  getPosDraftStorageKey,
   createLocalId,
   isCartLine,
   normalizeCartLine,
@@ -60,6 +61,7 @@ export type UsePosPageOptions = {
   onCartCountChange?: (count: number) => void;
   onPendingPaymentCountChange?: (count: number) => void;
   cartDrawerSignal?: number;
+  operationalContext?: PosContext;
 };
 
 export function usePosPage({
@@ -69,6 +71,7 @@ export function usePosPage({
   onCartCountChange,
   onPendingPaymentCountChange,
   cartDrawerSignal,
+  operationalContext,
 }: UsePosPageOptions) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,7 +98,28 @@ export function usePosPage({
   const [isLoading, setIsLoading]           = useState(false);
 
   // ── Branch ────────────────────────────────────────────────────────────────
-  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
+  const context = useMemo(() => operationalContext ?? new PosContext(loggedUser?.id ?? 0,
+    async () => (await api.get("/auth/me", { timeout: 10000 })).data, getSelectedBranchId), [loggedUser?.id, operationalContext]);
+  const branchContext = useSyncExternalStore(context.subscribe, context.snapshot);
+  const activeBranchId = branchContext.branchId;
+  const draftStorageKey = posDraftKey(loggedUser?.id ?? 0, activeBranchId);
+  const [hydratedDraftKey, setHydratedDraftKey] = useState<string | null>(null);
+  const loadRequest = useRef(0);
+  const cashRequest = useRef(0);
+  const scopeRef = useRef(draftStorageKey);
+  scopeRef.current = draftStorageKey;
+  const runWrite = async <T,>(operation: () => Promise<T>) => {
+    try { return await context.runWrite(operation, activeBranchId); }
+    catch (error) { toast.warning(error instanceof Error ? error.message : "No se pudo verificar la sucursal."); }
+  };
+  const setActiveBranchId = (_id: number | null) => { void context.refresh(); };
+  useEffect(() => {
+    void context.refresh();
+    let lastFocus = 0;
+    const focus = () => { if (Date.now() - lastFocus > 15000) { lastFocus = Date.now(); void context.refresh(); } };
+    window.addEventListener("focus", focus);
+    return () => { window.removeEventListener("focus", focus); context.invalidate(); };
+  }, [context]);
 
   // ── Caja (sesión de apertura/cierre) — el POS no deja vender sin caja
   // abierta; se puede abrir directo desde acá en vez de ir a Salones → Caja.
@@ -496,6 +520,9 @@ export function usePosPage({
   // ── Data loaders ──────────────────────────────────────────────────────────
 
   const loadContext = async () => {
+    if (!branchContext.initialized) return;
+    const request = ++loadRequest.current;
+    const scope = draftStorageKey;
     setIsLoading(true);
     try {
       const branchFilter = activeBranchId ?? undefined;
@@ -508,6 +535,7 @@ export function usePosPage({
         AgendaService.listTickets({ limit: 500, branch_id: branchFilter, start_date: saleBaseDate, end_date: saleBaseDate }),
         ProductService.listProducts({ limit: 200, branch_id: branchFilter, active_only: true }),
       ]);
+      if (request !== loadRequest.current || scope !== scopeRef.current) return;
       const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda", "Productos"] as const;
       const failures: string[] = [];
 
@@ -558,7 +586,7 @@ export function usePosPage({
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "No se pudieron cargar los datos."));
     } finally {
-      setIsLoading(false);
+      if (request === loadRequest.current && scope === scopeRef.current) setIsLoading(false);
     }
   };
 
@@ -577,35 +605,39 @@ export function usePosPage({
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void loadContext(); }, [activeBranchId]);
+  useEffect(() => { void loadContext(); }, [activeBranchId, branchContext.initialized, loggedUser?.id]);
   useEffect(() => { void loadEyeTypes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Caja: sesión de la sucursal activa — se recarga al cambiar de sucursal
   // o después de abrirla, para saber si ya se puede vender ahí.
   const loadCashSession = async (branchId: number) => {
+    const request = ++cashRequest.current;
+    const scope = draftStorageKey;
     setIsLoadingCashSession(true);
     try {
       const current = await CashSessionService.getCurrent(branchId);
-      setCashSession(current);
+      if (request === cashRequest.current && scope === scopeRef.current) setCashSession(current);
     } catch {
-      setCashSession(null);
+      if (request === cashRequest.current && scope === scopeRef.current) setCashSession(null);
     } finally {
-      setIsLoadingCashSession(false);
+      if (request === cashRequest.current && scope === scopeRef.current) setIsLoadingCashSession(false);
     }
   };
 
   useEffect(() => {
-    if (!activeBranchId) { setCashSession(null); return; }
+    if (!activeBranchId) { cashRequest.current++; setCashSession(null); return; }
     void loadCashSession(activeBranchId);
-  }, [activeBranchId]);
+  }, [activeBranchId, loggedUser?.id]);
 
   const openCashSessionModal = async () => {
+    const scope = draftStorageKey;
     setCashOpeningAmount("");
     setCashOpenNotes("");
     setIsCashSessionModalOpen(true);
     if (!activeBranchId) return;
     try {
       const history = await CashSessionService.list({ branch_id: activeBranchId });
+      if (scope !== scopeRef.current) return;
       const lastClosedWithFund = history.find((s) => s.status === "closed" && s.next_fund_amount != null);
       if (lastClosedWithFund?.next_fund_amount != null) {
         setCashOpeningAmount(String(lastClosedWithFund.next_fund_amount));
@@ -615,7 +647,7 @@ export function usePosPage({
     }
   };
 
-  const handleOpenCashSessionFromPos = async () => {
+  const handleOpenCashSessionFromPosImpl = async () => {
     if (!activeBranchId) { toast.warning("Selecciona una sucursal."); return; }
     const amt = parseFloat(cashOpeningAmount);
     if (Number.isNaN(amt) || amt < 0) {
@@ -642,6 +674,7 @@ export function usePosPage({
   };
 
   const openCloseCashSessionModal = async () => {
+    const scope = draftStorageKey;
     if (!cashSession) return;
     setCloseCountedAmount("");
     setCloseNextFundAmount("");
@@ -651,6 +684,7 @@ export function usePosPage({
     setIsLoadingCloseCashDetail(true);
     try {
       const detail = await CashSessionService.getDetail(cashSession.id);
+      if (scope !== scopeRef.current) return;
       setCloseCashLiveDetail(detail);
     } catch {
       // silencioso — el "esperado en caja" es solo referencia, no bloquea el cierre
@@ -659,7 +693,7 @@ export function usePosPage({
     }
   };
 
-  const handleCloseCashSessionFromPos = async () => {
+  const handleCloseCashSessionFromPosImpl = async () => {
     if (!cashSession) return;
     const counted = parseFloat(closeCountedAmount);
     if (!closeCountedAmount.trim() || Number.isNaN(counted) || counted < 0) {
@@ -717,10 +751,13 @@ export function usePosPage({
   useWebSocket(activeBranchId, patchAppointmentStatus);
 
   useEffect(() => {
-    if (!isCartOpen) return;
+    if (!isCartOpen || !branchContext.initialized) return;
+    let cancelled = false;
+    const scope = draftStorageKey;
     AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: activeBranchId ?? undefined })
-      .then((data) => setProfessionals(data)).catch(() => {});
-  }, [isCartOpen, activeBranchId]);
+      .then((data) => { if (!cancelled && scope === scopeRef.current) setProfessionals(data); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isCartOpen, activeBranchId, branchContext.initialized, loggedUser?.id]);
 
   useEffect(() => {
     BranchService.list({ limit: 200 })
@@ -729,8 +766,20 @@ export function usePosPage({
   }, []);
 
   useEffect(() => {
+    if (!branchContext.initialized) return;
     setIsDraftHydrated(false);
-    const draftKey = getPosDraftStorageKey(activeBranchId);
+    setHydratedDraftKey(null);
+    const draftKey = draftStorageKey;
+    setClientId(""); setClientSearch(""); setPaymentMethod(""); setMixedPayments([]);
+    setDiscountType("amount"); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]);
+    setServiceSearch(""); setSelectedServiceCategoryId("all"); setSellerId("");
+    setEditingSale(null); setReceiptSale(null); setLinkAppointmentId(null); setCashSession(null);
+    setClients([]); setServices([]); setProfessionals([]); setProducts([]); setExistingTickets([]); setSales([]);
+    setIsCartOpen(false); setStep(1);
+    setConfirmCancelSale(null); setConfirmDeleteSale(null);
+    setIsCashSessionModalOpen(false); setIsCloseCashSessionModalOpen(false);
+    didSanitizeDraftRef.current = false;
+    let readable = true;
     try {
       const raw = localStorage.getItem(draftKey);
       if (!raw) { setIsDraftHydrated(true); return; }
@@ -765,14 +814,16 @@ export function usePosPage({
       if (parsedCartLines.length > 0 || parsedProductLines.length > 0) setIsCartOpen(true);
     } catch (error) {
       console.error("Error leyendo borrador POS:", error);
-      localStorage.removeItem(draftKey);
+      readable = false;
+      toast.warning("No se pudo leer el borrador. Se conserva sin sobrescribir para recuperarlo.");
     } finally {
+      setHydratedDraftKey(readable ? draftKey : null);
       setIsDraftHydrated(true);
     }
-  }, [activeBranchId]);
+  }, [draftStorageKey, branchContext.initialized]);
 
   useEffect(() => {
-    if (!isDraftHydrated || services.length === 0) return;
+    if (!isDraftHydrated || hydratedDraftKey !== draftStorageKey || services.length === 0) return;
     const navState = location.state as { fromAgendaReservation?: { appointmentId: number } } | null;
     const appointmentId = navState?.fromAgendaReservation?.appointmentId;
     if (!appointmentId || agendaHydrateDoneRef.current === appointmentId) return;
@@ -782,6 +833,7 @@ export function usePosPage({
       try {
         const ticket = await AgendaService.getAppointment(appointmentId);
         if (cancelled) return;
+        if (!branchContext.multibranch && ticket.branch_id !== activeBranchId) { toast.warning("La reserva pertenece a otra sucursal. Selecciona su contexto antes de cobrar."); return; }
         if (ticket.sale_id) { toast.warning("Esta reserva ya tiene una venta registrada."); agendaHydrateDoneRef.current = appointmentId; return; }
         const rawIds = ticket.service_ids?.filter((id) => id != null && Number(id) > 0).map(Number);
         const serviceIds = rawIds && rawIds.length > 0 ? rawIds : ticket.service_id ? [ticket.service_id] : [];
@@ -814,10 +866,10 @@ export function usePosPage({
       }
     })();
     return () => { cancelled = true; };
-  }, [isDraftHydrated, services, location.state, location.pathname, location.search, navigate]);
+  }, [isDraftHydrated, hydratedDraftKey, draftStorageKey, activeBranchId, services, location.state, location.pathname, location.search, navigate]);
 
   useEffect(() => {
-    if (sellerId || professionals.length === 0 || !loggedUser) return;
+    if (hydratedDraftKey !== draftStorageKey || sellerId || professionals.length === 0 || !loggedUser) return;
     const normalizedEmail = (loggedUser.email ?? "").trim().toLowerCase();
     const normalizedName  = (loggedUser.name ?? loggedUser.full_name ?? "").trim().toLowerCase();
     const match =
@@ -825,20 +877,20 @@ export function usePosPage({
       (normalizedEmail ? professionals.find((p) => p.email.trim().toLowerCase() === normalizedEmail) : undefined) ??
       (normalizedName  ? professionals.find((p) => p.username.trim().toLowerCase() === normalizedName) : undefined);
     if (match) setSellerId(String(match.id));
-  }, [sellerId, professionals, loggedUser]);
+  }, [sellerId, professionals, loggedUser, hydratedDraftKey, draftStorageKey]);
 
   useEffect(() => {
-    if (!isDraftHydrated || professionals.length === 0 || didSanitizeDraftRef.current) return;
+    if (!isDraftHydrated || hydratedDraftKey !== draftStorageKey || professionals.length === 0 || didSanitizeDraftRef.current) return;
     didSanitizeDraftRef.current = true;
     const validIds = new Set(professionals.map((p) => String(p.id)));
     setSellerId((current) => (current && !validIds.has(current) ? "" : current));
     setCartLines((prev) => prev.map((line) =>
       line.professional_id && !validIds.has(line.professional_id) ? { ...line, professional_id: "" } : line
     ));
-  }, [isDraftHydrated, professionals]);
+  }, [isDraftHydrated, professionals, hydratedDraftKey, draftStorageKey]);
 
   useEffect(() => {
-    if (services.length === 0) return;
+    if (hydratedDraftKey !== draftStorageKey || services.length === 0) return;
     setCartLines((prev) => prev.map((line) => {
       const svc = services.find((s) => String(s.id) === line.service_id);
       if (!svc) return line;
@@ -847,18 +899,20 @@ export function usePosPage({
       if (line.price === syncedPrice && line.duration_minutes === syncedDuration) return line;
       return { ...line, price: syncedPrice, duration_minutes: syncedDuration };
     }));
-  }, [services]);
+  }, [services, hydratedDraftKey, draftStorageKey]);
 
   useEffect(() => {
-    if (!isDraftHydrated) return;
-    const draftKey = getPosDraftStorageKey(activeBranchId);
+    if (!isDraftHydrated || hydratedDraftKey !== draftStorageKey) return;
+    const draftKey = draftStorageKey;
     const isEmpty =
       !clientId && !clientSearch && (!paymentMethod || paymentMethod === "cash") &&
       discountType === "amount" && (discountValue === "" || discountValue === "0") &&
       !notes.trim() && cartLines.length === 0 && productLines.length === 0 && !serviceSearch && selectedServiceCategoryId === "all" && !sellerId;
-    if (isEmpty) { localStorage.removeItem(draftKey); return; }
-    localStorage.setItem(draftKey, JSON.stringify({ clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft));
-  }, [isDraftHydrated, activeBranchId, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
+    try {
+      persistPosDraft(localStorage, draftKey, hydratedDraftKey,
+        { clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId } as PosSaleDraft, isEmpty);
+    } catch { toast.warning("No se pudo guardar el borrador local. El carrito sigue en pantalla."); }
+  }, [isDraftHydrated, hydratedDraftKey, draftStorageKey, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
 
   useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
   useEffect(() => { if (section) setActiveTab(section); }, [section]);
@@ -872,14 +926,14 @@ export function usePosPage({
 
   useEffect(() => {
     const handleChange = () => {
-      setActiveBranchId(getSelectedBranchId());
-      setClientId(""); setClientSearch(""); setServiceSearch(""); setCartLines([]);
+      if (context.state.multibranch) void context.refresh();
     };
     const onStorage = (e: StorageEvent) => { if (e.key === BRANCH_STORAGE_KEY) handleChange(); };
+    if (context.state.multibranch) void context.refresh();
     window.addEventListener("storage", onStorage);
     window.addEventListener("branchchange", handleChange);
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("branchchange", handleChange); };
-  }, []);
+  }, [context, branchContext.multibranch]);
 
   useEffect(() => {
     if (!availabilityPreviewLineId) return;
@@ -979,7 +1033,7 @@ export function usePosPage({
     setEditingSale(null); setLinkAppointmentId(null); agendaHydrateDoneRef.current = null;
     setClientId(""); setClientSearch(""); setServiceSearch(""); setSelectedServiceCategoryId("all");
     setPaymentMethod(""); setCashReceived(""); setMixedPayments([]); setDiscountValue("0"); setNotes(""); setCartLines([]); setProductLines([]); setSellerId("");
-    localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+    localStorage.removeItem(draftStorageKey);
     setStep(1);
     setActiveTab("sale");
   };
@@ -1001,7 +1055,7 @@ export function usePosPage({
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
-  const handleImmediateCheckout = async (payLater: boolean, startService?: boolean) => {
+  const handleImmediateCheckoutImpl = async (payLater: boolean, startService?: boolean) => {
     if (!activeBranchId)  return toast.warning("Selecciona una sucursal.");
     // "Crear turno" / "Pasar a servicio" son acciones de agenda — no aplican
     // a una venta de solo productos (sin servicio que agendar). Para vender
@@ -1073,7 +1127,7 @@ export function usePosPage({
     } finally { setIsSubmitting(false); }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckoutImpl = async () => {
     if (!activeBranchId)        return toast.warning("Selecciona una sucursal para la venta.");
     // Sin clienta elegida, el backend usa el "Cliente Mostrador" de la
     // sucursal (walk-in) — no hace falta frenar el cobro por esto.
@@ -1127,7 +1181,7 @@ export function usePosPage({
         const refreshed = await PosSaleService.getById(updatedSale.id);
         setSales((prev) => prev.map((s) => (s.id === refreshed.id ? refreshed : s)));
         setReceiptSale(refreshed);
-        localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+        localStorage.removeItem(draftStorageKey);
         toast.success(`Venta ${refreshed.sale_code} actualizada.`);
         resetSaleForm(); await loadContext();
         if (!embedded) navigate("/admin/pos/history");
@@ -1168,7 +1222,7 @@ export function usePosPage({
           ? { cash_received: Number(cashReceived) }
           : {}),
       });
-      localStorage.removeItem(getPosDraftStorageKey(activeBranchId));
+      localStorage.removeItem(draftStorageKey);
       const ticketCodes = sale.appointments.map((a) => a.ticket_code).filter((c): c is string => Boolean(c));
       const productSummary = sale.product_lines.length > 0
         ? `Productos: ${sale.product_lines.map((p) => `${p.product?.name ?? "Producto"} x${p.quantity}`).join(", ")}`
@@ -1188,7 +1242,7 @@ export function usePosPage({
 
   // ── Receipt editing ───────────────────────────────────────────────────────
 
-  const saveSingleReceiptTicketEdit = async (appointmentId: number, edit: ReceiptTicketEdit) => {
+  const saveSingleReceiptTicketEditImpl = async (appointmentId: number, edit: ReceiptTicketEdit) => {
     if (!receiptSale) return;
     const appointment = receiptSale.appointments.find((a) => a.id === appointmentId);
     if (!appointment) return;
@@ -1223,6 +1277,7 @@ export function usePosPage({
   };
 
   const updateReceiptTicketEdit = (appointmentId: number, patch: Partial<ReceiptTicketEdit>) => {
+    if (context.state.busy) return;
     const current = receiptTicketEdits[appointmentId];
     if (!current) return;
     const nextEdit: ReceiptTicketEdit = { ...current, ...patch };
@@ -1230,7 +1285,7 @@ export function usePosPage({
     void saveSingleReceiptTicketEdit(appointmentId, nextEdit);
   };
 
-  const saveReceiptTicketEdits = async () => {
+  const saveReceiptTicketEditsImpl = async () => {
     if (!receiptSale) return;
     setIsSavingReceiptTickets(true);
     try {
@@ -1270,7 +1325,7 @@ export function usePosPage({
 
   // ── Client registration ───────────────────────────────────────────────────
 
-  const handleRegisterClientSubmit = async (form: HTMLFormElement) => {
+  const handleRegisterClientSubmitImpl = async (form: HTMLFormElement) => {
     const fd = new FormData(form);
     const nombre   = String(fd.get("nombre") ?? "").trim();
     const apellido = String(fd.get("apellido") ?? "").trim();
@@ -1288,7 +1343,7 @@ export function usePosPage({
     const eye_type_id = eyeRaw && Number.isFinite(parsedEyeTypeId) && parsedEyeTypeId > 0 ? parsedEyeTypeId : undefined;
     const parsedBranchId = Number(branchRaw);
     let branch_id: number | undefined = branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0 ? parsedBranchId : undefined;
-    if (!branch_id && activeBranchId) branch_id = activeBranchId;
+    if (!branchContext.multibranch || !branch_id) branch_id = activeBranchId ?? undefined;
     try {
       const created = await ClientService.create({ name: nombre, last_name: apellido, age: edad, phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined, eye_type_id, branch_id });
       setClientId(String(created.id));
@@ -1307,8 +1362,11 @@ export function usePosPage({
   // ── History handlers ──────────────────────────────────────────────────────
 
   const handleEditSaleFromHistory = async (sale: PosSaleItem) => {
+    const scope = draftStorageKey;
     try {
       const saleForEdit = await PosSaleService.getById(sale.id);
+      if (scope !== scopeRef.current) return;
+      if (!branchContext.multibranch && saleForEdit.branch_id !== activeBranchId) { toast.warning("Selecciona la sucursal de la venta antes de editar."); return; }
       const nextLines: CartLine[] = saleForEdit.appointments.map((appt) => {
         const when  = toDateAndTimeInputValues(appt.start_time);
         const start = new Date(appt.start_time);
@@ -1349,7 +1407,7 @@ export function usePosPage({
     setConfirmCancelSale(sale);
   };
 
-  const executeCancelSale = async () => {
+  const executeCancelSaleImpl = async () => {
     if (!confirmCancelSale) return;
     setIsProcessingConfirm(true);
     try {
@@ -1363,7 +1421,7 @@ export function usePosPage({
 
   const handleDeleteSaleFromHistory = (sale: PosSaleItem) => setConfirmDeleteSale(sale);
 
-  const executeDeleteSale = async () => {
+  const executeDeleteSaleImpl = async () => {
     if (!confirmDeleteSale) return;
     setIsProcessingConfirm(true);
     try {
@@ -1377,7 +1435,18 @@ export function usePosPage({
 
   // ── Return ────────────────────────────────────────────────────────────────
 
+  const handleOpenCashSessionFromPos = (...args: Parameters<typeof handleOpenCashSessionFromPosImpl>) => runWrite(() => handleOpenCashSessionFromPosImpl(...args));
+  const handleCloseCashSessionFromPos = (...args: Parameters<typeof handleCloseCashSessionFromPosImpl>) => runWrite(() => handleCloseCashSessionFromPosImpl(...args));
+  const handleImmediateCheckout = (...args: Parameters<typeof handleImmediateCheckoutImpl>) => runWrite(() => handleImmediateCheckoutImpl(...args));
+  const handleCheckout = (...args: Parameters<typeof handleCheckoutImpl>) => runWrite(() => handleCheckoutImpl(...args));
+  const saveSingleReceiptTicketEdit = (...args: Parameters<typeof saveSingleReceiptTicketEditImpl>) => runWrite(() => saveSingleReceiptTicketEditImpl(...args));
+  const saveReceiptTicketEdits = (...args: Parameters<typeof saveReceiptTicketEditsImpl>) => runWrite(() => saveReceiptTicketEditsImpl(...args));
+  const handleRegisterClientSubmit = (...args: Parameters<typeof handleRegisterClientSubmitImpl>) => runWrite(() => handleRegisterClientSubmitImpl(...args));
+  const executeCancelSale = (...args: Parameters<typeof executeCancelSaleImpl>) => runWrite(() => executeCancelSaleImpl(...args));
+  const executeDeleteSale = (...args: Parameters<typeof executeDeleteSaleImpl>) => runWrite(() => executeDeleteSaleImpl(...args));
+
   return {
+    branchContext, refreshBranch: context.refresh, acceptBranchChange: context.acceptChange, runWrite,
     activeTab, setActiveTab, step, setStep,
     clients, services, serviceCategories, professionals, sales, products, existingTickets, eyeTypes, branches,
     eyeTypesError, isLoadingEyeTypes, isLoading, loadContext,

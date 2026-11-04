@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit
-from app.core.dependencies import get_db, require_any_permission, require_permission
+from app.core.dependencies import get_db, require_any_permission, require_permission, enforce_own_branch, SUPER_ADMIN_ROLE
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleResponse, PosSaleUpdate
 from app.application.services.pos_sale_service import (
@@ -34,6 +34,9 @@ def get_sales(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
+    if branch_id is None and (not current_user.role or current_user.role.name not in (SUPER_ADMIN_ROLE, "Admin", "Secretaria")):
+        branch_id = current_user.effective_branch_id
+    enforce_own_branch(branch_id, current_user, use_effective_branch=True)
     return list_sales(db=db, skip=skip, limit=limit, branch_id=branch_id, client_id=client_id)
 
 
@@ -43,7 +46,9 @@ def get_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
-    return get_sale_by_id(db=db, sale_id=sale_id)
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
+    return sale
 
 
 @router.post("/", response_model=PosSaleResponse, status_code=status.HTTP_201_CREATED)
@@ -62,6 +67,8 @@ def patch_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     result = update_sale(db=db, sale_id=sale_id, payload=payload)
     record_audit(
         db, current_user, "update", "pos_sale", sale_id,
@@ -77,6 +84,8 @@ def cancel_existing_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     result = cancel_sale(db=db, sale_id=sale_id)
     record_audit(
         db, current_user, "cancel", "pos_sale", sale_id,
@@ -92,6 +101,8 @@ def remove_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     delete_sale(db=db, sale_id=sale_id)
     record_audit(db, current_user, "delete", "pos_sale", sale_id, f"Eliminó la venta #{sale_id}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -104,6 +115,8 @@ def get_sale_receipt_pdf(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("appointments:view", "payments:view")),
 ):
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
     pdf_bytes = generate_sale_receipt_pdf(db=db, sale_id=sale_id, print_format=format)
     filename = f"comprobante-{sale_id}-{format}.pdf"
     return StreamingResponse(

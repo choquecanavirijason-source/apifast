@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import record_audit
-from app.core.dependencies import get_db, require_any_permission
+from app.core.dependencies import get_db, require_any_permission, enforce_own_branch, SUPER_ADMIN_ROLE
 from app.domain.entities.cash_close import CashClose
 from app.domain.entities.expense import Expense
 from app.domain.entities.payment import Payment
@@ -105,9 +105,10 @@ def _query(db: Session):
 def get_current_session(
     branch_id: int = Query(..., ge=1),
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+    current_user: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
     """Sesión abierta de esta sucursal, o null si no hay ninguna."""
+    enforce_own_branch(branch_id, current_user, use_effective_branch=True)
     session = (
         _query(db)
         .filter(CashClose.branch_id == branch_id, CashClose.status == "open")
@@ -123,8 +124,11 @@ def list_sessions(
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+    current_user: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
+    if branch_id is None and (not current_user.role or current_user.role.name not in (SUPER_ADMIN_ROLE, "Admin", "Secretaria")):
+        branch_id = current_user.effective_branch_id
+    enforce_own_branch(branch_id, current_user, use_effective_branch=True)
     q = _query(db)
     if branch_id:
         q = q.filter(CashClose.branch_id == branch_id)
@@ -142,6 +146,7 @@ def open_cash_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("payments:manage")),
 ):
+    enforce_own_branch(body.branch_id, current_user, use_effective_branch=True)
     existing = (
         db.query(CashClose)
         .filter(CashClose.branch_id == body.branch_id, CashClose.status == "open")
@@ -179,6 +184,7 @@ def close_cash_session(
     session = db.query(CashClose).filter(CashClose.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión de caja no encontrada.")
+    enforce_own_branch(session.branch_id, current_user, use_effective_branch=True)
     if session.status != "open":
         raise HTTPException(status_code=409, detail="Esta sesión ya está cerrada.")
     if body.next_fund_amount > body.counted_amount:
@@ -246,7 +252,7 @@ def close_cash_session(
 def get_session_detail(
     session_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+    current_user: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
     """Desglose de una sesión: ingresos por método de pago y gastos
     registrados en su ventana de tiempo (apertura → cierre, o ahora si
@@ -255,6 +261,7 @@ def get_session_detail(
     if not session:
         raise HTTPException(status_code=404, detail="Sesión de caja no encontrada.")
 
+    enforce_own_branch(session.branch_id, current_user, use_effective_branch=True)
     window_end = session.closed_at or datetime.utcnow()
 
     payments = (

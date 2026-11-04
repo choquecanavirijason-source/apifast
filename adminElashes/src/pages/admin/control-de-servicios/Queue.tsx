@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { PosContext } from "../pos/pos.context";
 import {
   DndContext,
   DragOverlay,
@@ -56,12 +57,19 @@ import useAuth from "../../../core/hooks/useAuth";
 // estaba (solo el día seleccionado), poner en false.
 const SHOW_ALL_DATES_FOR_TESTING = true;
 
-const Main = ({ embedded = false }: { embedded?: boolean }) => {
+const noSubscribe = () => () => {};
+const noSnapshot = () => null;
+
+const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; operationalContext?: PosContext }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
+  const [storedBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
+  const operationalState = useSyncExternalStore(operationalContext?.subscribe ?? noSubscribe, operationalContext?.snapshot ?? noSnapshot);
+  const activeBranchId = operationalState ? operationalState.branchId : storedBranchId;
+  const branchRef = useRef(activeBranchId);
+  branchRef.current = activeBranchId;
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireItem[]>([]);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
@@ -148,6 +156,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   const loadTicketsRequestIdRef = useRef(0);
 
   const loadTickets = useCallback(async (silent = false) => {
+    if (operationalContext && !operationalContext.state.initialized) return;
     if (!silent) setIsLoading(true);
     const requestId = ++loadTicketsRequestIdRef.current;
     try {
@@ -158,7 +167,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         start_date: SHOW_ALL_DATES_FOR_TESTING ? today : (filterDate || today),
         end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
-      if (requestId !== loadTicketsRequestIdRef.current) return;
+      if (requestId !== loadTicketsRequestIdRef.current || (operationalContext && branchRef.current !== activeBranchId)) return;
       setTickets(data);
       setLastRefresh(new Date());
       setCountdown(REFRESH_INTERVAL);
@@ -170,10 +179,11 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     } finally {
       if (requestId === loadTicketsRequestIdRef.current && !silent) setIsLoading(false);
     }
-  }, [activeBranchId, filterDate]);
+  }, [activeBranchId, filterDate, operationalContext]);
 
   useEffect(() => {
     void loadTickets();
+    return () => { if (operationalContext) loadTicketsRequestIdRef.current++; };
   }, [loadTickets]);
 
   // WebSocket: actualización en tiempo real
@@ -224,6 +234,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   }, []);
 
   useEffect(() => {
+    if (operationalContext) return;
     const handleChange = () => setActiveBranchId(getSelectedBranchId());
 
     const handleStorage = (event: StorageEvent) => {
@@ -239,30 +250,35 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("branchchange", handleChange);
     };
-  }, []);
+  }, [operationalContext]);
 
   // Profesionales filtrados por sucursal activa — se recarga al cambiar de sucursal
   useEffect(() => {
+    let cancelled = false;
     AgendaService.listProfessionalsForSelect({
       limit: 200,
       ...(activeBranchId ? { branch_id: activeBranchId } : {}),
     })
-      .then(setProfessionals)
+      .then((data) => { if (!operationalContext || !cancelled) setProfessionals(data); })
       .catch((error) => {
+        if (operationalContext && cancelled) return;
         console.error("Error cargando profesionales:", error);
         setProfessionals([]);
       });
-  }, [activeBranchId]);
+    return () => { cancelled = true; };
+  }, [activeBranchId, operationalContext]);
 
   // Clientas para poder asignarlas/corregirlas en un ticket antes de finalizar
   useEffect(() => {
+    let cancelled = false;
     AgendaService.listClientsForSelect({
       limit: 200,
       ...(activeBranchId ? { branch_id: activeBranchId } : {}),
     })
-      .then(setClients)
-      .catch(() => setClients([]));
-  }, [activeBranchId]);
+      .then((data) => { if (!operationalContext || !cancelled) setClients(data); })
+      .catch(() => { if (!operationalContext || !cancelled) setClients([]); });
+    return () => { cancelled = true; };
+  }, [activeBranchId, operationalContext]);
 
   useEffect(() => {
     setIsLoadingEyeTypes(true);
@@ -430,7 +446,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     [operariaStatuses]
   );
 
-  const handleNoShow = async (ticket: TicketItem) => {
+  const handleNoShowImpl = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
@@ -438,7 +454,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     try {
       await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
       if (ticket.client_id) {
-        ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+        const update = ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+        if (operationalContext) await update;
       }
       toast.success(`Turno ${ticket.ticket_code ?? `#${ticket.id}`} cancelado — no se presentó.`);
       await loadTickets(true);
@@ -448,7 +465,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleCancelTicket = async (ticket: TicketItem) => {
+  const handleCancelTicketImpl = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
@@ -456,7 +473,8 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     try {
       await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
       if (ticket.client_id) {
-        ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+        const update = ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
+        if (operationalContext) await update;
       }
       toast.success(`Ticket ${ticket.ticket_code ?? `#${ticket.id}`} cancelado.`);
       await loadTickets(true);
@@ -466,7 +484,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleStartService = async (ticket: TicketItem) => {
+  const handleStartServiceImpl = async (ticket: TicketItem) => {
     if (!ticket.professional_id) {
       toast.warning("Asigna una operaria antes de iniciar la atención.");
       return;
@@ -598,7 +616,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleFinishService = async () => {
+  const handleFinishServiceImpl = async () => {
     if (!finishTarget) return;
 
     if (!activeBranchId) {
@@ -698,7 +716,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
   // comparta sale_id con otros (ver comentario de mergeTicketsBySaleId).
   const getSiblingIds = (_ticket: TicketItem): number[] => [];
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEndImpl = async (event: DragEndEvent) => {
     setActiveDragTicket(null);
     setIsDraggingBoard(false);
 
@@ -782,7 +800,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     setDeleteConfirmationCode("");
   };
 
-  const handleMarkCompleted = async (ticket: TicketItem) => {
+  const handleMarkCompletedImpl = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
     if (isGroupBusy(allIds)) return;
@@ -803,7 +821,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleSaveTicketEdits = async (
+  const handleSaveTicketEditsImpl = async (
     ticket: TicketItem,
     payload: { date: string; time: string; professionalId: string; isIa: boolean }
   ) => {
@@ -873,7 +891,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleChangeTicketClient = async (ticket: TicketItem, clientId: string) => {
+  const handleChangeTicketClientImpl = async (ticket: TicketItem, clientId: string) => {
     const parsed = Number(clientId);
     if (!clientId || Number.isNaN(parsed)) return;
     const client = clients.find((c) => c.id === parsed);
@@ -896,7 +914,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleRegisterClientSubmit = async (form: HTMLFormElement) => {
+  const handleRegisterClientSubmitImpl = async (form: HTMLFormElement) => {
     if (!registerClientTarget) return;
     const fd = new FormData(form);
     const nombre = String(fd.get("nombre") ?? "").trim();
@@ -917,7 +935,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     const parsedEyeTypeId = Number(eyeRaw);
     const eye_type_id = eyeRaw && Number.isFinite(parsedEyeTypeId) && parsedEyeTypeId > 0 ? parsedEyeTypeId : undefined;
     const parsedBranchId = Number(branchRaw);
-    const branch_id = branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0
+    const branch_id = operationalState && !operationalState.multibranch ? activeBranchId ?? undefined : branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0
       ? parsedBranchId
       : (activeBranchId ?? undefined);
     try {
@@ -927,7 +945,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
         eye_type_id, branch_id,
       });
       setClients((prev) => [{ id: created.id, nombre: created.nombre, apellido: created.apellido, phone: created.phone }, ...prev]);
-      await handleChangeTicketClient(registerClientTarget, String(created.id));
+      await handleChangeTicketClientImpl(registerClientTarget, String(created.id));
       // Si se registró desde el modal de "Finalizar atención", ese modal
       // tiene su propia copia del ticket (finishTarget) — sincronizarla
       // también, si no, se sigue viendo la clienta anterior hasta cerrarlo.
@@ -943,7 +961,7 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDeleteImpl = async () => {
     if (!ticketToDelete) return;
 
     const normalizeCode = (value: string) => value.replace(/\s+/g, "").toUpperCase();
@@ -973,6 +991,31 @@ const Main = ({ embedded = false }: { embedded?: boolean }) => {
       setIsDeletingTicket(false);
     }
   };
+
+  const runQueueWrite = async <T,>(operation: () => Promise<T>, ticket?: TicketItem | null) => {
+    if (!operationalContext) return operation();
+    try {
+      return await operationalContext.runWrite(async () => {
+        if (ticket && ticket.branch_id !== operationalContext.state.branchId) {
+          throw new Error("El ticket pertenece a otro contexto. Se conservan los cambios sin enviar.");
+        }
+        loadTicketsRequestIdRef.current++;
+        return operation();
+      }, activeBranchId);
+    } catch (error) {
+      toast.warning(error instanceof Error ? error.message : "No se pudo verificar la sucursal.");
+    }
+  };
+  const handleNoShow = (ticket: TicketItem) => runQueueWrite(() => handleNoShowImpl(ticket), ticket);
+  const handleCancelTicket = (ticket: TicketItem) => runQueueWrite(() => handleCancelTicketImpl(ticket), ticket);
+  const handleStartService = (ticket: TicketItem) => runQueueWrite(() => handleStartServiceImpl(ticket), ticket);
+  const handleFinishService = () => runQueueWrite(handleFinishServiceImpl, finishTarget);
+  const handleDragEnd = (event: DragEndEvent) => runQueueWrite(() => handleDragEndImpl(event), activeDragTicket);
+  const handleMarkCompleted = (ticket: TicketItem) => runQueueWrite(() => handleMarkCompletedImpl(ticket), ticket);
+  const handleSaveTicketEdits = (...args: Parameters<typeof handleSaveTicketEditsImpl>) => runQueueWrite(() => handleSaveTicketEditsImpl(...args), args[0]);
+  const handleChangeTicketClient = (ticket: TicketItem, clientId: string) => runQueueWrite(() => handleChangeTicketClientImpl(ticket, clientId), ticket);
+  const handleRegisterClientSubmit = (form: HTMLFormElement) => runQueueWrite(() => handleRegisterClientSubmitImpl(form), registerClientTarget);
+  const handleConfirmDelete = () => runQueueWrite(handleConfirmDeleteImpl, ticketToDelete);
 
   const getRemainingLabel = (endTime: string) => {
     const remainingMs = new Date(endTime).getTime() - now;

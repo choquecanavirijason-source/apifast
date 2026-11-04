@@ -21,6 +21,7 @@ import TodayTicketsSummary from "./components/TodayTicketsSummary";
 import PosTutorialModal, { getPosTutorialStorageKey } from "./components/PosTutorialModal";
 import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
 import { usePosPage } from "./usePosPage";
+import type { PosContext } from "./pos.context";
 import useAuth from "../../../core/hooks/useAuth";
 
 type ProductForm = Omit<Product, "id" | "updatedAt">;
@@ -49,6 +50,7 @@ const cashLabelClass = "block text-[11px] font-semibold text-[var(--ui-text)] mb
 const cashFieldClass = "w-full rounded-xl border-2 border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/15";
 
 export type PosPageProps = {
+  operationalContext?: PosContext;
   embedded?: boolean;
   initialDate?: string;
   section?: "sale" | "history" | "tickets";
@@ -64,8 +66,8 @@ export type PosPageProps = {
   hideTutorial?: boolean;
 };
 
-export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false }: PosPageProps) {
-  const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal });
+export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false, operationalContext }: PosPageProps) {
+  const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, operationalContext });
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
   const [showTutorial, setShowTutorial] = useState(false);
   const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
@@ -121,7 +123,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     setProductForm(emptyProductForm);
   };
 
-  const submitProduct = async (event: FormEvent<HTMLFormElement>) => {
+  const submitProductImpl = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (Object.keys(productFormErrors).length > 0) {
       toast.warning(Object.values(productFormErrors)[0]);
@@ -184,6 +186,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       // localStorage puede fallar en modo privado — simplemente no se muestra.
     }
   }, [hideTutorial, tutorialStorageKey, user?.id]);
+
+  const submitProduct = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    return pos.runWrite(() => submitProductImpl(event));
+  };
 
   return (
     <Layout
@@ -297,9 +304,17 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       }
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
+        <div className="border-b border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-sm" role="status">
+          <span>Sucursal de Caja POS: {pos.branches.find(b => b.id === pos.activeBranchId)?.name ?? (pos.activeBranchId ? `Sucursal #${pos.activeBranchId}` : "Sin selección")}</span>
+          {pos.branchContext.busy && <span className="ml-3">Verificando o procesando operación…</span>}
+          {pos.branchContext.error && <p>{pos.branchContext.error} El carrito se conserva.</p>}
+          {pos.branchContext.changed && <p>La sucursal autorizada o seleccionada cambió. Tu borrador permanece en la sucursal anterior.</p>}
+          <button type="button" className="ml-3 border px-2 py-1" disabled={pos.branchContext.busy} onClick={() => void pos.refreshBranch()}>Verificar sucursal</button>
+          {pos.branchContext.changed && <button type="button" className="ml-2 border px-2 py-1" disabled={pos.branchContext.busy || !pos.branchContext.verified} onClick={pos.acceptBranchChange}>Cambiar al nuevo contexto</button>}
+        </div>
 
         {/* ── No branch selected ───────────────────────────────────────── */}
-        {pos.activeTab === "sale" && !pos.activeBranchId ? (
+        {pos.activeTab === "sale" && !pos.activeBranchId && pos.branchContext.multibranch ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ui-surface-muted)]">
               <Building2 className="h-8 w-8 text-[var(--ui-text-muted)]" />
@@ -315,7 +330,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 <button
                   key={branch.id}
                   type="button"
-                  onClick={() => { setSelectedBranchId(branch.id); pos.setActiveBranchId(branch.id); }}
+                  onClick={() => { if (pos.branchContext.multibranch && !pos.branchContext.busy) { setSelectedBranchId(branch.id); pos.setActiveBranchId(branch.id); } }}
                   className="flex w-full items-center gap-3 rounded-lg border border-[var(--ui-border)] bg-white px-4 py-3 text-left transition hover:border-[#094732] hover:bg-[#ecfdf5]"
                 >
                   <Building2 className="h-5 w-5 shrink-0 text-[#094732]" />
