@@ -91,6 +91,13 @@ class RetoqueResponse(BaseModel):
     servicio: Optional[str] = None
     tipo: Literal["mantenimiento", "retiro"]
     fecha_objetivo: date
+    fecha_aplicacion: Optional[date] = None
+    estado_retiro: Optional[Literal["por_verificar", "atencion_posterior"]] = None
+    observacion: Optional[str] = None
+    recordatorio_permitido: bool = True
+    reserva_retiro_estado: Literal["sin_reserva", "reservado", "por_verificar"] = "sin_reserva"
+    reserva_retiro_fecha: Optional[datetime] = None
+    reserva_retiro_detalle: Optional[str] = None
     # Negativo = vencido (la fecha ya pasó y no agendó).
     dias_restantes: int
     vencido: bool
