@@ -8,6 +8,7 @@ import TabLayout, { BranchSelect, EmptyCard, RangeSelect } from "./TabLayout";
 import type { BranchSelection } from "./hooks/useBranchSelection";
 import { useAsyncList } from "./hooks/useAsyncList";
 import { diasLabel, formatAppointment, formatDay } from "./notificaciones.utils";
+import RetouchReminderModal from "./RetouchReminderModal";
 
 // DataTable necesita un id por fila; una clienta puede tener una por tipo.
 type RetoqueTableRow = RetoqueRow & { id: string };
@@ -17,13 +18,14 @@ interface RetoquesTabProps {
   branch: BranchSelection;
   canChooseBranch: boolean;
   canManage: boolean;
+  canSendReminder: boolean;
   dias: number;
   onDiasChange: (value: number) => void;
 }
 
 const tipoLabel = (row: RetoqueRow) => (row.tipo === "mantenimiento" ? "Mantenimiento" : "Retiro");
 
-export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, dias, onDiasChange }: RetoquesTabProps) {
+export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, canSendReminder, dias, onDiasChange }: RetoquesTabProps) {
   const fetchRows = useCallback(
     () => ClientService.listRetoques({ dias, branch_id: branch.branchId ?? undefined }),
     [dias, branch.branchId],
@@ -33,6 +35,7 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
     "No se pudo cargar el estado de retoques.",
   );
   const [pending, setPending] = useState<Set<number>>(new Set());
+  const [reminderRow, setReminderRow] = useState<RetoqueRow | null>(null);
 
   const tableRows = useMemo<RetoqueTableRow[]>(
     () => rows.map((row) => ({ ...row, id: `${row.seguimiento_id}-${row.tipo}` })),
@@ -126,11 +129,11 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
     },
     {
       key: "proxima_cita",
-      header: "¿Tiene cita?",
+      header: "Cita futura",
       getValue: (row) => row.proxima_cita ?? "",
       render: (row) =>
         row.proxima_cita ? (
-          <span className="text-emerald-700">Sí · {formatAppointment(row.proxima_cita)}</span>
+          <span title="No se ha verificado que corresponda a este retoque." className="text-amber-700">Por verificar · {formatAppointment(row.proxima_cita)}</span>
         ) : (
           <span className="text-slate-500">No</span>
         ),
@@ -163,9 +166,18 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
         </div>
       ),
     },
+    {
+      key: "acciones",
+      header: "Acciones",
+      render: (row) => <Button variant="secondary" size="sm"
+        disabled={!canSendReminder || !row.notificaciones_activas}
+        title={!canSendReminder ? "Requiere permiso reminders:send" : !row.notificaciones_activas ? "Notificaciones desactivadas" : undefined}
+        onClick={() => setReminderRow(row)}>Enviar recordatorio</Button>,
+    },
   ];
 
   return (
+    <>
     <TabLayout
       tabs={tabs}
       title="Estado de retoques"
@@ -202,5 +214,8 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
         />
       )}
     </TabLayout>
+    {reminderRow && <RetouchReminderModal key={`${reminderRow.seguimiento_id}-${reminderRow.tipo}`}
+      row={reminderRow} onClose={() => setReminderRow(null)} />}
+    </>
   );
 }

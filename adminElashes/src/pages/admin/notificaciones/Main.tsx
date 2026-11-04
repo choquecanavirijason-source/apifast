@@ -41,5 +41,5 @@ export default function NotificacionesPage() {
   if (tab === "comunicados") return <ComunicadosTab {...shared} />;
   if (tab === "citas")
     return <CitasTab {...shared} canSendReminder={canSendReminder} dias={dias} onDiasChange={setDias} />;
-  return <RetoquesTab {...shared} canManage={canManage} dias={dias} onDiasChange={setDias} />;
+  return <RetoquesTab {...shared} canManage={canManage} canSendReminder={canSendReminder} dias={dias} onDiasChange={setDias} />;
 }
