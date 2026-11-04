@@ -20,6 +20,7 @@ from app.application.services.push_service import active_devices_query
 from app.application.services.tracking_service import resolve_service
 from app.core.dependencies import resolve_branch_id
 from app.config.settings import settings
+from app.application.services.retoque_service import later_attended_appointment
 from app.domain.entities.audit_log import AuditLog
 from app.domain.entities.broadcast import Broadcast, BroadcastRecipient
 from app.domain.entities.client import Client
@@ -63,6 +64,8 @@ def _context(db, tracking_id, tipo, user, now):
     latest = latest_trackings(db, [client.id]).get(client.id)
     if not latest or latest.id != tracking.id:
         raise HTTPException(409, "El seguimiento cambió. Actualiza la tabla.")
+    if tipo == "retiro" and later_attended_appointment(db, tracking, now):
+        raise HTTPException(409, "Hay una atención posterior. Verifica si el retiro ya fue realizado antes de recordar.")
     target = tracking.next_maintenance_date if tipo == "mantenimiento" else tracking.next_removal_date
     if target is None:
         raise HTTPException(409, "El seguimiento no tiene fecha para este tipo de recordatorio.")

@@ -12,7 +12,7 @@ Tablas de Atención > Notificaciones en el panel:
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.appointment_notice_service import (
@@ -31,6 +31,25 @@ from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.tracking import Tracking
 
 VENCIDOS_DIAS = 7
+ATTENDED_STATUSES = ("completed", "finalizado", "atendido", "done")
+
+
+def later_attended_appointment(db: Session, tracking: Tracking, now_utc: datetime):
+    """A later attendance is evidence to review, never proof of removal.
+
+    Only this client's branch is considered. No name/category heuristics.
+    """
+    applied = utc_naive_to_local(tracking.last_application_date).replace(tzinfo=None)
+    query = db.query(Appointment).filter(
+        Appointment.client_id == tracking.client_id,
+        Appointment.branch_id == tracking.branch_id,
+        Appointment.status.in_(ATTENDED_STATUSES),
+        Appointment.start_time > applied,
+        Appointment.start_time <= now_utc.astimezone(LA_PAZ).replace(tzinfo=None),
+    )
+    if tracking.appointment_id is not None:
+        query = query.filter(Appointment.id != tracking.appointment_id)
+    return query.order_by(Appointment.start_time.desc(), Appointment.id.desc()).first()
 
 
 def _utc_naive_start_of(day: date) -> datetime:
@@ -83,6 +102,7 @@ def list_retoques(
     dias: int,
     branch_id: Optional[int] = None,
     now_utc: Optional[datetime] = None,
+    tipo: Optional[str] = None,
 ) -> list[dict]:
     """Una fila por clienta y tipo con fecha objetivo entre hoy - VENCIDOS_DIAS
     y hoy + dias, ordenadas por fecha objetivo. branch_id filtra por la
@@ -91,13 +111,32 @@ def list_retoques(
     today = now_utc.astimezone(LA_PAZ).date()
     due = _due_targets(db, dias, branch_id, today)
     proximas = next_appointments(db, [tracking.client_id for tracking, _ in due], now_utc)
+    if tipo is not None:
+        # Scoped lists must not expose another branch's appointment dates.
+        proximas = dict(db.query(Appointment.client_id, func.min(Appointment.start_time))
+            .join(Client, Client.id == Appointment.client_id)
+            .filter(Appointment.client_id.in_([t.client_id for t, _ in due]),
+                    Appointment.branch_id == Client.branch_id,
+                    Appointment.status.notin_(FINAL_STATUSES),
+                    Appointment.start_time > now_utc.astimezone(LA_PAZ).replace(tzinfo=None))
+            .group_by(Appointment.client_id).all())
 
     rows = []
     for tracking, targets in due:
         client_id = tracking.client_id
         client = tracking.client
         service = resolve_service(db, tracking.appointment_id)
-        for tipo, day in targets:
+        origin = db.get(Appointment, tracking.appointment_id) if tracking.appointment_id else None
+        if tipo is not None and (tracking.branch_id != client.branch_id or (
+            origin and (origin.client_id != client.id or origin.branch_id != client.branch_id)
+        )):
+            continue
+        later = later_attended_appointment(db, tracking, now_utc) if (
+            tipo != "mantenimiento" and any(kind == "retiro" for kind, _ in targets)
+        ) else None
+        for target_type, day in targets:
+            if tipo is not None and target_type != tipo:
+                continue
             dias_restantes = (day - today).days
             rows.append(
                 {
@@ -105,13 +144,27 @@ def list_retoques(
                     "seguimiento_id": tracking.id,
                     "clienta": f"{client.name} {client.last_name}".strip(),
                     "servicio": service.name if service else None,
-                    "tipo": tipo,
+                    "tipo": target_type,
+                    "fecha_aplicacion": utc_naive_to_local(tracking.last_application_date).date(),
                     "fecha_objetivo": day,
                     "dias_restantes": dias_restantes,
                     "vencido": dias_restantes < 0,
                     "proxima_cita": proximas.get(client_id),
                     "notificaciones_activas": client.notificaciones_activas,
                     "branch_id": client.branch_id,
+                    "estado_retiro": ("atencion_posterior" if later else "por_verificar") if target_type == "retiro" else None,
+                    "observacion": ("Existe una atención posterior; verifica si el retiro ya fue realizado. No se enviarán recordatorios."
+                                    if later else "Fecha recomendada; el historial no confirma si el retiro ya se realizó.") if target_type == "retiro" else None,
+                    "recordatorio_permitido": target_type != "retiro" or (not later and bool(origin and origin.status in ATTENDED_STATUSES)),
+                    # has_removal describes follow-up needs, NOT the purpose of
+                    # a booked service. No persisted purpose/link verifies a
+                    # removal reservation today; do not infer one by name.
+                    "reserva_retiro_estado": "por_verificar" if target_type == "retiro" and proximas.get(client_id) else "sin_reserva",
+                    "reserva_retiro_fecha": None,
+                    "reserva_retiro_detalle": (
+                        "Hay una cita futura, pero el servicio no está identificado con certeza como retiro. Confirma el servicio reservado."
+                        if target_type == "retiro" and proximas.get(client_id) else None
+                    ),
                 }
             )
 

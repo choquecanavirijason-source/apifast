@@ -53,6 +53,13 @@ export interface RetoqueRow {
   tipo: RetoqueTipo;
   /** YYYY-MM-DD, día en hora de La Paz. */
   fecha_objetivo: string;
+  fecha_aplicacion?: string | null;
+  estado_retiro?: "por_verificar" | "atencion_posterior" | null;
+  observacion?: string | null;
+  recordatorio_permitido?: boolean;
+  reserva_retiro_estado?: "sin_reserva" | "reservado" | "por_verificar";
+  reserva_retiro_fecha?: string | null;
+  reserva_retiro_detalle?: string | null;
   /** Negativo = vencido. */
   dias_restantes: number;
   vencido: boolean;
@@ -145,7 +152,7 @@ export const ClientService = {
     return response.data;
   },
 
-  async listRetoques(params: { dias: number; branch_id?: number }): Promise<RetoqueRow[]> {
+  async listRetoques(params: { dias: number; branch_id?: number; tipo?: RetoqueTipo }): Promise<RetoqueRow[]> {
     const response = await api.get<RetoqueRow[]>("/clients/retoques", { params });
     return response.data;
   },

@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional
+from typing import Callable, List, Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -228,13 +228,16 @@ def send_retouch_reminder(
 def get_retoques(
     dias: int = Query(default=30, ge=1, le=365),
     branch_id: Optional[int] = Query(default=None, ge=1),
+    tipo: Optional[Literal["mantenimiento", "retiro"]] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("clients:view")),
 ):
     """Estado de retoques: mantenimiento/retiro en los próximos `dias` días,
     más los vencidos de la última semana (ver retoque_service)."""
     effective_branch = resolve_branch_id(branch_id, current_user)
-    return list_retoques(db=db, dias=dias, branch_id=effective_branch)
+    if effective_branch is None and not (current_user.role and current_user.role.name in ("SuperAdmin", "Admin", "Secretaria")):
+        return []
+    return list_retoques(db=db, dias=dias, branch_id=effective_branch, tipo=tipo)
 
 
 @router.get(
