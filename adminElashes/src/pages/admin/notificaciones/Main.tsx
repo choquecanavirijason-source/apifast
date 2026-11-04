@@ -8,10 +8,11 @@ import CitasTab from "./CitasTab";
 import ComunicadosTab from "./comunicados/ComunicadosTab";
 import { useBranchSelection } from "./hooks/useBranchSelection";
 
-type Tab = "retoques" | "citas" | "comunicados";
+type Tab = "retoques" | "retirados" | "citas" | "comunicados";
 
 const TABS = [
   { id: "retoques", label: "Estado de retoques", icon: <RefreshCcw /> },
+  { id: "retirados", label: "Estado de retirados", icon: <RefreshCcw /> },
   { id: "citas", label: "Próximas citas", icon: <CalendarClock /> },
   { id: "comunicados", label: "Comunicados", icon: <Megaphone /> },
 ] as const;
@@ -41,5 +42,6 @@ export default function NotificacionesPage() {
   if (tab === "comunicados") return <ComunicadosTab {...shared} />;
   if (tab === "citas")
     return <CitasTab {...shared} canSendReminder={canSendReminder} dias={dias} onDiasChange={setDias} />;
-  return <RetoquesTab {...shared} canManage={canManage} canSendReminder={canSendReminder} dias={dias} onDiasChange={setDias} />;
+  const tipo = tab === "retirados" ? "retiro" : "mantenimiento";
+  return <RetoquesTab key={tipo} {...shared} tipo={tipo} canManage={canManage} canSendReminder={canSendReminder} dias={dias} onDiasChange={setDias} />;
 }
