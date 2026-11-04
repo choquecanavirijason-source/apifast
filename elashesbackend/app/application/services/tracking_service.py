@@ -150,6 +150,77 @@ def resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Serv
     return service
 
 
+ATTENDED_STATUSES = ("completed", "finalizado", "atendido", "done")
+FOLLOWUP_MANTENIMIENTO = "mantenimiento"
+FOLLOWUP_RETIRO = "retiro"
+
+
+def followup_kinds(service: Optional[Service]) -> set[str]:
+    """Seguimientos que generará el servicio al finalizar la atención. Misma
+    regla que _resolve_next_dates: check de la categoría + días del servicio."""
+    category = service.category if service else None
+    if not category:
+        return set()
+    kinds = set()
+    if category.has_maintenance and service.maintenance_days is not None:
+        kinds.add(FOLLOWUP_MANTENIMIENTO)
+    if category.has_removal and service.removal_days is not None:
+        kinds.add(FOLLOWUP_RETIRO)
+    return kinds
+
+
+def appointment_primary_service(appointment: Appointment) -> Optional[Service]:
+    """Igual que resolve_service, sobre una cita ya cargada."""
+    if appointment.service:
+        return appointment.service
+    services = appointment.services
+    return services[0] if services else None
+
+
+def sync_appointment_followup(
+    db: Session,
+    appointment: Appointment,
+    previous_status: Optional[str],
+    previous_service_id: Optional[int],
+) -> None:
+    """Llamado por update_appointment antes del commit (misma transacción).
+
+    - Finalizar (transición real a "completed") registra el seguimiento si la
+      atención no tiene ninguno y su servicio lo requiere. La base es el
+      momento real de finalización. Control de servicios ya lo crea antes del
+      PUT: en ese caso no se duplica.
+    - Cambiar el servicio recalcula las fechas de los seguimientos de esa
+      atención con su fecha de aplicación original.
+    El cobro (POS) NO pasa por aquí: pagar no es finalizar la atención.
+    """
+    db.flush()
+    db.expire(appointment)
+    service = resolve_service(db, appointment.id)
+    linked = db.query(Tracking).filter(Tracking.appointment_id == appointment.id).all()
+
+    if (service.id if service else None) != previous_service_id:
+        for tracking in linked:
+            tracking.next_maintenance_date, tracking.next_removal_date = _resolve_next_dates(
+                db=db, appointment_id=appointment.id, base_date=tracking.last_application_date,
+            )
+
+    finished_now = appointment.status == "completed" and previous_status not in ATTENDED_STATUSES
+    if finished_now and not linked and followup_kinds(service):
+        finished_at = datetime.utcnow()
+        next_maintenance_date, next_removal_date = _resolve_next_dates(
+            db=db, appointment_id=appointment.id, base_date=finished_at,
+        )
+        db.add(Tracking(
+            client_id=appointment.client_id,
+            appointment_id=appointment.id,
+            branch_id=appointment.branch_id,
+            professional_id=appointment.professional_id,
+            last_application_date=finished_at,
+            next_maintenance_date=next_maintenance_date,
+            next_removal_date=next_removal_date,
+        ))
+
+
 def _resolve_next_dates(
     db: Session,
     appointment_id: Optional[int],

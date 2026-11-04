@@ -34,6 +34,7 @@ export const haceLabel = (ms: number) => {
 };
 
 export const diasLabel = (row: RetoqueRow) => {
+  if (row.dias_restantes == null) return "Al finalizar la atención";
   if (row.vencido) return `Vencido · hace ${plural(Math.abs(row.dias_restantes), "día", "días")}`;
   if (row.dias_restantes === 0) return "Hoy";
   return plural(row.dias_restantes, "día", "días");

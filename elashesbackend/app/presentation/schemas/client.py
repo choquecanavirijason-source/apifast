@@ -86,11 +86,12 @@ class ClientNotificacionesResponse(BaseModel):
 class RetoqueResponse(BaseModel):
     """Fila de "Estado de retoques" (ver retoque_service.list_retoques)."""
     client_id: int
-    seguimiento_id: int
+    # None en filas "pendiente_atencion" (aún no existe seguimiento).
+    seguimiento_id: Optional[int] = None
     clienta: str
     servicio: Optional[str] = None
     tipo: Literal["mantenimiento", "retiro"]
-    fecha_objetivo: date
+    fecha_objetivo: Optional[date] = None
     fecha_aplicacion: Optional[date] = None
     estado_retiro: Optional[Literal["por_verificar", "atencion_posterior"]] = None
     observacion: Optional[str] = None
@@ -99,12 +100,19 @@ class RetoqueResponse(BaseModel):
     reserva_retiro_fecha: Optional[datetime] = None
     reserva_retiro_detalle: Optional[str] = None
     # Negativo = vencido (la fecha ya pasó y no agendó).
-    dias_restantes: int
+    dias_restantes: Optional[int] = None
     vencido: bool
     # Próxima cita no cancelada (hora de La Paz); null si no agendó.
     proxima_cita: Optional[datetime] = None
     notificaciones_activas: bool
     branch_id: Optional[int] = None
+    # Solo pestañas tipadas: estado del seguimiento y atención de origen.
+    estado_seguimiento: Optional[Literal[
+        "pendiente_atencion", "habilitado", "recordatorio_enviado", "vencido", "cancelado"
+    ]] = None
+    appointment_id: Optional[int] = None
+    cita_fecha: Optional[datetime] = None
+    cita_estado: Optional[str] = None
 
 
 class CitaProximaResponse(BaseModel):

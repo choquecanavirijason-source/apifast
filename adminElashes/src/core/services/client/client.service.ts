@@ -47,12 +47,13 @@ export type RetoqueTipo = "mantenimiento" | "retiro";
 /** Fila de "Estado de retoques" (GET /clients/retoques). */
 export interface RetoqueRow {
   client_id: number;
-  seguimiento_id: number;
+  /** null en filas "Pendiente de atención" (todavía no hay seguimiento). */
+  seguimiento_id: number | null;
   clienta: string;
   servicio: string | null;
   tipo: RetoqueTipo;
   /** YYYY-MM-DD, día en hora de La Paz. */
-  fecha_objetivo: string;
+  fecha_objetivo: string | null;
   fecha_aplicacion?: string | null;
   estado_retiro?: "por_verificar" | "atencion_posterior" | null;
   observacion?: string | null;
@@ -61,12 +62,18 @@ export interface RetoqueRow {
   reserva_retiro_fecha?: string | null;
   reserva_retiro_detalle?: string | null;
   /** Negativo = vencido. */
-  dias_restantes: number;
+  dias_restantes: number | null;
   vencido: boolean;
   /** Próxima cita no cancelada, hora de La Paz sin zona (YYYY-MM-DDTHH:mm:ss); null si no agendó. */
   proxima_cita: string | null;
   notificaciones_activas: boolean;
   branch_id: number | null;
+  estado_seguimiento?: "pendiente_atencion" | "habilitado" | "recordatorio_enviado" | "vencido" | "cancelado" | null;
+  /** Cita pendiente o atención de origen. */
+  appointment_id?: number | null;
+  /** Hora de La Paz sin zona (YYYY-MM-DDTHH:mm:ss). */
+  cita_fecha?: string | null;
+  cita_estado?: string | null;
 }
 
 /** Fila de "Próximas citas" (GET /clients/citas-proximas). */

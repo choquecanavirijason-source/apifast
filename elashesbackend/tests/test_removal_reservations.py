@@ -49,6 +49,6 @@ def test_rescheduling_changes_scoped_future_date_without_claiming_removal(scenar
 def test_unclassified_service_named_removal_is_still_ambiguous(scenario):
     api,_,ids,_,_,_=scenario
     h=configure(scenario)
-    assert api.put('/agenda/services/1',headers=h,json={'name':'Retiro de extensiones'}).status_code==200
+    assert api.put('/agenda/services/2',headers=h,json={'name':'Retiro de extensiones'}).status_code==200
     row=next(r for r in rows(api,h) if r['seguimiento_id']==ids[1])
     assert row['reserva_retiro_estado']=='por_verificar'

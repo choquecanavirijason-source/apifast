@@ -20,7 +20,7 @@ from app.application.services.push_service import active_devices_query
 from app.application.services.tracking_service import resolve_service
 from app.core.dependencies import resolve_branch_id
 from app.config.settings import settings
-from app.application.services.retoque_service import later_attended_appointment
+from app.application.services.retoque_service import later_attended_appointment, pending_followup_appointments
 from app.domain.entities.audit_log import AuditLog
 from app.domain.entities.broadcast import Broadcast, BroadcastRecipient
 from app.domain.entities.client import Client
@@ -35,6 +35,11 @@ from app.presentation.schemas.retouch_reminder import RetouchReminderResult
 
 def _hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def reminder_event_key(client_id, tracking_id, tipo, day):
+    """Clave del recibo de deduplicación (RetouchReminder.event_key)."""
+    return _hash([client_id, tracking_id, tipo, day.isoformat()])
 
 
 def delivery_enabled():
@@ -64,6 +69,8 @@ def _context(db, tracking_id, tipo, user, now):
     latest = latest_trackings(db, [client.id]).get(client.id)
     if not latest or latest.id != tracking.id:
         raise HTTPException(409, "El seguimiento cambió. Actualiza la tabla.")
+    if pending_followup_appointments(db, tipo, now.astimezone(LA_PAZ).date(), client_ids=[client.id]):
+        raise HTTPException(409, "La clienta tiene una cita pendiente de atención; el recordatorio se habilita al finalizarla.")
     if tipo == "retiro" and later_attended_appointment(db, tracking, now):
         raise HTTPException(409, "Hay una atención posterior. Verifica si el retiro ya fue realizado antes de recordar.")
     target = tracking.next_maintenance_date if tipo == "mantenimiento" else tracking.next_removal_date
@@ -112,7 +119,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
                f"(fecha recomendada: {day:%d/%m/%Y}). "
                + ("Tienes una cita futura; consulta con tu sucursal si cubre este servicio."
                   if upcoming else f"Contacta con tu sucursal para agendar tu {tipo}."))
-    event_key = _hash([client.id, tracking.id, tipo, day.isoformat()])
+    event_key = reminder_event_key(client.id, tracking.id, tipo, day)
     # Availability and consent are revalidated on POST, never trusted from UI.
     push = get_fcm_client() is not None and active_devices_query(db).filter_by(client_id=client.id).first() is not None
     email = is_email_configured() and bool((client.email or "").strip())
