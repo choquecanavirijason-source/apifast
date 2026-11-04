@@ -189,10 +189,13 @@ async def lifespan(app: FastAPI):
             # En producción esto suele ser porque la columna ya existe
             pass
 
-    print(">>> Ejecutando Seeders <<<")
     db = SessionLocal()
     try:
-        run_seeders(db)
+        if settings.should_run_startup_seeders:
+            print(">>> Ejecutando Seeders <<<")
+            run_seeders(db)
+        else:
+            print(">>> Seeders omitidos por configuracion de arranque <<<")
         interrupted = mark_interrupted_broadcasts(db)
         if interrupted:
             print(f"!!! {interrupted} comunicado(s) quedaron a medio enviar por el reinicio.")

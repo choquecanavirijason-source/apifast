@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     db_name: Optional[str] = None
 
     environment: str = "development"  # "production" en Cloud
+    # None preserves development initialization; production requires opt-in.
+    run_startup_seeders: Optional[bool] = None
+
+    @property
+    def should_run_startup_seeders(self) -> bool:
+        if self.run_startup_seeders is not None:
+            return self.run_startup_seeders
+        return self.environment.strip().lower() not in {"production", "prod"}
+
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
