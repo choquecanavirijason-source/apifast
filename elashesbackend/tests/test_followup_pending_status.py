@@ -196,11 +196,12 @@ def test_branch_scope_and_permissions(scenario, user, visible):
     assert _rows(api, h, "mantenimiento", ids["client"], branch_id=2) == []
 
 
-def test_booking_in_other_branch_is_not_exposed(scenario):
-    api, _, h, ids = _setup(scenario)
+def test_booking_in_other_branch_follows_the_appointment_branch(scenario):
+    api, _, h, ids = _setup(scenario)  # client's home branch = 1
     _book(api, h, ids["client"], ids["maint"], branch_id=2)
-    assert _rows(api, h, "mantenimiento", ids["client"]) == []
-    assert _rows(api, h, "mantenimiento", ids["client"], branch_id=2) == []
+    assert _rows(api, h, "mantenimiento", ids["client"], branch_id=1) == []
+    [row] = _rows(api, h, "mantenimiento", ids["client"], branch_id=2)
+    assert row["branch_id"] == 2 and row["estado_seguimiento"] == "pendiente_atencion"
 
 
 def test_sent_reminder_state_and_no_duplicate_dispatch(scenario):

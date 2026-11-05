@@ -54,15 +54,16 @@ def _context(db, tracking_id, tipo, user, now):
     client = db.get(Client, tracking.client_id)
     if client is None:
         raise HTTPException(404, "Clienta no encontrada.")
-    # A restricted user without a branch must never get an unscoped query.
+    # Scope = branch where the attention was performed (the tracking), not the
+    # client's home branch. A restricted user without a branch gets nothing.
     unrestricted = user.role and user.role.name in {"SuperAdmin", "Admin", "Secretaria"}
-    if (not unrestricted and user.branch_id is None) or (
-        resolve_branch_id(client.branch_id, user) != client.branch_id
+    if tracking.branch_id is None or (not unrestricted and user.branch_id is None) or (
+        resolve_branch_id(tracking.branch_id, user) != tracking.branch_id
     ):
-        raise HTTPException(403, "La clienta no pertenece a tu sucursal.")
+        raise HTTPException(403, "El seguimiento no pertenece a tu sucursal.")
     appointment = db.get(Appointment, tracking.appointment_id) if tracking.appointment_id else None
-    if (client.branch_id is None or tracking.branch_id != client.branch_id or not appointment
-        or appointment.client_id != client.id or appointment.branch_id != client.branch_id):
+    if (not appointment or appointment.client_id != client.id
+            or appointment.branch_id != tracking.branch_id):
         raise HTTPException(409, "Revisa la relación entre clienta, atención y sucursal.")
     if appointment.status not in {"completed", "finalizado", "atendido", "done"}:
         raise HTTPException(409, "La atención de origen todavía no está completada.")
@@ -105,7 +106,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
     # No explicit retouch/appointment relation exists in this model. A future
     # appointment (even confirmed, even same service) is not proof of retouch.
     upcoming = db.query(Appointment).filter(
-        Appointment.client_id == client.id, Appointment.branch_id == client.branch_id,
+        Appointment.client_id == client.id, Appointment.branch_id == tracking.branch_id,
         Appointment.status.notin_(FINAL_STATUSES),
         Appointment.start_time > now.astimezone(LA_PAZ).replace(tzinfo=None),
     ).order_by(Appointment.start_time, Appointment.id).first()
@@ -130,7 +131,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
         push_available=push, email_available=email, consent=client.notificaciones_activas,
         delivery_enabled=delivery_enabled(),
     )
-    preview["preview_version"] = _hash([preview, client.email, client.branch_id,
+    preview["preview_version"] = _hash([preview, client.email, tracking.branch_id,
                                           upcoming.id if upcoming else None])
     preview["result"] = _result(db, db.get(RetouchReminder, event_key))
     return preview, event_key
@@ -152,9 +153,11 @@ def create_reminder(db, tracking_id, tipo, payload, user):
     if (payload.send_push and not preview["push_available"]) or (payload.send_email and not preview["email_available"]):
         raise HTTPException(409, "Uno de los canales seleccionados ya no está disponible.")
     client = db.get(Client, preview["client_id"])
+    # Broadcast/audit belong to the branch where the attention was performed.
+    tracking_branch = db.get(Tracking, tracking_id).branch_id
     broadcast = Broadcast(
         kind="aviso", title=f"Recordatorio de {tipo}", body=preview["message"],
-        audience="selected", branch_id=client.branch_id, send_push=payload.send_push,
+        audience="selected", branch_id=tracking_branch, send_push=payload.send_push,
         send_email=payload.send_email, email_from=sender_address() if payload.send_email else None,
         status="sending", recipients_count=1, created_by=user.id,
     )
@@ -165,7 +168,7 @@ def create_reminder(db, tracking_id, tipo, payload, user):
         db.add(RetouchReminder(event_key=event_key, broadcast_id=broadcast.id,
                               preview_version=preview["preview_version"]))
         # record_audit() commits internally; add the audit in this transaction.
-        db.add(AuditLog(user_id=user.id, branch_id=client.branch_id, action="create",
+        db.add(AuditLog(user_id=user.id, branch_id=tracking_branch, action="create",
                         entity_type="retouch_reminder", entity_id=broadcast.id,
                         description=f"Recordatorio manual de {tipo}, seguimiento #{tracking_id}"))
         db.commit()

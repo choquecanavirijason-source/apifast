@@ -71,7 +71,8 @@ def _utc_naive_start_of(day: date) -> datetime:
 
 
 def _due_targets(
-    db: Session, dias: int, branch_id: Optional[int], today: date, include_recent: bool = False
+    db: Session, dias: int, branch_id: Optional[int], today: date, include_recent: bool = False,
+    branch_by_tracking: bool = False,
 ) -> list[tuple[Tracking, list[tuple[str, date]]]]:
     """(último seguimiento, [(tipo, fecha objetivo)]) de cada clienta con
     mantenimiento/retiro entre hoy - VENCIDOS_DIAS y hoy + dias.
@@ -95,13 +96,17 @@ def _due_targets(
     in_range = or_(*conditions)
     query = db.query(Tracking.client_id).join(Client, Client.id == Tracking.client_id).filter(in_range)
     if branch_id is not None:
-        query = query.filter(Client.branch_id == branch_id)
+        # Pestañas tipadas: sucursal donde se realizó la atención (seguimiento).
+        # Resto (audiencias de comunicados): sucursal de la ficha, sin cambios.
+        query = query.filter((Tracking.branch_id if branch_by_tracking else Client.branch_id) == branch_id)
     client_ids = [client_id for (client_id,) in query.distinct()]
 
     # Las candidatas salen de cualquier seguimiento, pero solo cuenta el último:
     # si es más nuevo y sin fechas en rango (ej. un lifting), la clienta no sale.
     due = []
     for tracking in latest_trackings(db, client_ids).values():
+        if branch_by_tracking and branch_id is not None and tracking.branch_id != branch_id:
+            continue  # el último seguimiento es de otra sucursal: no se expone aquí
         recent = include_recent and utc_naive_to_local(tracking.last_application_date).date() >= desde
         targets = [
             (tipo, day)
@@ -131,12 +136,11 @@ def pending_followup_appointments(
     """Cita activa (no en estado final) más próxima de cada clienta cuyo
     servicio generará un seguimiento `tipo` al finalizar. Desde hace
     VENCIDOS_DIAS días y sin límite futuro: la reserva aparece en cuanto se
-    crea. Solo citas en la sucursal de la clienta (misma regla de coherencia
-    que las filas de seguimiento)."""
+    crea. branch_id filtra por la sucursal de la CITA (donde se atenderá),
+    como Próximas citas; la sucursal de la ficha no interviene."""
     since = datetime.combine(today - timedelta(days=VENCIDOS_DIAS), time(0, 0))
     query = (
         db.query(Appointment)
-        .join(Client, Client.id == Appointment.client_id)
         .options(
             joinedload(Appointment.client),
             joinedload(Appointment.service).joinedload(Service.category),
@@ -147,11 +151,11 @@ def pending_followup_appointments(
         .filter(
             Appointment.status.notin_(FINAL_STATUSES),
             Appointment.start_time >= since,
-            Appointment.branch_id == Client.branch_id,
+            Appointment.branch_id.isnot(None),
         )
     )
     if branch_id is not None:
-        query = query.filter(Client.branch_id == branch_id)
+        query = query.filter(Appointment.branch_id == branch_id)
     if client_ids is not None:
         query = query.filter(Appointment.client_id.in_(client_ids))
     pending: dict[int, Appointment] = {}
@@ -189,29 +193,35 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
 
     today = now_utc.astimezone(LA_PAZ).date()
     now_local = now_utc.astimezone(LA_PAZ).replace(tzinfo=None)
+    # Sucursal de cada fila = donde se atiende (cita) o se atendió (seguimiento).
     pending = pending_followup_appointments(db, tipo, today, branch_id)
-    due = _due_targets(db, dias, branch_id, today, include_recent=True)
-    client_ids = set(pending) | {tracking.client_id for tracking, _ in due}
-    # Scoped lists must not expose another branch's appointment dates.
-    proximas = dict(
-        db.query(Appointment.client_id, func.min(Appointment.start_time))
-        .join(Client, Client.id == Appointment.client_id)
+    due = _due_targets(db, dias, branch_id, today, include_recent=True, branch_by_tracking=True)
+    due_clients = [tracking.client_id for tracking, _ in due]
+    # Reserva pendiente en CUALQUIER sucursal: solo bloquea el recordatorio
+    # (igual que el POST); no se expone fecha ni sucursal de esa cita.
+    pending_anywhere = pending if branch_id is None else pending_followup_appointments(
+        db, tipo, today, client_ids=due_clients)
+    client_ids = set(pending) | set(due_clients)
+    # Próxima cita solo de la sucursal de la fila: nunca fechas de otra sucursal.
+    proximas = {
+        (client_id, row_branch): start
+        for client_id, row_branch, start in db.query(
+            Appointment.client_id, Appointment.branch_id, func.min(Appointment.start_time))
         .filter(Appointment.client_id.in_(client_ids),
-                Appointment.branch_id == Client.branch_id,
                 Appointment.status.notin_(FINAL_STATUSES),
                 Appointment.start_time > now_local)
-        .group_by(Appointment.client_id).all()
-    ) if client_ids else {}
+        .group_by(Appointment.client_id, Appointment.branch_id).all()
+    } if client_ids else {}
 
-    def base_row(client, servicio):
+    def base_row(client, servicio, row_branch):
         return {
             "client_id": client.id,
             "clienta": f"{client.name} {client.last_name}".strip(),
             "servicio": servicio,
             "tipo": tipo,
             "notificaciones_activas": client.notificaciones_activas,
-            "branch_id": client.branch_id,
-            "proxima_cita": proximas.get(client.id),
+            "branch_id": row_branch,
+            "proxima_cita": proximas.get((client.id, row_branch)),
             "estado_retiro": None,
             "reserva_retiro_estado": "sin_reserva",
             "reserva_retiro_fecha": None,
@@ -223,7 +233,7 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
         service = appointment_primary_service(appointment)
         en_servicio = appointment.status == "in_service"
         rows.append({
-            **base_row(appointment.client, service.name if service else None),
+            **base_row(appointment.client, service.name if service else None, appointment.branch_id),
             "seguimiento_id": None,
             "appointment_id": appointment.id,
             "cita_fecha": appointment.start_time,
@@ -244,8 +254,9 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
         if tracking.client_id in pending:
             continue
         origin = db.get(Appointment, tracking.appointment_id) if tracking.appointment_id else None
-        if tracking.branch_id != client.branch_id or (
-            origin and (origin.client_id != client.id or origin.branch_id != client.branch_id)
+        # Coherencia: el seguimiento es de la sucursal donde se hizo la atención.
+        if tracking.branch_id is None or (
+            origin and (origin.client_id != client.id or origin.branch_id != tracking.branch_id)
         ):
             continue
         for target_type, day in targets:
@@ -256,7 +267,7 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
             later = later_attended_appointment(db, tracking, now_utc) if tipo == "retiro" else None
             attended = bool(origin and origin.status in ATTENDED_STATUSES)
             row = {
-                **base_row(client, service.name if service else None),
+                **base_row(client, service.name if service else None, tracking.branch_id),
                 "seguimiento_id": tracking.id,
                 "appointment_id": tracking.appointment_id,
                 "cita_fecha": origin.start_time if origin else None,
@@ -278,6 +289,9 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
                 row["estado_seguimiento"] = ESTADO_VENCIDO if dias_restantes < 0 else ESTADO_HABILITADO
                 if origin is None:
                     row["observacion"] = "Sin atención de origen verificable. No se enviarán recordatorios."
+                elif tracking.client_id in pending_anywhere:
+                    row["recordatorio_permitido"] = False
+                    row["observacion"] = "Hay una cita pendiente de atención; el recordatorio se habilita al finalizarla."
             if tipo == "retiro":
                 row["estado_retiro"] = "atencion_posterior" if later else "por_verificar"
                 if later:
@@ -285,7 +299,7 @@ def _list_typed(db: Session, dias: int, branch_id: Optional[int], now_utc: datet
                                           "No se enviarán recordatorios.")
                 elif row["observacion"] is None:
                     row["observacion"] = "Fecha recomendada; el historial no confirma si el retiro ya se realizó."
-                if proximas.get(client.id):
+                if row["proxima_cita"]:
                     row["reserva_retiro_estado"] = "por_verificar"
                     row["reserva_retiro_detalle"] = ("Hay una cita futura, pero el servicio no está identificado "
                                                      "con certeza como retiro. Confirma el servicio reservado.")
