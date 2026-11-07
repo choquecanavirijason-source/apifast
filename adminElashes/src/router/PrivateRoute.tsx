@@ -51,6 +51,7 @@ const PrivateRoute = () => {
     "/lash-designs": ["catalog:view", "catalog:manage"] as IPermission[],
     "/effects": ["catalog:view", "catalog:manage"] as IPermission[],
     "/eye-types": ["catalog:view", "catalog:manage"] as IPermission[],
+    "/tryon": ["catalog:view", "catalog:manage"] as IPermission[],
     "/designs": ["catalog:view", "catalog:manage"] as IPermission[],
     "/volumen": ["catalog:view", "catalog:manage"] as IPermission[],
     "/questionnaire": ["forms:view", "forms:manage"] as IPermission[],

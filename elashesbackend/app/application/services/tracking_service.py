@@ -271,6 +271,7 @@ def create_tracking(
         lash_design_id=payload.lash_design_id,
         questionnaire_id=payload.questionnaire_id,
         design_notes=payload.design_notes,
+        tryon_recipe=payload.tryon_recipe.model_dump(mode="json") if payload.tryon_recipe else None,
         last_application_date=base_date,
         questionnaire_responses=payload.questionnaire_responses,
         next_maintenance_date=next_maintenance_date,

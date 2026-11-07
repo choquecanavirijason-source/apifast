@@ -22,6 +22,8 @@ import Effects from '@/pages/admin/catalog/Effects';
 import LashDesigns from '@/pages/admin/catalog/LashDesigns';
 import EyeTypes from '@/pages/admin/catalog/EyeTypes';
 import Designs from '@/pages/admin/catalog/Designs';
+import TryOnOptionsPage from '@/pages/admin/tryon/Options';
+import TryOnCatalogPage from '@/pages/admin/tryon/Main';
 import Volumen from '@/pages/admin/Volumen';
 import ProductsPage from '@/pages/admin/products/Main';
 import SalonsPage from '@/pages/admin/salons/Main';
@@ -167,11 +169,19 @@ export default function AppRouter() {
            <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="clients" element={<ClientList />} />
-            <Route path="effects" element={<Effects />} />
-            <Route path="lash-designs" element={<LashDesigns />} />
-            <Route path="eye-types" element={<EyeTypes />} />
-            <Route path="designs" element={<Designs />} />
-            <Route path="volumen" element={<Volumen />} />
+            <Route path="effects" element={<TryOnCatalogPage />} />
+            <Route path="effects/legacy" element={<Effects />} />
+            <Route path="lash-designs" element={<TryOnOptionsPage kind="technique" />} />
+            <Route path="lash-designs/legacy" element={<LashDesigns />} />
+            <Route path="tryon/lengths" element={<TryOnOptionsPage kind="length" />} />
+            <Route path="tryon/techniques" element={<TryOnOptionsPage kind="technique" />} />
+            <Route path="tryon/thicknesses" element={<TryOnOptionsPage kind="thickness" />} />
+            <Route path="eye-types" element={<Navigate to="/designs" replace />} />
+            <Route path="eye-types/legacy" element={<EyeTypes />} />
+            <Route path="designs" element={<TryOnCatalogPage />} />
+            <Route path="designs/legacy" element={<Designs />} />
+            <Route path="volumen" element={<TryOnOptionsPage kind="technique" />} />
+            <Route path="volumen/legacy" element={<Volumen />} />
             <Route path="users" element={<Users />} />
             <Route path="settings" element={<Settings />} />
             <Route path="questionnaire" element={<Question/>}/>

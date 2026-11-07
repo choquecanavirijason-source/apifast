@@ -111,6 +111,7 @@ class Tracking(Base):
     questionnaire_id = Column(Integer, ForeignKey("questionnaires.id"), nullable=True)
 
     design_notes = Column(String(255), nullable=True)
+    tryon_recipe = Column(JSON, nullable=True)
     last_application_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     questionnaire_responses = Column(JSON, nullable=True)
     # Calculadas al crear/editar el tracking, a partir de si la categoría del
