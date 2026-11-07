@@ -10,6 +10,7 @@ import { useAsyncList } from "./hooks/useAsyncList";
 import { diasLabel, formatAppointment, formatDay } from "./notificaciones.utils";
 import RetouchReminderModal from "./RetouchReminderModal";
 import { removalReservation } from "./removalReservation";
+import { followupRowId, followupState } from "./followupState";
 
 // DataTable necesita un id por fila; una clienta puede tener una por tipo.
 type RetoqueTableRow = RetoqueRow & { id: string };
@@ -41,7 +42,7 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
   const [reminderRow, setReminderRow] = useState<RetoqueRow | null>(null);
 
   const tableRows = useMemo<RetoqueTableRow[]>(
-    () => rows.map((row) => ({ ...row, id: `${row.seguimiento_id}-${row.tipo}` })),
+    () => rows.map((row) => ({ ...row, id: followupRowId(row) })),
     [rows],
   );
 
@@ -90,6 +91,21 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
       sortable: true,
     },
     {
+      key: "estado_seguimiento",
+      header: "Estado",
+      getValue: (row) => followupState(row).label,
+      render: (row) => {
+        const state = followupState(row);
+        return (
+          <span title={row.observacion ?? undefined}
+            className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${state.className}`}>
+            {state.label}
+          </span>
+        );
+      },
+      filterable: true,
+    },
+    {
       key: "tipo",
       header: "Tipo",
       getValue: tipoLabel,
@@ -107,18 +123,22 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
     {
       key: "fecha_objetivo",
       header: isRemoval ? "Fecha recomendada del retiro" : "Fecha objetivo",
-      getValue: (row) => row.fecha_objetivo,
-      render: (row) => formatDay(row.fecha_objetivo),
+      getValue: (row) => row.fecha_objetivo ?? "",
+      render: (row) => row.fecha_objetivo
+        ? formatDay(row.fecha_objetivo)
+        : <span className="text-slate-500">Se calcula al finalizar</span>,
       sortable: true,
     },
     {
       key: "dias_restantes",
       header: "Días restantes",
-      getValue: (row) => row.dias_restantes,
+      getValue: (row) => row.dias_restantes ?? Number.MAX_SAFE_INTEGER,
       render: (row) => (
         <span
           className={
-            row.vencido
+            row.dias_restantes == null
+              ? "text-slate-500"
+              : row.vencido
               ? "rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
               : row.dias_restantes <= 3
                 ? "font-medium text-amber-700"
@@ -135,6 +155,9 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
       header: isRemoval ? "Reserva de retiro" : "Cita futura",
       getValue: (row) => isRemoval ? removalReservation(row).label : row.proxima_cita ?? "",
       render: (row) => {
+        if (row.seguimiento_id == null && row.cita_fecha) {
+          return <span className="text-slate-700">Cita · {formatAppointment(row.cita_fecha)}</span>;
+        }
         if (isRemoval) {
           const reservation = removalReservation(row);
           return <span title={reservation.title} className={reservation.label === "Reservado" ? "text-emerald-700" : reservation.label === "Por verificar" ? "text-amber-700" : "text-slate-600"}>
@@ -179,10 +202,16 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
     {
       key: "acciones",
       header: "Acciones",
-      render: (row) => <Button variant="secondary" size="sm"
-        disabled={!canSendReminder || !row.notificaciones_activas || row.recordatorio_permitido === false}
-        title={!canSendReminder ? "Requiere permiso reminders:send" : !row.notificaciones_activas ? "Notificaciones desactivadas" : row.recordatorio_permitido === false ? row.observacion ?? "Revisa la atención de origen" : undefined}
-        onClick={() => setReminderRow(row)}>Enviar recordatorio</Button>,
+      render: (row) => {
+        const sent = row.estado_seguimiento === "recordatorio_enviado";
+        const blocked = row.seguimiento_id == null || row.recordatorio_permitido === false;
+        return <Button variant="secondary" size="sm"
+          disabled={!canSendReminder || (!sent && !row.notificaciones_activas) || blocked}
+          title={!canSendReminder ? "Requiere permiso reminders:send"
+            : blocked ? row.observacion ?? "Revisa la atención de origen"
+            : !sent && !row.notificaciones_activas ? "Notificaciones desactivadas" : undefined}
+          onClick={() => setReminderRow(row)}>{sent ? "Ver recordatorio" : "Enviar recordatorio"}</Button>;
+      },
     },
   ];
   if (isRemoval) {
@@ -197,7 +226,7 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
     <TabLayout
       tabs={tabs}
       title={isRemoval ? "Estado de retirados" : "Estado de retoques"}
-      subtitle={`${isRemoval ? "Retiros recomendados" : "Mantenimientos"} en los próximos ${dias} días, más los vencidos de la última semana.`}
+      subtitle={`Reservas pendientes de atención, ${isRemoval ? "retiros recomendados" : "mantenimientos"} en los próximos ${dias} días, atenciones finalizadas esta semana y vencidos de la última semana.`}
       error={error}
       actions={
         <>
@@ -216,11 +245,11 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
       {!isLoading && !error && rows.length === 0 ? (
         <EmptyCard>
           <p className="text-sm font-medium text-slate-700">
-            No hay {isRemoval ? "retiros" : "mantenimientos"} recomendados dentro del rango seleccionado.
+            No hay reservas pendientes ni {isRemoval ? "retiros" : "mantenimientos"} recomendados dentro del rango seleccionado.
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Las fechas salen al finalizar una atención. Para que se calculen, el servicio necesita sus días de
-            retoque/retiro y su categoría debe tener activado "Tiene mantenimiento" o "Tiene retiro".
+            Una reserva aparece como «Pendiente de atención» y la fecha recomendada se calcula al finalizar la atención.
+            El servicio necesita sus días de retoque/retiro y su categoría debe tener activado "Tiene mantenimiento" o "Tiene retiro".
           </p>
         </EmptyCard>
       ) : (
@@ -234,7 +263,7 @@ export default function RetoquesTab({ tabs, branch, canChooseBranch, canManage, 
         />
       )}
     </TabLayout>
-    {reminderRow && <RetouchReminderModal key={`${reminderRow.seguimiento_id}-${reminderRow.tipo}`}
+    {reminderRow && reminderRow.seguimiento_id != null && <RetouchReminderModal key={followupRowId(reminderRow)}
       row={reminderRow} onClose={() => setReminderRow(null)} />}
     </>
   );

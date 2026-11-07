@@ -138,16 +138,25 @@ def test_other_branch_history_and_future_appointments_are_not_exposed(scenario):
     api,factory,ids,_,_,_=scenario
     headers=configure(scenario)
     with factory() as db:
-        tid=ids[0];tracking=db.get(Tracking,tid)
+        tid=ids[0];tracking=db.get(Tracking,tid);cid=tracking.client_id
         start=(datetime.now(LA_PAZ)+timedelta(days=1)).replace(tzinfo=None)
-        db.add(Appointment(client_id=tracking.client_id,branch_id=2,service_id=1,
+        db.add(Appointment(client_id=cid,branch_id=2,service_id=1,
                            start_time=start,end_time=start+timedelta(hours=1),status='confirmed'))
         db.commit()
-    row=next(r for r in rows(api,headers) if r['seguimiento_id']==tid)
-    assert row['proxima_cita'] is None
+    # Branch 1 (where the attention was done) never sees branch 2's booking date;
+    # the pending booking only blocks the reminder there, without details.
+    row=next(r for r in rows(api,headers,branch_id=1) if r['seguimiento_id']==tid)
+    assert row['proxima_cita'] is None and row['recordatorio_permitido'] is False
+    assert row['observacion']=='Hay una cita pendiente de atención; el recordatorio se habilita al finalizarla.'
+    assert all(r['seguimiento_id'] is not None for r in rows(api,headers,branch_id=1) if r['client_id']==cid)
+    # Branch 2 sees its own booking as pending, never the branch 1 tracking.
+    other=[r for r in rows(api,headers,branch_id=2) if r['client_id']==cid]
+    assert [r['estado_seguimiento'] for r in other]==['pendiente_atencion'] and other[0]['seguimiento_id'] is None
     with factory() as db:
         db.get(Tracking,tid).branch_id=2;db.commit()
-    assert not any(r['seguimiento_id']==tid for r in rows(api,headers))
+    # Tracking branch no longer matches its attention's branch: incoherent, hidden everywhere.
+    for scope in ({},{'branch_id':1},{'branch_id':2}):
+        assert not any(r['seguimiento_id']==tid for r in rows(api,headers,**scope))
 
 
 def test_removal_uses_consent_and_persistent_dedup_independent_of_maintenance(scenario):

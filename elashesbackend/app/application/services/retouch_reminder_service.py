@@ -20,7 +20,7 @@ from app.application.services.push_service import active_devices_query
 from app.application.services.tracking_service import resolve_service
 from app.core.dependencies import resolve_branch_id
 from app.config.settings import settings
-from app.application.services.retoque_service import later_attended_appointment
+from app.application.services.retoque_service import later_attended_appointment, pending_followup_appointments
 from app.domain.entities.audit_log import AuditLog
 from app.domain.entities.broadcast import Broadcast, BroadcastRecipient
 from app.domain.entities.client import Client
@@ -37,6 +37,11 @@ def _hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def reminder_event_key(client_id, tracking_id, tipo, day):
+    """Clave del recibo de deduplicación (RetouchReminder.event_key)."""
+    return _hash([client_id, tracking_id, tipo, day.isoformat()])
+
+
 def delivery_enabled():
     default = "disabled" if settings.environment.strip().lower() in {"production", "prod"} else "live"
     return os.environ.get("RETOUCH_REMINDERS_DELIVERY_MODE", default) == "live"
@@ -49,21 +54,24 @@ def _context(db, tracking_id, tipo, user, now):
     client = db.get(Client, tracking.client_id)
     if client is None:
         raise HTTPException(404, "Clienta no encontrada.")
-    # A restricted user without a branch must never get an unscoped query.
+    # Scope = branch where the attention was performed (the tracking), not the
+    # client's home branch. A restricted user without a branch gets nothing.
     unrestricted = user.role and user.role.name in {"SuperAdmin", "Admin", "Secretaria"}
-    if (not unrestricted and user.branch_id is None) or (
-        resolve_branch_id(client.branch_id, user) != client.branch_id
+    if tracking.branch_id is None or (not unrestricted and user.branch_id is None) or (
+        resolve_branch_id(tracking.branch_id, user) != tracking.branch_id
     ):
-        raise HTTPException(403, "La clienta no pertenece a tu sucursal.")
+        raise HTTPException(403, "El seguimiento no pertenece a tu sucursal.")
     appointment = db.get(Appointment, tracking.appointment_id) if tracking.appointment_id else None
-    if (client.branch_id is None or tracking.branch_id != client.branch_id or not appointment
-        or appointment.client_id != client.id or appointment.branch_id != client.branch_id):
+    if (not appointment or appointment.client_id != client.id
+            or appointment.branch_id != tracking.branch_id):
         raise HTTPException(409, "Revisa la relación entre clienta, atención y sucursal.")
     if appointment.status not in {"completed", "finalizado", "atendido", "done"}:
         raise HTTPException(409, "La atención de origen todavía no está completada.")
     latest = latest_trackings(db, [client.id]).get(client.id)
     if not latest or latest.id != tracking.id:
         raise HTTPException(409, "El seguimiento cambió. Actualiza la tabla.")
+    if pending_followup_appointments(db, tipo, now.astimezone(LA_PAZ).date(), client_ids=[client.id]):
+        raise HTTPException(409, "La clienta tiene una cita pendiente de atención; el recordatorio se habilita al finalizarla.")
     if tipo == "retiro" and later_attended_appointment(db, tracking, now):
         raise HTTPException(409, "Hay una atención posterior. Verifica si el retiro ya fue realizado antes de recordar.")
     target = tracking.next_maintenance_date if tipo == "mantenimiento" else tracking.next_removal_date
@@ -98,7 +106,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
     # No explicit retouch/appointment relation exists in this model. A future
     # appointment (even confirmed, even same service) is not proof of retouch.
     upcoming = db.query(Appointment).filter(
-        Appointment.client_id == client.id, Appointment.branch_id == client.branch_id,
+        Appointment.client_id == client.id, Appointment.branch_id == tracking.branch_id,
         Appointment.status.notin_(FINAL_STATUSES),
         Appointment.start_time > now.astimezone(LA_PAZ).replace(tzinfo=None),
     ).order_by(Appointment.start_time, Appointment.id).first()
@@ -112,7 +120,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
                f"(fecha recomendada: {day:%d/%m/%Y}). "
                + ("Tienes una cita futura; consulta con tu sucursal si cubre este servicio."
                   if upcoming else f"Contacta con tu sucursal para agendar tu {tipo}."))
-    event_key = _hash([client.id, tracking.id, tipo, day.isoformat()])
+    event_key = reminder_event_key(client.id, tracking.id, tipo, day)
     # Availability and consent are revalidated on POST, never trusted from UI.
     push = get_fcm_client() is not None and active_devices_query(db).filter_by(client_id=client.id).first() is not None
     email = is_email_configured() and bool((client.email or "").strip())
@@ -123,7 +131,7 @@ def preview_reminder(db: Session, tracking_id, tipo, user, now=None):
         push_available=push, email_available=email, consent=client.notificaciones_activas,
         delivery_enabled=delivery_enabled(),
     )
-    preview["preview_version"] = _hash([preview, client.email, client.branch_id,
+    preview["preview_version"] = _hash([preview, client.email, tracking.branch_id,
                                           upcoming.id if upcoming else None])
     preview["result"] = _result(db, db.get(RetouchReminder, event_key))
     return preview, event_key
@@ -145,9 +153,11 @@ def create_reminder(db, tracking_id, tipo, payload, user):
     if (payload.send_push and not preview["push_available"]) or (payload.send_email and not preview["email_available"]):
         raise HTTPException(409, "Uno de los canales seleccionados ya no está disponible.")
     client = db.get(Client, preview["client_id"])
+    # Broadcast/audit belong to the branch where the attention was performed.
+    tracking_branch = db.get(Tracking, tracking_id).branch_id
     broadcast = Broadcast(
         kind="aviso", title=f"Recordatorio de {tipo}", body=preview["message"],
-        audience="selected", branch_id=client.branch_id, send_push=payload.send_push,
+        audience="selected", branch_id=tracking_branch, send_push=payload.send_push,
         send_email=payload.send_email, email_from=sender_address() if payload.send_email else None,
         status="sending", recipients_count=1, created_by=user.id,
     )
@@ -158,7 +168,7 @@ def create_reminder(db, tracking_id, tipo, payload, user):
         db.add(RetouchReminder(event_key=event_key, broadcast_id=broadcast.id,
                               preview_version=preview["preview_version"]))
         # record_audit() commits internally; add the audit in this transaction.
-        db.add(AuditLog(user_id=user.id, branch_id=client.branch_id, action="create",
+        db.add(AuditLog(user_id=user.id, branch_id=tracking_branch, action="create",
                         entity_type="retouch_reminder", entity_id=broadcast.id,
                         description=f"Recordatorio manual de {tipo}, seguimiento #{tracking_id}"))
         db.commit()

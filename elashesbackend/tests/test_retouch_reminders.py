@@ -77,6 +77,12 @@ def scenario(monkeypatch):
         service = Service(name="Extensiones Clasicas DEMO", category_id=category.id,
                           maintenance_days=21, price=100, duration_minutes=60)
         db.add(service); db.flush()
+        # A future booking of a service WITHOUT follow-up stays ambiguous
+        # ("por verificar"); same-service bookings are pending attention.
+        plain_category = ServiceCategory(name="SIN SEGUIMIENTO DEMO")
+        db.add(plain_category); db.flush()
+        plain_service = Service(name="Lifting DEMO", category_id=plain_category.id, price=50, duration_minutes=30)
+        db.add(plain_service); db.flush()
         today = datetime.now(LA_PAZ).replace(hour=11, minute=0, second=0, microsecond=0)
         ids = []
         for index, days in enumerate([5, 5, -3]):
@@ -96,7 +102,7 @@ def scenario(monkeypatch):
                                 platform="android",fcm_token=f"fake{index}"))
             if index == 1:
                 future = (today+timedelta(days=2)).replace(tzinfo=None)
-                db.add(Appointment(client_id=client.id, branch_id=branch.id, service_id=service.id,
+                db.add(Appointment(client_id=client.id, branch_id=branch.id, service_id=plain_service.id,
                                    start_time=future,end_time=future+timedelta(hours=1),status="confirmed"))
             db.flush(); ids.append(tracking.id)
         db.commit()

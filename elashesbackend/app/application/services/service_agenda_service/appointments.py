@@ -7,6 +7,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.application.services.client_service import update_client_status
+from app.application.services.tracking_service import resolve_service, sync_appointment_followup
 from app.domain.entities.branch import Branch
 from app.domain.entities.client import (
     CLIENT_STATUS_EN_ESPERA,
@@ -524,6 +525,10 @@ def update_appointment(
             detail="Cita no encontrada",
         )
 
+    previous_status = appointment.status
+    previous_service = resolve_service(db, appointment.id)
+    previous_service_id = previous_service.id if previous_service else None
+
     final_client_id = client_id if client_id is not None else appointment.client_id
     final_professional_id = (
         appointment.professional_id if professional_id is _UNSET else professional_id
@@ -624,6 +629,9 @@ def update_appointment(
         appointment.appointment_services = [
             AppointmentService(appointment_id=appointment.id, service_id=service_id, sort_order=0)
         ]
+
+    # Finalizar / cambiar servicio actualiza el seguimiento en la misma transacción.
+    sync_appointment_followup(db, appointment, previous_status, previous_service_id)
 
     db.commit()
     db.refresh(appointment)
