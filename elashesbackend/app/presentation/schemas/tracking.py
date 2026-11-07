@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.presentation.schemas.tryon import TryOnSelection
+
 from app.presentation.schemas.client import ClientSummary
 from app.presentation.schemas.user import UserSummary
 from app.presentation.schemas.catalog import (
@@ -26,6 +28,7 @@ class TrackingBase(BaseModel):
     design_notes: Optional[str] = Field(default=None, max_length=255)
     last_application_date: Optional[datetime] = None
     questionnaire_responses: Optional[Dict[str, Any]] = None
+    tryon_recipe: Optional[TryOnSelection] = None
 
 
 class TrackingCreate(TrackingBase):
@@ -44,6 +47,7 @@ class TrackingUpdate(BaseModel):
     design_notes: Optional[str] = Field(default=None, max_length=255)
     last_application_date: Optional[datetime] = None
     questionnaire_responses: Optional[Dict[str, Any]] = None
+    tryon_recipe: Optional[TryOnSelection] = None
 
 
 class LashAiReviewResponse(BaseModel):
@@ -76,6 +80,7 @@ class TrackingResponse(BaseModel):
     design_notes: Optional[str] = None
     last_application_date: datetime
     questionnaire_responses: Optional[Dict[str, Any]] = None
+    tryon_recipe: Optional[TryOnSelection] = None
     # Calculadas por el backend a partir del efecto/volumen/diseño aplicado.
     next_maintenance_date: Optional[datetime] = None
     next_removal_date: Optional[datetime] = None

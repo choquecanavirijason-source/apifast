@@ -94,6 +94,9 @@ from app.presentation.controllers import (
     payment_controller, inventory_controller, branch_controller,
     service_agenda_controller, reports_controller, app_settings_controller,
 )
+from app.presentation.controllers.tryon_controller import router as tryon_router
+import app.infrastructure.database.migrations.add_tryon_catalog as m58
+
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
 from app.presentation.controllers.commission_payment_controller import router as commission_payments_router
@@ -180,6 +183,7 @@ async def lifespan(app: FastAPI):
         ("manual_reminders_channels", m55.upgrade),
         ("reminder_email_senders_table", m56.upgrade),
         ("broadcast_recipients_delivery_status", m57.upgrade),
+        ("tryon_catalog", m58.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -316,6 +320,7 @@ def create_app() -> FastAPI:
     app.include_router(service_categories_router)
     app.include_router(service_agenda_controller.router)
     app.include_router(catalog_controller.router)
+    app.include_router(tryon_router)
     app.include_router(tracking_controller.router)
     app.include_router(branch_controller.router)
     app.include_router(client_controller.router)
