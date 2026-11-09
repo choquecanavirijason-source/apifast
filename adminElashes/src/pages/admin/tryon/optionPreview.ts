@@ -7,13 +7,15 @@ export function safeOptionParameters(kind: OptionKind, p: OptionParameters): Opt
         return { ...optionDefaults, scale: clamp(p.scale, .4, 1.8, 1) };
     if (kind === 'thickness')
         return { ...optionDefaults, diameter: clamp(p.diameter, .03, .25, .07) };
+    if (kind === 'color')
+        return { ...optionDefaults, color: typeof p.color === 'string' && /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#111111' };
     return { ...optionDefaults, base_technique: Math.round(clamp(p.base_technique, 0, 3, 1)), fibers_per_group: p.fibers_per_group === null ? null : Math.round(clamp(p.fibers_per_group, 1, 8, 3)), single_every: Math.round(clamp(p.single_every, 0, 8, 0)), density: clamp(p.density, .25, 1.5, 1), spread: p.spread === null ? null : clamp(p.spread, 0, 24, 10) };
 }
 export function optionPreviewDemo(profile: RenderProfile, kind: OptionKind, parameters: OptionParameters, styleName: string): TutorialDemo {
     const option: SalonOption = { id: 4094, name: 'Vista de prueba', is_active: true, sort_order: 0, parameters: safeOptionParameters(kind, parameters) };
-    const options: OptionGroups = { length: [], technique: [], thickness: [] };
+    const options: OptionGroups = { length: [], technique: [], thickness: [], color: [] };
     options[kind] = [{ option, published: { ...option, revision: 1 }, revision: 1, published_revision: 1 }];
-    return { profile, options, selection: { length: kind === 'length' ? 4094 : 1, technique: kind === 'technique' ? 4094 : 0, thickness: kind === 'thickness' ? 4094 : 3 }, note: `Ejemplo sobre ${styleName}.` };
+    return { profile, options, selection: { length: kind === 'length' ? 4094 : 1, technique: kind === 'technique' ? 4094 : 0, thickness: kind === 'thickness' ? 4094 : 3, color: kind === 'color' ? 4094 : undefined }, note: `Ejemplo sobre ${styleName}.` };
 }
 export type OptionHelpKey = 'scale' | 'diameter' | 'base_technique' | 'original' | 'fibers_per_group' | 'single_every' | 'density' | 'spread';
 const basic = { technique: 0, view: 'front' as const };
@@ -27,7 +29,7 @@ export const optionHelpTopics: Record<OptionHelpKey, VisualTutorialTopic> = {
     density: { ...basic, key: 'option_density', title: 'Densidad de grupos', description: 'Aumenta o reduce cuántos grupos se distribuyen a lo largo de la tira.', less: 'Más ligero.', more: 'Más poblado.', tip: '1 conserva la cantidad de grupos de la base del estilo. La demostración utiliza grupos de tres fibras.', min: .25, max: 1.5, step: .05, low: .4, high: 1.4, captions: ['Menos grupos', 'Más grupos'] },
     spread: { ...basic, key: 'option_spread', title: 'Apertura de cada grupo', description: 'Separa las fibras dentro de cada grupo sin añadir fibras.', less: 'Cerrado.', more: 'Abierto.', tip: 'La demostración utiliza grupos de tres fibras para que se vea la apertura.', min: 0, max: 24, step: .5, low: 0, high: 22, captions: ['Grupos cerrados', 'Grupos abiertos'] }
 };
-export function optionHelpKeys(kind: OptionKind): OptionHelpKey[] { return kind === 'length' ? ['scale'] : kind === 'thickness' ? ['diameter'] : ['base_technique', 'original', 'fibers_per_group', 'single_every', 'density', 'spread']; }
+export function optionHelpKeys(kind: OptionKind): OptionHelpKey[] { if (kind === 'color') return []; return kind === 'length' ? ['scale'] : kind === 'thickness' ? ['diameter'] : ['base_technique', 'original', 'fibers_per_group', 'single_every', 'density', 'spread']; }
 export function optionHelpDemo(profile: RenderProfile, kind: OptionKind, source: OptionParameters, key: OptionHelpKey, value: number, styleName: string): TutorialDemo {
     let parameters = { ...source };
     if (kind === 'length')

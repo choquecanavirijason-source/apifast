@@ -4,6 +4,20 @@ export interface PreviewSelection {
     length: number;
     technique: number;
     thickness: number;
+    /** Color de pestaña (id del catálogo). Sin valor = negro aprobado. */
+    color?: number;
+}
+
+/** El negro aprobado: con este valor la pestaña se ve exactamente como siempre. */
+export const APPROVED_BLACK = '#111111';
+
+/** Color elegido como RGB 0–1, o `null` para el negro aprobado (sin tinte). */
+export function lashTint(selection: PreviewSelection, options: OptionGroups): [number, number, number] | null {
+    if (selection.color == null) return null;
+    const row = options.color?.find(r => (r.published ?? r.option).id === selection.color);
+    const hex = (row?.published ?? row?.option)?.parameters.color;
+    if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || hex.toUpperCase() === APPROVED_BLACK) return null;
+    return [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
 }
 type Point = [
     number,
@@ -71,5 +85,5 @@ export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelec
     let radius = 1.5;
     for (let i = 0; i < vertices.length; i += 7)
         radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
-    return { vertices: new Float32Array(vertices), guide: new Float32Array(guide), fibers, center, radius: radius * 1.12 };
+    return { vertices: new Float32Array(vertices), guide: new Float32Array(guide), fibers, center, radius: radius * 1.12, tint: lashTint(selection, options) };
 }

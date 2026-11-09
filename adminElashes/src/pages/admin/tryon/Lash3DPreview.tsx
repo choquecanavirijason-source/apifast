@@ -15,11 +15,11 @@ type Orbit = PreviewCamera;
 const initial: Orbit = { yaw: -.18, pitch: .25, zoom: 1 };
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const vertexSource = `attribute vec3 position;attribute vec3 normal;attribute float shade;
-uniform float yaw;uniform float pitch;uniform float zoom;uniform float aspect;uniform float guideMode;uniform vec3 center;uniform float radius;
+uniform float yaw;uniform float pitch;uniform float zoom;uniform float aspect;uniform float guideMode;uniform vec3 center;uniform float radius;uniform vec3 tint;uniform float tintMode;
 varying vec3 color;
 vec3 rotate(vec3 p){float a=cos(yaw),b=sin(yaw),c=cos(pitch),d=sin(pitch);vec3 q=vec3(a*p.x+b*p.z,p.y,-b*p.x+a*p.z);return vec3(q.x,c*q.y-d*q.z,d*q.y+c*q.z);}
 void main(){vec3 p=rotate(position-center);gl_Position=vec4(p.x/(radius*max(1.0,aspect))*zoom,p.y/(radius*max(1.0,1.0/aspect))*zoom,-p.z/radius*.7,1.0);
-float light=.65+.35*abs(dot(normalize(rotate(normal)),normalize(vec3(.3,.7,1.0))));color=mix(vec3(shade*light),vec3(.055,.42,.28),guideMode);}`;
+float light=.65+.35*abs(dot(normalize(rotate(normal)),normalize(vec3(.3,.7,1.0))));vec3 fiber=mix(vec3(shade*light),tint*light*(.75+2.0*shade),tintMode);color=mix(fiber,vec3(.055,.42,.28),guideMode);}`;
 const fragmentSource = `precision mediump float;varying vec3 color;void main(){gl_FragColor=vec4(color,1.0);}`;
 interface Renderer {
     draw: (orbit: Orbit) => void;
@@ -61,7 +61,7 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
         if (!gl.getProgramParameter(program, gl.LINK_STATUS))
             throw new Error('No se pudo preparar la vista 3D');
         const attributes = { position: gl.getAttribLocation(program, 'position'), normal: gl.getAttribLocation(program, 'normal'), shade: gl.getAttribLocation(program, 'shade') };
-        const uniforms = Object.fromEntries(['yaw', 'pitch', 'zoom', 'aspect', 'guideMode', 'center', 'radius'].map(k => [k, gl.getUniformLocation(program!, k)]));
+        const uniforms = Object.fromEntries(['yaw', 'pitch', 'zoom', 'aspect', 'guideMode', 'center', 'radius', 'tint', 'tintMode'].map(k => [k, gl.getUniformLocation(program!, k)]));
         const upload = (data: Float32Array) => {
             const b = gl.createBuffer();
             if (!b)
@@ -95,6 +95,9 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
                 gl.uniform1f(uniforms.aspect, width / height);
                 gl.uniform3fv(uniforms.center, mesh.center);
                 gl.uniform1f(uniforms.radius, mesh.radius);
+                // Color de pestaña: tiñe la fibra conservando su luz; sin tinte = negro aprobado.
+                gl.uniform3fv(uniforms.tint, mesh.tint ?? [0, 0, 0]);
+                gl.uniform1f(uniforms.tintMode, mesh.tint ? 1 : 0);
                 gl.bindBuffer(gl.ARRAY_BUFFER, fibers);
                 gl.enableVertexAttribArray(attributes.position);
                 gl.vertexAttribPointer(attributes.position, 3, gl.FLOAT, false, 28, 0);
@@ -220,7 +223,7 @@ export default function Lash3DPreview({ profile, selection, options, initialView
         e.preventDefault();
         setOrbit(o => key === 'Home' ? defaultOrbit : { yaw: o.yaw + (key === 'ArrowLeft' ? -.15 : key === 'ArrowRight' ? .15 : 0), pitch: clamp(o.pitch + (key === 'ArrowUp' ? -.15 : key === 'ArrowDown' ? .15 : 0), -1.55, 1.55), zoom: clamp(o.zoom * (key === '+' ? 1.15 : key === '-' ? 1 / 1.15 : 1), .65, 2.6) });
     }
-    const button = 'rounded-sm border border-[#edebe9] bg-white px-2 py-1.5 text-xs text-[#323130] hover:bg-[#f3f2f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732]';
+    const button = 'inline-flex items-center justify-center gap-1 rounded-sm border border-[#d8d5d2] bg-white px-2.5 py-1.5 text-xs font-medium text-[#323130] transition-colors hover:border-[#9F8351] hover:text-[#094732] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732]';
     function expandedKeys(e: KeyboardEvent<HTMLDivElement>) {
         if (!expanded)
             return;
@@ -246,15 +249,15 @@ export default function Lash3DPreview({ profile, selection, options, initialView
         }
     }
     const content = <div ref={container} role={expanded ? 'dialog' : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? 'Vista ampliada de la pestaña' : undefined} onKeyDown={expandedKeys} onClick={e => e.stopPropagation()} className={expanded ? 'w-full max-w-[1400px] max-h-[94dvh] overflow-y-auto rounded-sm border border-[#edebe9] bg-white p-4 space-y-3' : 'space-y-3'}>
-  {!cinematic && <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-medium text-[#605e5c]">Vista 3D · {mesh.fibers} fibras</span><div className="flex flex-wrap gap-1">{canExpand && <button ref={expandButton} type="button" className={`${button} inline-flex items-center gap-1`} aria-label={expanded ? "Reducir vista 3D" : "Ampliar vista 3D"} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>} {expanded ? "Reducir" : "Ampliar"}</button>}{[false, true].map(value => <button type="button" key={String(value)} aria-pressed={closed === value} className={`${button} ${closed === value ? '!border-[#094732] !bg-[#eaf4ef]' : ''}`} onClick={() => setClosed(value)}>{value ? 'Cerrado' : 'Abierto'}</button>)}</div></div>}
-  <div className="relative overflow-hidden rounded-sm border border-[#edebe9] bg-[#f7f9f7]" style={{ backgroundImage: 'radial-gradient(circle at 50% 40%, #ffffff, #edf3ef)' }}>
+  {!cinematic && <div className="flex flex-wrap items-center justify-between gap-2"><span className="inline-flex items-center gap-1.5 rounded-sm border border-[#e3d6bd] bg-[#faf6ee] px-2 py-1 text-[11px] font-semibold text-[#7a6338]"><span className="h-1.5 w-1.5 rounded-full bg-[#9F8351]" aria-hidden="true"/>{mesh.fibers} fibras</span><div className="flex flex-wrap gap-1">{canExpand && <button ref={expandButton} type="button" className={`${button} inline-flex items-center gap-1`} aria-label={expanded ? "Reducir vista 3D" : "Ampliar vista 3D"} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>} {expanded ? "Reducir" : "Ampliar"}</button>}{[false, true].map(value => <button type="button" key={String(value)} aria-pressed={closed === value} className={`${button} ${closed === value ? '!border-[#094732] !bg-[#094732] !text-white' : ''}`} onClick={() => setClosed(value)}>{value ? 'Cerrado' : 'Abierto'}</button>)}</div></div>}
+  <div className="relative overflow-hidden rounded-sm border border-[#e1dfdd] bg-[#f6f4ef]" style={{ backgroundImage: 'radial-gradient(circle at 50% 38%, #ffffff 0%, #f7f5f0 55%, #ece8df 100%)' }}>
    <canvas ref={canvas} className={`${cinematic ? 'h-[min(48dvh,480px)]' : expanded ? 'h-[min(65dvh,720px)]' : 'h-[280px]'} w-full touch-none ${cinematic ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732] ${unavailable ? 'invisible' : ''}`} aria-label={cinematic ? "Demostración 3D del ajuste" : "Pestaña 3D interactiva: arrastra para girar, rueda para acercar"} tabIndex={cinematic ? -1 : 0} onKeyDown={cinematic ? undefined : keyboard} onPointerDown={e => {
             if (cinematic)
                 return;
             pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
             e.currentTarget.setPointerCapture(e.pointerId);
         }} onPointerMove={cinematic ? undefined : move} onPointerUp={e => pointers.current.delete(e.pointerId)} onPointerCancel={e => pointers.current.delete(e.pointerId)} onLostPointerCapture={e => pointers.current.delete(e.pointerId)}/>
-   {unavailable && <div className="absolute inset-0 flex flex-col justify-center p-4"><div dangerouslySetInnerHTML={{ __html: profileSvg(profile, selection.length, selection.technique, selection.thickness, closed, options) }}/><p role="status" className="text-center text-xs text-[#605e5c]">Vista 2D: la aceleración 3D no está disponible en este navegador.</p></div>}
+   {unavailable && <div className="absolute inset-0 flex flex-col justify-center p-4"><div dangerouslySetInnerHTML={{ __html: profileSvg(profile, selection.length, selection.technique, selection.thickness, closed, options, selection.color) }}/><p role="status" className="text-center text-xs text-[#605e5c]">Vista 2D: la aceleración 3D no está disponible en este navegador.</p></div>}
   </div>
   {!cinematic && <div className="flex flex-wrap items-center gap-1" aria-label="Ángulos de la pestaña"><button type="button" className={button} onClick={() => setOrbit(o => ({ ...o, yaw: 0, pitch: 0 }))}>Frente</button><button type="button" className={button} onClick={() => setOrbit(o => ({ ...o, yaw: 1.15, pitch: .12 }))}>Perfil</button><button type="button" className={button} onClick={() => setOrbit(o => ({ ...o, yaw: 0, pitch: 1.4 }))}>Desde arriba</button><button type="button" className={button} aria-label="Alejar pestaña" onClick={() => setOrbit(o => ({ ...o, zoom: clamp(o.zoom / 1.2, .65, 2.6) }))}><ZoomOut size={14}/></button><button type="button" className={button} aria-label="Acercar pestaña" onClick={() => setOrbit(o => ({ ...o, zoom: clamp(o.zoom * 1.2, .65, 2.6) }))}><ZoomIn size={14}/></button><button type="button" className={button} aria-label="Restablecer vista 3D" onClick={() => setOrbit(defaultOrbit)}><RotateCcw size={14}/></button></div>}
   {!cinematic && <p className="text-xs text-[#605e5c]">Arrastra para girar. Usa la rueda o dos dedos para acercar. Con el teclado, usa las flechas y +/−.</p>}

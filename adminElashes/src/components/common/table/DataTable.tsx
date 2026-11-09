@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  GripVertical,
   MoreHorizontal,
   Search,
   X,
@@ -68,6 +69,15 @@ interface DataTableProps<T> {
   tableMinWidth?: string;
   /** Clase de fondo para una fila (reemplaza el rayado alterno). undefined = rayado normal. */
   rowClassName?: (item: T) => string | undefined;
+  /**
+   * Opcional: permite reordenar arrastrando las filas. Recibe TODOS los ids
+   * en el nuevo orden (de `data`, no solo de la página visible). Solo se
+   * activa sin búsqueda, sin filtros por columna y sin orden por columna,
+   * porque ahí la posición en pantalla es la posición real.
+   */
+  onReorder?: (orderedIds: Array<T["id"]>) => void;
+  /** Texto que se muestra cuando el arrastre está pausado por búsqueda/orden. */
+  reorderHint?: string;
 }
 
 function DataTable<T extends { id: number | string }>({
@@ -90,6 +100,8 @@ function DataTable<T extends { id: number | string }>({
   defaultLimit,
   tableMinWidth = "min-w-[760px]",
   rowClassName,
+  onReorder,
+  reorderHint,
 }: DataTableProps<T>) {
   const initialLimit = defaultLimit ?? pagination?.limit ?? availableLimits[0] ?? 10;
   const [globalSearch, setGlobalSearch] = useState("");
@@ -104,6 +116,26 @@ function DataTable<T extends { id: number | string }>({
 
   const isServerPagination = pagination?.mode === "server";
   const activeSort = sort ?? internalSort;
+
+  // --- Reordenar arrastrando (opcional, ver `onReorder`) ---
+  const [dragId, setDragId] = useState<T["id"] | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: T["id"]; after: boolean } | null>(null);
+  const reorderBlocked =
+    Boolean(globalSearch) || Object.values(columnFilters).some(Boolean) || Boolean(activeSort?.key);
+  const canDrag = Boolean(onReorder) && !isServerPagination && !loading && !reorderBlocked;
+  const endDrag = () => {
+    setDragId(null);
+    setDropTarget(null);
+  };
+  const dropOn = (targetId: T["id"], after: boolean) => {
+    if (!onReorder || dragId === null || dragId === targetId) return endDrag();
+    const ids = data.map((item) => item.id).filter((id) => id !== dragId);
+    const at = ids.indexOf(targetId);
+    if (at < 0) return endDrag();
+    ids.splice(after ? at + 1 : at, 0, dragId);
+    endDrag();
+    onReorder(ids);
+  };
 
   useEffect(() => {
     if (sort) setInternalSort(sort);
@@ -246,6 +278,14 @@ function DataTable<T extends { id: number | string }>({
       {/* Toolbar superior */}
       <div className="shrink-0 border-b border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5">
         {renderTopToolbar && <div className="mb-2 border-b border-[var(--ui-border)] pb-2">{renderTopToolbar()}</div>}
+        {onReorder && reorderHint && (
+          <p className="mb-2 flex items-center gap-1.5 text-xs text-[var(--ui-text-muted)]">
+            <GripVertical size={13} aria-hidden="true" />
+            {reorderBlocked
+              ? "Para arrastrar, quita la búsqueda, los filtros y el orden por columna."
+              : reorderHint}
+          </p>
+        )}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {enableGlobalSearch && (
             <div className="relative min-w-0 flex-1 sm:max-w-md">
@@ -438,15 +478,42 @@ function DataTable<T extends { id: number | string }>({
                 const custom = rowClassName?.(item);
                 const stripe = custom ?? (index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]");
                 const stickyStripe = custom ?? (index % 2 === 0 ? "bg-[var(--ui-surface)]" : "bg-[var(--ui-surface-muted)]");
+                const dropHere = canDrag && dropTarget?.id === item.id && dragId !== item.id;
                 return (
                   <tr
                     key={item.id}
-                    className={`group transition-colors duration-75 hover:bg-[var(--ui-surface-hover)] ${stripe}`}
+                    draggable={canDrag}
+                    onDragStart={canDrag ? (e) => {
+                      setDragId(item.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", String(item.id));
+                    } : undefined}
+                    onDragOver={canDrag && dragId !== null ? (e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      const box = e.currentTarget.getBoundingClientRect();
+                      const after = e.clientY > box.top + box.height / 2;
+                      if (dropTarget?.id !== item.id || dropTarget.after !== after) setDropTarget({ id: item.id, after });
+                    } : undefined}
+                    onDrop={canDrag ? (e) => {
+                      e.preventDefault();
+                      dropOn(item.id, dropTarget?.id === item.id ? dropTarget.after : false);
+                    } : undefined}
+                    onDragEnd={canDrag ? endDrag : undefined}
+                    className={`group transition-colors duration-75 hover:bg-[var(--ui-surface-hover)] ${stripe} ${dragId === item.id ? "opacity-40" : ""} ${dropHere ? (dropTarget?.after ? "shadow-[inset_0_-2px_0_#094732]" : "shadow-[inset_0_2px_0_#094732]") : ""}`}
                   >
                     <td
-                      className={`${cellBorder} px-2 py-2 text-center text-xs tabular-nums text-[var(--ui-text-muted)]`}
+                      className={`${cellBorder} px-2 py-2 text-center text-xs tabular-nums text-[var(--ui-text-muted)] ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                      title={canDrag ? "Arrastra para cambiar el orden" : undefined}
                     >
-                      {(currentPage - 1) * rowsPerPage + index + 1}
+                      {canDrag ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          <GripVertical size={14} className="text-[var(--ui-text-muted)]" aria-hidden="true" />
+                          {(currentPage - 1) * rowsPerPage + index + 1}
+                        </span>
+                      ) : (
+                        (currentPage - 1) * rowsPerPage + index + 1
+                      )}
                     </td>
                     {columns.map((col) => (
                       <td

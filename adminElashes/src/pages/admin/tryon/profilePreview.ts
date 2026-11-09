@@ -17,7 +17,14 @@ export function resolvePreviewSettings(profile: RenderProfile, length: number, t
     const scale = l?.scale ?? [.78, 1, 1.23][length], diameter = d?.diameter ?? [.05, .07, .10, .15][thickness];
     return { p, base, count, scale, diameter };
 }
-export function profileSvg(profile: RenderProfile, length = 1, technique = 0, thickness = 3, closed = false, options?: OptionGroups): string {
+/** Color del trazo de la miniatura: el negro aprobado o el color inicial del estilo. */
+function strokeFor(color: number | undefined, options?: OptionGroups): string {
+    if (color == null) return '#171f1b';
+    const row = options?.color?.find(r => (r.published ?? r.option).id === color);
+    const hex = (row?.published ?? row?.option)?.parameters.color;
+    return hex && /^#[0-9a-f]{6}$/i.test(hex) && hex.toUpperCase() !== '#111111' ? hex : '#171f1b';
+}
+export function profileSvg(profile: RenderProfile, length = 1, technique = 0, thickness = 3, closed = false, options?: OptionGroups, color?: number): string {
     const { p, base, count, scale, diameter } = resolvePreviewSettings(profile, length, technique, thickness, options);
     const lines: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -32,14 +39,15 @@ export function profileSvg(profile: RenderProfile, length = 1, technique = 0, th
             lines.push(`<path d="M${x},${y} Q${x + (endX - x) * .25},${y + (endY - y) * .7} ${endX},${endY}"/>`);
         }
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 170"><g fill="none" stroke="#171f1b" stroke-width="${Math.max(.25, diameter / .15 * 1.35 * profile.width_multiplier)}" stroke-linecap="round">${lines.join('')}</g><path d="M25 ${closed ? 76 : 112} Q150 ${closed ? 96 : 62} 275 ${closed ? 76 : 112}" fill="none" stroke="#094732" stroke-width="1"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 170"><g fill="none" stroke="${strokeFor(color, options)}" stroke-width="${Math.max(.25, diameter / .15 * 1.35 * profile.width_multiplier)}" stroke-linecap="round">${lines.join('')}</g><path d="M25 ${closed ? 76 : 112} Q150 ${closed ? 96 : 62} 275 ${closed ? 76 : 112}" fill="none" stroke="#094732" stroke-width="1"/></svg>`;
 }
 export async function thumbnailFromProfile(profile: RenderProfile, defaults: {
     length: number;
     technique: number;
     thickness: number;
+    color?: number;
 }, options?: OptionGroups): Promise<string> {
-    const svg = profileSvg(profile, defaults.length, defaults.technique, defaults.thickness, false, options);
+    const svg = profileSvg(profile, defaults.length, defaults.technique, defaults.thickness, false, options, defaults.color);
     const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     try {
         const image = new Image();

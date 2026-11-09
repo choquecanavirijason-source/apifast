@@ -24,6 +24,7 @@ import EyeTypes from '@/pages/admin/catalog/EyeTypes';
 import Designs from '@/pages/admin/catalog/Designs';
 import TryOnOptionsPage from '@/pages/admin/tryon/Options';
 import TryOnCatalogPage from '@/pages/admin/tryon/Main';
+import EyeRecommendations from '@/pages/admin/tryon/EyeRecommendations';
 import Volumen from '@/pages/admin/Volumen';
 import ProductsPage from '@/pages/admin/products/Main';
 import SalonsPage from '@/pages/admin/salons/Main';
@@ -176,7 +177,8 @@ export default function AppRouter() {
             <Route path="tryon/lengths" element={<TryOnOptionsPage kind="length" />} />
             <Route path="tryon/techniques" element={<TryOnOptionsPage kind="technique" />} />
             <Route path="tryon/thicknesses" element={<TryOnOptionsPage kind="thickness" />} />
-            <Route path="eye-types" element={<Navigate to="/designs" replace />} />
+            <Route path="tryon/colors" element={<TryOnOptionsPage kind="color" />} />
+            <Route path="eye-types" element={<EyeRecommendations />} />
             <Route path="eye-types/legacy" element={<EyeTypes />} />
             <Route path="designs" element={<TryOnCatalogPage />} />
             <Route path="designs/legacy" element={<Designs />} />

@@ -37,6 +37,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  Droplet,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -426,6 +427,12 @@ export default function AppSidebar({
             permission: ["catalog:view", "catalog:manage"],
           },
           {
+            name: "Colores",
+            path: "/tryon/colors",
+            icon: <Droplet size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
             name: "Largos",
             path: "/tryon/lengths",
             icon: <Maximize2 size={15} />,
@@ -435,6 +442,12 @@ export default function AppSidebar({
             name: "Estilos y efectos",
             path: "/designs",
             icon: <Palette size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Tipos de ojo y recomendaciones",
+            path: "/eye-types",
+            icon: <SlidersHorizontal size={15} />,
             permission: ["catalog:view", "catalog:manage"],
           },
           {

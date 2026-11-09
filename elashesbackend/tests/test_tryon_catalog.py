@@ -36,6 +36,103 @@ class TryOnCatalogTests(unittest.TestCase):
     def custom(self):
         payload=deepcopy(self.defaults["styles"][0]);payload.update(key="new-fashion",name="Nuevo estilo",builtin_style=None,profile=self.defaults["templates"]["cateye"])
         return StyleDraft.model_validate(payload)
+    def test_consultation_snapshot_accepts_old_recipes_and_tracks_professional_choices(self):
+        from app.presentation.schemas.tryon import TryOnSelection, EyeAssessment
+        style = service.get_style(self.db, "cateye").published
+        recipe = {
+            "style_key": "cateye", "style_name": style["name"], "revision": 1,
+            "engine_version": 2, "selection": style["defaults"],
+            "builtin_style": "cateye", "render_mode": "original",
+        }
+        self.assertIsNone(TryOnSelection.model_validate(recipe).eye_assessment)
+        assessment = {"shape": "ALMOND", "shape_source": "professional", "eyelid": "hooded",
+                      "depth": "deepSet", "goal": "open", "separation_ratio": .9,
+                      "aspect_ratio": 3, "inclination_deg": 4, "asymmetry": .1,
+                      "left_aspect_ratio": 3.1, "right_aspect_ratio": 2.9}
+        saved = TryOnSelection.model_validate({**recipe, "eye_assessment": assessment}).model_dump(mode="json")
+        self.assertEqual(saved["eye_assessment"], assessment)
+        with self.assertRaises(ValidationError): EyeAssessment(shape="ROUND")
+        with self.assertRaises(ValidationError): EyeAssessment(eyelid="invented")
+
+    def test_eye_category_delete_checks_revision_and_protects_detector(self):
+        from app.application.services import tryon_eye_service as eyes
+        from app.presentation.schemas.tryon import EyeCategoryDraft
+        created = eyes.create(self.db, EyeCategoryDraft(name="Temporal", style_keys=["cateye"]))
+        before = deepcopy(service.get_style(self.db, "cateye").published)
+        with self.assertRaises(HTTPException) as error:
+            eyes.delete(self.db, created["key"], 2)
+        self.assertEqual(error.exception.status_code, 409)
+        self.db.rollback()
+        with self.assertRaises(HTTPException): eyes.delete(self.db, "ALMOND", 1)
+        self.db.rollback()
+        eyes.delete(self.db, created["key"], 1)
+        self.assertFalse(any(c["key"] == created["key"] for c in service.manifest(self.db)["eye_categories"]))
+        self.assertEqual(service.get_style(self.db, "cateye").published, before)
+
+    def test_manual_eye_categories_are_available_without_changing_style_geometry(self):
+
+        from app.application.services import tryon_eye_service as eyes
+
+        from app.presentation.schemas.tryon import EyeCategoryDraft, EyeCategoryUpdate
+
+        before = deepcopy(service.get_style(self.db, "cateye").published)
+
+        created = eyes.create(self.db, EyeCategoryDraft(name="Encapotado", group="lid", style_keys=["cateye"]))
+
+        self.assertEqual(created["detection"], "manual")
+
+        self.assertEqual(service.get_style(self.db, "cateye").published, before)
+
+        catalog = service.manifest(self.db)
+
+        self.assertTrue(any(c["key"] == created["key"] for c in catalog["eye_categories"]))
+
+        eyes.save(self.db, created["key"], EyeCategoryUpdate(name="Encapotado suave", group="lid", expected_revision=1, style_keys=["wispy"]))
+
+        with self.assertRaises(HTTPException) as error:
+
+            eyes.save(self.db, created["key"], EyeCategoryUpdate(name="Obsoleto", expected_revision=1))
+
+        self.assertEqual(error.exception.status_code, 409)
+
+        self.db.rollback()
+
+        with self.assertRaises(HTTPException): eyes.create(self.db, EyeCategoryDraft(name="Inválido", style_keys=["missing"]))
+
+    def test_automatic_eye_assignments_publish_atomically_and_preserve_pending_drafts(self):
+
+        from app.application.services import tryon_eye_service as eyes
+
+        from app.presentation.schemas.tryon import EyeCategoryUpdate
+
+        rows = service.list_styles(self.db)
+
+        revisions = {r["style"]["key"]:r["revision"] for r in rows}
+
+        original = deepcopy(service.get_style(self.db, "cateye").published)
+
+        eyes.save(self.db, "ALMOND", EyeCategoryUpdate(name="Almendrado", group="shape", style_keys=["cateye"], expected_revision=1, style_revisions=revisions))
+
+        current = service.get_style(self.db, "cateye")
+
+        self.assertEqual(current.published["eye_types"], ["ALMOND"])
+
+        self.assertEqual(current.published["profile"], original["profile"])
+
+        payload = deepcopy(current.draft); payload["description"] = "Pendiente"
+
+        service.save_draft(self.db, "cateye", StyleDraft.model_validate(payload), current.revision)
+
+        with self.assertRaises(HTTPException) as error:
+
+            eyes.save(self.db, "ALMOND", EyeCategoryUpdate(name="Almendrado", group="shape", expected_revision=2, style_revisions={"cateye": current.revision}))
+
+        self.assertEqual(error.exception.status_code, 409)
+
+        self.db.rollback()
+
+        self.assertEqual(service.get_style(self.db, "cateye").published["eye_types"], ["ALMOND"])
+
     def test_options_are_versioned_and_need_publication_before_assignment(self):
         from app.application.services import tryon_option_service as opts
         from app.presentation.schemas.tryon import OptionDraft
@@ -85,6 +182,37 @@ class TryOnCatalogTests(unittest.TestCase):
         opts.initialize_options(self.db)
         self.assertEqual(opts.get(self.db,"technique",0).draft["name"],"Clásica del salón")
 
+    def test_lash_map_is_optional_validated_and_published_to_the_app(self):
+        from app.application.services import tryon_option_service as opts
+        from app.presentation.schemas.tryon import OptionDraft
+        payload=self.custom().model_dump(mode="json")
+        for bad in ([9,10],[3,10,11],[9,10,21],[9,10.5,11]):
+            with self.assertRaises(ValidationError):StyleDraft.model_validate({**payload,"lash_map":bad})
+        style=StyleDraft.model_validate({**payload,"lash_map":[8,9,10,9,11,12]})
+        service.create_style(self.db,style);service.publish(self.db,"new-fashion",1)
+        published=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="new-fashion")
+        self.assertEqual(published["lash_map"],[8,9,10,9,11,12])
+        self.assertEqual(published["map_profile"],self.defaults["templates"]["cateye"]["length_profile"])
+        builtin=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="anime")
+        self.assertIsNone(builtin["profile"]);self.assertEqual(builtin["map_profile"],self.defaults["templates"]["anime"]["length_profile"])
+        self.assertIsNone(StyleDraft.model_validate(payload).lash_map)
+        opts.create(self.db,"length",OptionDraft(name="Extra largo",parameters={"scale":1.4,"map_offset_mm":4}))
+        with self.assertRaises(HTTPException):opts.create(self.db,"thickness",OptionDraft(name="Grosor raro",parameters={"diameter":.07,"map_offset_mm":1}))
+
+    def test_reorder_changes_order_without_new_versions(self):
+        from app.application.services import tryon_option_service as opts
+        keys=[r["style"]["key"] for r in service.list_styles(self.db)]
+        before={r.key:(r.revision,r.published["revision"]) for r in self.db.query(TryOnStyle).all()}
+        wanted=list(reversed(keys))
+        self.assertEqual([r["style"]["key"] for r in service.reorder_styles(self.db,wanted)],wanted)
+        self.assertEqual([s["key"] for s in service.manifest(self.db)["styles"]],wanted)
+        self.assertEqual({r.key:(r.revision,r.published["revision"]) for r in self.db.query(TryOnStyle).all()},before)
+        with self.assertRaises(HTTPException):service.reorder_styles(self.db,wanted[1:])
+        ids=[r["option"]["id"] for r in opts.list_options(self.db,"length")]
+        opts.reorder(self.db,"length",list(reversed(ids)))
+        self.assertEqual([o["id"] for o in service.manifest(self.db)["options"]["length"]],list(reversed(ids)))
+        with self.assertRaises(HTTPException):opts.reorder(self.db,"length",ids+[99])
+
     def test_dynamic_recipe_snapshot_preserves_values_and_validates_ids(self):
         from app.application.services import tryon_option_service as opts
         from app.presentation.schemas.tryon import OptionDraft,TryOnSelection
@@ -99,6 +227,45 @@ class TryOnCatalogTests(unittest.TestCase):
         self.assertEqual(snapshot["resolved_options"]["thickness"]["parameters"]["diameter"],.12)
         snapshot["selection"]["thickness"]=0
         with self.assertRaises(ValidationError):TryOnSelection.model_validate(snapshot)
+
+    def test_lash_colors_default_to_black_and_are_assigned_per_style(self):
+        from app.application.services import tryon_option_service as opts
+        from app.presentation.schemas.tryon import OptionDraft,TryOnSelection
+        manifest=service.manifest(self.db)
+        palette=manifest["options"]["color"]
+        self.assertEqual([o["name"] for o in palette],["Negro","Café oscuro","Café","Azul noche","Borgoña"])
+        self.assertEqual(palette[0]["parameters"]["color"],"#111111")
+        # Los estilos aprobados no cambian: solo negro hasta que el salón asigne otro.
+        for style in manifest["styles"]:
+            self.assertEqual(style["allowed_colors"],[0]);self.assertEqual(style["defaults"]["color"],0)
+        # Un estilo publicado antes del catálogo de colores (sin los campos) se lee en negro.
+        row=service.get_style(self.db,"cateye");legacy=deepcopy(row.published);legacy.pop("allowed_colors",None);legacy["defaults"].pop("color",None)
+        row.published=legacy;self.db.commit()
+        visible=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="cateye")
+        self.assertEqual((visible["allowed_colors"],visible["defaults"]["color"]),([0],0))
+        # Valores inválidos y categorías cruzadas.
+        for value in ("negro","#12345","#GGGGGG","111111"):
+            with self.assertRaises(ValidationError):OptionDraft(name="Inválido",parameters={"color":value})
+        with self.assertRaises(HTTPException):opts.create(self.db,"color",OptionDraft(name="Sin color",parameters={}))
+        with self.assertRaises(HTTPException):opts.create(self.db,"length",OptionDraft(name="Largo con color",parameters={"scale":1,"color":"#111111"}))
+        # Un color nuevo necesita publicarse antes de asignarlo, y llega al manifiesto.
+        created=opts.create(self.db,"color",OptionDraft(name="Verde bosque",parameters={"color":"#1E3A2B"}));id=created["option"]["id"]
+        style=self.custom().model_dump();style["allowed_colors"]=[0,id];style["defaults"]["color"]=id
+        service.create_style(self.db,StyleDraft.model_validate(style))
+        with self.assertRaises(HTTPException):service.publish(self.db,"new-fashion",1)
+        self.db.rollback();opts.publish(self.db,"color",id,1);service.publish(self.db,"new-fashion",1)
+        published=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="new-fashion")
+        self.assertEqual((published["allowed_colors"],published["defaults"]["color"]),([0,id],id))
+        bad=deepcopy(style);bad["defaults"]["color"]=4
+        with self.assertRaises(ValidationError):StyleDraft.model_validate(bad)
+        # La receta de la clienta guarda el color elegido; las recetas viejas siguen siendo válidas.
+        resolved={k:opts.get(self.db,k,i).published for k,i in (("length",1),("technique",0),("thickness",3),("color",id))}
+        saved=TryOnSelection(style_key="new-fashion",style_name="Nuevo estilo",revision=1,engine_version=2,profile=style["profile"],render_mode="procedural",selection={"length":1,"technique":0,"thickness":3,"color":id},resolved_options=resolved).model_dump(mode="json")
+        self.assertEqual(saved["resolved_options"]["color"]["parameters"]["color"],"#1E3A2B")
+        saved["selection"]["color"]=0
+        with self.assertRaises(ValidationError):TryOnSelection.model_validate(saved)
+        old=TryOnSelection(style_key="cateye",style_name="Cat Eye",revision=1,builtin_style="cateye",render_mode="original",selection={"length":1,"technique":0,"thickness":3})
+        self.assertEqual(old.selection.color,0);self.assertIsNone(old.resolved_options)
 
     def test_defaults_are_exact_originals_and_bootstrap_is_idempotent(self):
         service.initialize_defaults(self.db)

@@ -13,6 +13,8 @@ DEFAULTS = Path(__file__).resolve().parents[2] / "core" / "tryon_defaults.json"
 def initialize_defaults(db: Session):
     """Idempotent: never overwrite edits or intentionally inactive styles."""
     options.initialize_options(db)
+    from app.application.services.tryon_eye_service import initialize
+    initialize(db)
     for entry in json.loads(DEFAULTS.read_text(encoding="utf-8"))["styles"]:
         if db.get(TryOnStyle, entry["key"]) is not None: continue
         draft = StyleDraft.model_validate(entry).model_dump(mode="json")
@@ -29,6 +31,20 @@ def get_style(db, key):
 
 def as_response(row):
     return {"style": row.draft, "revision": row.revision, "published_revision": row.published.get("revision") if row.published else None, "updated_at": row.updated_at.replace(tzinfo=timezone.utc).isoformat()}
+
+def reorder_styles(db, keys):
+    """Orden del catálogo (arrastrar en el admin). Es presentación, no
+    diseño: se aplica al borrador y a lo publicado sin crear versión ni
+    pedir publicar. Hay que mandar TODOS los estilos."""
+    rows = {r.key: r for r in db.query(TryOnStyle).all()}
+    if len(keys) != len(set(keys)) or set(keys) != set(rows):
+        raise HTTPException(409, "La lista de estilos cambió; actualiza e intenta otra vez")
+    for order, key in enumerate(keys):
+        row = rows[key]
+        row.draft = {**row.draft, "sort_order": order}
+        if row.published: row.published = {**row.published, "sort_order": order}
+    db.commit()
+    return list_styles(db)
 
 def list_styles(db):
     rows = db.query(TryOnStyle).all()
@@ -89,11 +105,20 @@ def manifest(db):
     catalog_options=options.published_options(db)
     # Disabled options are removed from choices, retaining a valid initial choice.
     styles=json.loads(json.dumps(styles))
+    templates=json.loads(DEFAULTS.read_text(encoding="utf-8"))["templates"]
     for style in styles:
-        for kind,field in (("length","allowed_lengths"),("technique","allowed_techniques"),("thickness","allowed_thicknesses")):
+        # Forma de referencia para el mapeo de la técnica: los estilos base
+        # se publican sin perfil propio y usan su plantilla.
+        source=style.get("profile") or templates.get(style.get("builtin_style") or "")
+        if source: style["map_profile"]=source["length_profile"]
+        # Estilos publicados antes del catálogo de colores: solo negro.
+        style.setdefault("allowed_colors",[0]); style["defaults"].setdefault("color",0)
+        for kind,field in options.FIELDS.items():
             ids={o["id"] for o in catalog_options[kind]}
             style[field]=[i for i in style[field] if i in ids]
-            if not style[field] and not style["is_active"]: style[field]=[catalog_options[kind][0]["id"]]
+            if not style[field] and not style["is_active"] and catalog_options[kind]: style[field]=[catalog_options[kind][0]["id"]]
             if style["defaults"][kind] not in style[field]: style["defaults"][kind]=style[field][0] if style[field] else 0
-    signature=hashlib.sha256(json.dumps({"styles":styles,"options":catalog_options},sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    return {"schema_version":2,"engine_version":2,"revision":signature,"styles":styles,"options":catalog_options}
+    from app.application.services.tryon_eye_service import list_categories
+    eye_categories = list_categories(db)
+    signature=hashlib.sha256(json.dumps({"styles":styles,"options":catalog_options,"eye_categories":eye_categories},sort_keys=True,separators=(",",":")).encode()).hexdigest()
+    return {"schema_version":2,"engine_version":2,"revision":signature,"styles":styles,"options":catalog_options,"eye_categories":eye_categories}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from app.core.dependencies import get_db, require_permission
-from app.presentation.schemas.tryon import StyleDraft, StyleUpdate, RevisionRequest, RestoreRequest
+from app.presentation.schemas.tryon import StyleDraft, StyleUpdate, RevisionRequest, RestoreRequest, StyleOrder, OptionOrder
 from app.application.services import tryon_service as service
 
 router=APIRouter(prefix="/catalogs/tryon",tags=["Probador"])
@@ -16,6 +16,9 @@ def styles(db:Session=Depends(get_db),user=view): return service.list_styles(db)
 
 @router.post("/styles",status_code=201)
 def create(payload:StyleDraft,db:Session=Depends(get_db),user=manage): return service.create_style(db,payload)
+
+@router.post("/styles/reorder")
+def reorder(payload:StyleOrder,db:Session=Depends(get_db),user=manage): return service.reorder_styles(db,payload.keys)
 
 @router.put("/styles/{key}")
 def save(key:str,payload:StyleUpdate,db:Session=Depends(get_db),user=manage): return service.save_draft(db,key,payload.style,payload.expected_revision)
@@ -41,7 +44,28 @@ from app.presentation.schemas.tryon import OptionKind, OptionDraft, OptionUpdate
 def option_list(kind:OptionKind,db:Session=Depends(get_db),user=view): return option_service.list_options(db,kind)
 @router.post("/options/{kind}",status_code=201)
 def option_create(kind:OptionKind,payload:OptionDraft,db:Session=Depends(get_db),user=manage): return option_service.create(db,kind,payload)
+@router.post("/options/{kind}/reorder")
+def option_reorder(kind:OptionKind,payload:OptionOrder,db:Session=Depends(get_db),user=manage): return option_service.reorder(db,kind,payload.ids)
 @router.put("/options/{kind}/{id}")
 def option_save(kind:OptionKind,id:int,payload:OptionUpdate,db:Session=Depends(get_db),user=manage): return option_service.save(db,kind,id,payload.option,payload.expected_revision)
 @router.post("/options/{kind}/{id}/publish")
 def option_publish(kind:OptionKind,id:int,payload:RevisionRequest,db:Session=Depends(get_db),user=manage): return option_service.publish(db,kind,id,payload.expected_revision)
+
+
+from app.application.services import tryon_eye_service as eye_service
+from app.presentation.schemas.tryon import EyeCategoryDraft, EyeCategoryUpdate
+
+@router.get("/eye-categories")
+def eye_categories(db:Session=Depends(get_db),user=view): return eye_service.list_categories(db)
+
+@router.post("/eye-categories",status_code=201)
+def eye_create(payload:EyeCategoryDraft,db:Session=Depends(get_db),user=manage): return eye_service.create(db,payload)
+
+@router.put("/eye-categories/{key}")
+def eye_save(key:str,payload:EyeCategoryUpdate,db:Session=Depends(get_db),user=manage): return eye_service.save(db,key,payload)
+
+
+@router.delete("/eye-categories/{key}",status_code=204)
+def eye_delete(key:str,expected_revision:int=Query(ge=1),db:Session=Depends(get_db),user=manage):
+    eye_service.delete(db,key,expected_revision)
+    return Response(status_code=204)

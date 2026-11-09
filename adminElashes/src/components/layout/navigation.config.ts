@@ -11,6 +11,7 @@ import {
   Clock,
   Cpu,
   DoorOpen,
+  Eye,
   FileSpreadsheet,
   Gift,
   History,
@@ -29,6 +30,7 @@ import {
   UserCheck,
   Users,
   Wand2,
+  Droplet,
 } from "lucide-react";
 import useAuth from "@/core/hooks/useAuth";
 
@@ -258,6 +260,13 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         permission: ["catalog:view", "catalog:manage"],
       },
       {
+        label: "Colores",
+        description: "Colores de pestaña",
+        path: "/tryon/colors",
+        icon: Droplet,
+        permission: ["catalog:view", "catalog:manage"],
+      },
+      {
         label: "Largos",
         description: "Escalas disponibles",
         path: "/tryon/lengths",
@@ -269,6 +278,13 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: "Clásica, volumen y nuevas técnicas",
         path: "/tryon/techniques",
         icon: Cpu,
+        permission: ["catalog:view", "catalog:manage"],
+      },
+      {
+        label: "Tipos de ojo y recomendaciones",
+        description: "Categorías del detector y estilos recomendados",
+        path: "/eye-types",
+        icon: Eye,
         permission: ["catalog:view", "catalog:manage"],
       },
       {

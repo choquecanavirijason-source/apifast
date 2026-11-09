@@ -34,3 +34,10 @@ class TryOnOptionVersion(Base):
     option_key = Column(String(40), ForeignKey("tryon_options.key"), nullable=False)
     revision = Column(Integer, nullable=False)
     snapshot = Column(JSON, nullable=False)
+
+
+class TryOnEyeCategory(Base):
+    __tablename__ = "tryon_eye_categories"
+    key = Column(String(64), primary_key=True)
+    data = Column(JSON, nullable=False)
+    revision = Column(Integer, nullable=False, default=1)
