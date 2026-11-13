@@ -197,6 +197,14 @@ class AppointmentResponse(BaseModel):
         # interprete como hora local.
         return _as_utc_iso(value)
 
+    @field_serializer("start_time", "end_time")
+    def _wall_clock_local(self, value: datetime) -> str:
+        # start_time/end_time son hora LOCAL (La Paz) sin zona (ver el modelo).
+        # Si la columna es timestamptz, Postgres la devuelve con tz=UTC y el
+        # panel la corría -4h (reservar 17:00 se veía a las 13:00). Se manda
+        # sin zona para que se lea tal cual se guardó.
+        return value.replace(tzinfo=None).isoformat()
+
 
 def _as_utc_iso(value: Optional[datetime]) -> Optional[str]:
     if value is None:
