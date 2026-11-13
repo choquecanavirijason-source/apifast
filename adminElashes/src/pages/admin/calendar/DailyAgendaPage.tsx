@@ -58,6 +58,8 @@ import StationSectionsModal from "./components/StationSectionsModal";
 import AgendaTutorialModal, { getAgendaTutorialStorageKey } from "./components/AgendaTutorialModal";
 import { useStationSections } from "../../../core/hooks/useStationSections";
 import useAuth from "../../../core/hooks/useAuth";
+import api from "../../../core/services/api";
+import { isMultibranch, type PosProfile } from "../pos/pos.context";
 
 const GRID_FIRST_HOUR = 9;
 const GRID_LAST_HOUR = 20;
@@ -159,8 +161,30 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   }, [calendarScope, selectedDate]);
   const rangeStart = visibleDays[0];
   const rangeEnd = visibleDays[visibleDays.length - 1];
-  const [branchId, setBranchId] = useState<number | null>(() => getSelectedBranchId());
-  const [capacity, setCapacityState] = useState(() => readCapacity(getSelectedBranchId()));
+  // Roles de una sola sucursal (Cajera, Operaria...) no usan el selector de
+  // sucursal: el backend exige su sucursal efectiva al crear/editar reservas,
+  // igual que en el POS. Multisucursal (Admin/SuperAdmin/Secretaria) sigue
+  // usando la sucursal elegida en el selector.
+  const multibranchUser = !user || isMultibranch(user as unknown as PosProfile);
+  const [branchId, setBranchId] = useState<number | null>(() => {
+    if (multibranchUser) return getSelectedBranchId();
+    const profile = user as unknown as PosProfile;
+    return profile.effective_branch_id ?? profile.branch_id ?? null;
+  });
+  useEffect(() => {
+    if (multibranchUser) return;
+    let cancelled = false;
+    api
+      .get<PosProfile>("/auth/me", { timeout: 10000 })
+      .then(({ data }) => {
+        if (!cancelled) setBranchId(data.effective_branch_id ?? data.branch_id ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [multibranchUser]);
+  const [capacity, setCapacityState] = useState(() => readCapacity(branchId));
   useEffect(() => setCapacityState(readCapacity(branchId)), [branchId]);
   const setCapacity = useCallback(
     (next: number) => {
@@ -357,7 +381,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
 
   useEffect(() => {
     const handleBranchChange = () => {
-      setBranchId(getSelectedBranchId());
+      if (multibranchUser) setBranchId(getSelectedBranchId());
       setModalOpen(false);
       setActiveDragTicket(null);
       setPrintMode(null);
