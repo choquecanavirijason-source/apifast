@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Lock, ShieldCheck } from "lucide-react";
 
 import { translatePermission } from "@/core/utils/permissionLabels";
+import { moduleInfo, permissionInfo } from "@/core/utils/permissionCatalog";
 import type { PermissionItem, RoleItem } from "../types";
 
 const MODULE_LABELS: Record<string, string> = {
@@ -28,7 +29,7 @@ function groupByModule(permissions: PermissionItem[]): Array<{ module: string; l
   }
   return Array.from(map.entries()).map(([module, items]) => ({
     module,
-    label: MODULE_LABELS[module] ?? module,
+    label: moduleInfo(module).label !== module ? moduleInfo(module).label : (MODULE_LABELS[module] ?? module),
     items,
   }));
 }
@@ -175,8 +176,11 @@ export default function UserPermissionsPanel({
                             >
                               {checked && (fromRole ? <Lock className="h-2.5 w-2.5 text-slate-500" /> : <Check className="h-2.5 w-2.5 text-white" />)}
                             </div>
-                            <span className="truncate font-medium" title={perm.name}>
-                              {translatePermission(perm.name)}
+                            <span className="min-w-0 flex-1" title={(permissionInfo(perm.name)?.can ?? []).join(" · ") || perm.name}>
+                              <span className="block truncate font-medium">{translatePermission(perm.name)}</span>
+                              {permissionInfo(perm.name) && (
+                                <span className="block text-[10px] font-normal leading-snug text-slate-400">{permissionInfo(perm.name)!.summary}</span>
+                              )}
                             </span>
                             {fromRole && <span className="ml-auto shrink-0 text-[9px] text-slate-400">rol</span>}
                           </button>
@@ -195,7 +199,7 @@ export default function UserPermissionsPanel({
                       <span
                         key={perm.id}
                         className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600"
-                        title={perm.name}
+                        title={permissionInfo(perm.name)?.summary ?? perm.name}
                       >
                         <Lock className="h-2.5 w-2.5 text-slate-400" aria-hidden />
                         {translatePermission(perm.name)}

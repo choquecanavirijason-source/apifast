@@ -17,9 +17,9 @@ export const MODULE_LABELS: Record<string, string> = {
   branches: "Sucursales",
   dashboard: "Dashboard",
   audit: "Auditoría",
-  commissions: "pagos de comisiones",
-  reminders: "recordatorios",
-  broadcasts: "comunicados",
+  commissions: "Pago de comisiones",
+  reminders: "Recordatorios",
+  broadcasts: "Comunicados",
 };
 
 const ACTION_LABELS: Record<string, string> = {

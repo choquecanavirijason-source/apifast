@@ -1,6 +1,7 @@
 import { SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { translateModule, translatePermission } from "@/core/utils/permissionLabels";
+import { permissionInfo } from "@/core/utils/permissionCatalog";
 
 import type { PermissionItem } from "../types";
 
@@ -32,6 +33,20 @@ export default function PermissionsSection({ permissions, loading }: Permissions
           {translateModule(item.name.includes(":") ? item.name.split(":")[0] : "otros")}
         </span>
       ),
+    },
+    {
+      key: "description",
+      header: "Qué permite",
+      getValue: (item) => permissionInfo(item.name)?.summary ?? "",
+      render: (item) => {
+        const info = permissionInfo(item.name);
+        return (
+          <div className="max-w-xl">
+            <p className="text-sm text-slate-700">{info?.summary ?? "—"}</p>
+            {info && <p className="mt-0.5 text-xs text-slate-400">{info.can.join(" · ")}</p>}
+          </div>
+        );
+      },
     },
   ];
 
