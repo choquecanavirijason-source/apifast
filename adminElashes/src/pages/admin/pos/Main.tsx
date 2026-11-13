@@ -306,14 +306,38 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       }
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_select]:cursor-pointer [&_input[type='checkbox']]:cursor-pointer">
-        <div className="border-b border-[#edebe9] bg-[#f3f2f1] px-4 py-2 text-sm" role="status">
-          <span>Sucursal de Caja POS: {pos.branches.find(b => b.id === pos.activeBranchId)?.name ?? (pos.activeBranchId ? `Sucursal #${pos.activeBranchId}` : "Sin selección")}</span>
-          {pos.branchContext.busy && <span className="ml-3">Verificando o procesando operación…</span>}
-          {pos.branchContext.error && <p>{pos.branchContext.error} El carrito se conserva.</p>}
-          {pos.branchContext.changed && <p>La sucursal autorizada o seleccionada cambió. Tu borrador permanece en la sucursal anterior.</p>}
-          <button type="button" className="ml-3 border px-2 py-1" disabled={pos.branchContext.busy} onClick={() => void pos.refreshBranch()}>Verificar sucursal</button>
-          {pos.branchContext.changed && <button type="button" className="ml-2 border px-2 py-1" disabled={pos.branchContext.busy || !pos.branchContext.verified} onClick={pos.acceptBranchChange}>Cambiar al nuevo contexto</button>}
-        </div>
+        {/* La sucursal ya se ve arriba: esta franja solo aparece si hay algo que resolver
+            (la sucursal autorizada cambió o no se pudo verificar). */}
+        {(pos.branchContext.changed || pos.branchContext.error) && (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900"
+            role="alert"
+          >
+            <p className="min-w-0 flex-1">
+              {pos.branchContext.error
+                ? `${pos.branchContext.error} El carrito se conserva.`
+                : "La sucursal autorizada cambió. Tu borrador permanece en la sucursal anterior."}
+            </p>
+            <button
+              type="button"
+              className="h-8 rounded-lg border border-amber-300 bg-white px-3 text-xs font-semibold transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={pos.branchContext.busy}
+              onClick={() => void pos.refreshBranch()}
+            >
+              {pos.branchContext.busy ? "Verificando…" : "Verificar sucursal"}
+            </button>
+            {pos.branchContext.changed && (
+              <button
+                type="button"
+                className="h-8 rounded-lg bg-[#094732] px-3 text-xs font-semibold text-white transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={pos.branchContext.busy || !pos.branchContext.verified}
+                onClick={pos.acceptBranchChange}
+              >
+                Cambiar al nuevo contexto
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── No branch selected ───────────────────────────────────────── */}
         {pos.activeTab === "sale" && !pos.activeBranchId && pos.branchContext.multibranch ? (
