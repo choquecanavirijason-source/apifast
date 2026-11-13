@@ -176,10 +176,12 @@ export default function ReservationDrawer({
       }
       setIsSearchingClients(true);
       try {
+        // Sin branch_id a propósito: se busca entre las clientas de TODAS las
+        // sucursales (p. ej. una clienta registrada desde el marketplace en
+        // otra sucursal). La reserva igual se crea en la sucursal activa.
         const list = await AgendaService.listClientsForSelect({
           search: search?.trim() || undefined,
           limit: 50,
-          branch_id: branchId,
         });
         setFilteredClients(list);
       } catch {
