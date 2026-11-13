@@ -44,14 +44,16 @@ class Settings(BaseSettings):
     db_name: Optional[str] = None
 
     environment: str = "development"  # "production" en Cloud
-    # None preserves development initialization; production requires opt-in.
+    # Los seeders (datos de ejemplo y valores de fábrica) NO corren solos: en cada arranque
+    # volvían a su valor original los permisos de los roles, la sucursal y el estado de los
+    # usuarios base, las sucursales y los precios de los servicios y productos de ejemplo,
+    # pisando lo que el negocio ya había configurado. Solo se ejecutan si se piden a propósito
+    # (primera instalación o un entorno de pruebas): RUN_STARTUP_SEEDERS=true.
     run_startup_seeders: Optional[bool] = None
 
     @property
     def should_run_startup_seeders(self) -> bool:
-        if self.run_startup_seeders is not None:
-            return self.run_startup_seeders
-        return self.environment.strip().lower() not in {"production", "prod"}
+        return self.run_startup_seeders is True
 
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"

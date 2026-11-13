@@ -16,7 +16,8 @@ from app.infrastructure.database.seeders import run_seeders
 
 
 @pytest.mark.parametrize("environment,override,expected", [
-    ("development", None, True), ("test", None, True),
+    # Sin pedirlo a propósito (RUN_STARTUP_SEEDERS=true) los seeders NUNCA corren, en ningún entorno.
+    ("development", None, False), ("test", None, False),
     ("production", None, False), (" PROD ", None, False),
     ("Production", None, False), ("development", False, False),
     ("production", False, False), ("production", True, True),
@@ -65,7 +66,7 @@ def startup(monkeypatch):
 
 @pytest.mark.parametrize("environment,override,enabled", [
     ("production", None, False), ("development", False, False),
-    ("development", None, True), ("production", True, True),
+    ("development", None, False), ("production", True, True),
 ])
 def test_guard_keeps_other_startup_steps(monkeypatch, startup, environment, override, enabled):
     monkeypatch.setattr(main, "settings", Settings(_env_file=None, environment=environment,
@@ -130,3 +131,28 @@ def test_protected_startup_preserves_business_records(monkeypatch, startup, tmp_
 async def _start_and_stop():
     async with main.lifespan(main.app):
         pass
+
+
+def test_default_never_seeds(monkeypatch):
+    """Sin ninguna variable de entorno, los seeders no corren (ni en desarrollo)."""
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("RUN_STARTUP_SEEDERS", raising=False)
+    assert Settings(_env_file=None).should_run_startup_seeders is False
+    monkeypatch.setenv("RUN_STARTUP_SEEDERS", "true")
+    assert Settings(_env_file=None).should_run_startup_seeders is True
+
+
+def test_uninitialized_database_warns_how_to_initialize(capsys, tmp_path):
+    """Una base nueva (sin roles) avisa cómo hacer la primera instalación."""
+    engine = create_engine("sqlite:///" + str(tmp_path / "empty.db"))
+    Base.metadata.create_all(engine)
+    try:
+        with sessionmaker(bind=engine)() as db:
+            main._warn_if_database_uninitialized(db)
+        assert "RUN_STARTUP_SEEDERS=true" in capsys.readouterr().out
+        with sessionmaker(bind=engine)() as db:
+            run_seeders(db)
+            main._warn_if_database_uninitialized(db)
+        assert "RUN_STARTUP_SEEDERS" not in capsys.readouterr().out.split(">>> Seeders ejecutados")[-1]
+    finally:
+        engine.dispose()

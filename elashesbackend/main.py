@@ -122,6 +122,20 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+def _warn_if_database_uninitialized(db) -> None:
+    """Sin seeders, una base nueva queda sin roles ni usuarios y nadie podría entrar."""
+    try:
+        from app.domain.entities.user import Role
+
+        if db.query(Role).count() == 0:
+            print(
+                "!!! La base de datos no tiene roles ni usuarios. Para la PRIMERA instalación arranca una vez "
+                "con RUN_STARTUP_SEEDERS=true y luego quítalo (los seeders pisan datos ya configurados)."
+            )
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(">>> Inicializando base de datos <<<")
@@ -206,6 +220,7 @@ async def lifespan(app: FastAPI):
             run_seeders(db)
         else:
             print(">>> Seeders omitidos por configuracion de arranque <<<")
+            _warn_if_database_uninitialized(db)
         interrupted = mark_interrupted_broadcasts(db)
         if interrupted:
             print(f"!!! {interrupted} comunicado(s) quedaron a medio enviar por el reinicio.")
