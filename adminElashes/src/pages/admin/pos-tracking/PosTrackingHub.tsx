@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, CalendarClock, CalendarDays, LogOut, Maximize2, Minimize2, ReceiptText, Store, Users } from "lucide-react";
+import { ArrowLeft, CalendarClock, CalendarDays, LogOut, Maximize2, Minimize2, ReceiptText, Store, Users, Wallet } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
@@ -14,6 +14,7 @@ import { logout as logoutAction } from "@/core/reducer/auth.reducer";
 import type { AppDispatch } from "@/store";
 import api from "@/core/services/api";
 import { PosContext } from "../pos/pos.context";
+import QuickExpenseModal from "./QuickExpenseModal";
 
 type HubSection = "pos" | "tracking" | "queue" | "agenda";
 
@@ -35,13 +36,15 @@ export default function PosTrackingHub() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { hasRole, user } = useAuth();
+  const { hasRole, user, hasPermissionByName } = useAuth();
   // Cajera: no vuelve al dashboard general — solo puede salir cerrando sesión.
   const isCajera = hasRole("Cajera");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [posCartCount, setPosCartCount] = useState(0);
   const [posPendingPayCount, setPosPendingPayCount] = useState(0);
   const [cartDrawerSignal] = useState(0);
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+  const canRegisterExpense = hasPermissionByName("payments:manage");
 
   // El header global (con el selector de sucursal) se oculta en pantalla
   // completa (ver .pos-hub-clean-fullscreen en styles.css) — sin esto acá,
@@ -161,6 +164,18 @@ export default function PosTrackingHub() {
             </div>
           </div>
           <div className="flex w-auto items-center gap-1.5">
+            {canRegisterExpense && (
+              <button
+                type="button"
+                onClick={() => setIsExpenseOpen(true)}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-slate-600 transition hover:bg-slate-100"
+                aria-label="Registrar gasto"
+                title="Registrar un gasto del día (compra o pago de emergencia)"
+              >
+                <Wallet className="h-4 w-4" />
+                <span className="text-xs font-semibold">Gasto</span>
+              </button>
+            )}
             {isCajera ? (
               <>
               <button
@@ -231,6 +246,13 @@ export default function PosTrackingHub() {
           </div>
         </div>
       </div>
+
+      <QuickExpenseModal
+        isOpen={isExpenseOpen}
+        onClose={() => setIsExpenseOpen(false)}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name ?? user?.branch?.name ?? ""}
+      />
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       {(branchContext.changed || branchContext.error) && (

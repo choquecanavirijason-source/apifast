@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import record_audit
-from app.core.dependencies import get_db, require_any_permission
+from app.core.dependencies import enforce_own_branch, get_db, require_any_permission, resolve_branch_id
 from app.core.media import save_catalog_image
 from app.domain.entities.expense import Expense
 from app.domain.entities.user import User
@@ -73,8 +73,10 @@ def list_expenses(
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
     db: Session = Depends(get_db),
-    _: User = Depends(require_any_permission("payments:view", "payments:manage")),
+    current_user: User = Depends(require_any_permission("payments:view", "payments:manage")),
 ):
+    # Un rol acotado a su sucursal (Cajera) solo ve los gastos de la suya.
+    branch_id = resolve_branch_id(branch_id, current_user)
     q = db.query(Expense).options(joinedload(Expense.branch), joinedload(Expense.created_by))
     if branch_id:
         q = q.filter(Expense.branch_id == branch_id)
@@ -93,6 +95,8 @@ def create_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_permission("payments:manage")),
 ):
+    # La cajera solo puede registrar gastos en su propia sucursal.
+    enforce_own_branch(body.branch_id, current_user, use_effective_branch=True)
     expense = Expense(
         branch_id=body.branch_id,
         amount=body.amount,
@@ -104,6 +108,11 @@ def create_expense(
     db.add(expense)
     db.commit()
     db.refresh(expense)
+    record_audit(
+        db, current_user, "create", "expense", expense.id,
+        f"Registró el gasto '{expense.description}' (Bs {expense.amount:.2f})",
+        branch_id=expense.branch_id,
+    )
     return _to_out(expense)
 
 
