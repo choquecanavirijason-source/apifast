@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission, require_permission, enforce_own_branch, SUPER_ADMIN_ROLE
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleResponse, PosSaleUpdate
+from app.application.services.push_service import push_reservation_created
 from app.application.services.pos_sale_service import (
     cancel_sale,
     create_sale,
@@ -54,10 +55,18 @@ def get_sale(
 @router.post("/", response_model=PosSaleResponse, status_code=status.HTTP_201_CREATED)
 def create_new_sale(
     payload: PosSaleCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
-    return create_sale(db=db, payload=payload, current_user=current_user)
+    result = create_sale(db=db, payload=payload, current_user=current_user)
+    # Solo las reservas de la agenda (reservation_only): una venta normal del
+    # POS también crea tickets, pero la clienta está presente, no es una reserva.
+    if payload.reservation_only:
+        appointment_ids = [a.id for a in (result.appointments or [])]
+        if appointment_ids:
+            background_tasks.add_task(push_reservation_created, appointment_ids)
+    return result
 
 
 @router.patch("/{sale_id}", response_model=PosSaleResponse)

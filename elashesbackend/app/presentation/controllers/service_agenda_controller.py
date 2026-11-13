@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -48,7 +48,7 @@ from app.presentation.schemas.service_agenda import (
 from app.application.services.client_service import list_clients as list_clients_service
 from app.application.services.commission_payout_service import pay_commissions, void_commission_payment
 from app.application.services.manual_reminder_service import send_manual_reminder
-from app.application.services.push_service import push_manual_reminder
+from app.application.services.push_service import push_manual_reminder, push_reservation_created
 from app.application.services.reminder_email_service import send_reminder_email
 from app.config.settings import settings
 from app.application.services.reminder_sender_service import (
@@ -439,6 +439,7 @@ def get_appointment(
 )
 async def create_new_appointment(
     payload: AppointmentCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
@@ -471,6 +472,10 @@ async def create_new_appointment(
             "status": result.status,
             "professional_id": result.professional_id,
         })
+    # Reserva agendada por el personal (no un ticket del POS): se le avisa a la
+    # clienta si tiene la app. Mejor esfuerzo y fuera del request.
+    if payload.sale_id is None and not payload.is_ia and result.status == "pending":
+        background_tasks.add_task(push_reservation_created, [result.id])
     return result
 
 

@@ -147,3 +147,87 @@ def push_manual_reminder(db: Session, reminder: ManualReminder, aviso: dict) -> 
         )
         db.rollback()
         return PushSummary().as_dict()
+
+
+# ── Reserva agendada desde el panel ──────────────────────────────────────────
+
+_DIAS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+
+
+def _reservation_when(start) -> str:
+    # start_time es hora local de La Paz; si llega con zona (columna
+    # timestamptz) solo se quita: el reloj ya es el local.
+    start = start.replace(tzinfo=None)
+    return f"{_DIAS[start.weekday()]} {start:%d/%m} a las {start:%H:%M}"
+
+
+def reservation_created_message(appointments: list) -> tuple[str, str]:
+    """Título y cuerpo del aviso. Con varios tickets (un servicio cada uno)
+    se anuncia la hora del primero."""
+    first = min(appointments, key=lambda a: a.start_time)
+    branch = first.branch.name if first.branch else None
+    where = f" en {branch}" if branch else ""
+    body = f"Tu reserva{where} quedó agendada para el {_reservation_when(first.start_time)}."
+    return "Reserva agendada", body
+
+
+def push_reservation_created(appointment_ids: list[int]) -> dict[str, int]:
+    """Avisa por push a la clienta que el personal le agendó una reserva.
+
+    Pensado para BackgroundTasks: abre su propia sesión (la del request ya se
+    cerró) y nunca lanza; es de mejor esfuerzo, la reserva ya está guardada.
+    Sin dispositivos con push, sin FCM configurado o con los avisos de
+    clientas desactivados, no envía nada."""
+    # Import local: appointment_notice_service ya importa entidades pesadas y
+    # evita un ciclo con este módulo.
+    from app.application.services.appointment_notice_service import FINAL_STATUSES, client_notices_active
+    from app.domain.entities.service_agenda import Appointment
+    from app.infrastructure.database.session import SessionLocal
+
+    summary = PushSummary()
+    if not appointment_ids or not client_notices_active():
+        return summary.as_dict()
+    db = SessionLocal()
+    try:
+        appointments = (
+            db.query(Appointment).filter(Appointment.id.in_(appointment_ids)).all()
+        )
+        by_client: dict[int, list] = {}
+        for appointment in appointments:
+            if appointment.status in FINAL_STATUSES:
+                continue
+            by_client.setdefault(appointment.client_id, []).append(appointment)
+
+        for client_id, client_appointments in by_client.items():
+            devices = active_devices_query(db).filter(ClientDevice.client_id == client_id).all()
+            if not devices:
+                continue
+            title, body = reservation_created_message(client_appointments)
+            first = min(client_appointments, key=lambda a: a.start_time)
+            result = send_push_to_devices(
+                db,
+                devices,
+                {
+                    "type": "reservation_created",
+                    "appointment_id": str(first.id),
+                    "cita_id": str(first.id),
+                    "titulo": title,
+                    "cuerpo": body,
+                },
+                FcmNotification(
+                    title=title,
+                    body=body,
+                    channel_id=ANDROID_AVISOS_CHANNEL,
+                    tag=f"reserva_{first.id}",
+                ),
+                deadline_seconds=PUSH_DEADLINE_SECONDS,
+            )
+            summary.sent += result.sent
+            summary.invalid += result.invalid
+            summary.failed += result.failed
+    except Exception as exc:
+        logger.warning("FCM: falló el aviso de reserva %s: %s", appointment_ids, type(exc).__name__)
+        db.rollback()
+    finally:
+        db.close()
+    return summary.as_dict()
