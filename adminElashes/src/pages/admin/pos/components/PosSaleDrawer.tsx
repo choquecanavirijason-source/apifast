@@ -1134,10 +1134,16 @@ export default function PosSaleDrawer({
                     : "border-[#f0c477] bg-[#fff4ce] text-[#8a6a1f]"
                 }`}>
                   <span>Total pagado: Bs {mixedTotal.toFixed(2)}</span>
-                  {mixedTotal >= total
-                    ? <span>Vuelto: Bs {(mixedTotal - total).toFixed(2)}</span>
-                    : <span>Falta: Bs {(total - mixedTotal).toFixed(2)}</span>
-                  }
+                  {mixedTotal < total ? (
+                    <span>Falta: Bs {(total - mixedTotal).toFixed(2)}</span>
+                  ) : mixedTotal - total < 0.005 ? (
+                    <span>Monto completo</span>
+                  ) : mixedPayments.some((m) => m.method === "cash" && m.amount > 0) ? (
+                    // El vuelto solo existe si hay efectivo: QR y tarjeta se cobran por el monto exacto.
+                    <span>Vuelto (efectivo): Bs {(mixedTotal - total).toFixed(2)}</span>
+                  ) : (
+                    <span>Sobra Bs {(mixedTotal - total).toFixed(2)}: ajusta los montos</span>
+                  )}
                 </div>
               </div>
             )}
