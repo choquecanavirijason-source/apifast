@@ -33,6 +33,7 @@ import {
   Droplet,
 } from "lucide-react";
 import useAuth from "@/core/hooks/useAuth";
+import { getRestrictedRole, isPathAllowedForRole } from "@/router/roleScope";
 
 /** Menú principal del panel. Lo usan la barra superior, la barra lateral y el menú móvil. */
 
@@ -361,7 +362,9 @@ export const isRouteActive = (
 
 /** Grupos del menú filtrados por los permisos del usuario actual. */
 export function useNavigationGroups() {
-  const { user, hasPermissionByName, isAdmin } = useAuth();
+  const { user, hasPermissionByName, isAdmin, hasRole } = useAuth();
+  // Roles acotados (Cajera) solo ven las opciones de sus rutas permitidas.
+  const restrictedRole = getRestrictedRole(hasRole);
   const roleName = useMemo(() => {
     const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)?.role;
     if (typeof roleValue === "string") return roleValue.toLowerCase();
@@ -470,9 +473,11 @@ export function useNavigationGroups() {
   };
 
   const groups = NAVIGATION_GROUPS.flatMap((group): NavigationGroup[] => {
-    const children = group.children?.filter((child) => hasPermission(child.permission));
-    if (group.children && !children?.length && !hasPermission(group.permission)) return [];
-    if (!group.children && !hasPermission(group.permission)) return [];
+    const children = group.children?.filter(
+      (child) => hasPermission(child.permission) && isPathAllowedForRole(restrictedRole, child.path),
+    );
+    if (group.children && !children?.length && (restrictedRole || !hasPermission(group.permission))) return [];
+    if (!group.children && (!hasPermission(group.permission) || !isPathAllowedForRole(restrictedRole, group.path))) return [];
     return [{ ...group, children }];
   });
 

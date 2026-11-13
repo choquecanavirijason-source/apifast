@@ -30,6 +30,7 @@ import { MobileNavigationSheet } from "./SidebarNavigation";
 import { useLayout } from "@/core/context/layout.context";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 import useAuth from "@/core/hooks/useAuth";
+import { getRestrictedRole, isPathAllowedForRole } from "@/router/roleScope";
 import { useLogo } from "@/core/hooks/useLogo";
 
 import {
@@ -162,7 +163,9 @@ export default function Header() {
   const isSidebarMode = layoutMode === "sidebar";
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isAdmin, hasPermissionByName } = useAuth();
+  const { isAdmin, hasPermissionByName, hasRole } = useAuth();
+  // Roles acotados (Cajera): el buscador no sugiere secciones que la rebotarían.
+  const restrictedRole = getRestrictedRole(hasRole);
   const { logoBase64 } = useLogo();
   const { user, sessionExpiresAt } = useSelector(
     (state: RootState) => state.auth,
@@ -552,8 +555,10 @@ export default function Header() {
             )
             .slice(0, 8);
 
-          const sectionMatches = APP_SECTIONS.filter((section) =>
-            section.label.toLowerCase().includes(normalizedSearch),
+          const sectionMatches = APP_SECTIONS.filter(
+            (section) =>
+              section.label.toLowerCase().includes(normalizedSearch) &&
+              isPathAllowedForRole(restrictedRole, section.href),
           )
             .slice(0, 8)
             .map((section) => ({
@@ -905,7 +910,7 @@ export default function Header() {
               <CalendarPlus className="h-4 w-4" />
             </NavLink>
           )}
-          {canManagePayments && (
+          {canManagePayments && isPathAllowedForRole(restrictedRole, "/admin/pos") && (
             <NavLink
               to="/admin/pos"
               aria-label="Nueva venta"

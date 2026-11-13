@@ -3,26 +3,7 @@ import useAuth from "../core/hooks/useAuth";
 import type { IPermission } from "@/core/types/IPermission";
 import variables from "@/core/config/variables";
 import { FALLBACK_LANDING_ROUTE, resolveLandingRoute } from "./landing";
-
-// Returns true only if `route` is a proper path prefix of `path`
-// (exact match OR next char after route is '/')
-function isPathPrefix(route: string, path: string): boolean {
-  if (!path.startsWith(route)) return false;
-  return path.length === route.length || path[route.length] === "/";
-}
-
-// Roles acotados a un puñado de rutas — a diferencia de routePermissions
-// (que solo filtra por permiso y deja pasar cualquier ruta "abierta" no
-// listada), esto bloquea TODO lo que no esté en la lista, sin importar qué
-// permisos tenga el rol. Pensado para Cajera: solo debe poder usar el POS y
-// Productos e Inventario, aunque sus permisos también le alcancen para entrar
-// a otras pantallas si se las escribe a mano en la URL.
-const ROLE_ALLOWED_PREFIXES: Record<string, string[]> = {
-  Cajera: ["/admin/pos-tracking", "/admin/products", "/admin/perfil", "/profile"],
-};
-const ROLE_LANDING_ROUTE: Record<string, string> = {
-  Cajera: "/admin/pos-tracking",
-};
+import { ROLE_LANDING_ROUTE, getRestrictedRole, isPathAllowedForRole, isPathPrefix } from "./roleScope";
 
 const PrivateRoute = () => {
   const location = useLocation();
@@ -85,13 +66,9 @@ const PrivateRoute = () => {
   // se evalúa antes que la tabla de permisos porque esto es más restrictivo,
   // no un reemplazo: aunque el permiso alcance, si la ruta no está en su
   // lista permitida, no entra.
-  const restrictedRoleName = Object.keys(ROLE_ALLOWED_PREFIXES).find((role) => hasRole(role));
-  if (restrictedRoleName) {
-    const allowedPrefixes = ROLE_ALLOWED_PREFIXES[restrictedRoleName];
-    const withinAllowedArea = allowedPrefixes.some((prefix) => isPathPrefix(prefix, currentPath));
-    if (!withinAllowedArea) {
-      return <Navigate to={ROLE_LANDING_ROUTE[restrictedRoleName]} replace />;
-    }
+  const restrictedRoleName = getRestrictedRole(hasRole);
+  if (restrictedRoleName && !isPathAllowedForRole(restrictedRoleName, currentPath)) {
+    return <Navigate to={ROLE_LANDING_ROUTE[restrictedRoleName]} replace />;
   }
 
   // 1. Exact match

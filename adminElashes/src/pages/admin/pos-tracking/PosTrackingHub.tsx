@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, CalendarClock, LogOut, Maximize2, Minimize2, ReceiptText, Store, Users } from "lucide-react";
+import { ArrowLeft, CalendarClock, CalendarDays, LogOut, Maximize2, Minimize2, ReceiptText, Store, Users } from "lucide-react";
 import PosPage from "@/pages/admin/pos/Main";
 import FollowUpPage from "@/pages/admin/follow-up/pages/FollowUpPage";
 import QueuePage from "@/pages/admin/control-de-servicios/Queue";
@@ -166,6 +166,17 @@ export default function PosTrackingHub() {
           </div>
           <div className="flex w-auto items-center gap-1.5">
             {isCajera ? (
+              <>
+              <button
+                type="button"
+                onClick={() => navigate("/admin/calendar/agenda")}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-slate-600 transition hover:bg-slate-100"
+                aria-label="Abrir agenda"
+                title="Abrir agenda de citas y reservas"
+              >
+                <CalendarDays className="h-4 w-4" />
+                <span className="text-xs font-semibold">Agenda</span>
+              </button>
               <button
                 type="button"
                 onClick={() => void dispatch(logoutAction())}
@@ -176,6 +187,7 @@ export default function PosTrackingHub() {
                 <LogOut className="h-4 w-4" />
                 <span className="text-xs font-semibold">Cerrar sesión</span>
               </button>
+              </>
             ) : (
               <button
                 type="button"

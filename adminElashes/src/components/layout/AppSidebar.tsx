@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import useAuth from "../../core/hooks/useAuth";
+import { getRestrictedRole, isPathAllowedForRole } from "@/router/roleScope";
 import { useLogo } from "../../core/hooks/useLogo";
 import {
   LayoutDashboard,
@@ -511,20 +512,24 @@ export default function AppSidebar({
   );
 
   // Menú filtrado por permisos
+  // Roles acotados (Cajera) solo ven las opciones de sus rutas permitidas.
+  const restrictedRole = getRestrictedRole(hasRole);
   const authorizedMenu = useMemo(() => {
     return menuItems
       .map((item) => {
         if (!item.subItems) {
-          return hasMenuPermission(item.permission) ? item : null;
+          return hasMenuPermission(item.permission) && isPathAllowedForRole(restrictedRole, item.path) ? item : null;
         }
 
-        const visibleSubItems = item.subItems.filter((subItem) => hasMenuPermission(subItem.permission));
-        if (!visibleSubItems.length && !hasMenuPermission(item.permission)) return null;
+        const visibleSubItems = item.subItems.filter(
+          (subItem) => hasMenuPermission(subItem.permission) && isPathAllowedForRole(restrictedRole, subItem.path),
+        );
+        if (!visibleSubItems.length && (restrictedRole || !hasMenuPermission(item.permission))) return null;
 
         return { ...item, subItems: visibleSubItems };
       })
       .filter((item): item is MenuItem => Boolean(item));
-  }, [menuItems, isAdmin, hasRole, hasPermissionByName, permissionNamesFromUser]);
+  }, [menuItems, isAdmin, hasRole, hasPermissionByName, permissionNamesFromUser, restrictedRole]);
 
   // Determina si una subopción está activa
   const isSubItemActive = (sub: MenuSubItem) => {
