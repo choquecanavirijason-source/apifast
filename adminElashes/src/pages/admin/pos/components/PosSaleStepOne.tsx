@@ -112,11 +112,12 @@ export default function PosSaleStepOne({
     setIsCartOpen(true);
   };
 
-  // Los productos NO abren el carrito al agregarlos: así se pueden sumar varios seguidos sin que el
-  // panel tape el catálogo. El resumen de abajo ("Ver carrito") y la insignia de cada tarjeta muestran lo que lleva.
+  // Como con los servicios, al agregar un producto se abre el carrito. El resumen de abajo
+  // ("Ver carrito") sirve para volver a abrirlo si se cerró.
   const handleAddProductToCart = (product: (typeof products)[number]) => {
     onAddProductToCart(product);
     showAddedMessage(product.name || "Producto");
+    setIsCartOpen(true);
   };
 
   const handleServiceSelect = (serviceId: string) => {
