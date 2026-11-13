@@ -16,6 +16,8 @@ type EditReservationModalProps = {
   ticket: TicketItem | null;
   onClose: () => void;
   onSaved: (updated: TicketItem) => void;
+  /** Texto del botón de guardar (p. ej. cuando guardar también pasa la reserva a servicio). */
+  saveLabel?: string;
   branchId: number | null;
   services: ServiceOption[];
   professionals: ProfessionalForSelect[];
@@ -37,6 +39,7 @@ export default function EditReservationModal({
   ticket,
   onClose,
   onSaved,
+  saveLabel,
   branchId,
   services,
   professionals,
@@ -130,7 +133,7 @@ export default function EditReservationModal({
             Cancelar
           </Button>
           <Button type="submit" size="sm" disabled={isSaving}>
-            {isSaving ? "Guardando…" : "Guardar cambios"}
+            {isSaving ? "Guardando…" : (saveLabel ?? "Guardar cambios")}
           </Button>
         </>
       }

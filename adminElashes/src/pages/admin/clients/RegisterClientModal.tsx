@@ -4,6 +4,7 @@ import GenericModal from "../../../components/common/modal/GenericModal";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button, InputField } from "../../../components/common/ui";
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
+import { ageFromBirthDate, oldestBirthDateIso, todayIso, validateBirthDate } from "../../../core/utils/birthDate";
 import { getSelectedBranchId } from "../../../core/utils/branch";
 import type { IClient } from "../../../core/types/IClient";
 
@@ -153,6 +154,8 @@ export default function RegisterClientModal({
     eye_type_id: "",
     branch_id: "",
     ci: "",
+    allergies: "",
+    birth_date: "",
   });
   const [fieldErrors, setFieldErrors] = useState({
     nombre: "",
@@ -160,6 +163,7 @@ export default function RegisterClientModal({
     edad: "",
     email: "",
     branch_id: "",
+    birth_date: "",
   });
   const bcLabelClass = "block text-xs font-semibold text-[var(--ui-text-muted)]";
   const bcSelectClass =
@@ -170,7 +174,7 @@ export default function RegisterClientModal({
   useEffect(() => {
     if (!isOpen) {
       setIsConfirmOpen(false);
-      setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "" });
+      setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "", birth_date: "" });
       setFormValues({
         nombre: "",
         apellido: "",
@@ -182,17 +186,22 @@ export default function RegisterClientModal({
         eye_type_id: "",
         branch_id: "",
         ci: "",
+        allergies: "",
+        birth_date: "",
       });
       return;
     }
 
     const initialPhone = getInitialPhoneParts(initialClient?.phone);
     const defaultBranchId = defaultBranchIdProp ?? getSelectedBranchId();
-    setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "" });
+    setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "", birth_date: "" });
     setFormValues({
       nombre: initialClient?.nombre ?? "",
       apellido: initialClient?.apellido ?? "",
-      edad: initialClient?.edad ? String(initialClient.edad) : "",
+      // Con fecha de nacimiento la edad sale de ella (no la guardada, que puede estar vieja).
+      edad: initialClient?.birthDate
+        ? String(ageFromBirthDate(initialClient.birthDate) ?? "")
+        : initialClient?.edad ? String(initialClient.edad) : "",
       sexo: initialClient?.sexo ?? "",
       phone_country_code: initialPhone.phone_country_code,
       phone: initialPhone.phone,
@@ -200,6 +209,8 @@ export default function RegisterClientModal({
       eye_type_id: initialClient?.eye_type_id ? String(initialClient.eye_type_id) : "",
       branch_id: initialClient?.branch_id ? String(initialClient.branch_id) : defaultBranchId ? String(defaultBranchId) : "",
       ci: initialClient?.ci ?? "",
+      allergies: initialClient?.allergies ?? "",
+      birth_date: initialClient?.birthDate ?? "",
     });
   }, [initialClient, isOpen, defaultBranchIdProp]);
 
@@ -232,8 +243,21 @@ export default function RegisterClientModal({
     return "";
   };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
+
+    if (name === "birth_date") {
+      const error = validateBirthDate(value);
+      const age = value && !error ? ageFromBirthDate(value) : null;
+      setFormValues((prev) => ({
+        ...prev,
+        birth_date: value,
+        // Con fecha válida la edad se calcula sola; al borrarla, queda libre para escribirla.
+        edad: age !== null ? String(age) : value ? prev.edad : "",
+      }));
+      setFieldErrors((prev) => ({ ...prev, birth_date: error, edad: "" }));
+      return;
+    }
 
     if (name === "edad") {
       const normalizedAge = value.replace(/\D/g, "").slice(0, 3);
@@ -280,9 +304,13 @@ export default function RegisterClientModal({
       edad: validateEdad(formValues.edad),
       email: validateEmail(formValues.email),
       branch_id: validateBranch(formValues.branch_id),
+      birth_date: validateBirthDate(formValues.birth_date),
     };
     setFieldErrors(nextErrors);
-    return !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.email && !nextErrors.branch_id;
+    return (
+      !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.email &&
+      !nextErrors.branch_id && !nextErrors.birth_date
+    );
   };
 
   const handleBeforeSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -338,6 +366,20 @@ export default function RegisterClientModal({
           />
 
           <InputField
+            name="birth_date"
+            type="date"
+            label="Fecha de nacimiento"
+            value={formValues.birth_date}
+            min={oldestBirthDateIso()}
+            max={todayIso()}
+            onChange={handleInputChange}
+            error={fieldErrors.birth_date || undefined}
+            hint={fieldErrors.birth_date ? undefined : "Elige en el calendario o escríbela. Opcional."}
+            className={bcInputClass}
+            containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
+          />
+
+          <InputField
             name="edad"
             type="text"
             inputMode="numeric"
@@ -346,6 +388,9 @@ export default function RegisterClientModal({
             placeholder="Opcional"
             value={formValues.edad}
             onChange={handleInputChange}
+            // Con fecha de nacimiento la edad se calcula sola y no se edita.
+            readOnly={Boolean(formValues.birth_date) && !fieldErrors.birth_date}
+            hint={formValues.birth_date && !fieldErrors.birth_date ? "Calculada desde la fecha de nacimiento." : undefined}
             error={fieldErrors.edad || undefined}
             className={bcInputClass}
             containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
@@ -422,6 +467,26 @@ export default function RegisterClientModal({
             className={bcInputClass}
             containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2"
           />
+
+          <div className="space-y-1.5 rounded-md border border-amber-200 bg-amber-50/60 p-3 sm:col-span-2">
+            <label className={bcLabelClass} htmlFor="alergias-registro">
+              Alergias
+            </label>
+            <textarea
+              id="alergias-registro"
+              name="allergies"
+              rows={2}
+              maxLength={500}
+              value={formValues.allergies}
+              onChange={handleInputChange}
+              placeholder="Alergia a algún producto (látex, pegamento, etc.). Si no lo sabes, déjalo vacío: se le preguntará al atenderla."
+              className="w-full resize-none rounded-md border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
+            />
+            <p className="text-xs text-slate-500">
+              Aparece en el ticket y en la app de la operaria que la atienda.
+              <span className="ml-1 tabular-nums">{formValues.allergies.length}/500</span>
+            </p>
+          </div>
 
           <div className="space-y-1.5 rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
             <label className={bcLabelClass} htmlFor="tipo-ojos-registro">

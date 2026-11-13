@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import { getLogoUrlForPdf } from "../../../../core/hooks/useLogo";
+import { HYGIENE_NOTICE } from "../../../../core/constants/hygieneNotice";
 
 // En Tauri v2 el global interno es __TAURI_INTERNALS__
 const isTauri =
@@ -191,6 +192,13 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
     doc.text("Subtotal:", margin, y);
     doc.text(`Bs ${Number(sale.subtotal).toFixed(2)}`, pageW - margin, y, { align: "right" });
     y += 6;
+    // Línea del descuento (con el nombre del cupón si lo hubo): sin ella, el total rebajado no se explica.
+    const discountLabel =
+      `Descuento${sale.coupon_label ? ` - ${sale.coupon_label}` : ""}` +
+      `${sale.discount_type === "percent" ? ` (${sale.discount_value}%)` : ""}:`;
+    doc.text(discountLabel, margin, y);
+    doc.text(`-Bs ${Math.max(0, Number(sale.subtotal) - Number(sale.total)).toFixed(2)}`, pageW - margin, y, { align: "right" });
+    y += 6;
   }
 
   doc.setFont("helvetica", "bold");
@@ -216,6 +224,10 @@ export async function generateReceiptPdf(sale: PosSaleItem): Promise<void> {
   doc.setFontSize(9);
   doc.setTextColor(160, 160, 160);
   doc.text("¡Gracias por su compra!", pageW / 2, y, { align: "center" });
+  // Aviso para la clienta (ajustado al ancho de la página).
+  y += 7;
+  doc.setFontSize(8);
+  doc.text(doc.splitTextToSize(HYGIENE_NOTICE, pageW - margin * 2), pageW / 2, y, { align: "center" });
 
   const filename = `comprobante-${sale.sale_code}.pdf`;
 

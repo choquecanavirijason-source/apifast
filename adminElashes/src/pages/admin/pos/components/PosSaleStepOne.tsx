@@ -72,6 +72,7 @@ export default function PosSaleStepOne({
   finalizeFooterHint,
   onFinalizeSale,
   onCreateImmediateTicket,
+  birthdayCoupon,
   isSubmittingCheckout,
   linkAppointmentId,
   ticketPreviews,
@@ -286,6 +287,7 @@ export default function PosSaleStepOne({
               : "Usa 'Crear turno ahora' para atención inmediata o 'Agendar reserva' para elegir horario."
         }
         onImmediateCheckout={linkAppointmentId || (cartLines.length === 0 && productLines.length > 0) ? undefined : onCreateImmediateTicket}
+        birthdayCoupon={birthdayCoupon}
         onSecondaryAction={
           linkAppointmentId || (cartLines.length === 0 && productLines.length > 0)
             ? undefined

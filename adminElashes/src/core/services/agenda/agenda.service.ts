@@ -233,6 +233,12 @@ export interface TicketClientInfo {
   eye_type_id?: number | null;
   eye_type_name?: string | null;
   status?: string | null;
+  /** Alergias a algún producto (texto libre), para quien atiende. */
+  allergies?: string | null;
+  /** El personal ya le confirmó las alergias (aunque no tenga). Si no, se pregunta al iniciar. */
+  allergies_confirmed?: boolean;
+  /** Clienta de mostrador compartida: no admite datos personales. */
+  is_generic?: boolean;
 }
 
 export interface TicketItem {
@@ -261,8 +267,14 @@ export interface TicketItem {
   start_time: string;
   end_time: string;
   status: string;
-  /** Venta POS asociada, si ya se cobró la reserva. */
+  /** Venta POS asociada (puede estar solo reservada, sin cobrar). */
   sale_id?: number | null;
+  /** Estado real de esa venta: "paid", "reserved", "cancelled"... */
+  sale_status?: string | null;
+  /** Alergias de ESTA atención: las del ticket si la clienta es de mostrador, si no las de su ficha. */
+  allergies?: string | null;
+  /** Ya se le confirmaron las alergias (aunque no tenga). Si no, se pregunta al iniciar. */
+  allergies_confirmed?: boolean;
   branch_id?: number | null;
   branch_name?: string | null;
   /** Comisión de la operaria ya pagada (Historial de tickets › Confirmar pago). */
@@ -300,6 +312,9 @@ interface BackendAppointment {
   end_time: string;
   status: string;
   sale_id?: number | null;
+  sale_status?: string | null;
+  ticket_allergies?: string | null;
+  ticket_allergies_confirmed?: boolean;
   client?: {
     id: number;
     name: string;
@@ -309,6 +324,9 @@ interface BackendAppointment {
     branch_id?: number | null;
     eye_type_id?: number | null;
     status?: string | null;
+    allergies?: string | null;
+    allergies_confirmed?: boolean;
+    is_generic?: boolean;
     eye_type?: { id: number; name: string } | null;
     branch?: { id: number; name: string } | null;
   };
@@ -336,6 +354,9 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
         eye_type_id: a.client.eye_type_id ?? null,
         eye_type_name: a.client.eye_type?.name ?? null,
         status: a.client.status ?? null,
+        allergies: a.client.allergies ?? null,
+        allergies_confirmed: a.client.allergies_confirmed ?? false,
+        is_generic: a.client.is_generic ?? false,
       }
     : undefined;
 
@@ -364,6 +385,9 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   end_time: a.end_time,
   status: a.status,
   sale_id: a.sale_id ?? null,
+  sale_status: a.sale_status ?? null,
+  allergies: a.ticket_allergies ?? null,
+  allergies_confirmed: a.ticket_allergies_confirmed ?? false,
   branch_id: a.branch?.id ?? null,
   branch_name: a.branch?.name ?? null,
   pagado: a.pagado ?? false,
@@ -546,6 +570,15 @@ export const AgendaService = {
 
   async getAppointment(id: number): Promise<TicketItem> {
     const response = await api.get<BackendAppointment>(`/agenda/appointments/${id}`);
+    return mapToTicket(response.data);
+  },
+
+  /**
+   * Confirma las alergias de la atención antes de iniciarla (null/"" = "Sin alergias").
+   * Clienta registrada: se guardan en su ficha; clienta de mostrador: solo en este ticket.
+   */
+  async confirmTicketAllergies(id: number, allergies: string | null): Promise<TicketItem> {
+    const response = await api.put<BackendAppointment>(`/agenda/appointments/${id}/allergies`, { allergies });
     return mapToTicket(response.data);
   },
 

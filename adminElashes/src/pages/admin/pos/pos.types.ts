@@ -1,3 +1,4 @@
+import type { BirthdayCouponEligibility } from "../../../core/services/coupon/coupon.service";
 import type { RefObject } from "react";
 
 import type {
@@ -131,6 +132,8 @@ export type PosSaleStepOneProps = {
   onFinalizeSale: () => void;
   /** Crea turno inmediato con la hora actual, sin abrir el planificador. payLater=true → cobra al finalizar. startService=true → pasa el ticket directo a "En servicio" (botón "Pasar a servicio"). */
   onCreateImmediateTicket: (payLater: boolean, startService?: boolean) => void;
+  /** Cupón de cumpleaños de la clienta elegida (null = no se ofrece). */
+  birthdayCoupon?: BirthdayCouponUi;
   isSubmittingCheckout: boolean;
   linkAppointmentId: number | null;
   ticketPreviews: PosCheckoutTicketPreview[];
@@ -221,3 +224,12 @@ export type PosSaleDraft = {
 };
 
 export type { MixedPaymentEntry };
+
+/** Cupón de cumpleaños tal como lo ve el cajón de cobro del POS. */
+export type BirthdayCouponUi = {
+  /** Resultado de elegibilidad de la clienta elegida (null = sin clienta o aún cargando). */
+  eligibility: BirthdayCouponEligibility | null;
+  /** La cajera lo aplicó a esta venta. */
+  applied: boolean;
+  onToggle: () => void;
+};

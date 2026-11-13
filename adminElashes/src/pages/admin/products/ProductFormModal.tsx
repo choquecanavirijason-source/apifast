@@ -129,8 +129,13 @@ export default function ProductFormModal({
           type="number"
           min={0}
           step={1}
-          label={isEditing ? "Stock actual (solo visual)" : "Stock inicial"}
+          label={isEditing ? "Stock actual" : "Stock inicial"}
           value={String(form.stock)}
+          // Al editar es el stock real y no se modifica desde aquí: se ajusta
+          // con lotes y movimientos de inventario.
+          readOnly={isEditing}
+          tabIndex={isEditing ? -1 : undefined}
+          className={isEditing ? "cursor-not-allowed !bg-slate-100 text-slate-500 focus:!ring-0" : ""}
           onChange={(event) => onNumberChange("stock", event.target.value)}
           hint={
             errors.stock

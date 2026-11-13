@@ -26,6 +26,12 @@ export interface IClient {
    // Frecuencia
     visitas: number;
 
+    // Alergias específicas a algún producto (texto libre): salen en el ticket y en la app de operarias.
+    allergies?: string;
+
+    // Fecha de nacimiento (YYYY-MM-DD). La edad se calcula a partir de ella.
+    birthDate?: string;
+
     // Carnet de identidad y acceso marketplace
     ci?: string;
     marketplaceEnabled?: boolean;

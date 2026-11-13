@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, Info, Pencil, Plus, Scissors, Trash2, User, UserCog } from "lucide-react";
+import { AlertTriangle, ChevronDown, Info, Pencil, Plus, Scissors, Trash2, User, UserCog } from "lucide-react";
 
 import type { ClientForSelect, ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { formatTime } from "../control.constants";
@@ -177,6 +177,17 @@ export default function DraggableTicketCard({
             )}
           </div>
         </div>
+
+        {/* Alergias de la clienta: bien visibles para quien la va a atender */}
+        {ticket.allergies && (
+          <div
+            className="mt-1 flex min-w-0 items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-semibold text-rose-800"
+            title={`Alergias: ${ticket.allergies}`}
+          >
+            <AlertTriangle size={11} className="shrink-0" aria-hidden />
+            <span className="truncate">Alergia: {ticket.allergies}</span>
+          </div>
+        )}
 
         {/* Línea 2: operaria + tiempo restante */}
         <div className={`flex items-center justify-between gap-1.5 ${compact ? "mt-1" : "mt-1.5"}`}>

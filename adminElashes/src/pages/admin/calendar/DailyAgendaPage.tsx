@@ -17,6 +17,12 @@ import PrintAgendaModal from "./components/PrintAgendaModal";
 import ReservationDrawer from "./components/ReservationDrawer";
 import WhatsAppValidationPanel from "./components/WhatsAppValidationPanel";
 import { toast } from "react-toastify";
+import { fetchAllPages } from "../../../core/utils/fetchAllPages";
+import { isPrintOnStartEnabled, printAttentionTicket } from "../control-de-servicios/printAttentionTicket";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import CollectPaymentModal from "./components/CollectPaymentModal";
+import AllergyConfirmModal from "../control-de-servicios/components/AllergyConfirmModal";
+import { needsAllergyConfirmation, sharesAllergyAnswer, withConfirmedAllergies } from "../control-de-servicios/allergyCheck";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../../components/common/layout";
 import { SectionCard, SegmentedTabs } from "../../../components/common/ui";
@@ -286,6 +292,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     const phone = String(formData.get("phone") ?? "").trim();
     const eyeTypeRaw = String(formData.get("eye_type_id") ?? "").trim();
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
+    const allergies = String(formData.get("allergies") ?? "").trim();
+    const birthDate = String(formData.get("birth_date") ?? "").trim();
 
     if (!nombre || !apellido) {
       toast.warning("Nombre y apellido son obligatorios.");
@@ -321,6 +329,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         phone: formattedPhone,
         eye_type_id,
         branch_id,
+        allergies: allergies || undefined,
+        birth_date: birthDate || undefined,
       });
 
       setRegisteredClientPick({
@@ -357,12 +367,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       };
       const [ticketData, pros, svc] = await Promise.all([
         loadRangeTickets(),
-        AgendaService.listProfessionalsForSelect({
-          limit: 200,
-          role_name: "Operaria",
-          branch_id: branchId ?? undefined,
-        }),
-        AgendaService.listServices({ limit: 200, branch_id: branchId ?? undefined }),
+        fetchAllPages((skip, limit) =>
+          AgendaService.listProfessionalsForSelect({
+            skip,
+            limit,
+            role_name: "Operaria",
+            branch_id: branchId ?? undefined,
+          })
+        ),
+        fetchAllPages((skip, limit) => AgendaService.listServices({ skip, limit, branch_id: branchId ?? undefined })),
       ]);
       setTickets(ticketData);
       setProfessionals(pros);
@@ -561,6 +574,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
   };
 
   const [editingTicket, setEditingTicket] = useState<TicketItem | null>(null);
+  // "Pasar a En servicio" sin operaria abre la edición: al guardarla con una
+  // operaria se retoma el pase a servicio solo, sin repetirlo a mano.
+  const startAfterEditRef = useRef<number | null>(null);
+  // Ticket de atención por imprimir: se pregunta antes de abrir la impresión.
+  const [printPromptTicket, setPrintPromptTicket] = useState<TicketItem | null>(null);
+  // Reserva con venta sin cobrar: se ofrece cobrarla antes de iniciar la atención.
+  const [collectTicket, setCollectTicket] = useState<TicketItem | null>(null);
+  // Clienta a la que aún no se le confirmaron las alergias: se pregunta antes de iniciar.
+  const [allergyTicket, setAllergyTicket] = useState<TicketItem | null>(null);
   // Menú de clic derecho sobre una cita (pedido del cliente): En servicio / venta / editar.
   const navigate = useNavigate();
   const [contextMenu, setContextMenu] = useState<{ ticket: TicketItem; x: number; y: number } | null>(null);
@@ -670,9 +692,10 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
 
   /** "Pasar a En servicio" desde el clic derecho: mismas reglas que "Iniciar atención" en Control de servicios. */
   const startServiceFromAgenda = useCallback(
-    async (ticket: TicketItem) => {
+    async (ticket: TicketItem, options?: { skipCollect?: boolean; skipAllergy?: boolean }) => {
       if (!ticket.professional_id) {
         toast.warning("Asigna una operaria antes de pasar a En servicio.");
+        startAfterEditRef.current = ticket.id;
         setEditingTicket(ticket);
         return;
       }
@@ -685,6 +708,16 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         );
         return;
       }
+      // Primero se confirman las alergias si nunca se le han preguntado.
+      if (!options?.skipAllergy && needsAllergyConfirmation(ticket)) {
+        setAllergyTicket(ticket);
+        return;
+      }
+      // Venta reservada sin cobrar: se cobra antes de iniciar la atención (no hay forma de saltarlo).
+      if (!options?.skipCollect && ticket.sale_id && ticket.sale_status === "reserved") {
+        setCollectTicket(ticket);
+        return;
+      }
       const snapshot: TicketItem = { ...ticket };
       patchTicket(ticket.id, { status: "in_service" });
       setReschedulingTicketId(ticket.id);
@@ -692,6 +725,9 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         // Igual que en Control de servicios: el choque de horario no aplica al iniciar la atención.
         await AgendaService.updateAppointment(ticket.id, { status: "in_service", skip_availability_check: true });
         toast.success(`${ticket.client_name} pasó a En servicio.`);
+        // Mismo ticket e interruptor que en Control de servicios, pero aquí se
+        // pregunta antes de abrir la impresión.
+        if (isPrintOnStartEnabled()) setPrintPromptTicket(ticket);
         setTicketsPanelRefresh((n) => n + 1);
         window.dispatchEvent(new Event(AGENDA_REFRESH_EVENT));
       } catch (err: unknown) {
@@ -1313,15 +1349,70 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         />
       )}
 
+      <AllergyConfirmModal
+        ticket={allergyTicket}
+        onClose={() => setAllergyTicket(null)}
+        onConfirmed={(ticket, allergies) => {
+          setAllergyTicket(null);
+          // Registrada: todos sus tickets quedan confirmados. Mostrador: solo este ticket.
+          setTickets((prev) => prev.map((t) => (sharesAllergyAnswer(ticket, t) ? withConfirmedAllergies(t, allergies) : t)));
+          void startServiceFromAgenda(withConfirmedAllergies(ticket, allergies), { skipAllergy: true });
+        }}
+      />
+
+      <CollectPaymentModal
+        ticket={collectTicket}
+        onClose={() => setCollectTicket(null)}
+        onPaid={(ticket, sale) => {
+          setCollectTicket(null);
+          // La venta cubre todos sus tickets: todos quedan como pagados.
+          setTickets((prev) => prev.map((t) => (t.sale_id === sale.id ? { ...t, sale_status: sale.status } : t)));
+          void startServiceFromAgenda({ ...ticket, sale_status: sale.status }, { skipCollect: true });
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={printPromptTicket !== null}
+        title="Imprimir ticket"
+        message={
+          printPromptTicket ? (
+            <p>
+              <strong>{printPromptTicket.client_name}</strong> pasó a En servicio. ¿Quieres imprimir su ticket de atención?
+            </p>
+          ) : ""
+        }
+        confirmText="Imprimir"
+        cancelText="No imprimir"
+        variant="success"
+        onConfirm={() => {
+          if (printPromptTicket && !printAttentionTicket([printPromptTicket])) {
+            toast.warning("No se pudo preparar la impresión del ticket.");
+          }
+          setPrintPromptTicket(null);
+        }}
+        onCancel={() => setPrintPromptTicket(null)}
+      />
+
       <EditReservationModal
         ticket={editingTicket}
-        onClose={() => setEditingTicket(null)}
+        saveLabel={
+          editingTicket && startAfterEditRef.current === editingTicket.id ? "Guardar y pasar a servicio" : undefined
+        }
+        onClose={() => {
+          startAfterEditRef.current = null;
+          setEditingTicket(null);
+        }}
         onSaved={(updated) => {
+          const merged = { ...(editingTicket ?? {}), ...updated } as TicketItem;
           setTickets((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
           setEditingTicket(null);
           setTicketsPanelRefresh((n) => n + 1);
           void loadAgendaContext({ silent: true });
           window.dispatchEvent(new Event(AGENDA_REFRESH_EVENT));
+          // Venía de "Pasar a En servicio" sin operaria: ya la tiene, se continúa.
+          const resumeStart = startAfterEditRef.current === updated.id && Boolean(merged.professional_id);
+          startAfterEditRef.current = null;
+          if (resumeStart) void startServiceFromAgenda(merged);
         }}
         branchId={branchId}
         services={services}

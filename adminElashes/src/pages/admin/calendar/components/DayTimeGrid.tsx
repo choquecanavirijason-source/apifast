@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
-import { parseTicketDate, ticketCardClass, toIsoDate } from "../dailyAgenda.utils";
+import { statusBadgeLabel, parseTicketDate, ticketCardClass, toIsoDate } from "../dailyAgenda.utils";
 
 /**
  * Agenda por horas estilo Apple Calendar, para 1 día (vista Día) o 7 días (vista Semana).
@@ -484,6 +484,11 @@ export default function DayTimeGrid({
         <div className="pointer-events-none flex min-w-0 flex-col leading-tight">
           <div className="flex min-w-0 items-baseline gap-1">
             <span className="truncate text-[12px] font-semibold">{firstName}</span>
+            {statusBadgeLabel(ticket.status) && (
+              <span className="shrink-0 rounded bg-white/80 px-1 text-[10px] font-semibold leading-4">
+                {statusBadgeLabel(ticket.status)}
+              </span>
+            )}
             {height < 40 && !isWeek && (
               <span className="shrink-0 text-[11px] tabular-nums opacity-75">{formatMinute(start)}</span>
             )}

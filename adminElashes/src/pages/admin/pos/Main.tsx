@@ -23,6 +23,8 @@ import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
 import { usePosPage } from "./usePosPage";
 import type { PosContext } from "./pos.context";
 import useAuth from "../../../core/hooks/useAuth";
+import AllergyConfirmModal from "../control-de-servicios/components/AllergyConfirmModal";
+import { needsAllergyConfirmation } from "../control-de-servicios/allergyCheck";
 
 type ProductForm = Omit<Product, "id" | "updatedAt">;
 type ProductFormErrors = Partial<Record<keyof ProductForm, string>>;
@@ -458,6 +460,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             onGoToScheduleStep={() => pos.setStep(2)}
             onFinalizeSale={() => void pos.handleCheckout()}
             onCreateImmediateTicket={(payLater, startService) => void pos.handleImmediateCheckout(payLater, startService)}
+            birthdayCoupon={pos.birthdayCoupon}
             isSubmittingCheckout={pos.isSubmitting}
             ticketMode={pos.ticketMode}
             setTicketMode={pos.setTicketMode}
@@ -617,6 +620,27 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           onCloseAvailabilityPreview={() => { pos.setAvailabilityPreviewLineId(null); pos.setAvailabilityPreviewDate(""); pos.setAvailabilitySearch(""); }}
           formatHourMinute={pos.formatHourMinute}
           toDateAndTimeInputValues={pos.toDateAndTimeInputValues}
+        />
+
+        {/* "Cobrar e iniciar atención": con la venta cobrada, primero las alergias y luego el ticket */}
+        <AllergyConfirmModal
+          ticket={pos.startFlow?.step === "allergies" ? (pos.startFlow.tickets.find(needsAllergyConfirmation) ?? null) : null}
+          onClose={pos.handleStartFlowCancel}
+          onConfirmed={(ticket, allergies) => void pos.handleStartFlowAllergiesConfirmed(ticket, allergies)}
+        />
+        <ConfirmDialog
+          isOpen={pos.startFlow?.step === "print"}
+          title="Imprimir ticket"
+          message={
+            <p>
+              <strong>{pos.startFlow?.tickets[0]?.client_name}</strong> pasó a En servicio. ¿Quieres imprimir su ticket de atención?
+            </p>
+          }
+          confirmText="Imprimir"
+          cancelText="No imprimir"
+          variant="success"
+          onConfirm={() => pos.handleStartFlowPrint(true)}
+          onCancel={() => pos.handleStartFlowPrint(false)}
         />
 
         <ConfirmDialog

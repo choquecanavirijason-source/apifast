@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart2, Download, List, Package, Search } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
+import { fetchAllPages } from "@/core/utils/fetchAllPages";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import Layout from "@/components/common/layout";
 import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/common/ui";
@@ -89,13 +90,17 @@ export default function TicketsHistoryPage() {
     setError(null);
     try {
       const [ticketsResult, trackingsResult] = await Promise.allSettled([
-        AgendaService.listTickets({
-          limit: 500,
-          branch_id: activeBranchId ?? undefined,
-          start_date: fromDate || undefined,
-          end_date: toDate || undefined,
-        }),
-        TrackingService.list({ limit: 500 }),
+        // Todas las páginas: con un tope fijo, un rango largo cortaba tickets del historial.
+        fetchAllPages((skip, limit) =>
+          AgendaService.listTickets({
+            skip,
+            limit,
+            branch_id: activeBranchId ?? undefined,
+            start_date: fromDate || undefined,
+            end_date: toDate || undefined,
+          }), 500
+        ),
+        fetchAllPages((skip, limit) => TrackingService.list({ skip, limit }), 500),
       ]);
       setTickets(ticketsResult.status === "fulfilled" ? ticketsResult.value : []);
       setTrackings(trackingsResult.status === "fulfilled" ? trackingsResult.value : []);

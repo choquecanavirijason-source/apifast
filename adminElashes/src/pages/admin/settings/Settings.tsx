@@ -5,6 +5,7 @@ import { useLogo } from '../../../core/hooks/useLogo'
 import useAuth from '../../../core/hooks/useAuth'
 import { ImagePlus, Trash2, CheckCircle2 } from 'lucide-react'
 import { SectionCard } from '../../../components/common/ui'
+import BirthdayCouponSettings from './BirthdayCouponSettings'
 
 const THEME_LABELS: Record<string, string> = { light: 'Claro', ocean: 'Océano', dark: 'Oscuro' }
 const THEME_SWATCH: Record<string, string> = { light: 'bg-[#f4f8f6]', ocean: 'bg-[#dcfce7]', dark: 'bg-[#021a12]' }
@@ -362,6 +363,9 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* ── CUPÓN DE CUMPLEAÑOS (solo administración) ───────────────────────── */}
+      {(hasRole('Admin') || isSuperAdmin) && <BirthdayCouponSettings />}
 
       {/* ── TEMAS ───────────────────────────────────────────────────────────── */}
       <SectionCard title="Tema" subtitle="Apariencia del panel en este navegador." className="mb-3">

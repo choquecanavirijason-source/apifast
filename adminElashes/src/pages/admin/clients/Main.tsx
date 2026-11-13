@@ -11,7 +11,7 @@ import FilterActionBar from "../../../components/common/FilterActionBar";
 import { Button, SectionCard, SegmentedTabs, StatCard } from "../../../components/common/ui";
 import RegisterClientModal from "./RegisterClientModal";
 import ClientSalesHistoryModal from "./ClientSalesHistoryModal";
-import { BRANCH_STORAGE_KEY, getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
+import { getSelectedBranchId, setSelectedBranchId } from "../../../core/utils/branch";
 import { generateTablePdf } from "../../../core/utils/generateTablePdf";
 
 const SEEDED_EYE_TYPES_FALLBACK: EyeTypeOption[] = [
@@ -30,7 +30,6 @@ export default function ClientListPage() {
   const [clientError, setClientError] = useState<string | null>(null);
   const [eyeTypes, setEyeTypes] = useState<EyeTypeOption[]>([]);
   const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
-  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [isLoadingEyeTypes, setIsLoadingEyeTypes] = useState(false);
   const [eyeTypesError, setEyeTypesError] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -72,7 +71,9 @@ export default function ClientListPage() {
     if (!silent) setIsLoadingClients(true);
     setClientError(null);
     try {
-      const clients = await ClientService.list({ branch_id: activeBranchId ?? undefined, limit: 1000 });
+      // Todas las clientas, sin filtrar por la sucursal activa: una clienta registrada en una
+      // sucursal puede atenderse en otra y tiene que aparecer igual.
+      const clients = await ClientService.list({ limit: 1000 });
       setItems(clients);
     } catch (error) {
       console.error("Error cargando clientes:", error);
@@ -80,7 +81,7 @@ export default function ClientListPage() {
     } finally {
       if (!silent) setIsLoadingClients(false);
     }
-  }, [activeBranchId]);
+  }, []);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -124,21 +125,6 @@ export default function ClientListPage() {
   }, [loadClients]);
 
   useEffect(() => {
-    const handleChange = () => setActiveBranchId(getSelectedBranchId());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === BRANCH_STORAGE_KEY) {
-        handleChange();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("branchchange", handleChange);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("branchchange", handleChange);
-    };
-  }, []);
-
-  useEffect(() => {
     BranchService.list({ limit: 200 })
       .then((data) => {
         setBranches(data);
@@ -146,7 +132,6 @@ export default function ClientListPage() {
         const currentBranchId = getSelectedBranchId();
         if (currentBranchId && !data.some((b) => b.id === currentBranchId)) {
           setSelectedBranchId(null);
-          setActiveBranchId(null);
         }
       })
       .catch((error) => {
@@ -257,6 +242,8 @@ export default function ClientListPage() {
     const eyeTypeRaw = String(formData.get("eye_type_id") ?? "").trim();
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
     const ciRaw = String(formData.get("ci") ?? "").trim();
+    const allergiesRaw = String(formData.get("allergies") ?? "").trim();
+    const birthDateRaw = String(formData.get("birth_date") ?? "").trim();
 
     if (!nombre || !apellido) {
       toast.warning("Nombre y apellido son obligatorios.");
@@ -297,6 +284,10 @@ export default function ClientListPage() {
           eye_type_id,
           branch_id,
           ci: ciRaw || undefined,
+          // En edición se manda aunque esté vacío: así se pueden borrar las alergias.
+          allergies: allergiesRaw,
+          // En edición se manda null para poder borrarla.
+          birth_date: birthDateRaw || null,
         });
 
         const updatedWithUiFields: IClient = {
@@ -321,6 +312,8 @@ export default function ClientListPage() {
         eye_type_id,
         branch_id,
         ci: ciRaw || undefined,
+        allergies: allergiesRaw || undefined,
+        birth_date: birthDateRaw || undefined,
       });
 
       const createdWithUiFields: IClient = {

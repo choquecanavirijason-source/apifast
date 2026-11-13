@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { Scissors, User, Clock, X, Tv2 } from "lucide-react";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
+import { HYGIENE_NOTICE } from "../../../../core/constants/hygieneNotice";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -309,6 +310,11 @@ export default function QueueTvDisplay({
             })}
           </div>
         )}
+      </div>
+
+      {/* Aviso para las clientas que esperan */}
+      <div className="border-t border-emerald-200 bg-emerald-50 px-6 py-3 text-center text-base font-semibold text-emerald-800">
+        {HYGIENE_NOTICE}
       </div>
 
       {/* Ticker inferior */}

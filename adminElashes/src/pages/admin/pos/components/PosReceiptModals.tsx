@@ -9,6 +9,7 @@ import { SegmentedTabs } from "../../../../components/common/ui";
 import { type PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { ProfessionalForSelect, TicketItem } from "../../../../core/services/agenda/agenda.service";
 import type { ReceiptTicketEdit } from "../pos.types";
+import { HYGIENE_NOTICE } from "../../../../core/constants/hygieneNotice";
 
 const TICKET_STATUS_LABELS: Record<string, string> = {
   pending: "En espera",
@@ -442,8 +443,8 @@ export default function PosReceiptModals({
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Formato de impresión</p>
                 <SegmentedTabs
                   options={[
-                    { id: "a4", label: "Hoja grande (A4)" },
                     { id: "thermal", label: "Impresora térmica" },
+                    { id: "a4", label: "Hoja grande (A4)" },
                   ]}
                   value={printFormat}
                   onChange={setPrintFormat}
@@ -555,6 +556,22 @@ export default function PosReceiptModals({
 
                   <div className="my-3 border-t border-dashed border-slate-300" />
 
+                  {Number(receiptSale.discount_value) > 0 && (
+                    <div className="mb-2 space-y-0.5 text-xs text-slate-600">
+                      <div className="flex items-center justify-between">
+                        <span>Subtotal</span>
+                        <span>Bs {receiptSale.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>
+                          Descuento{receiptSale.coupon_label ? ` · ${receiptSale.coupon_label}` : ""}
+                          {receiptSale.discount_type === "percent" ? ` (${receiptSale.discount_value}%)` : ""}
+                        </span>
+                        <span>−Bs {Math.max(0, receiptSale.subtotal - receiptSale.total).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-slate-700">TOTAL</span>
                   <span className="text-xl font-black text-slate-900">Bs {receiptSale.total.toFixed(2)}</span>
@@ -568,6 +585,7 @@ export default function PosReceiptModals({
 
                   <div className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center">
                     <p className="text-[11px] text-slate-400">¡Gracias por su compra!</p>
+                    <p className="mt-2 text-[10px] leading-snug text-slate-500">{HYGIENE_NOTICE}</p>
                   </div>
                 </div>
 

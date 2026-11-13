@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, ArrowRightLeft } from "lucide-react";
 import { toast } from "react-toastify";
+import { fetchAllPages } from "../../../core/utils/fetchAllPages";
 import { NotificationsService } from "../../../core/services/notifications/notifications.service";
 import { useSearchParams } from "react-router-dom";
 import DataTable, { type DataTableAction, type DataTableColumn } from "../../../components/common/table/DataTable.tsx";
@@ -215,7 +216,9 @@ export default function Main() {
     setProductsError(null);
     try {
       const activeBranch = branchId !== undefined ? branchId : selectedInventoryBranchId;
-      const data = await ProductService.listProducts({ limit: 200, branch_id: activeBranch ?? undefined });
+      const data = await fetchAllPages((skip, limit) =>
+        ProductService.listProducts({ skip, limit, branch_id: activeBranch ?? undefined })
+      );
       setProducts(data);
       const critical = data.filter((p) => p.stock <= p.minStock);
       if (critical.length > 0) {

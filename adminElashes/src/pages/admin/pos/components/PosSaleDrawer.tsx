@@ -1,8 +1,8 @@
 ﻿import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
-import type { CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
+import type { BirthdayCouponUi, CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
 
 // Sección "Horario de tickets" (colapsable, encabezado "Horario · automático")
@@ -73,6 +73,8 @@ type PosSaleDrawerProps = {
   onApplySellerToAllLines?: () => void;
   /** Turno inmediato: crea tickets con hora actual sin abrir el planificador. */
   onImmediateCheckout?: (payLater: boolean, startService?: boolean) => void;
+  /** Cupón de cumpleaños de la clienta elegida (solo en venta nueva). */
+  birthdayCoupon?: BirthdayCouponUi;
   /** URL de la imagen QR estático de pago de la sucursal. */
   branchQrImageUrl?: string | null;
   /** Fuerza qué pestaña interna (servicios/cliente/pago) mostrar — usado por
@@ -137,6 +139,7 @@ export default function PosSaleDrawer({
   professionalBusyUntilMap = new Map(),
   onApplySellerToAllLines,
   onImmediateCheckout,
+  birthdayCoupon,
   branchQrImageUrl,
   forceStep = null,
 }: PosSaleDrawerProps) {
@@ -766,6 +769,42 @@ export default function PosSaleDrawer({
 
       {activeStep === "pago" && (
       <div className="pb-4">
+        {/* Cupón de cumpleaños: lo ofrece el sistema; la cajera decide si lo aplica */}
+        {birthdayCoupon?.eligibility?.eligible && (
+          <div
+            className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs ${
+              birthdayCoupon.applied
+                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                : "border-amber-300 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <Cake className="h-4 w-4 shrink-0" aria-hidden />
+              <p className="min-w-0 leading-snug">
+                <strong>{selectedClient?.nombre ?? "La clienta"}</strong> está de cumpleaños
+                {birthdayCoupon.eligibility.birthday
+                  ? ` (${birthdayCoupon.eligibility.birthday.slice(8, 10)}/${birthdayCoupon.eligibility.birthday.slice(5, 7)})`
+                  : ""}
+                : cupón de <strong>{birthdayCoupon.eligibility.percent}%</strong> de descuento.
+                {birthdayCoupon.applied ? ` Aplicado: −Bs ${(subtotal - total).toFixed(2)}.` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={birthdayCoupon.onToggle}
+              className="shrink-0 rounded-md border border-current/30 bg-white/70 px-2.5 py-1 font-semibold hover:bg-white"
+            >
+              {birthdayCoupon.applied ? "Quitar" : "Aplicar cupón"}
+            </button>
+          </div>
+        )}
+        {birthdayCoupon?.eligibility?.reason === "already_used" && (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+            <Cake className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Ya usó su cupón de cumpleaños de este año.
+          </div>
+        )}
+
         {/* Tickets + Operaria + Pago */}
         <div>
         <div>
@@ -845,7 +884,7 @@ export default function PosSaleDrawer({
                             key={p.id}
                             type="button"
                             onClick={() => { setSellerId(String(p.id)); setIsSellerOpen(false); }}
-                            title={inService ? "Ocupada ahora — se puede igual poner en su cola con \"Agendar cita\"" : undefined}
+                            title={inService ? "Ocupada ahora — se puede igual poner en su cola con \"Cobrar y poner en espera\"" : undefined}
                             className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
                               String(p.id) === sellerId
                                 ? "bg-[#ecfdf5]"
@@ -1240,6 +1279,12 @@ export default function PosSaleDrawer({
           const pro = professionals.find((p) => String(p.id) === effectiveId);
           return pro?.is_busy === true;
         });
+        // Por qué "Cobrar e iniciar atención" está desactivado (se muestra bajo los botones).
+        const startBlockedReason = !missingSellerForService
+          ? null
+          : cartLines.some((l) => !(l.professional_id || sellerId))
+            ? "Elige una operaria para poder iniciar la atención ahora."
+            : "La operaria elegida está ocupada: usa «Cobrar y poner en espera».";
         return (
         <>
           {/* Validación */}
@@ -1267,27 +1312,30 @@ export default function PosSaleDrawer({
                   onImmediateCheckout(false);
                 }
               }}
-              className={`flex h-9 flex-1 items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+              className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
                 cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
                   : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
               }`}
             >
-              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Agendar cita"}
+              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Cobrar y poner en espera"}
             </button>
             <button
               type="button"
               disabled={cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting}
               onClick={() => onImmediateCheckout(false, true)}
-              className={`flex h-9 flex-1 items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+              className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
                 cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
                   : "bg-[#094732] text-white hover:bg-[#063324]"
               }`}
             >
-              {isSubmitting ? "Procesando…" : "Atender ahora"}
+              {isSubmitting ? "Procesando…" : "Cobrar e iniciar atención"}
             </button>
           </div>
+          {startBlockedReason && cartCount > 0 && step3Done && tutorDataComplete && (
+            <p className="mt-1.5 text-center text-[10px] font-medium text-[var(--ui-text-muted)]">{startBlockedReason}</p>
+          )}
         </>
         );
       })()) : (

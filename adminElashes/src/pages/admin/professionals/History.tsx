@@ -5,6 +5,7 @@ import { Banknote, BadgeCheck, CheckCircle2, Download, List, X } from "lucide-re
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
+import { fetchAllPages } from "@/core/utils/fetchAllPages";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { getApiErrorMessage } from "@/core/utils/apiError";
 import useAuth from "@/core/hooks/useAuth";
@@ -246,13 +247,17 @@ export default function ProfessionalServiceHistory() {
     setError(null);
     try {
       const settled = await Promise.allSettled([
-        AgendaService.listTickets({
-          limit: 500,
-          branch_id: activeBranchId ?? undefined,
-          start_date: fromDate || undefined,
-          end_date: toDate || undefined,
-        }),
-        TrackingService.list({ limit: 500 }),
+        // Todas las páginas: con un tope fijo, un rango largo cortaba tickets y cambiaba los totales de comisión.
+        fetchAllPages((skip, limit) =>
+          AgendaService.listTickets({
+            skip,
+            limit,
+            branch_id: activeBranchId ?? undefined,
+            start_date: fromDate || undefined,
+            end_date: toDate || undefined,
+          }), 500
+        ),
+        fetchAllPages((skip, limit) => TrackingService.list({ skip, limit }), 500),
       ]);
 
       if (settled[0].status === "fulfilled") {

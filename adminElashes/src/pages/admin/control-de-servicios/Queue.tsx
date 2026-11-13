@@ -13,7 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronDown, HelpCircle, Plus, RefreshCw, Search, Tv2, Users, X } from "lucide-react";
+import { ChevronDown, HelpCircle, Plus, Printer, RefreshCw, Search, Tv2, Users, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useWebSocket, type WsEvent } from "@/core/hooks/useWebSocket";
 import { toast } from "react-toastify";
@@ -48,6 +48,9 @@ import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
 import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/QueueTutorialModal";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
+import { isPrintOnStartEnabled, printAttentionTicket, setPrintOnStartEnabled } from "./printAttentionTicket";
+import { needsAllergyConfirmation, sharesAllergyAnswer, withConfirmedAllergies } from "./allergyCheck";
+import AllergyConfirmModal from "./components/AllergyConfirmModal";
 import useAuth from "../../../core/hooks/useAuth";
 
 // TEMPORAL (2026-08-17): Control de servicios normalmente solo muestra las
@@ -88,6 +91,20 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   const [operariasOpen, setOperariasOpen] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
   const { user } = useAuth();
+  // Imprimir el ticket de atención al iniciar la atención (se recuerda por
+  // navegador: cada caja tiene su impresora).
+  const [printOnStart, setPrintOnStart] = useState<boolean>(() => isPrintOnStartEnabled());
+  const togglePrintOnStart = (value: boolean) => {
+    setPrintOnStart(value);
+    setPrintOnStartEnabled(value);
+  };
+  // Clienta a la que aún no se le confirmaron las alergias: se pregunta antes de iniciar.
+  const [allergyTicket, setAllergyTicket] = useState<TicketItem | null>(null);
+  // Al iniciar una atención se pregunta antes de abrir la impresión.
+  const [printPromptTicket, setPrintPromptTicket] = useState<TicketItem | null>(null);
+  const handlePrintTicket = (ticket: TicketItem) => {
+    if (!printAttentionTicket([ticket])) toast.warning("No se pudo preparar la impresión del ticket.");
+  };
   const tutorialStorageKey = useMemo(() => getQueueTutorialStorageKey(user?.id), [user?.id]);
 
   // Primera vez que este usuario entra al tablero de atención: mostrar la
@@ -271,10 +288,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   // Clientas para poder asignarlas/corregirlas en un ticket antes de finalizar
   useEffect(() => {
     let cancelled = false;
-    AgendaService.listClientsForSelect({
-      limit: 200,
-      ...(activeBranchId ? { branch_id: activeBranchId } : {}),
-    })
+    // Clientas de TODAS las sucursales (p. ej. una registrada desde el marketplace en otra).
+    AgendaService.listClientsForSelect({ limit: 200 })
       .then((data) => { if (!operationalContext || !cancelled) setClients(data); })
       .catch(() => { if (!operationalContext || !cancelled) setClients([]); });
     return () => { cancelled = true; };
@@ -484,7 +499,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     }
   };
 
-  const handleStartServiceImpl = async (ticket: TicketItem) => {
+  const handleStartServiceImpl = async (ticket: TicketItem, options?: { skipAllergy?: boolean }) => {
     if (!ticket.professional_id) {
       toast.warning("Asigna una operaria antes de iniciar la atención.");
       return;
@@ -498,6 +513,12 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.error(
         `La operaria ya está atendiendo a ${clientName}. Finaliza ese servicio antes de iniciar uno nuevo.`
       );
+      return;
+    }
+
+    // Primero se confirman las alergias si nunca se le han preguntado.
+    if (!options?.skipAllergy && needsAllergyConfirmation(ticket)) {
+      setAllergyTicket(ticket);
       return;
     }
 
@@ -515,6 +536,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       // chequeo los rechazaba sin que hubiera ningún conflicto real.
       await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "in_service", skip_availability_check: true })));
       toast.success("Atención iniciada.");
+      if (printOnStart) setPrintPromptTicket(ticket);
       void loadTickets();
     } catch (error) {
       setTickets(snapshot);
@@ -771,6 +793,11 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.warning("Asigna una operaria antes de mover a En servicio.");
       return;
     }
+    // Sin alergias confirmadas no se mueve todavía: se pregunta y luego inicia igual que el botón.
+    if (newStatus === "in_service" && needsAllergyConfirmation(ticket)) {
+      setAllergyTicket(ticket);
+      return;
+    }
 
     const allIds = [ticketId, ...siblingIds];
     if (isGroupBusy(allIds)) return;
@@ -785,6 +812,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
         skip_availability_check: true,
       })));
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
+      if (newStatus === "in_service" && printOnStart) setPrintPromptTicket(ticket);
       void loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
@@ -924,6 +952,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     const phone = String(fd.get("phone") ?? "").trim();
     const eyeRaw = String(fd.get("eye_type_id") ?? "").trim();
     const branchRaw = String(fd.get("branch_id") ?? "").trim();
+    const allergies = String(fd.get("allergies") ?? "").trim();
+    const birthDate = String(fd.get("birth_date") ?? "").trim();
     if (!nombre || !apellido) { toast.warning("Nombre y apellido son obligatorios."); return; }
     const parsedEdad = Number(edadRaw);
     const edad = edadRaw && Number.isFinite(parsedEdad) ? parsedEdad : undefined;
@@ -943,6 +973,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
         name: nombre, last_name: apellido, age: edad,
         phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined,
         eye_type_id, branch_id,
+        allergies: allergies || undefined,
+        birth_date: birthDate || undefined,
       });
       setClients((prev) => [{ id: created.id, nombre: created.nombre, apellido: created.apellido, phone: created.phone }, ...prev]);
       await handleChangeTicketClientImpl(registerClientTarget, String(created.id));
@@ -1008,7 +1040,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   };
   const handleNoShow = (ticket: TicketItem) => runQueueWrite(() => handleNoShowImpl(ticket), ticket);
   const handleCancelTicket = (ticket: TicketItem) => runQueueWrite(() => handleCancelTicketImpl(ticket), ticket);
-  const handleStartService = (ticket: TicketItem) => runQueueWrite(() => handleStartServiceImpl(ticket), ticket);
+  const handleStartService = (ticket: TicketItem, options?: { skipAllergy?: boolean }) =>
+    runQueueWrite(() => handleStartServiceImpl(ticket, options), ticket);
   const handleFinishService = () => runQueueWrite(handleFinishServiceImpl, finishTarget);
   const handleDragEnd = (event: DragEndEvent) => runQueueWrite(() => handleDragEndImpl(event), activeDragTicket);
   const handleMarkCompleted = (ticket: TicketItem) => runQueueWrite(() => handleMarkCompletedImpl(ticket), ticket);
@@ -1214,6 +1247,19 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
 
       {/* Refresh — empujado a la derecha */}
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
+        <label
+          className="flex cursor-pointer select-none items-center gap-1.5 rounded-lg border border-[var(--ui-border)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--ui-text-muted)]"
+          title="Imprime el ticket con los datos de la clienta y lo que solicita al iniciar su atención"
+        >
+          <input
+            type="checkbox"
+            checked={printOnStart}
+            onChange={(e) => togglePrintOnStart(e.target.checked)}
+            className="h-3.5 w-3.5 accent-[#094732]"
+          />
+          <Printer className="h-3.5 w-3.5" />
+          Imprimir al iniciar
+        </label>
         <div className="flex flex-col items-center gap-0">
           <button
             type="button"
@@ -1293,6 +1339,15 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     </button>
                     <button
                       type="button"
+                      onClick={(e) => { e.stopPropagation(); handlePrintTicket(ticket); }}
+                      title="Imprimir ticket de atención"
+                      aria-label="Imprimir ticket de atención"
+                      className="flex items-center justify-center rounded-lg border border-slate-200 bg-white/70 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
                       className="rounded-lg border border-rose-200 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 transition-colors"
                     >
@@ -1339,6 +1394,15 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     </button>
                     <button
                       type="button"
+                      onClick={(e) => { e.stopPropagation(); handlePrintTicket(ticket); }}
+                      title="Imprimir ticket de atención"
+                      aria-label="Imprimir ticket de atención"
+                      className="flex items-center justify-center rounded-lg border border-slate-200 bg-white/70 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
                       className="rounded-lg border border-rose-200 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 transition-colors"
                     >
@@ -1376,9 +1440,22 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                 isSavingEdit={editingTicketId === ticket.id}
                 actions={
                   ticket.sale_id ? (
-                    <span className="inline-block rounded-lg border border-[#107c10]/30 bg-[#f1fbf1] px-3 py-1.5 text-center text-[11px] font-semibold text-[#107c10]">
-                      Pagado — Venta #{ticket.sale_id}
-                    </span>
+                    ticket.sale_status === "paid" ? (
+                      <span className="inline-block rounded-lg border border-[#107c10]/30 bg-[#f1fbf1] px-3 py-1.5 text-center text-[11px] font-semibold text-[#107c10]">
+                        Pagado — Venta #{ticket.sale_id}
+                      </span>
+                    ) : ticket.sale_status === "cancelled" ? (
+                      <span className="inline-block rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-center text-[11px] font-semibold text-slate-500">
+                        Venta #{ticket.sale_id} cancelada
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-block rounded-lg border border-[#d83b01]/40 bg-[#fff4ec] px-3 py-1.5 text-center text-[11px] font-semibold text-[#b83000]"
+                        title="La atención terminó pero la venta aún no se cobró. Se cobra desde Caja POS."
+                      >
+                        Por cobrar — Venta #{ticket.sale_id}
+                      </span>
+                    )
                   ) : (
                     <button
                       type="button"
@@ -1441,6 +1518,37 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
               setDeleteConfirmationCode("");
             }
           }}
+        />
+
+        <AllergyConfirmModal
+          ticket={allergyTicket}
+          onClose={() => setAllergyTicket(null)}
+          onConfirmed={(ticket, allergies) => {
+            setAllergyTicket(null);
+            // Registrada: todos sus tickets quedan confirmados. Mostrador: solo este ticket.
+            setTickets((prev) => prev.map((t) => (sharesAllergyAnswer(ticket, t) ? withConfirmedAllergies(t, allergies) : t)));
+            void handleStartService(withConfirmedAllergies(ticket, allergies), { skipAllergy: true });
+          }}
+        />
+
+        <ConfirmDialog
+          isOpen={printPromptTicket !== null}
+          title="Imprimir ticket"
+          message={
+            printPromptTicket ? (
+              <p>
+                <strong>{printPromptTicket.client_name}</strong> pasó a En servicio. ¿Quieres imprimir su ticket de atención?
+              </p>
+            ) : ""
+          }
+          confirmText="Imprimir"
+          cancelText="No imprimir"
+          variant="success"
+          onConfirm={() => {
+            if (printPromptTicket) handlePrintTicket(printPromptTicket);
+            setPrintPromptTicket(null);
+          }}
+          onCancel={() => setPrintPromptTicket(null)}
         />
 
         <ConfirmDialog

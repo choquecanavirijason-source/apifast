@@ -104,6 +104,18 @@ export function groupTicketsByHourAndStation(
   return map;
 }
 
+/** Etiqueta con el estado de la reserva, para leerlo sin depender solo del color. */
+export function statusBadgeLabel(status?: string | null): string | null {
+  const s = (status ?? "").toLowerCase();
+  if (s === "completed" || s === "finalizado" || s === "atendido") return "✓ Finalizada";
+  if (s === "cancelled" || s === "cancelado") return "Cancelada";
+  if (s === "in_service" || s === "siendo_atendido" || s === "en_servicio") return "En servicio";
+  if (s === "waiting" || s === "en_espera_validacion") return "En espera";
+  if (s === "confirmed" || s === "confirmado") return "Confirmada";
+  if (s === "pending" || s === "pendiente") return "Pendiente";
+  return null;
+}
+
 export function ticketCardClass(status?: string | null): string {
   const s = (status ?? "").toLowerCase();
   if (s === "cancelled" || s === "cancelado") {
@@ -120,7 +132,8 @@ export function ticketCardClass(status?: string | null): string {
     return "border-[#9F8351]/60 bg-[#f6f1e7] text-[#5c4a26]";
   }
   if (s === "completed" || s === "finalizado" || s === "atendido") {
-    return "border-[#094732]/40 bg-[#ecfdf5] text-[#094732]";
+    // Finalizada: gris apagado, para que no se confunda con una confirmada (verde) ni con una abierta.
+    return "border-slate-300 bg-slate-100 text-slate-500";
   }
   return "border-[var(--ui-border-strong)] bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]";
 }

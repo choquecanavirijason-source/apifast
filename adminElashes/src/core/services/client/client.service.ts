@@ -28,6 +28,8 @@ interface BackendClient {
   status?: string;
   created_at?: string;
   ci?: string | null;
+  allergies?: string | null;
+  birth_date?: string | null;
   marketplace_enabled?: boolean;
 }
 
@@ -40,6 +42,10 @@ export interface ClientCreatePayload {
   branch_id?: number;
   eye_type_id?: number;
   ci?: string;
+  /** Alergias a algún producto (texto libre). En edición, "" las borra. */
+  allergies?: string;
+  /** Fecha de nacimiento YYYY-MM-DD. En edición, null la borra. */
+  birth_date?: string | null;
 }
 
 export type RetoqueTipo = "mantenimiento" | "retiro";
@@ -116,6 +122,8 @@ const mapBackendClientToIClient = (client: BackendClient): IClient => ({
   visitas: client.visit_count ?? 0,
   status: (client.status ?? "sin_estado") as IClient["status"],
   ci: client.ci ?? undefined,
+  allergies: client.allergies ?? undefined,
+  birthDate: client.birth_date ?? undefined,
   marketplaceEnabled: client.marketplace_enabled ?? false,
 });
 

@@ -44,6 +44,8 @@ export interface PosSaleCreatePayload {
   mixed_payments?: MixedPaymentEntry[];
   /** Monto de adelanto recibido al reservar. */
   advance_payment_amount?: number;
+  /** Aplica el cupón de cumpleaños de la clienta (el servidor valida y calcula el descuento). */
+  apply_birthday_coupon?: boolean;
   /** Solo si payment_method="cash" (no mixto): monto que entregó la clienta. */
   cash_received?: number;
 }
@@ -94,6 +96,8 @@ export interface PosSaleProductLine {
 export interface PosSaleItem {
   id: number;
   sale_code: string;
+  /** Cupón usado en la venta (p. ej. "Cupón de cumpleaños"), para el comprobante. */
+  coupon_label?: string | null;
   branch_id?: number | null;
   subtotal: number;
   discount_type: string;
@@ -125,6 +129,7 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       : {}),
     ...(payload.sale_without_appointments ? { sale_without_appointments: true } : {}),
     ...(payload.reservation_only ? { reservation_only: true } : {}),
+    ...(payload.apply_birthday_coupon ? { apply_birthday_coupon: true } : {}),
     ...(payload.advance_payment_amount != null && payload.advance_payment_amount > 0
       ? { advance_payment_amount: payload.advance_payment_amount }
       : {}),
@@ -204,6 +209,19 @@ export const PosSaleService = {
       return response.data;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, "No se pudo actualizar la venta."));
+    }
+  },
+
+  /** Cobra una venta reservada (p. ej. al pasar su cita de la agenda a servicio). */
+  async pay(
+    id: number,
+    payload: { payment_method: "cash" | "card" | "transfer" | "qr"; cash_received?: number },
+  ): Promise<PosSaleItem> {
+    try {
+      const response = await api.post<PosSaleItem>(`/pos-sales/${id}/pay`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "No se pudo registrar el cobro."));
     }
   },
 

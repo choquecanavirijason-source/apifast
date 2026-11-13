@@ -20,6 +20,7 @@ import {
   type PosSaleAppointment,
 } from "../../../core/services/pos-sale/pos-sale.service";
 import { ClientService } from "../../../core/services/client/client.service";
+import { CouponService, type BirthdayCouponEligibility } from "../../../core/services/coupon/coupon.service";
 import { BranchService } from "../../../core/services/branch/branch.service";
 import { CashSessionService, type CashSessionOut, type CashSessionDetail } from "../../../core/services/cash-session/cash-session.service";
 import { ProductService } from "../../../core/services/product/product.service";
@@ -27,6 +28,9 @@ import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "../../../core/utils/bra
 import type { EyeTypeOption } from "../../../core/services/client/client.service";
 import type { RootState } from "../../../store";
 import api from "../../../core/services/api";
+import { fetchAllPages } from "../../../core/utils/fetchAllPages";
+import { needsAllergyConfirmation, withConfirmedAllergies } from "../control-de-servicios/allergyCheck";
+import { isPrintOnStartEnabled, printAttentionTicket } from "../control-de-servicios/printAttentionTicket";
 import { PosContext, posDraftKey, persistPosDraft } from "./pos.context";
 import type { Product } from "../../../core/types/IProduct";
 import type { CartLine, PosSaleDraft, ProductCartLine, ReceiptTicketEdit } from "./pos.types";
@@ -148,6 +152,9 @@ export function usePosPage({
   const [mixedPayments, setMixedPayments]   = useState<Array<{ method: string; amount: number }>>([]);
   const [discountType, setDiscountType]     = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue]   = useState("0");
+  // Cupón de cumpleaños: se consulta al elegir la clienta y la cajera decide si lo aplica.
+  const [birthdayEligibility, setBirthdayEligibility] = useState<BirthdayCouponEligibility | null>(null);
+  const [couponApplied, setCouponApplied] = useState(false);
   const [notes, setNotes]                   = useState("");
   const [cartLines, setCartLines]           = useState<CartLine[]>([]);
   const [productLines, setProductLines]     = useState<ProductCartLine[]>([]);
@@ -160,6 +167,11 @@ export function usePosPage({
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting]               = useState(false);
   const [receiptSale, setReceiptSale]                 = useState<PosSaleItem | null>(null);
+  // "Cobrar e iniciar atención": con la venta ya cobrada, se confirman las alergias, se inicia
+  // la atención y se pregunta si imprimir el ticket. El comprobante se abre al terminar.
+  const [startFlow, setStartFlow] = useState<{
+    sale: PosSaleItem; tickets: TicketItem[]; step: "allergies" | "print";
+  } | null>(null);
   const [editingSale, setEditingSale]                 = useState<PosSaleItem | null>(null);
   const [confirmCancelSale, setConfirmCancelSale]     = useState<PosSaleItem | null>(null);
   const [confirmDeleteSale, setConfirmDeleteSale]     = useState<PosSaleItem | null>(null);
@@ -178,7 +190,7 @@ export function usePosPage({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen]               = useState(false);
   const [receiptTicketEdits, setReceiptTicketEdits]               = useState<Record<number, ReceiptTicketEdit>>({});
   const [isSavingReceiptTickets, setIsSavingReceiptTickets]       = useState(false);
-  const [printFormat, setPrintFormat]                             = useState<"a4" | "thermal">("a4");
+  const [printFormat, setPrintFormat]                             = useState<"a4" | "thermal">("thermal");
   const [isDraftHydrated, setIsDraftHydrated]                     = useState(false);
 
   // ── History filters & pagination ──────────────────────────────────────────
@@ -205,6 +217,48 @@ export function usePosPage({
   const clientPhone     = selectedClient?.phone?.trim() ?? "";
   const clientAddress   = selectedClient ? `Calle ${selectedClient.id} #${String(selectedClient.id).padStart(2, "0")}` : "";
   const numericDiscount = Number(discountValue) || 0;
+
+  // Con muchas clientas no caben todas en la lista inicial: al escribir se busca
+  // también en el servidor (en todas las sucursales) y se suman a la lista.
+  useEffect(() => {
+    const term = clientSearch.trim();
+    if (term.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      AgendaService.listClientsForSelect({ search: term, limit: 50 })
+        .then((found) => {
+          if (cancelled || found.length === 0) return;
+          setClients((prev) => {
+            const known = new Set(prev.map((c) => String(c.id)));
+            const extra = found.filter((c) => !known.has(String(c.id)));
+            return extra.length > 0 ? [...prev, ...extra] : prev;
+          });
+        })
+        .catch(() => undefined);
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [clientSearch]);
+
+  // Al elegir la clienta se consulta si le corresponde el cupón de cumpleaños. Al cambiar de
+  // clienta (o al editar una venta ya hecha) se quita el cupón: nunca se arrastra a otra persona.
+  useEffect(() => {
+    setCouponApplied(false);
+    setBirthdayEligibility(null);
+    const id = Number(clientId);
+    if (!clientId || !Number.isFinite(id) || id <= 0 || editingSale) return;
+    let cancelled = false;
+    CouponService.getBirthdayEligibility(id)
+      .then((result) => { if (!cancelled) setBirthdayEligibility(result); })
+      .catch(() => { if (!cancelled) setBirthdayEligibility(null); });
+    return () => { cancelled = true; };
+  }, [clientId, editingSale]);
+
+  const toggleBirthdayCoupon = () => {
+    if (birthdayEligibility?.eligible) setCouponApplied((applied) => !applied);
+  };
 
   const filteredClients = useMemo(() => {
     const term = clientSearch.trim().toLowerCase();
@@ -249,9 +303,14 @@ export function usePosPage({
     () => cartLines.reduce((s, l) => s + l.price, 0) + productsSubtotal,
     [cartLines, productsSubtotal]
   );
+  // El cupón NO se escribe en discountType/discountValue (esos se guardan en el borrador): un
+  // borrador viejo no puede dejar un descuento sin cupón registrado. Aquí se calcula aparte.
+  const couponPercent = couponApplied && birthdayEligibility?.eligible ? birthdayEligibility.percent : 0;
+  const effectiveDiscountType: "amount" | "percent" = couponPercent > 0 ? "percent" : discountType;
+  const effectiveDiscountValue = couponPercent > 0 ? couponPercent : numericDiscount;
   const discountAmount = useMemo(
-    () => (discountType === "percent" ? subtotal * (numericDiscount / 100) : numericDiscount),
-    [discountType, numericDiscount, subtotal]
+    () => (effectiveDiscountType === "percent" ? subtotal * (effectiveDiscountValue / 100) : effectiveDiscountValue),
+    [effectiveDiscountType, effectiveDiscountValue, subtotal]
   );
   const total        = Math.max(0, subtotal - discountAmount);
   const quickServices = useMemo(() => filteredServices.slice(0, 12), [filteredServices]);
@@ -527,19 +586,27 @@ export function usePosPage({
     try {
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
-        AgendaService.listClientsForSelect({ limit: 200, branch_id: branchFilter }),
-        AgendaService.listServices({ limit: 200, branch_id: branchFilter }),
+        // Clientas de TODAS las sucursales (p. ej. una registrada desde el marketplace en otra).
+        AgendaService.listClientsForSelect({ limit: 200 }),
+        fetchAllPages((skip, limit) => AgendaService.listServices({ skip, limit, branch_id: branchFilter })),
         AgendaService.listServiceCategories(),
-        AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: branchFilter }),
+        fetchAllPages((skip, limit) => AgendaService.listProfessionalsForSelect({ skip, limit, role_name: "Operaria", branch_id: branchFilter })),
         PosSaleService.list({ limit: 100, branch_id: branchFilter }),
         AgendaService.listTickets({ limit: 500, branch_id: branchFilter, start_date: saleBaseDate, end_date: saleBaseDate }),
-        ProductService.listProducts({ limit: 200, branch_id: branchFilter, active_only: true }),
+        fetchAllPages((skip, limit) => ProductService.listProducts({ skip, limit, branch_id: branchFilter, active_only: true })),
       ]);
       if (request !== loadRequest.current || scope !== scopeRef.current) return;
       const labels = ["Clientes", "Servicios", "Categorias", "Profesionales", "Ventas", "Agenda", "Productos"] as const;
       const failures: string[] = [];
 
-      if (settled[0].status === "fulfilled") setClients(settled[0].value);
+      if (settled[0].status === "fulfilled") {
+        const loaded = settled[0].value;
+        // Se conservan las clientas ya encontradas por búsqueda (y la seleccionada) que no entran en las 200 cargadas.
+        setClients((prev) => {
+          const known = new Set(loaded.map((c) => String(c.id)));
+          return [...loaded, ...prev.filter((c) => !known.has(String(c.id)))];
+        });
+      }
       else failures.push(`${labels[0]}: ${getApiErrorMessage(settled[0].reason, "Error al cargar clientes.")}`);
 
       if (settled[1].status === "fulfilled") setServices(settled[1].value);
@@ -754,7 +821,7 @@ export function usePosPage({
     if (!isCartOpen || !branchContext.initialized) return;
     let cancelled = false;
     const scope = draftStorageKey;
-    AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: activeBranchId ?? undefined })
+    fetchAllPages((skip, limit) => AgendaService.listProfessionalsForSelect({ skip, limit, role_name: "Operaria", branch_id: activeBranchId ?? undefined }))
       .then((data) => { if (!cancelled && scope === scopeRef.current) setProfessionals(data); }).catch(() => {});
     return () => { cancelled = true; };
   }, [isCartOpen, activeBranchId, branchContext.initialized, loggedUser?.id]);
@@ -1055,6 +1122,54 @@ export function usePosPage({
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
+  /** Pasa los tickets de la venta a "En servicio" y, si corresponde, pregunta si imprimir el ticket. */
+  const beginServiceForFlow = async (sale: PosSaleItem, tickets: TicketItem[]) => {
+    try {
+      await Promise.all(tickets.map((t) => AgendaService.updateAppointment(t.id, { status: "in_service" })));
+      toast.success("Atención iniciada.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "La venta quedó cobrada, pero no se pudo iniciar la atención. Inícia desde Control de servicios."));
+      setStartFlow(null);
+      setReceiptSale(sale);
+      return;
+    }
+    if (isPrintOnStartEnabled()) setStartFlow({ sale, tickets, step: "print" });
+    else { setStartFlow(null); setReceiptSale(sale); }
+  };
+
+  const handleStartFlowAllergiesConfirmedImpl = async (ticket: TicketItem, allergies: string | null) => {
+    const flow = startFlow;
+    if (!flow) return;
+    // Clienta de mostrador: la alergia es de este ticket, y los demás tickets de la venta son
+    // de la misma persona, así que se les anota la misma respuesta. Registrada: ya quedó en su ficha.
+    if (ticket.client?.is_generic) {
+      const others = flow.tickets.filter((t) => t.id !== ticket.id && needsAllergyConfirmation(t));
+      try {
+        await Promise.all(others.map((t) => AgendaService.confirmTicketAllergies(t.id, allergies)));
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "No se pudieron guardar las alergias en todos los tickets."));
+      }
+    }
+    await beginServiceForFlow(flow.sale, flow.tickets.map((t) => withConfirmedAllergies(t, allergies)));
+  };
+
+  /** Se cerró la confirmación de alergias sin responder: no se inicia; queda cobrado y en espera. */
+  const handleStartFlowCancel = () => {
+    const flow = startFlow;
+    setStartFlow(null);
+    if (!flow) return;
+    toast.info("La venta quedó cobrada y el ticket en espera. Inicia la atención desde Control de servicios.");
+    setReceiptSale(flow.sale);
+  };
+
+  const handleStartFlowPrint = (print: boolean) => {
+    const flow = startFlow;
+    setStartFlow(null);
+    if (!flow) return;
+    if (print && !printAttentionTicket(flow.tickets)) toast.warning("No se pudo preparar la impresión del ticket.");
+    setReceiptSale(flow.sale);
+  };
+
   const handleImmediateCheckoutImpl = async (payLater: boolean, startService?: boolean) => {
     if (!activeBranchId)  return toast.warning("Selecciona una sucursal.");
     // "Crear turno" / "Pasar a servicio" son acciones de agenda — no aplican
@@ -1105,21 +1220,34 @@ export function usePosPage({
       const sale = await PosSaleService.create({
         ...(clientId ? { client_id: Number(clientId) } : {}), branch_id: activeBranchId,
         payment_method: payLater ? "cash" : (mixedPayments.length > 0 ? "mixed" : paymentMethod),
-        discount_type: discountType, discount_value: numericDiscount, notes: notes.trim() || undefined, items,
+        // Con cupón el servidor fija el descuento: se manda sin descuento propio y con la marca.
+        discount_type: couponApplied ? "amount" : discountType, discount_value: couponApplied ? 0 : numericDiscount,
+        notes: notes.trim() || undefined, items,
+        ...(couponApplied ? { apply_birthday_coupon: true } : {}),
         ...(payLater ? { reservation_only: true } : {}),
         ...(!payLater && mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
         ...(!payLater && mixedPayments.length === 0 && paymentMethod === "cash" && cashReceived
           ? { cash_received: Number(cashReceived) }
           : {}),
       });
-      if (startService) {
-        await Promise.all(
-          sale.appointments.map((a) =>
-            AgendaService.updateAppointment(a.id, { status: "in_service" })
-          )
-        );
-      }
       toast.success(`Venta completada. Tickets: ${sale.appointments.map((a) => a.ticket_code).filter(Boolean).join(", ")}`);
+      if (startService) {
+        resetSaleForm();
+        await loadContext();
+        // La venta ya está cobrada: si algo falla desde aquí NO se reintenta el cobro; el ticket
+        // queda en espera y se inicia desde Control de servicios.
+        let tickets: TicketItem[];
+        try {
+          tickets = await Promise.all(sale.appointments.map((a) => AgendaService.getAppointment(a.id)));
+        } catch {
+          toast.warning("La venta quedó cobrada, pero no se pudo iniciar la atención. Inícia desde Control de servicios.");
+          setReceiptSale(sale);
+          return;
+        }
+        if (tickets.some(needsAllergyConfirmation)) setStartFlow({ sale, tickets, step: "allergies" });
+        else await beginServiceForFlow(sale, tickets);
+        return;
+      }
       setReceiptSale(sale); resetSaleForm();
       await loadContext();
     } catch (error: unknown) {
@@ -1213,7 +1341,9 @@ export function usePosPage({
       const sale = await PosSaleService.create({
         ...(clientId ? { client_id: Number(clientId) } : {}), branch_id: activeBranchId,
         payment_method: mixedPayments.length > 0 ? "mixed" : paymentMethod,
-        discount_type: discountType, discount_value: numericDiscount, notes: notes.trim() || undefined,
+        discount_type: couponApplied ? "amount" : discountType, discount_value: couponApplied ? 0 : numericDiscount,
+        notes: notes.trim() || undefined,
+        ...(couponApplied ? { apply_birthday_coupon: true } : {}),
         items: buildItems(),
         product_items: productLines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity })),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
@@ -1320,7 +1450,8 @@ export function usePosPage({
 
   const handleOpenPrintPreview = () => {
     if (!receiptSale) return;
-    setPrintFormat("a4"); setIsPrintPreviewOpen(true);
+    // La caja imprime en térmica por defecto; "Hoja grande (A4)" se elige a mano.
+    setPrintFormat("thermal"); setIsPrintPreviewOpen(true);
   };
 
   // ── Client registration ───────────────────────────────────────────────────
@@ -1334,6 +1465,8 @@ export function usePosPage({
     const phone    = String(fd.get("phone") ?? "").trim();
     const eyeRaw   = String(fd.get("eye_type_id") ?? "").trim();
     const branchRaw = String(fd.get("branch_id") ?? "").trim();
+    const allergies = String(fd.get("allergies") ?? "").trim();
+    const birthDate = String(fd.get("birth_date") ?? "").trim();
     if (!nombre || !apellido) { toast.warning("Nombre y apellido son obligatorios."); return; }
     const parsedEdad = Number(edadRaw);
     const edad = edadRaw && Number.isFinite(parsedEdad) ? parsedEdad : undefined;
@@ -1345,7 +1478,7 @@ export function usePosPage({
     let branch_id: number | undefined = branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0 ? parsedBranchId : undefined;
     if (!branchContext.multibranch || !branch_id) branch_id = activeBranchId ?? undefined;
     try {
-      const created = await ClientService.create({ name: nombre, last_name: apellido, age: edad, phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined, eye_type_id, branch_id });
+      const created = await ClientService.create({ name: nombre, last_name: apellido, age: edad, phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined, eye_type_id, branch_id, allergies: allergies || undefined, birth_date: birthDate || undefined });
       setClientId(String(created.id));
       setClientSearch(`${created.nombre} ${created.apellido}`.trim());
       setClients((prev) => prev.some((c) => String(c.id) === String(created.id)) ? prev : [created, ...prev]);
@@ -1438,6 +1571,7 @@ export function usePosPage({
   const handleOpenCashSessionFromPos = (...args: Parameters<typeof handleOpenCashSessionFromPosImpl>) => runWrite(() => handleOpenCashSessionFromPosImpl(...args));
   const handleCloseCashSessionFromPos = (...args: Parameters<typeof handleCloseCashSessionFromPosImpl>) => runWrite(() => handleCloseCashSessionFromPosImpl(...args));
   const handleImmediateCheckout = (...args: Parameters<typeof handleImmediateCheckoutImpl>) => runWrite(() => handleImmediateCheckoutImpl(...args));
+  const handleStartFlowAllergiesConfirmed = (...args: Parameters<typeof handleStartFlowAllergiesConfirmedImpl>) => runWrite(() => handleStartFlowAllergiesConfirmedImpl(...args));
   const handleCheckout = (...args: Parameters<typeof handleCheckoutImpl>) => runWrite(() => handleCheckoutImpl(...args));
   const saveSingleReceiptTicketEdit = (...args: Parameters<typeof saveSingleReceiptTicketEditImpl>) => runWrite(() => saveSingleReceiptTicketEditImpl(...args));
   const saveReceiptTicketEdits = (...args: Parameters<typeof saveReceiptTicketEditsImpl>) => runWrite(() => saveReceiptTicketEditsImpl(...args));
@@ -1461,11 +1595,15 @@ export function usePosPage({
     closeCashLiveDetail, isLoadingCloseCashDetail,
     clientId, setClientId, clientSearch, setClientSearch,
     paymentMethod, setPaymentMethod, cashReceived, setCashReceived, mixedPayments, setMixedPayments,
-    discountType, setDiscountType, discountValue, setDiscountValue,
+    // La pantalla ve el descuento efectivo (incluye el cupón aplicado).
+    discountType: effectiveDiscountType, setDiscountType,
+    discountValue: String(effectiveDiscountValue), setDiscountValue,
+    birthdayCoupon: { eligibility: birthdayEligibility, applied: couponApplied, onToggle: toggleBirthdayCoupon },
     notes, setNotes, cartLines, productLines, serviceSearch, setServiceSearch,
     selectedServiceCategoryId, setSelectedServiceCategoryId, sellerId, setSellerId,
     ticketMode, setTicketMode, linkAppointmentId,
     isSubmitting, receiptSale, setReceiptSale, editingSale,
+    startFlow, handleStartFlowAllergiesConfirmed, handleStartFlowCancel, handleStartFlowPrint,
     confirmCancelSale, setConfirmCancelSale, confirmDeleteSale, setConfirmDeleteSale, isProcessingConfirm,
     isRegisterClientOpen, setIsRegisterClientOpen, isClientMenuOpen, setIsClientMenuOpen,
     isCartOpen, setIsCartOpen, isServiceMenuOpen, setIsServiceMenuOpen, serviceMenuPosition,

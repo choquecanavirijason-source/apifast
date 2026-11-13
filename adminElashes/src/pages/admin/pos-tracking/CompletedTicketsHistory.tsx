@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { TrackingService, type TrackingResponse } from "@/core/services/tracking/tracking.service";
+import { fetchAllPages } from "@/core/utils/fetchAllPages";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { Button, SectionCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
@@ -48,14 +49,17 @@ export default function CompletedTicketsHistory() {
     try {
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
-        AgendaService.listTickets({
-          limit: 500,
-          status_filter: "completed",
-          branch_id: branchFilter,
-          start_date: fromDate || undefined,
-          end_date: toDate || undefined,
-        }),
-        TrackingService.list({ limit: 500 }),
+        fetchAllPages((skip, limit) =>
+          AgendaService.listTickets({
+            skip,
+            limit,
+            status_filter: "completed",
+            branch_id: branchFilter,
+            start_date: fromDate || undefined,
+            end_date: toDate || undefined,
+          }), 500
+        ),
+        fetchAllPages((skip, limit) => TrackingService.list({ skip, limit }), 500),
       ]);
 
       if (settled[0].status === "fulfilled") {
