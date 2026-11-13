@@ -14,6 +14,8 @@ interface ProductFormModalProps {
   isSubmitting: boolean;
   form: ProductForm;
   errors: ProductFormErrors;
+  /** Error de sucursal al crear (no es un campo del formulario): se muestra arriba. */
+  branchError?: string;
   categories: ProductCategoryOption[];
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
@@ -28,6 +30,7 @@ export default function ProductFormModal({
   isSubmitting,
   form,
   errors,
+  branchError,
   categories,
   onClose,
   onSubmit,
@@ -35,7 +38,7 @@ export default function ProductFormModal({
   onNumberChange,
   onActiveChange,
 }: ProductFormModalProps) {
-  const hasValidationErrors = Object.keys(errors).length > 0;
+  const hasValidationErrors = Object.keys(errors).length > 0 || Boolean(branchError);
 
   return (
     <GenericModal
@@ -46,6 +49,11 @@ export default function ProductFormModal({
       onSubmit={onSubmit}
       size="xl"
     >
+      {branchError ? (
+        <p role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          {branchError}
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <InputField
           name="name"
@@ -66,7 +74,7 @@ export default function ProductFormModal({
 
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-slate-700" htmlFor="product-category">
-            Categoria
+            Categoria{!isEditing ? <span className="text-rose-600"> *</span> : null}
           </label>
           <select
             id="product-category"
@@ -111,6 +119,7 @@ export default function ProductFormModal({
           value={String(form.price)}
           onChange={(event) => onNumberChange("price", event.target.value)}
           error={errors.price}
+          required={!isEditing}
         />
 
         <InputField

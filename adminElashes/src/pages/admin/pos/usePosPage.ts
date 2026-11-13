@@ -577,11 +577,12 @@ export function usePosPage({
 
   // ── Data loaders ──────────────────────────────────────────────────────────
 
-  const loadContext = async () => {
+  // `silent`: recarga en segundo plano (sin pantalla de carga ni avisos) para ver productos/servicios nuevos.
+  const loadContext = async (silent = false) => {
     if (!branchContext.initialized) return;
     const request = ++loadRequest.current;
     const scope = draftStorageKey;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
@@ -645,12 +646,12 @@ export function usePosPage({
         setProducts([]);
       }
 
-      if (failures.length > 0) {
+      if (failures.length > 0 && !silent) {
         const deduped = [...new Set(failures)];
         toast.error(deduped.length === 1 ? deduped[0] : `No se cargó todo: ${deduped.join(" · ")}`);
       }
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "No se pudieron cargar los datos."));
+      if (!silent) toast.error(getApiErrorMessage(err, "No se pudieron cargar los datos."));
     } finally {
       if (request === loadRequest.current && scope === scopeRef.current) setIsLoading(false);
     }
@@ -672,6 +673,28 @@ export function usePosPage({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void loadContext(); }, [activeBranchId, branchContext.initialized, loggedUser?.id]);
+
+  // La caja queda abierta todo el día: sin esto un producto o servicio creado después de entrar no aparecía hasta
+  // recargar la página. Se actualiza al volver a la pestaña y cada minuto (en segundo plano, sin parpadeo).
+  const loadContextRef = useRef(loadContext);
+  loadContextRef.current = loadContext;
+  useEffect(() => {
+    if (!branchContext.initialized) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 15_000) return;
+      last = Date.now();
+      void loadContextRef.current(true);
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [activeBranchId, branchContext.initialized, loggedUser?.id]);
   useEffect(() => { void loadEyeTypes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Caja: sesión de la sucursal activa — se recarga al cambiar de sucursal

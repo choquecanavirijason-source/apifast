@@ -126,6 +126,12 @@ export default function Main() {
       errors.price = "El precio no puede ser negativo.";
     }
 
+    // Al crear: lo mínimo para que el producto se pueda vender desde la caja.
+    if (!isEditing) {
+      if (!normalizedCategory) errors.category = "Elige una categoría.";
+      if (!(form.price > 0)) errors.price = "El precio de venta es obligatorio (mayor a 0).";
+    }
+
     if (form.cost < 0) {
       errors.cost = "El costo no puede ser negativo.";
     }
@@ -154,7 +160,13 @@ export default function Main() {
     }
 
     return errors;
-  }, [form, categories]);
+  }, [form, categories, isEditing]);
+
+  // El producto se registra en la sucursal elegida arriba: sin ella no pertenecería a ninguna y la caja no lo vería.
+  const branchError =
+    !isEditing && !selectedInventoryBranchId
+      ? "Elige una sucursal específica en la cabecera (no \"Todas\"): el producto se registra en esa sucursal y solo ahí lo verá la caja."
+      : undefined;
 
   const categoryFormError = useMemo(() => {
     const normalized = newCategory.trim();
@@ -320,6 +332,10 @@ export default function Main() {
   const saveProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (branchError) {
+      toast.warning(branchError);
+      return;
+    }
     if (Object.keys(formErrors).length > 0) {
       const firstError = Object.values(formErrors)[0];
       toast.warning(firstError);
@@ -836,6 +852,7 @@ export default function Main() {
           form={form}
           categories={categories}
           errors={formErrors}
+          branchError={branchError}
           onClose={closeModal}
           onSubmit={saveProduct}
           onTextChange={handleTextChange}

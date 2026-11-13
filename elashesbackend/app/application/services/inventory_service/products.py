@@ -96,7 +96,9 @@ def create_product(
     db.add(product)
     db.flush()
 
-    if initial_stock > 0:
+    # Con sucursal explícita el producto queda asignado a ella aunque el stock inicial sea 0: sin lote
+    # no pertenecería a ninguna sucursal y no aparecería en el catálogo de nadie (ni en la caja).
+    if initial_stock > 0 or branch_id is not None:
         target_branch = None
 
         if branch_id is not None:
@@ -125,15 +127,16 @@ def create_product(
         db.add(batch)
         db.flush()
 
-        movement = InventoryMovement(
-            product_id=product.id,
-            batch_id=batch.id,
-            branch_id=target_branch.id,
-            movement_type="in",
-            quantity=initial_stock,
-            note="Entrada inicial al crear producto",
-        )
-        db.add(movement)
+        if initial_stock > 0:
+            movement = InventoryMovement(
+                product_id=product.id,
+                batch_id=batch.id,
+                branch_id=target_branch.id,
+                movement_type="in",
+                quantity=initial_stock,
+                note="Entrada inicial al crear producto",
+            )
+            db.add(movement)
 
     db.commit()
     db.refresh(product)

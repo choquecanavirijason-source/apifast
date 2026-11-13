@@ -94,6 +94,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
     else if (!/^[A-Z0-9_-]{3,30}$/.test(sku)) errors.sku = "Usa 3-30 caracteres: letras, numeros, guion o guion bajo.";
 
     if (productForm.price < 0) errors.price = "El precio no puede ser negativo.";
+    if (!productForm.category.trim()) errors.category = "Elige una categoría.";
+    if (!(productForm.price > 0)) errors.price = "El precio de venta es obligatorio (mayor a 0).";
     if (productForm.cost < 0) errors.cost = "El costo no puede ser negativo.";
     if (productForm.stock < 0 || !Number.isInteger(productForm.stock)) errors.stock = "El stock debe ser un entero mayor o igual a 0.";
     if (productForm.minStock < 0 || !Number.isInteger(productForm.minStock)) errors.minStock = "El stock minimo debe ser un entero mayor o igual a 0.";
