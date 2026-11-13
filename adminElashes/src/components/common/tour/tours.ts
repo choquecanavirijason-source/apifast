@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, BarChart2, Calendar, ClipboardList, Clapperboard, Download, FileDown, Filter, LayoutDashboard,
+  BadgeCheck, BarChart2, Banknote, Calendar, ClipboardList, Clapperboard, Download, FileDown, Filter, Info, LayoutDashboard,
   List, MapPin, Megaphone, MousePointerClick, Package, PackageSearch, Percent, Plus, RefreshCw, Search, Settings,
   ShoppingBag, Sparkles, Store, Tag, UserCheck, Users, Warehouse, Wallet,
 } from "lucide-react";
@@ -147,11 +147,29 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
       description: "Quita la operaria y las fechas.",
     },
     {
-      selector: t("cm-tabs"),
-      icon: Wallet,
-      title: "Comisiones y pagos",
-      description: "Cambia a esta pestaña para ver el total por operaria y el historial de pagos. Se puede anular un pago si se registró por error.",
+      selector: t("cm-legend"),
+      icon: Info,
+      title: "Cómo leer \"Comisiones y pagos\"",
+      description: "En esta pestaña, este recuadro explica qué es lo ganado, lo pagado y lo pendiente. Puedes plegarlo cuando ya lo sepas.",
       onEnter: () => setTab("comisiones"),
+    },
+    {
+      selector: t("cm-summary"),
+      icon: Wallet,
+      title: "Resumen de todas las operarias",
+      description: "Ganado (servicios completados del período), pagado (lo ya entregado) y pendiente (lo que falta darles).",
+    },
+    {
+      selector: t("cm-card"),
+      icon: UserCheck,
+      title: "Una tarjeta por operaria",
+      description: "Servicios completados y cancelados, lo cobrado a las clientas, su comisión y la barra de cuánto ya se le pagó. \"Ver detalle\" abre los servicios y sus pagos.",
+    },
+    {
+      selector: t("cm-register"),
+      icon: Banknote,
+      title: "Registrar pago",
+      description: "Anota un pago por el monto que le entregaste. Es un control de esta pantalla: no entra al Corte de caja. Para eso usa Confirmar pago en Historial de tickets.",
     },
   ];
 }
