@@ -217,6 +217,7 @@ export default function MarketplaceSidebar({ collapsed, pendingOrders = 0 }: { c
             ) : (
               <NavLink
                 to={item.path!}
+                data-tour={`mk-nav${item.path}`}
                 end={item.path === "/marketplace"}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-3 rounded-xl outline-none transition-all ${navFocusRing} ${

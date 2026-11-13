@@ -8,6 +8,9 @@ import Layout from "@/components/common/layout";
 import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/common/ui";
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
+import useAuth from "@/core/hooks/useAuth";
+import GuidedTour, { TourHelpButton, useGuidedTour } from "@/components/common/tour/GuidedTour";
+import { buildTeamTrackingTour } from "@/components/common/tour/tours";
 
 const fieldClass =
   "h-8 w-full rounded border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2.5 text-xs text-[var(--ui-text)] shadow-inner outline-none transition placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/25 disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]";
@@ -67,6 +70,9 @@ export default function TicketsHistoryPage() {
 
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [activeTab, setActiveTab] = useState<"tickets" | "servicios">("tickets");
+  const { user } = useAuth();
+  const tour = useGuidedTour("equipo-seguimiento", user?.id);
+  const tourSteps = useMemo(() => buildTeamTrackingTour(setActiveTab), []);
   const [search, setSearch] = useState("");
   const [professionalFilter, setProfessionalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -373,13 +379,14 @@ export default function TicketsHistoryPage() {
       subtitle="Control de calidad: notas de diseño, cuestionarios y estado de cada ticket. Vista operativa sin comisiones."
       variant="table"
       topContent={
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div data-tour="eq-stats" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StatCard label="Total tickets" value={filteredTickets.length} tone="emerald" />
           <StatCard label="Ingresos" value={moneyFormatter.format(totalRevenue)} tone="slate" />
         </div>
       }
       toolbar={
         <SegmentedTabs
+          dataTour="eq-tabs"
           options={[
             { id: "tickets", label: "Historial de tickets", icon: <List className="h-3.5 w-3.5" /> },
             { id: "servicios", label: "Uso por servicio", icon: <BarChart2 className="h-3.5 w-3.5" /> },
@@ -388,7 +395,9 @@ export default function TicketsHistoryPage() {
           onChange={setActiveTab}
           right={
             <div className="flex flex-wrap items-center gap-2">
+              <TourHelpButton onClick={tour.start} className="!h-8" />
               <Button
+                data-tour="eq-pdf"
                 variant="secondary"
                 size="sm"
                 onClick={handleDownloadPdf}
@@ -397,8 +406,8 @@ export default function TicketsHistoryPage() {
               >
                 PDF
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
-              <Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
+              <Button data-tour="eq-refresh" variant="secondary" size="sm" onClick={() => void loadData()}>Actualizar</Button>
+              <Button data-tour="eq-clear" variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>
             </div>
           }
         />
@@ -406,6 +415,7 @@ export default function TicketsHistoryPage() {
     >
       {/* ── Sección: Uso por servicio ─────────────────────────────────────── */}
       {activeTab === "servicios" && (
+        <div data-tour="eq-services">
         <SectionCard bodyClassName="!p-4">
           <div className="mb-3 flex items-center gap-2">
             <BarChart2 className="h-4 w-4 text-[var(--ui-accent)]" />
@@ -479,6 +489,7 @@ export default function TicketsHistoryPage() {
             </div>
           )}
         </SectionCard>
+        </div>
       )}
 
       {/* ── Filtros (solo en pestaña tickets) ────────────────────────────── */}
@@ -495,7 +506,7 @@ export default function TicketsHistoryPage() {
           tableMinWidth="min-w-[1100px]"
           renderTopToolbar={() => (
             <div className="space-y-2">
-              <div className="flex max-w-full gap-1 overflow-x-auto pb-0.5">
+              <div data-tour="eq-status" className="flex max-w-full gap-1 overflow-x-auto pb-0.5">
                 <button
                   type="button"
                   onClick={() => setStatusFilter("")}
@@ -526,7 +537,7 @@ export default function TicketsHistoryPage() {
                 })}
               </div>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                <div className="relative sm:col-span-2">
+                <div data-tour="eq-search" className="relative sm:col-span-2">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
@@ -538,6 +549,7 @@ export default function TicketsHistoryPage() {
                   />
                 </div>
                 <select
+                  data-tour="eq-operaria"
                   value={professionalFilter}
                   onChange={(event) => setProfessionalFilter(event.target.value)}
                   className={fieldClass}
@@ -548,25 +560,28 @@ export default function TicketsHistoryPage() {
                     <option key={professional.id} value={professional.id}>{professional.username}</option>
                   ))}
                 </select>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
-                  className={fieldClass}
-                  aria-label="Fecha desde"
-                />
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
-                  className={fieldClass}
-                  aria-label="Fecha hasta"
-                />
+                <div data-tour="eq-dates" className="grid grid-cols-2 gap-2 sm:col-span-2">
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => setFromDate(event.target.value)}
+                    className={fieldClass}
+                    aria-label="Fecha desde"
+                  />
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => setToDate(event.target.value)}
+                    className={fieldClass}
+                    aria-label="Fecha hasta"
+                  />
+                </div>
               </div>
             </div>
           )}
         />
       </>}
+      {tour.open && <GuidedTour steps={tourSteps} storageKey={tour.storageKey} onClose={tour.close} />}
     </Layout>
   );
 }

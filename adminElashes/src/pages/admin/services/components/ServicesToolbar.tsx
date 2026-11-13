@@ -1,20 +1,24 @@
 import { Plus, Search } from "lucide-react";
 
+import { TourHelpButton } from "../../../../components/common/tour/GuidedTour";
+
 import { Button } from "../../../../components/common/ui";
 
 export type ServicesToolbarProps = {
   onCreateCategory: () => void;
   search: string;
   onSearchChange: (value: string) => void;
+  onOpenGuide?: () => void;
 };
 
 /** Barra solo para la vista de categorías de servicio (cada servicio del catálogo usa una categoría). */
-export default function ServicesToolbar({ onCreateCategory, search, onSearchChange }: ServicesToolbarProps) {
+export default function ServicesToolbar({ onCreateCategory, search, onSearchChange, onOpenGuide }: ServicesToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-semibold text-slate-800">Categorías de servicio</h2>
       <div className="flex flex-1 items-center justify-end gap-3">
-        <div className="relative w-full sm:w-72">
+        {onOpenGuide && <TourHelpButton onClick={onOpenGuide} />}
+        <div data-tour="sv-search" className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
           <input
             type="text"
@@ -24,7 +28,7 @@ export default function ServicesToolbar({ onCreateCategory, search, onSearchChan
             className="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white pl-9 pr-3 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
           />
         </div>
-        <Button onClick={onCreateCategory} leftIcon={<Plus className="h-4 w-4" />}>
+        <Button data-tour="sv-new" onClick={onCreateCategory} leftIcon={<Plus className="h-4 w-4" />}>
           Nueva categoría
         </Button>
       </div>

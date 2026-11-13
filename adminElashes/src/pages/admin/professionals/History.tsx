@@ -9,6 +9,8 @@ import { fetchAllPages } from "@/core/utils/fetchAllPages";
 import { BRANCH_STORAGE_KEY, getSelectedBranchId } from "@/core/utils/branch";
 import { getApiErrorMessage } from "@/core/utils/apiError";
 import useAuth from "@/core/hooks/useAuth";
+import GuidedTour, { TourHelpButton, useGuidedTour } from "@/components/common/tour/GuidedTour";
+import { buildCommissionsTour } from "@/components/common/tour/tours";
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
 import GenericModal from "@/components/common/modal/GenericModal";
@@ -183,6 +185,8 @@ export default function ProfessionalServiceHistory() {
   const [voiding, setVoiding] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"tickets" | "comisiones">("tickets");
+  const tour = useGuidedTour("equipo-comisiones", user?.id);
+  const tourSteps = useMemo(() => buildCommissionsTour(setActiveTab), []);
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [trackings, setTrackings] = useState<TrackingResponse[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
@@ -795,8 +799,10 @@ export default function ProfessionalServiceHistory() {
       left={<h2 className="text-lg font-semibold text-slate-800">Comisiones por operaria</h2>}
       right={
         <div className="flex items-center gap-2">
+          <TourHelpButton onClick={tour.start} className="!h-8" />
           {activeTab === "tickets" && canPay && (
             <Button
+              data-tour="cm-pay"
               size="sm"
               onClick={() => setConfirmPayOpen(true)}
               disabled={selectedTickets.length === 0}
@@ -807,6 +813,7 @@ export default function ProfessionalServiceHistory() {
             </Button>
           )}
           <Button
+            data-tour="cm-pdf"
             variant="secondary"
             size="sm"
             onClick={handleDownloadPdf}
@@ -815,8 +822,9 @@ export default function ProfessionalServiceHistory() {
           >
             PDF
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => void loadHistory()}>Actualizar</Button>
+          <Button data-tour="cm-refresh" variant="secondary" size="sm" onClick={() => void loadHistory()}>Actualizar</Button>
           <Button
+            data-tour="cm-clear"
             variant="secondary"
             size="sm"
             onClick={() => { setFromDate(""); setToDate(""); setSelectedProfessionalId(null); }}
@@ -837,6 +845,7 @@ export default function ProfessionalServiceHistory() {
     >
       {/* ── Tabs: Historial de tickets | Comisiones ───────────────────────── */}
       <SegmentedTabs
+        dataTour="cm-tabs"
         options={[
           { id: "tickets", label: "Historial de tickets", icon: <List className="h-3.5 w-3.5" /> },
           { id: "comisiones", label: "Comisiones y pagos", icon: <Banknote className="h-3.5 w-3.5" /> },
@@ -848,7 +857,7 @@ export default function ProfessionalServiceHistory() {
       {/* ── Filtros (compartidos entre las dos pestañas: operaria, estado,
            rango de fechas) ─────────────────────────────────────────────── */}
       <SectionCard bodyClassName="!p-4">
-        <div className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-3">
+        <div data-tour="cm-filters" className="grid gap-3 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-3">
           {/* Operaria */}
           <div>
             <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Operaria</label>
@@ -924,7 +933,7 @@ export default function ProfessionalServiceHistory() {
       {activeTab === "tickets" && (
         <>
       {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div data-tour="cm-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total tickets" value={filteredTickets.length} tone="slate" />
         <StatCard label="Completados" value={completedTickets.length} tone="emerald" />
         <StatCard
@@ -953,6 +962,8 @@ export default function ProfessionalServiceHistory() {
       </SectionCard>
         </>
       )}
+
+      {tour.open && <GuidedTour steps={tourSteps} storageKey={tour.storageKey} onClose={tour.close} />}
 
       {/* ── Diálogo: confirmar pago del lote ─────────────────────────────── */}
       <GenericModal

@@ -4,6 +4,8 @@ import { Menu, Bell, X } from "lucide-react";
 import { toast } from "react-toastify";
 import MarketplaceSidebar from "./MarketplaceSidebar";
 import ModeSwitch from "@/components/layout/ModeSwitch";
+import GuidedTour, { TourHelpButton, useGuidedTour } from "@/components/common/tour/GuidedTour";
+import { buildMarketIntroTour } from "@/components/common/tour/tours";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
 import { fetchAdminOrders } from "@/core/services/marketplace/marketplace.service";
@@ -17,7 +19,9 @@ export default function MarketplaceLayout() {
   const [notifBanner, setNotifBanner] = useState(
     () => "Notification" in window && Notification.permission === "default"
   );
-  const user = useSelector((s: RootState) => s.auth.user as { name?: string; email?: string } | null);
+  const user = useSelector((s: RootState) => s.auth.user as { id?: number; name?: string; email?: string } | null);
+  const tour = useGuidedTour("market-intro", user?.id);
+  const tourSteps = React.useMemo(() => buildMarketIntroTour(), []);
 
   const requestNotifPermission = () => {
     void Notification.requestPermission().then((p) => {
@@ -78,7 +82,8 @@ export default function MarketplaceLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ModeSwitch />
+            <span data-tour="mk-guide"><TourHelpButton onClick={tour.start} className="!border-blue-800/60 !bg-transparent !text-blue-200 hover:!bg-white/10" /></span>
+            <span data-tour="mk-modeswitch"><ModeSwitch /></span>
 
             {/* User avatar */}
             {user && (
@@ -117,6 +122,7 @@ export default function MarketplaceLayout() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
+        {tour.open && <GuidedTour steps={tourSteps} storageKey={tour.storageKey} onClose={tour.close} />}
       </div>
     </div>
   );

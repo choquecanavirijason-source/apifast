@@ -3,6 +3,9 @@ import axios from "axios";
 import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Plus, Scissors, Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from "react-router-dom";
+import useAuth from "../../../core/hooks/useAuth";
+import GuidedTour, { TourHelpButton, useGuidedTour } from "../../../components/common/tour/GuidedTour";
+import { buildServiceCategoriesTour, buildServicesCatalogTour } from "../../../components/common/tour/tours";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, SectionCard } from "../../../components/common/ui";
@@ -27,6 +30,12 @@ import { emptyServiceForm, emptyServiceItemForm, type ServiceFormState, type Ser
 export default function ServicesPage() {
   const location = useLocation();
   const isCategoriesView = location.pathname === "/admin/services/categories";
+  const { user } = useAuth();
+  const tour = useGuidedTour(isCategoriesView ? "servicios-categorias" : "servicios-catalogo", user?.id);
+  const tourSteps = useMemo(
+    () => (isCategoriesView ? buildServiceCategoriesTour() : buildServicesCatalogTour()),
+    [isCategoriesView],
+  );
 
   const [categories, setCategories] = useState<ServiceCategoryOption[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -522,6 +531,7 @@ export default function ServicesPage() {
     >
       {isCategoriesView ? (
         <ServicesToolbar
+          onOpenGuide={tour.start}
           onCreateCategory={handleOpenCreate}
           search={categorySearch}
           onSearchChange={setCategorySearch}
@@ -530,7 +540,8 @@ export default function ServicesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-800">Catálogo de servicios</h2>
           <div className="flex flex-1 items-center justify-end gap-3">
-            <div className="relative w-full sm:w-72">
+            <TourHelpButton onClick={tour.start} />
+            <div data-tour="sv-search" className="relative w-full sm:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
               <input
                 type="text"
@@ -540,14 +551,14 @@ export default function ServicesPage() {
                 className="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white pl-9 pr-3 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
               />
             </div>
-            <Button onClick={handleOpenCreateService} leftIcon={<Plus className="h-4 w-4" />}>
+            <Button data-tour="sv-new" onClick={handleOpenCreateService} leftIcon={<Plus className="h-4 w-4" />}>
               Nuevo servicio
             </Button>
           </div>
         </div>
       )}
 
-      <div className="mb-3 mt-3">
+      <div data-tour="sv-stats" className="mb-3 mt-3">
         <ServicesTopStats
           totalCategories={totalCategories}
           totalServices={totalServices}
@@ -566,7 +577,7 @@ export default function ServicesPage() {
 
       {isCategoriesView ? (
         <>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div data-tour="sv-grid" className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {paginatedCategories.map((category) => {
               return (
                 <ServiceCard
@@ -637,8 +648,8 @@ export default function ServicesPage() {
         </>
       ) : (
         <>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {paginatedServices.map((service) => {
+          <div data-tour="sv-grid" className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {paginatedServices.map((service, serviceIndex) => {
               const categoryName =
                 service.category?.name ??
                 (service.category_id ? categoryById.get(service.category_id)?.name : undefined) ??
@@ -675,6 +686,7 @@ export default function ServicesPage() {
                       <div className="relative shrink-0">
                         <button
                           type="button"
+                          {...(serviceIndex === 0 ? { "data-tour": "sv-actions" } : {})}
                           onClick={(event) => {
                             if (openMenuId === service.id) {
                               setOpenMenuId(null);
@@ -1067,6 +1079,7 @@ export default function ServicesPage() {
           </div>
         </div>
       </GenericModal>
+      {tour.open && <GuidedTour steps={tourSteps} storageKey={tour.storageKey} onClose={tour.close} />}
     </Layout>
   );
 }

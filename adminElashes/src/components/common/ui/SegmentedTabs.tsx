@@ -11,6 +11,8 @@ type SegmentedTabsProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   right?: ReactNode;
+  /** Marca el grupo de pestañas para la guía interactiva (data-tour). */
+  dataTour?: string;
 };
 
 export default function SegmentedTabs<T extends string>({
@@ -18,9 +20,10 @@ export default function SegmentedTabs<T extends string>({
   value,
   onChange,
   right,
+  dataTour,
 }: SegmentedTabsProps<T>) {
   const tabs = (
-    <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-1">
+    <div data-tour={dataTour} className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-1">
       {options.map((option) => (
         <button
           key={option.id}
