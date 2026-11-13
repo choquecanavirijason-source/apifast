@@ -2,6 +2,7 @@ import GenericModal from "../../../../components/common/modal/GenericModal";
 import { Button } from "../../../../components/common/ui";
 
 import type { ServiceFormState } from "../services.types";
+import OptionsGuide, { CATEGORY_GUIDE } from "./OptionsGuide";
 
 export type ServiceFormModalProps = {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export default function ServiceFormModal({
   return (
     <GenericModal isOpen={isOpen} onClose={onClose} title={title} size="md">
       <div className="space-y-4">
+        <OptionsGuide items={CATEGORY_GUIDE} />
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-slate-700">Nombre *</label>
           <input

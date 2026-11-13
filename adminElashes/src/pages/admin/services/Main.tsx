@@ -25,6 +25,7 @@ import ServiceCard from "./components/ServiceCard";
 import ServiceFormModal from "./components/ServiceFormModal";
 import ServicesTopStats from "./components/ServicesTopStats";
 import ServicesToolbar from "./components/ServicesToolbar";
+import OptionsGuide, { SERVICE_GUIDE } from "./components/OptionsGuide";
 import { emptyServiceForm, emptyServiceItemForm, type ServiceFormState, type ServiceItemFormState } from "./services.types";
 
 export default function ServicesPage() {
@@ -850,6 +851,7 @@ export default function ServicesPage() {
         size="md"
       >
         <div className="space-y-4">
+          <OptionsGuide items={SERVICE_GUIDE} />
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Nombre *</label>
             <input
