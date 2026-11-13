@@ -31,6 +31,8 @@ import { useLayout } from "@/core/context/layout.context";
 import { useWebSocket } from "@/core/hooks/useWebSocket";
 import useAuth from "@/core/hooks/useAuth";
 import { getRestrictedRole, isPathAllowedForRole } from "@/router/roleScope";
+import api from "@/core/services/api";
+import { isMultibranch, type PosProfile } from "@/pages/admin/pos/pos.context";
 import { useLogo } from "@/core/hooks/useLogo";
 
 import {
@@ -488,6 +490,28 @@ export default function Header() {
       isMounted = false;
     };
   }, []);
+
+  // Roles de una sola sucursal (Cajera, Operaria...): la sucursal NO es una
+  // preferencia del navegador sino la que el servidor les asigna. Sin esto, el
+  // encabezado mostraba la que otro usuario dejó guardada en este navegador y
+  // la agenda/POS operaban en una sucursal distinta a la que se veía.
+  useEffect(() => {
+    if (!user || isMultibranch(user as unknown as PosProfile)) return;
+    let cancelled = false;
+    api
+      .get<PosProfile>("/auth/me", { timeout: 10000 })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const own = data.effective_branch_id ?? data.branch_id ?? null;
+        if (!own) return;
+        if (getSelectedBranchId() !== own) setSelectedBranchId(own);
+        setSelectedBranchIdState(own);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Las páginas con su propio selector (ej. Notificaciones, POS) también
   // cambian la sucursal global: sin esto la cabecera mostraba la anterior.
