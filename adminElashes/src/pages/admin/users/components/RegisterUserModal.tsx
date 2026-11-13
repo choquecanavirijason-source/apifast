@@ -6,7 +6,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common/ui";
 import { Eye, EyeOff } from "lucide-react";
 
-import type { BranchItem, RoleItem } from "../types";
+import UserPermissionsPanel from "./UserPermissionsPanel";
+import type { BranchItem, PermissionItem, RoleItem } from "../types";
 
 interface RegisterUserPayload {
   username: string;
@@ -15,6 +16,8 @@ interface RegisterUserPayload {
   phone: string | null;
   role_id: number;
   branch_id: number;
+  /** Permisos EXTRA (los del rol llegan solos). Vacío si no se sumó ninguno. */
+  permission_ids: number[];
 }
 
 interface RegisterUserModalProps {
@@ -22,6 +25,8 @@ interface RegisterUserModalProps {
   onClose: () => void;
   roles: RoleItem[];
   branches: BranchItem[];
+  /** Catálogo completo de permisos (solo lo ve quien puede administrarlos; si viene vacío solo se muestran los del rol). */
+  permissions?: PermissionItem[];
   isSubmitting: boolean;
   onSubmit: (payload: RegisterUserPayload) => void;
   lockRole?: boolean;
@@ -32,6 +37,7 @@ export default function RegisterUserModal({
   onClose,
   roles,
   branches,
+  permissions = [],
   isSubmitting,
   onSubmit,
   lockRole = false,
@@ -42,6 +48,7 @@ export default function RegisterUserModal({
   const [showPassword, setShowPassword] = useState(false);
   const singleRole = roles.length === 1 ? roles[0] : null;
   const singleBranch = branches.length === 1 ? branches[0] : null;
+  const [extraPermissionIds, setExtraPermissionIds] = useState<number[]>([]);
   const [values, setValues] = useState({
     username: "",
     email: "",
@@ -57,6 +64,7 @@ export default function RegisterUserModal({
     if (!isOpen) {
       wasOpenRef.current = false;
       setIsConfirmOpen(false);
+      setExtraPermissionIds([]);
       setValues({ username: "", email: "", password: "", phone: "", role_id: autoRoleId, branch_id: autoBranchId });
     } else if (!wasOpenRef.current) {
       wasOpenRef.current = true;
@@ -98,6 +106,7 @@ export default function RegisterUserModal({
       return;
     }
 
+    const roleOwned = new Set((roles.find((role) => role.id === roleId)?.permissions ?? []).map((p) => p.id));
     onSubmit({
       username,
       email,
@@ -105,6 +114,7 @@ export default function RegisterUserModal({
       phone: phoneRaw || null,
       role_id: roleId,
       branch_id: branchId,
+      permission_ids: extraPermissionIds.filter((id) => !roleOwned.has(id)),
     });
     setIsConfirmOpen(false);
   };
@@ -213,6 +223,18 @@ export default function RegisterUserModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Permisos: los del rol llegan solos (no hay que marcarlos); aquí solo se suman extras */}
+          <div className="sm:col-span-2">
+            <UserPermissionsPanel
+              permissions={permissions}
+              roles={roles}
+              roleId={values.role_id ? Number(values.role_id) : null}
+              directIds={extraPermissionIds}
+              onChange={setExtraPermissionIds}
+              defaultOpen
+            />
           </div>
         </div>
 

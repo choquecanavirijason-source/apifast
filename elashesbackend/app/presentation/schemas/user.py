@@ -68,6 +68,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, max_length=100)
+    # Permisos EXTRA que se le suman a los de su rol (los del rol llegan solos). Solo
+    # SuperAdmin y Admin pueden darlos, igual que al editar.
+    permission_ids: List[int] = []
 
 
 class UserUpdate(BaseModel):

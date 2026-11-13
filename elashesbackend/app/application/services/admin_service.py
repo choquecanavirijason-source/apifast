@@ -262,6 +262,8 @@ def create_user(db: Session, payload: UserCreate) -> User:
         )
 
     _validate_role_and_branch(db, payload.role_id, payload.branch_id)
+    # Antes de crear nada: si algún permiso extra no existe, no se crea el usuario.
+    extra_permissions = _validate_permission_ids(db, payload.permission_ids)
 
     if payload.phone:
         existing_phone = db.query(User).filter(User.phone == payload.phone).first()
@@ -280,6 +282,8 @@ def create_user(db: Session, payload: UserCreate) -> User:
         role_id=payload.role_id,
         branch_id=payload.branch_id,
     )
+    # Los permisos del rol los da el propio rol; aquí solo los extras.
+    user.direct_permissions = extra_permissions
 
     db.add(user)
     db.commit()

@@ -1,40 +1,11 @@
-import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Check, Eye, EyeOff } from "lucide-react";
 
 import GenericModal from "@/components/common/modal/GenericModal";
+import UserPermissionsPanel from "./UserPermissionsPanel";
 import { Button } from "@/components/common/ui";
 
-import { translatePermission } from "@/core/utils/permissionLabels";
 import type { BranchItem, PermissionItem, RoleItem, UserItem } from "../types";
-
-const MODULE_LABELS: Record<string, string> = {
-  clients: "Clientes",
-  tracking: "Seguimiento",
-  forms: "Formularios",
-  catalog: "Catálogo",
-  services: "Servicios",
-  appointments: "Citas & Agenda",
-  payments: "Caja & Pagos",
-  inventory: "Inventario",
-  branches: "Salones / Sucursales",
-  users: "Usuarios",
-  settings: "Configuración",
-  ai: "Asistente IA",
-};
-
-function groupByModule(permissions: PermissionItem[]): Array<{ module: string; label: string; items: PermissionItem[] }> {
-  const map = new Map<string, PermissionItem[]>();
-  for (const p of permissions) {
-    const mod = p.name.split(":")[0] ?? p.name;
-    if (!map.has(mod)) map.set(mod, []);
-    map.get(mod)!.push(p);
-  }
-  return Array.from(map.entries()).map(([module, items]) => ({
-    module,
-    label: MODULE_LABELS[module] ?? module,
-    items,
-  }));
-}
 
 interface EditUserModalProps {
   isOpen: boolean;
@@ -97,39 +68,7 @@ export default function EditUserModal({
   onSkillLevelChange,
   onDirectPermissionIdsChange,
 }: EditUserModalProps) {
-  const [permOpen, setPermOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  const rolePermissionIds = useMemo<Set<number>>(() => {
-    const role = roles.find((r) => r.id === editUserRoleId);
-    return new Set((role?.permissions ?? []).map((p) => p.id));
-  }, [roles, editUserRoleId]);
-
-  const directIds = useMemo(() => new Set(editUserDirectPermissionIds), [editUserDirectPermissionIds]);
-
-  const grouped = useMemo(() => groupByModule(permissions), [permissions]);
-
-  const togglePermission = (id: number) => {
-    if (rolePermissionIds.has(id)) return; // inherited from role — not toggleable
-    const next = new Set(directIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onDirectPermissionIdsChange(Array.from(next));
-  };
-
-  const toggleModule = (items: PermissionItem[]) => {
-    const toggleable = items.filter((p) => !rolePermissionIds.has(p.id));
-    if (toggleable.length === 0) return;
-    const allOn = toggleable.every((p) => directIds.has(p.id));
-    const next = new Set(directIds);
-    for (const p of toggleable) {
-      if (allOn) next.delete(p.id);
-      else next.add(p.id);
-    }
-    onDirectPermissionIdsChange(Array.from(next));
-  };
-
-  const directCount = editUserDirectPermissionIds.length;
 
   return (
     <GenericModal isOpen={isOpen} onClose={onClose} title="Editar Usuario" size="lg">
@@ -287,101 +226,14 @@ export default function EditUserModal({
           </label>
         </div>
 
-        {/* Permisos adicionales por usuario */}
-        {permissions.length > 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setPermOpen((v) => !v)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-100 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span className="text-xs font-semibold text-emerald-600">
-                  Permisos adicionales
-                </span>
-                {directCount > 0 && (
-                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                    +{directCount}
-                  </span>
-                )}
-              </div>
-              {permOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-            </button>
-
-            {permOpen && (
-              <div className="border-t border-slate-200 px-4 pb-4 pt-3 space-y-4">
-                <p className="text-xs text-slate-500">
-                  Permisos <span className="font-semibold text-slate-600">grises</span> vienen del rol y no se pueden quitar aquí. Los que puedes marcar se suman al rol de este usuario.
-                </p>
-
-                {grouped.map(({ module, label, items }) => {
-                  const toggleable = items.filter((p) => !rolePermissionIds.has(p.id));
-                  const allToggleableOn = toggleable.length > 0 && toggleable.every((p) => directIds.has(p.id));
-
-                  return (
-                    <div key={module}>
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-slate-500">{label}</span>
-                        {toggleable.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => toggleModule(items)}
-                            className="text-[10px] font-semibold text-emerald-600 hover:underline"
-                          >
-                            {allToggleableOn ? "Quitar todos" : "Dar todos"}
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                        {items.map((perm) => {
-                          const fromRole = rolePermissionIds.has(perm.id);
-                          const isDirect = directIds.has(perm.id);
-                          const checked = fromRole || isDirect;
-                          return (
-                            <button
-                              key={perm.id}
-                              type="button"
-                              onClick={() => togglePermission(perm.id)}
-                              disabled={fromRole}
-                              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-all ${
-                                fromRole
-                                  ? "cursor-default border-slate-200 bg-white text-slate-400"
-                                  : isDirect
-                                  ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
-                            >
-                              <div
-                                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                                  checked
-                                    ? fromRole
-                                      ? "border-slate-300 bg-slate-200"
-                                      : "border-emerald-500 bg-emerald-500"
-                                    : "border-slate-300 bg-white"
-                                }`}
-                              >
-                                {checked && (
-                                  fromRole
-                                    ? <Lock className="h-2.5 w-2.5 text-slate-500" />
-                                    : <Check className="h-2.5 w-2.5 text-white" />
-                                )}
-                              </div>
-                              <span className="truncate font-medium" title={perm.name}>{translatePermission(perm.name)}</span>
-                              {fromRole && (
-                                <span className="ml-auto shrink-0 text-[9px] text-slate-400">rol</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Permisos: los del rol vienen solos; aquí solo se suman extras */}
+        <UserPermissionsPanel
+          permissions={permissions}
+          roles={roles}
+          roleId={editUserRoleId}
+          directIds={editUserDirectPermissionIds}
+          onChange={onDirectPermissionIdsChange}
+        />
 
         <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
           <Button variant="secondary" onClick={onClose} disabled={updatingUser}>

@@ -222,6 +222,13 @@ def create_new_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_any_role("SuperAdmin", "Admin", "Secretaria")),
 ):
+    # La Secretaria crea usuarios con el rol que le toca, pero no puede darles permisos extra
+    # (igual que al editar, que es solo de SuperAdmin y Admin).
+    if payload.permission_ids and current_user.role.name not in (SUPER_ADMIN_ROLE, "Admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para asignar permisos adicionales.",
+        )
     result = create_user(db=db, payload=payload)
     record_audit(
         db, current_user, "create", "user", result.id,

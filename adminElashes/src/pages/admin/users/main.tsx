@@ -183,10 +183,11 @@ export default function UsersMain() {
     if (isSuperAdmin) {
       void loadRoles();
       void loadPermissions();
-    } else if (isSecretary) {
+    } else if (isSecretary || isAdmin) {
+      // Sin la lista de roles no se puede elegir uno al crear un usuario (el servidor sí deja al Admin leerla).
       void loadRoles();
     }
-  }, [canManageUsers, isSecretary, isSuperAdmin]);
+  }, [canManageUsers, isSecretary, isSuperAdmin, isAdmin]);
 
   useEffect(() => {
     const handleBranchChange = () => setActiveBranchId(getSelectedBranchId());
@@ -371,6 +372,7 @@ export default function UsersMain() {
     phone: string | null;
     role_id: number;
     branch_id: number | null;
+    permission_ids?: number[];
   }) => {
     if (!payload.username.trim() || !payload.email.trim() || !payload.password.trim()) {
       toast.error("Nombre, correo y contraseña son obligatorios");
@@ -396,6 +398,8 @@ export default function UsersMain() {
         phone: normalizeInternationalPhone(payload.phone),
         role_id: payload.role_id,
         branch_id: payload.branch_id,
+        // Solo los extras: los permisos del rol los da el propio rol.
+        ...(payload.permission_ids && payload.permission_ids.length > 0 ? { permission_ids: payload.permission_ids } : {}),
       });
 
       toast.success("Usuario creado correctamente");
@@ -568,6 +572,7 @@ export default function UsersMain() {
         onClose={() => setIsCreateUserModalOpen(false)}
         roles={isSecretary ? roles.filter((r) => r.name === "Operaria") : roles}
         branches={activeBranchId ? branches.filter((b) => b.id === activeBranchId) : branches}
+        permissions={isSuperAdmin ? permissions : []}
         isSubmitting={creatingUser || loadingBranches}
         onSubmit={(payload) => void handleCreateUser(payload)}
       />
