@@ -159,6 +159,19 @@ class CallNextAppointment(BaseModel):
     professional_id: Optional[int] = None
 
 
+class AppointmentAllergiesUpdate(BaseModel):
+    """Confirma las alergias de la atención. allergies vacío/None = "Sin alergias"."""
+    allergies: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("allergies")
+    @classmethod
+    def _blank_to_none(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
 class AppointmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -171,6 +184,11 @@ class AppointmentResponse(BaseModel):
     service_ids: Optional[List[int]] = None
     branch_id: Optional[int] = None
     sale_id: Optional[int] = None
+    # Estado real de la venta: tener venta no significa que esté cobrada.
+    sale_status: Optional[str] = None
+    # Alergias de esta atención: del ticket si la clienta es de mostrador, si no de su ficha.
+    ticket_allergies: Optional[str] = None
+    ticket_allergies_confirmed: bool = False
     is_ia: bool = False
     start_time: datetime
     end_time: datetime

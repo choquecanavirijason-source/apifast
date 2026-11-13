@@ -29,6 +29,7 @@ from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.cash_close import CashClose, CommissionReceipt
 from app.domain.entities.commission_payment import CommissionPayment
+from app.domain.entities.birthday_coupon import BirthdayCouponConfig, CouponRedemption
 
 
 def init_db():

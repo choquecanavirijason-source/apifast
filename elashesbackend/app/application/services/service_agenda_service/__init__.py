@@ -10,6 +10,7 @@ Las funciones públicas se re-exportan aquí para mantener compat con:
 """
 from .appointments import (
     call_next_appointment,
+    confirm_appointment_allergies,
     create_appointment,
     delete_appointment,
     get_appointment_by_id,
@@ -50,6 +51,7 @@ __all__ = [
     "update_service",
     # appointments
     "call_next_appointment",
+    "confirm_appointment_allergies",
     "create_appointment",
     "delete_appointment",
     "get_appointment_by_id",

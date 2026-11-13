@@ -16,10 +16,11 @@ from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale, PosSaleProduct
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.user import User
-from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleUpdate
+from app.presentation.schemas.pos_sale import PosSaleCreate, PosSalePay, PosSaleUpdate
 from app.application.services.service_agenda_service import create_appointment, mark_rescheduled
 from app.application.services.client_service import get_or_create_generic_client, update_client_status
 from app.application.services.inventory_service import deduct_stock_fifo, restock_from_sale, sale_stock_tag
+from app.application.services import birthday_coupon_service
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -47,6 +48,7 @@ def _sale_query(db: Session):
     return db.query(PosSale).options(
         joinedload(PosSale.client),
         joinedload(PosSale.created_by),
+        joinedload(PosSale.redemptions),
         joinedload(PosSale.appointments)
         .joinedload(Appointment.client),
         joinedload(PosSale.appointments)
@@ -113,6 +115,80 @@ def get_sale_by_id(db: Session, sale_id: int) -> PosSale:
     return sale
 
 
+def pay_reserved_sale(db: Session, sale_id: int, payload: PosSalePay, current_user: User) -> PosSale:
+    """Cobra una venta reservada: registra el pago como una venta normal del POS
+    (queda en los totales de caja) y la marca como pagada.
+
+    Se bloquea la fila antes de leer el estado: dos cajeras cobrando la misma
+    reserva a la vez registraban el pago dos veces. El bloqueo va en una
+    consulta aparte porque PostgreSQL no admite FOR UPDATE con los JOIN de
+    _sale_query."""
+    db.query(PosSale.id).filter(PosSale.id == sale_id).with_for_update().first()
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
+
+    if sale.status == "paid":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La venta ya está cobrada.")
+    if sale.status != "reserved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se puede cobrar una venta reservada.",
+        )
+
+    # Igual que al vender: el dinero entra a una caja abierta de la sucursal.
+    if sale.branch_id is not None:
+        open_session = (
+            db.query(CashClose)
+            .filter(CashClose.branch_id == sale.branch_id, CashClose.status == "open")
+            .first()
+        )
+        if not open_session:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta sucursal no tiene la caja abierta. Abre la caja en Salones → Caja antes de cobrar.",
+            )
+
+    total = round(float(sale.total or 0), 2)
+    if total <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La venta no tiene un monto por cobrar.")
+
+    method = _normalize_payment_method(payload.payment_method)
+    cash_received = None
+    cash_change = None
+    if method == "cash":
+        # En efectivo hay que registrar cuánto entregó la clienta (y el vuelto).
+        if payload.cash_received is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ingresa el monto recibido en efectivo.",
+            )
+        if round(payload.cash_received, 2) < total:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"El monto recibido ({payload.cash_received:.2f}) es menor al total a cobrar ({total:.2f}).",
+            )
+        cash_received = float(payload.cash_received)
+        cash_change = round(cash_received - total, 2)
+
+    db.add(Payment(
+        client_id=sale.client_id,
+        branch_id=sale.branch_id,
+        sale_id=sale.id,
+        registered_by_id=current_user.id,
+        amount=total,
+        method=method,
+        status="paid",
+        notes=payload.notes,
+        paid_at=datetime.utcnow(),
+        cash_received=cash_received,
+        cash_change=cash_change,
+    ))
+    sale.status = "paid"
+    sale.payment_method = method
+    db.commit()
+    return get_sale_by_id(db=db, sale_id=sale_id)
+
+
 def list_sales(
     db: Session,
     skip: int = 0,
@@ -159,6 +235,24 @@ def create_sale(
         payload.client_id = generic.id
 
     _validate_pos_relations(db=db, client_id=payload.client_id, branch_id=payload.branch_id)
+
+    # Cupón de cumpleaños: el servidor valida que corresponda y fija el descuento; el valor que
+    # mande la pantalla no cuenta. No se combina con otro descuento ni con una reserva.
+    coupon_eligibility = None
+    if payload.apply_birthday_coupon:
+        if payload.reservation_only:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El cupón de cumpleaños se aplica al cobrar, no al reservar.",
+            )
+        if float(payload.discount_value or 0) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El cupón de cumpleaños no se combina con otro descuento.",
+            )
+        coupon_eligibility = birthday_coupon_service.require_eligible(db, payload.client_id)
+        payload.discount_type = "percent"
+        payload.discount_value = coupon_eligibility["percent"]
 
     if payload.branch_id is not None:
         open_session = (
@@ -330,6 +424,16 @@ def create_sale(
     db.add(sale)
     db.flush()
 
+    if coupon_eligibility is not None:
+        birthday_coupon_service.redeem(
+            db,
+            client_id=sale.client_id,
+            sale_id=sale.id,
+            eligibility=coupon_eligibility,
+            discount_amount=discount_amount,
+            user_id=current_user.id,
+        )
+
     if link_appt is not None:
         starts = [item.start_time for item in payload.items]
         ends = [item.end_time for item in payload.items]
@@ -479,6 +583,7 @@ def update_sale(
         was_already_cancelled = sale.status == "cancelled"
         sale.status = payload.status
         if payload.status == "cancelled":
+            birthday_coupon_service.release_for_sale(sale)
             for appointment in sale.appointments:
                 appointment.status = "cancelled"
             for payment in sale.payments:

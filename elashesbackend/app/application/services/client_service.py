@@ -5,6 +5,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.client import (
+    GENERIC_CLIENT_CI,
     Client,
     CLIENT_STATUS_EN_ESPERA,
     CLIENT_STATUS_EN_SERVICIO,
@@ -39,7 +40,6 @@ def _attach_visit_counts(db: Session, clients: Iterable[Client]) -> None:
 
 # Marca al cliente "Mostrador" generado automáticamente cuando se vende sin
 # elegir clienta — permite ubicarlo y protegerlo de un borrado accidental.
-GENERIC_CLIENT_CI = "SISTEMA-MOSTRADOR"
 
 
 def get_or_create_generic_client(db: Session, branch_id: Optional[int]) -> Client:
@@ -179,6 +179,23 @@ def get_client_by_id(db: Session, client_id: int) -> Client:
     return client
 
 
+def confirm_client_allergies(db: Session, client_id: int, allergies: Optional[str]) -> Client:
+    """El personal confirma las alergias antes de atenderla. allergies None = "Sin
+    alergias" (queda confirmado igual, para no volver a preguntar)."""
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+    if client.is_generic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La clienta de mostrador es compartida: no se le pueden registrar alergias.",
+        )
+    client.allergies = allergies
+    client.allergies_checked_at = datetime.now(timezone.utc)
+    db.commit()
+    return get_client_by_id(db, client_id)
+
+
 def set_client_notifications(db: Session, client: Client, activas: bool) -> Client:
     """Activa/desactiva los avisos de mantenimiento/retiro de la clienta (los
     de citas no dependen de esto)."""
@@ -233,6 +250,10 @@ def create_client(db: Session, payload: ClientCreate) -> Client:
         status=CLIENT_STATUS_SIN_ESTADO,
         last_activity_at=now,
         ci=payload.ci,
+        allergies=payload.allergies,
+        birth_date=payload.birth_date,
+        # Con alergias escritas ya queda confirmado; vacío = aún sin preguntar.
+        allergies_checked_at=now if payload.allergies else None,
     )
 
     db.add(client)
@@ -296,6 +317,8 @@ def update_client(db: Session, client_id: int, payload: ClientUpdate) -> Client:
 
     for field, value in update_data.items():
         setattr(client, field, value)
+    if update_data.get("allergies"):
+        client.allergies_checked_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(client)

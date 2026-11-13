@@ -29,6 +29,12 @@ class PosSale(Base):
     appointments = relationship("Appointment", back_populates="sale")
     payments = relationship("Payment", back_populates="sale")
     product_lines = relationship("PosSaleProduct", back_populates="sale", cascade="all, delete-orphan")
+    redemptions = relationship("CouponRedemption", back_populates="sale", cascade="all, delete-orphan")
+
+    @property
+    def coupon_label(self):
+        """Texto del cupón usado en esta venta (para el comprobante), o None."""
+        return "Cupón de cumpleaños" if self.redemptions else None
 
 
 class PosSaleProduct(Base):

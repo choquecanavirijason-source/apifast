@@ -92,10 +92,13 @@ from app.presentation.controllers import (
     client_controller, dashboard_controller, pos_sale_controller, admin_ai_controller,
     tracking_controller, catalog_controller,
     payment_controller, inventory_controller, branch_controller,
-    service_agenda_controller, reports_controller, app_settings_controller,
+    service_agenda_controller, reports_controller, app_settings_controller, coupon_controller,
 )
 from app.presentation.controllers.tryon_controller import router as tryon_router
 import app.infrastructure.database.migrations.add_tryon_catalog as m58
+import app.infrastructure.database.migrations.add_allergies_to_clients as m59
+import app.infrastructure.database.migrations.add_allergies_to_appointments as m60
+import app.infrastructure.database.migrations.add_birthday_coupon as m61
 
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
@@ -184,6 +187,9 @@ async def lifespan(app: FastAPI):
         ("reminder_email_senders_table", m56.upgrade),
         ("broadcast_recipients_delivery_status", m57.upgrade),
         ("tryon_catalog", m58.upgrade),
+        ("clients_allergies", m59.upgrade),
+        ("appointments_allergies", m60.upgrade),
+        ("birthday_coupon", m61.upgrade),
     ]
 
     for name, upgrade_fn in migrations:
@@ -327,6 +333,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_controller.router)
     app.include_router(payment_controller.router)
     app.include_router(pos_sale_controller.router)
+    app.include_router(coupon_controller.router)
     app.include_router(inventory_controller.router)
     app.include_router(reports_controller.router)
     app.include_router(admin.router)

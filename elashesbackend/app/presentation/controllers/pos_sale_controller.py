@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission, require_permission, enforce_own_branch, SUPER_ADMIN_ROLE
 from app.domain.entities.user import User
-from app.presentation.schemas.pos_sale import PosSaleCreate, PosSaleResponse, PosSaleUpdate
+from app.presentation.schemas.pos_sale import PosSaleCreate, PosSalePay, PosSaleResponse, PosSaleUpdate
 from app.application.services.push_service import push_reservation_created
 from app.application.services.pos_sale_service import (
     cancel_sale,
@@ -16,6 +16,7 @@ from app.application.services.pos_sale_service import (
     delete_sale,
     get_sale_by_id,
     list_sales,
+    pay_reserved_sale,
     update_sale,
 )
 
@@ -82,6 +83,23 @@ def patch_sale(
     record_audit(
         db, current_user, "update", "pos_sale", sale_id,
         f"Editó la venta #{sale_id}",
+        branch_id=getattr(result, "branch_id", None),
+    )
+    return result
+
+
+@router.post("/{sale_id}/pay", response_model=PosSaleResponse)
+def pay_existing_sale(
+    sale_id: int,
+    payload: PosSalePay,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("payments:manage")),
+):
+    """Cobra una venta reservada (p. ej. al pasar su cita de la agenda a servicio)."""
+    result = pay_reserved_sale(db=db, sale_id=sale_id, payload=payload, current_user=current_user)
+    record_audit(
+        db, current_user, "update", "pos_sale", sale_id,
+        f"Cobró la venta #{sale_id} ({payload.payment_method})",
         branch_id=getattr(result, "branch_id", None),
     )
     return result

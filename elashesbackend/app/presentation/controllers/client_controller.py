@@ -23,6 +23,7 @@ from app.presentation.schemas.base_response import MessageResponse
 from app.core.audit import record_audit
 from app.presentation.schemas.client import (
     CitaProximaResponse,
+    ClientAllergiesUpdate,
     ClientCreate,
     ClientNotificacionesResponse,
     ClientNotificacionesUpdate,
@@ -38,6 +39,7 @@ from app.application.services.client_service import (
     delete_client,
     find_marketplace_link,
     set_client_notifications,
+    confirm_client_allergies,
 )
 from app.application.services.retoque_service import list_citas_proximas, list_retoques
 
@@ -190,8 +192,9 @@ def get_clients(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("clients:view")),
 ):
-    effective_branch = resolve_branch_id(branch_id, current_user)
-    return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=effective_branch)
+    # Una clienta no pertenece a una sola sucursal: puede registrarse en una y atenderse
+    # en otra. Todos los roles ven a todas; branch_id es solo un filtro opcional.
+    return list_clients(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
 
 
 # Manual reminders are explicit operations, never appointment lifecycle hooks.
@@ -308,6 +311,28 @@ def create_new_client(
     current_user: User = Depends(require_permission("clients:manage")),
 ):
     return create_client(db=db, payload=payload)
+
+
+@router.put(
+    "/{client_id}/allergies",
+    response_model=ClientResponse,
+)
+def confirm_existing_client_allergies(
+    client_id: int,
+    payload: ClientAllergiesUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients:manage")),
+):
+    """Confirma las alergias de la clienta antes de atenderla ("Sin alergias" = vacío).
+    No se limita por sucursal: quien la atiende debe poder dejar este dato."""
+    result = confirm_client_allergies(db=db, client_id=client_id, allergies=payload.allergies)
+    record_audit(
+        db, current_user, "update", "client", client_id,
+        f"Confirmó las alergias de la clienta #{client_id}"
+        + (" (sin alergias)" if payload.allergies is None else ""),
+        branch_id=getattr(result, "branch_id", None),
+    )
+    return result
 
 
 @router.put(

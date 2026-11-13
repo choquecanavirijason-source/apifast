@@ -1,12 +1,12 @@
 """Casos de uso para Appointment (citas / tickets)."""
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.application.services.client_service import update_client_status
+from app.application.services.client_service import confirm_client_allergies, update_client_status
 from app.application.services.tracking_service import resolve_service, sync_appointment_followup
 from app.domain.entities.branch import Branch
 from app.domain.entities.client import (
@@ -390,6 +390,22 @@ def call_next_appointment(
         status_code=status.HTTP_409_CONFLICT,
         detail="No hay tickets disponibles: la operaria ya tiene un servicio en curso o no hay turnos pendientes.",
     )
+
+
+def confirm_appointment_allergies(db: Session, appointment_id: int, allergies: Optional[str]) -> Appointment:
+    """Confirma las alergias antes de atender (None = "Sin alergias").
+
+    Clienta registrada: se guardan en su ficha y valen para todas sus atenciones.
+    Clienta de mostrador (compartida): solo en ESTE ticket; nada pasa a la ficha, que
+    la usan muchas personas."""
+    appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
+    if appointment.client is not None and appointment.client.is_generic:
+        appointment.allergies = allergies
+        appointment.allergies_checked_at = datetime.now(timezone.utc)
+        db.commit()
+    else:
+        confirm_client_allergies(db=db, client_id=appointment.client_id, allergies=allergies)
+    return get_appointment_by_id(db=db, appointment_id=appointment_id)
 
 
 def get_appointment_by_id(db: Session, appointment_id: int) -> Appointment:

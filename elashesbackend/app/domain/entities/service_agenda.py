@@ -96,6 +96,10 @@ class Appointment(Base):
     end_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="pending", nullable=False)  # pending, completed, cancelled
     advance_payment_amount = Column(Float, nullable=False, default=0.0)  # monto de adelanto pagado al reservar
+    # Alergias de ESTE ticket: solo para la clienta de mostrador (compartida, su ficha no
+    # puede guardarlas). Con una clienta registrada se usan las de su ficha.
+    allergies = Column(String(500), nullable=True)
+    allergies_checked_at = Column(DateTime(timezone=True), nullable=True)
     # UTC naive (misma convención que pos_sales/inventory). Las citas anteriores a
     # la migración quedan con la fecha de la migración.
     created_at = Column(
@@ -146,6 +150,25 @@ class Appointment(Base):
     @property
     def service_ids(self):
         return [item.service_id for item in self.appointment_services]
+
+    @property
+    def ticket_allergies(self):
+        """Alergias que ve quien atiende: las del ticket si la clienta es de mostrador,
+        si no las de su ficha."""
+        if self.client is not None and self.client.is_generic:
+            return self.allergies
+        return self.client.allergies if self.client is not None else None
+
+    @property
+    def ticket_allergies_confirmed(self) -> bool:
+        if self.client is not None and self.client.is_generic:
+            return self.allergies_checked_at is not None
+        return bool(self.client.allergies_confirmed) if self.client is not None else False
+
+    @property
+    def sale_status(self):
+        """Estado de la venta asociada (paid, reserved, cancelled...), o None si no tiene."""
+        return self.sale.status if self.sale is not None else None
 
     @property
     def services(self):

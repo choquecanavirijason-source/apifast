@@ -9,6 +9,15 @@ from app.presentation.schemas.service_agenda import AppointmentResponse
 from app.presentation.schemas.user import UserSummary
 
 
+class PosSalePay(BaseModel):
+    """Cobro de una venta reservada (reserva de agenda) al pasarla a servicio."""
+
+    payment_method: Literal["cash", "card", "transfer", "qr"]
+    # Solo efectivo: lo que entregó la clienta (debe cubrir el total).
+    cash_received: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
 class PosSaleItemCreate(BaseModel):
     # Ticket individual: service_id obligatorio
     # Ticket grupal   : service_ids con ≥2 servicios, service_id puede omitirse
@@ -52,6 +61,10 @@ class PosSaleCreate(BaseModel):
     sale_without_appointments: bool = Field(
         default=False,
         description="Solo cobro: no crea citas en agenda; los horarios de items se ignoran.",
+    )
+    apply_birthday_coupon: bool = Field(
+        default=False,
+        description="Aplica el cupón de cumpleaños de la clienta (el servidor valida y calcula el descuento).",
     )
     reservation_only: bool = Field(
         default=False,
@@ -112,6 +125,8 @@ class PosSaleResponse(BaseModel):
     status: str
     notes: Optional[str] = None
     created_at: datetime
+    # Cupón usado en esta venta (para el comprobante), p. ej. "Cupón de cumpleaños".
+    coupon_label: Optional[str] = None
 
     client: ClientSummary
     created_by: Optional[UserSummary] = None

@@ -29,6 +29,7 @@ from app.domain.entities.service_agenda import Appointment
 from app.domain.entities.pos_sale import PosSale
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.service_agenda import (
+    AppointmentAllergiesUpdate,
     AppointmentCreate,
     AppointmentResponse,
     AppointmentUpdate,
@@ -60,6 +61,7 @@ from app.application.services.reminder_sender_service import (
 from app.infrastructure.email.smtp_client import is_email_configured, sender_address
 from app.application.services.service_agenda_service import (
     call_next_appointment,
+    confirm_appointment_allergies,
     create_appointment,
     create_service,
     delete_appointment,
@@ -640,6 +642,22 @@ def void_appointment_commission(
         )
     void_commission_payment(db, appointment_id, current_user, payload.motivo)
     return get_appointment_by_id(db, appointment_id)
+
+
+@router.put("/appointments/{appointment_id}/allergies", response_model=AppointmentResponse)
+async def confirm_ticket_allergies(
+    appointment_id: int,
+    payload: AppointmentAllergiesUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    """Confirma las alergias antes de atender ("Sin alergias" = vacío). Clienta
+    registrada: se guardan en su ficha; clienta de mostrador: solo en este ticket."""
+    appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
+    enforce_own_branch(appointment.branch_id, current_user, use_effective_branch=True)
+    return await run_in_threadpool(
+        confirm_appointment_allergies, db=db, appointment_id=appointment_id, allergies=payload.allergies
+    )
 
 
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)
