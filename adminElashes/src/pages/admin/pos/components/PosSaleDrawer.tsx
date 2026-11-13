@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, Minus, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { BirthdayCouponUi, CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
@@ -487,22 +487,25 @@ export default function PosSaleDrawer({
                           <p className="text-[11px] text-[var(--ui-text-muted)]">Bs {line.unit_price.toFixed(2)} c/u</p>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="inline-flex items-center gap-1 rounded-xl bg-[#094732]/8 p-1">
                             <button
                               type="button"
                               onClick={() => onUpdateProductQuantity(line.localId, line.quantity - 1)}
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--ui-border-strong)] text-xs font-bold text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)]"
+                              aria-label={`Quitar una unidad de ${line.name}`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-sm transition hover:bg-[var(--ui-surface-hover)]"
                             >
-                              −
+                              <Minus className="h-3.5 w-3.5" aria-hidden />
                             </button>
-                            <span className="w-5 text-center text-xs font-bold text-[#094732]">{line.quantity}</span>
+                            <span className="min-w-6 text-center text-sm font-bold tabular-nums text-[#094732]">{line.quantity}</span>
                             <button
                               type="button"
                               onClick={() => onUpdateProductQuantity(line.localId, line.quantity + 1)}
                               disabled={line.quantity >= line.availableStock}
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--ui-border-strong)] text-xs font-bold text-[var(--ui-text)] hover:bg-[var(--ui-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label={`Agregar una unidad de ${line.name}`}
+                              title={line.quantity >= line.availableStock ? "Es todo el stock disponible" : undefined}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#094732] text-white shadow-sm transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:bg-[var(--ui-border-strong)] disabled:text-[var(--ui-text-muted)]"
                             >
-                              +
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
                             </button>
                           </div>
                         </td>

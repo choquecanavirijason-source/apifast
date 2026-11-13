@@ -112,10 +112,11 @@ export default function PosSaleStepOne({
     setIsCartOpen(true);
   };
 
+  // Los productos NO abren el carrito al agregarlos: así se pueden sumar varios seguidos sin que el
+  // panel tape el catálogo. El resumen de abajo ("Ver carrito") y la insignia de cada tarjeta muestran lo que lleva.
   const handleAddProductToCart = (product: (typeof products)[number]) => {
     onAddProductToCart(product);
     showAddedMessage(product.name || "Producto");
-    setIsCartOpen(true);
   };
 
   const handleServiceSelect = (serviceId: string) => {
@@ -204,8 +205,6 @@ export default function PosSaleStepOne({
           />
         ) : (
           <ProductSelectorCard
-            labelClass="mb-2 block text-sm font-semibold text-[var(--ui-text)]"
-            fieldClass="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] text-sm focus:border-[#094732] focus:ring-0"
             products={products}
             canManageInventory={canManageInventory}
             onCreateProduct={onCreateProduct}
@@ -213,6 +212,7 @@ export default function PosSaleStepOne({
             onAddProductToCart={handleAddProductToCart}
             onUpdateProductQuantity={onUpdateProductQuantity}
             onRemoveProductLine={onRemoveProductLine}
+            onOpenCart={() => setIsCartOpen(true)}
           />
         )}
       </div>
