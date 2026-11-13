@@ -1,5 +1,20 @@
 import api from "../api";
+import variables from "../../config/variables";
 import type { Product } from "../../types/IProduct";
+
+// El backend guarda la foto como ruta relativa ("/media/products/..."): para mostrarla se le antepone el host de la API
+// y al guardar se quita, así la foto sigue funcionando si cambia el dominio.
+const apiBase = () => String(variables.apiUrl ?? "").replace(/\/$/, "");
+const resolveImageUrl = (url?: string | null): string | undefined => {
+  if (!url) return undefined;
+  return url.startsWith("/media/") ? `${apiBase()}${url}` : url;
+};
+const toStoredImageUrl = <T extends { image_url?: string }>(payload: T): T => {
+  const base = apiBase();
+  const url = payload.image_url;
+  if (base && url && url.startsWith(`${base}/media/`)) return { ...payload, image_url: url.slice(base.length) };
+  return payload;
+};
 
 interface BackendCategory {
   id: number;
@@ -123,7 +138,7 @@ const mapBackendProductToProduct = (product: BackendProduct, stock: number): Pro
   minStock: Number.isFinite(product.min_stock) ? Math.max(0, Number(product.min_stock)) : 0,
   description: product.description?.trim() ?? "",
   active: Boolean(product.status),
-  imageUrl: product.image_url ?? undefined,
+  imageUrl: resolveImageUrl(product.image_url),
   updatedAt: product.updated_at ?? "",
 });
 
@@ -190,13 +205,23 @@ export const ProductService = {
     return response.data;
   },
 
+  /** Sube la foto de un producto y devuelve la URL lista para mostrar (y para guardar en el producto). */
+  async uploadProductImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{ image_url: string }>("/inventory/products/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return resolveImageUrl(response.data.image_url) ?? response.data.image_url;
+  },
+
   async createProduct(payload: ProductCreatePayload): Promise<Product> {
-    const response = await api.post<BackendProduct>("/inventory/products", payload);
+    const response = await api.post<BackendProduct>("/inventory/products", toStoredImageUrl(payload));
     return mapBackendProductToProduct(response.data, 0);
   },
 
   async updateProduct(id: number, payload: ProductUpdatePayload): Promise<Product> {
-    const response = await api.put<BackendProduct>(`/inventory/products/${id}`, payload);
+    const response = await api.put<BackendProduct>(`/inventory/products/${id}`, toStoredImageUrl(payload));
     return mapBackendProductToProduct(response.data, 0);
   },
 

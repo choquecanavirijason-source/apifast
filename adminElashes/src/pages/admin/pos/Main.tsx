@@ -718,6 +718,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           isSubmitting={isCreatingProduct}
           form={productForm}
           errors={productFormErrors}
+          branchName={pos.branches.find((branch) => branch.id === pos.activeBranchId)?.name}
+          onUploadImage={ProductService.uploadProductImage}
           categories={productCategories}
           onClose={closeProductModal}
           onSubmit={submitProduct}

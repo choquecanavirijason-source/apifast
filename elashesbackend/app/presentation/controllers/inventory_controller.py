@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.audit import describe_changes, record_audit
 from app.core.dependencies import get_db, require_permission
+from app.core.media import save_catalog_image
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
 from app.presentation.schemas.inventory import (
@@ -113,6 +114,16 @@ def delete_existing_category(
 # ==========================================
 # Products
 # ==========================================
+@router.post("/products/upload-image", status_code=status.HTTP_201_CREATED)
+def upload_product_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("inventory:manage")),
+):
+    """Sube la foto de un producto. Endpoint propio: el de catálogo pide catalog:manage, un permiso
+    sin relación con crear productos (la cajera lo necesita para el POS)."""
+    return {"image_url": save_catalog_image(file=file, folder="products")}
+
+
 @router.get("/products", response_model=List[ProductResponse])
 def get_products(
     skip: int = Query(default=0, ge=0),

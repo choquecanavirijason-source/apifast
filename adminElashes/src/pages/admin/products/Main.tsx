@@ -853,6 +853,8 @@ export default function Main() {
           categories={categories}
           errors={formErrors}
           branchError={branchError}
+          branchName={branches.find((branch) => branch.id === selectedInventoryBranchId)?.name}
+          onUploadImage={ProductService.uploadProductImage}
           onClose={closeModal}
           onSubmit={saveProduct}
           onTextChange={handleTextChange}
