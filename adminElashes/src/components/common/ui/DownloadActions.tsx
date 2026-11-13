@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Button } from "./index";
 import { Download } from "lucide-react";
 

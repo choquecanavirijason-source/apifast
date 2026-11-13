@@ -51,7 +51,6 @@ export default function SettingsPage() {
 
   useEffect(() => { void check(); }, []);
 
-  const allOk = status.elashes === "ok" && status.marketplace === "ok";
 
   const toolbar = (
     <FilterActionBar

@@ -15,7 +15,7 @@ const fieldClass =
 export default function CompletedTicketsHistory() {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [trackings, setTrackings] = useState<TrackingResponse[]>([]);
-  const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>([]);
+  const [, setProfessionals] = useState<ProfessionalForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

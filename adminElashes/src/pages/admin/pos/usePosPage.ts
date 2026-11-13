@@ -42,7 +42,6 @@ import {
   createLocalId,
   isCartLine,
   normalizeCartLine,
-  applySaleExecutionSchedule,
   applySellerToCartLines,
   prepareCartLinesForTicketCheckout,
   createDefaultLine,
@@ -982,7 +981,7 @@ export function usePosPage({
   }, [isDraftHydrated, hydratedDraftKey, draftStorageKey, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
 
   useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
-  useEffect(() => { if (section) setActiveTab(section); }, [section]);
+  useEffect(() => { if (section === "sale" || section === "history") setActiveTab(section); }, [section]);
   useEffect(() => {
     onCartCountChange?.(cartLines.length + productLines.length);
   }, [cartLines.length, productLines.length, onCartCountChange]);
@@ -1520,7 +1519,7 @@ export function usePosPage({
       if (saleForEdit.client) {
         const c = saleForEdit.client;
         setClients((prev) => prev.some((x) => String(x.id) === String(c.id)) ? prev
-          : [{ id: c.id, nombre: c.name ?? "", apellido: c.last_name ?? "", phone: c.phone ?? null, status: (c as { status?: string }).status ?? null }, ...prev]);
+          : [{ id: c.id, nombre: c.name ?? "", apellido: c.last_name ?? "", phone: (c as { phone?: string | null }).phone ?? null, status: (c as { status?: string }).status ?? null }, ...prev]);
       }
       setPaymentMethod((saleForEdit.payment_method || "cash").toLowerCase());
       setDiscountType(saleForEdit.discount_type === "percent" ? "percent" : "amount");

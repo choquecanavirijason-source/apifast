@@ -1,4 +1,4 @@
-import type { AxiosProgressEvent } from "axios";
+import type { AxiosProgressEvent, AxiosRequestConfig } from "axios";
 import api from "../api";
 import variables from "../../config/variables";
 
@@ -7,15 +7,15 @@ import variables from "../../config/variables";
 // El frontend solo necesita VITE_API_URL; no hay URL separada para marketplace.
 
 const marketplaceApi = {
-  get: <T>(url: string, config?: Parameters<typeof api.get>[1]) =>
+  get: <T>(url: string, config?: AxiosRequestConfig) =>
     api.get<T>(`/marketplace-proxy${url}`, config),
-  post: <T>(url: string, data?: unknown, config?: Parameters<typeof api.post>[1]) =>
+  post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     api.post<T>(`/marketplace-proxy${url}`, data, config),
-  put: <T>(url: string, data?: unknown, config?: Parameters<typeof api.put>[1]) =>
+  put: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     api.put<T>(`/marketplace-proxy${url}`, data, config),
-  patch: <T>(url: string, data?: unknown, config?: Parameters<typeof api.patch>[1]) =>
+  patch: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     api.patch<T>(`/marketplace-proxy${url}`, data, config),
-  delete: <T>(url: string, config?: Parameters<typeof api.delete>[1]) =>
+  delete: <T>(url: string, config?: AxiosRequestConfig) =>
     api.delete<T>(`/marketplace-proxy${url}`, config),
 };
 
@@ -160,7 +160,7 @@ export interface AdminOrdersResponse {
 type FormValue = string | number | boolean | File | null | undefined;
 
 function normalizeProduct(p: Record<string, unknown>): MarketplaceProduct {
-  return { ...(p as MarketplaceProduct), category: (p.category_name as string | null) ?? null };
+  return { ...(p as unknown as MarketplaceProduct), category: (p.category_name as string | null) ?? null };
 }
 
 function buildFormData(payload: Record<string, FormValue>): FormData {
@@ -189,7 +189,7 @@ export async function fetchAdminProducts(includeInactive = true): Promise<Market
 export async function createMarketplaceProduct(
   payload: CreateProductPayload
 ): Promise<MarketplaceProduct> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.post<Record<string, unknown>>("/api/products/admin", fd);
   return normalizeProduct(data);
 }
@@ -198,7 +198,7 @@ export async function updateMarketplaceProduct(
   id: number,
   payload: UpdateProductPayload
 ): Promise<MarketplaceProduct> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.put<Record<string, unknown>>(
     `/api/products/admin/${id}`,
     fd
@@ -283,7 +283,7 @@ export async function createCategory(payload: {
   description?: string;
   image?: File | null;
 }): Promise<MarketplaceCategory> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.post<MarketplaceCategory>("/api/categories/admin", fd);
   return data;
 }
@@ -292,7 +292,7 @@ export async function updateCategory(
   id: number,
   payload: { name?: string; description?: string; is_active?: boolean; image?: File | null }
 ): Promise<MarketplaceCategory> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.put<MarketplaceCategory>(
     `/api/categories/admin/${id}`,
     fd
@@ -364,7 +364,7 @@ export async function createCollection(payload: {
   description?: string;
   image?: File | null;
 }): Promise<MarketplaceCollection> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.post<MarketplaceCollection>("/api/collections/admin", fd);
   return data;
 }
@@ -373,7 +373,7 @@ export async function updateCollection(
   id: number,
   payload: { name?: string; description?: string; is_active?: boolean; image?: File | null }
 ): Promise<MarketplaceCollection> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.put<MarketplaceCollection>(`/api/collections/admin/${id}`, fd);
   return data;
 }
@@ -436,13 +436,13 @@ export async function fetchAdminAds(): Promise<MarketplaceAd[]> {
 }
 
 export async function createAd(payload: CreateAdPayload): Promise<MarketplaceAd> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.post<MarketplaceAd>("/api/ads/admin", fd);
   return data;
 }
 
 export async function updateAd(id: number, payload: UpdateAdPayload): Promise<MarketplaceAd> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.put<MarketplaceAd>(`/api/ads/admin/${id}`, fd);
   return data;
 }
@@ -513,7 +513,7 @@ export async function createReel(
   payload: CreateReelPayload,
   onUploadProgress?: (percent: number) => void,
 ): Promise<MarketplaceReel> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.post<MarketplaceReel>("/api/reels/admin", fd, {
     onUploadProgress: onUploadProgress
       ? (e: AxiosProgressEvent) => onUploadProgress(e.total ? Math.round((e.loaded / e.total) * 100) : 0)
@@ -527,7 +527,7 @@ export async function updateReel(
   payload: UpdateReelPayload,
   onUploadProgress?: (percent: number) => void,
 ): Promise<MarketplaceReel> {
-  const fd = buildFormData(payload as Record<string, FormValue>);
+  const fd = buildFormData(payload as unknown as Record<string, FormValue>);
   const { data } = await marketplaceApi.put<MarketplaceReel>(`/api/reels/admin/${id}`, fd, {
     onUploadProgress: onUploadProgress
       ? (e: AxiosProgressEvent) => onUploadProgress(e.total ? Math.round((e.loaded / e.total) * 100) : 0)
@@ -619,6 +619,8 @@ export async function deleteDeliveryPoint(id: number): Promise<void> {
 // ── Customers ─────────────────────────────────────────────────────────────────
 
 export interface MarketplaceCustomer {
+  /** Identificador de fila (la API no lo envía): origen + teléfono. */
+  id: string;
   customer_name: string;
   customer_phone: string;
   customer_email: string | null;
@@ -629,8 +631,8 @@ export interface MarketplaceCustomer {
 }
 
 export async function fetchCustomers(): Promise<MarketplaceCustomer[]> {
-  const { data } = await marketplaceApi.get<MarketplaceCustomer[]>("/api/customers");
-  return data;
+  const { data } = await marketplaceApi.get<Omit<MarketplaceCustomer, "id">[]>("/api/customers");
+  return data.map((c) => ({ ...c, id: `${c.source}:${c.customer_phone}` }));
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────

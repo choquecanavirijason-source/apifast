@@ -1,13 +1,12 @@
 import React from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { theme } from '../../styles/colors'
 import { useDispatch } from 'react-redux';
 import { login, getMe } from '@/core/reducer/auth.reducer';
 import type { AppDispatch } from '@/store';
 
 // --- NUEVOS ICONOS PROFESIONALES ---
 // Instalación recomendada: npm install lucide-react
-import { User, Lock, Eye, EyeOff, LogIn, Atom } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 
 import { resolveLandingRoute } from '@/router/landing';
 

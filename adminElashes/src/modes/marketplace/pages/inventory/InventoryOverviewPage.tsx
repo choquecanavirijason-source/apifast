@@ -68,7 +68,6 @@ export default function InventoryOverviewPage() {
 
   // ── Cruzar por nombre ──────────────────────────────────────────────
   const mpByName = new Map(marketplace.map((p) => [p.name.toLowerCase(), p]));
-  const salonByName = new Map(salon.map((p) => [p.name.toLowerCase(), p]));
 
   const rows: Row[] = [];
   const seen = new Set<string>();

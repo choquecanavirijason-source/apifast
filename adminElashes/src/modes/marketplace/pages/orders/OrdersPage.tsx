@@ -208,7 +208,7 @@ export default function OrdersPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
-            onClick={load}
+            onClick={() => void load()}
             disabled={loading}
             leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
           >

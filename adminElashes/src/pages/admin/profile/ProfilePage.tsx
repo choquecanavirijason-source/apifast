@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { User, Lock, ShieldCheck, Building2, KeyRound } from "lucide-react";
-import Layout from "@/components/common/layout";
 import type { RootState } from "@/store";
 import api from "@/core/services/api";
 import { getApiErrorMessage } from "@/core/utils/apiError";

@@ -16,7 +16,6 @@ import { Button, SectionCard, SegmentedTabs, StatCard } from "@/components/commo
 import DataTable, { type DataTableColumn } from "@/components/common/table/DataTable";
 import { generateTablePdf } from "@/core/utils/generateTablePdf";
 import {
-  formatCommissionRatePercent,
   getTicketCommission,
   getTicketPriceTotal,
 } from "./professionalCommission.utils";
@@ -45,16 +44,6 @@ export interface CommissionExportTotals {
 const fieldClass =
   "w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] placeholder:text-[var(--ui-text-muted)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35 disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]";
 
-const CARD_COLORS = [
-  { bg: "bg-violet-100", text: "text-violet-800" },
-  { bg: "bg-pink-100", text: "text-pink-800" },
-  { bg: "bg-sky-100", text: "text-sky-800" },
-  { bg: "bg-amber-100", text: "text-amber-800" },
-  { bg: "bg-emerald-100", text: "text-emerald-800" },
-  { bg: "bg-rose-100", text: "text-rose-800" },
-  { bg: "bg-indigo-100", text: "text-indigo-800" },
-  { bg: "bg-teal-100", text: "text-teal-800" },
-];
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -80,9 +69,6 @@ const moneyFormatter = new Intl.NumberFormat("es-BO", {
   maximumFractionDigits: 2,
 });
 
-function getInitials(name: string) {
-  return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
-}
 
 // Fila con la comisión pagada: verde suave del tema (acento mezclado con la
 // superficie, opaco) — el texto oscuro normal conserva buen contraste.

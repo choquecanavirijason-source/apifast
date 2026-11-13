@@ -27,7 +27,6 @@ export default function AgendaTicketCard({ ticket, compact = false }: AgendaTick
   const client = ticket.client;
   const nameParts = ticket.client_name.trim().split(/\s+/).filter(Boolean);
   const nombre = client?.name ?? nameParts[0] ?? ticket.client_name;
-  const apellido = client?.last_name ?? (nameParts.slice(1).join(" ") || "");
   const phone = clientPhoneOrRef(ticket);
   const age = client?.age ?? ticket.client_age;
   const eyeType = client?.eye_type_name ?? ticket.client_eye_type_name;

@@ -6,13 +6,21 @@ import { toIsoDate } from "../../calendar/dailyAgenda.utils";
 import type {
   CartLine,
   PosSaleStepTwoProps as BasePosSaleStepTwoProps,
+  ProductCartLine,
 } from "../pos.types";
+import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
 import PosSaleDrawer from "./PosSaleDrawer";
 
 // Extiende el tipo de props para incluir las nuevas props
 interface PosSaleStepTwoExtraProps {
   cartCount?: number;
   animateCart?: boolean;
+  /** El cajón de venta también muestra los productos y el pago mixto: necesita estos datos. */
+  productLines: ProductCartLine[];
+  onUpdateProductQuantity: (localId: string, quantity: number) => void;
+  onRemoveProductLine: (localId: string) => void;
+  mixedPayments: MixedPaymentEntry[];
+  setMixedPayments: (value: MixedPaymentEntry[]) => void;
 }
 
 type PosSaleStepTwoProps = BasePosSaleStepTwoProps & PosSaleStepTwoExtraProps;
@@ -123,7 +131,11 @@ export default function PosSaleStepTwo({
   notes,
   setNotes,
   onOpenRegisterClient,
-  onAddServiceToCart,
+  productLines,
+  onUpdateProductQuantity,
+  onRemoveProductLine,
+  mixedPayments,
+  setMixedPayments,
   branchOpeningHours = null,
   cartCount = cartLines.length,
   animateCart = false,
@@ -1112,6 +1124,11 @@ export default function PosSaleStepTwo({
         subtotal={_subtotal}
         total={total}
         onRemoveLine={onRemoveLine}
+        productLines={productLines}
+        onUpdateProductQuantity={onUpdateProductQuantity}
+        onRemoveProductLine={onRemoveProductLine}
+        mixedPayments={mixedPayments}
+        setMixedPayments={setMixedPayments}
         onChangeLineService={(localId, serviceId) => {
           const selectedService = services.find((service) => String(service.id) === serviceId);
           if (!selectedService) return;
@@ -1120,11 +1137,6 @@ export default function PosSaleStepTwo({
             duration_minutes: selectedService.duration_minutes,
             price: Number(selectedService.price ?? 0),
           });
-        }}
-        onAddServiceById={(serviceId) => {
-          const selectedService = services.find((service) => String(service.id) === serviceId);
-          if (!selectedService) return;
-          onAddServiceToCart(selectedService);
         }}
         clientComboboxRef={clientComboboxRef}
         clientSearch={clientSearch}

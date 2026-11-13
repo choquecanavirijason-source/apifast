@@ -30,12 +30,6 @@ const STATUS_BADGE: Record<string, string> = {
   confirmed: "bg-violet-100 text-violet-800 border-violet-200",
 };
 
-const STATUS_STAT: Record<string, { label: string; tone: string }> = {
-  completed: { label: "Completados", tone: "emerald" },
-  in_service: { label: "En servicio", tone: "amber" },
-  pending: { label: "Pendientes", tone: "amber" },
-  cancelled: { label: "Cancelados", tone: "slate" },
-};
 
 const moneyFormatter = new Intl.NumberFormat("es-BO", {
   style: "currency",

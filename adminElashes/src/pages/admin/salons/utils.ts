@@ -83,7 +83,7 @@ const normalizeOpeningHours = (rawValue: BackendBranch["opening_hours"]): SalonD
     if (!byDay.has(day)) return;
     const rawRanges = "ranges" in item && Array.isArray(item.ranges) ? item.ranges : [];
     const ranges = rawRanges
-      .map((range) => {
+      .map((range: unknown) => {
         if (!range || typeof range !== "object") return null;
         const open_time =
           "open_time" in range && typeof range.open_time === "string" ? range.open_time.trim() : "";
@@ -91,7 +91,7 @@ const normalizeOpeningHours = (rawValue: BackendBranch["opening_hours"]): SalonD
           "close_time" in range && typeof range.close_time === "string" ? range.close_time.trim() : "";
         return { open_time, close_time };
       })
-      .filter((range): range is SalonTimeRangeForm => range !== null)
+      .filter((range: SalonTimeRangeForm | null): range is SalonTimeRangeForm => range !== null)
       .slice(0, 2);
 
     byDay.set(day, {

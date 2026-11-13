@@ -85,7 +85,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   const [isQuestionnaireModalOpen, setIsQuestionnaireModalOpen] = useState(false);
   const [isSubmittingTracking, setIsSubmittingTracking] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [, setLastRefresh] = useState<Date>(new Date());
   const [countdown, setCountdown] = useState(15);
   const [tvMode, setTvMode] = useState(false);
   const [operariasOpen, setOperariasOpen] = useState(true);
@@ -461,25 +461,6 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     [operariaStatuses]
   );
 
-  const handleNoShowImpl = async (ticket: TicketItem) => {
-    const siblingIds = getSiblingIds(ticket);
-    const allIds = [ticket.id, ...siblingIds];
-    const snapshot = tickets;
-    applyGroupMoveLocally(allIds, { status: "cancelled" });
-    try {
-      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
-      if (ticket.client_id) {
-        const update = ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
-        if (operationalContext) await update;
-      }
-      toast.success(`Turno ${ticket.ticket_code ?? `#${ticket.id}`} cancelado — no se presentó.`);
-      await loadTickets(true);
-    } catch (error) {
-      setTickets(snapshot);
-      toast.error(getApiErrorMessage(error, "No se pudo cancelar el turno."));
-    }
-  };
-
   const handleCancelTicketImpl = async (ticket: TicketItem) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
@@ -828,27 +809,6 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     setDeleteConfirmationCode("");
   };
 
-  const handleMarkCompletedImpl = async (ticket: TicketItem) => {
-    const siblingIds = getSiblingIds(ticket);
-    const allIds = [ticket.id, ...siblingIds];
-    if (isGroupBusy(allIds)) return;
-    markGroupBusy(allIds);
-    const snapshot = tickets;
-    applyGroupMoveLocally(allIds, { status: "completed" });
-    try {
-      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "completed" })));
-      toast.success("Ticket finalizado.");
-      checkQueueForFreedOperaria(ticket.professional_id);
-      void loadTickets();
-    } catch (error) {
-      setTickets(snapshot);
-      console.error("Error finalizando ticket:", error);
-      toast.error(getApiErrorMessage(error, "No se pudo finalizar el ticket."));
-    } finally {
-      clearGroupBusy(allIds);
-    }
-  };
-
   const handleSaveTicketEditsImpl = async (
     ticket: TicketItem,
     payload: { date: string; time: string; professionalId: string; isIa: boolean }
@@ -1038,13 +998,11 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.warning(error instanceof Error ? error.message : "No se pudo verificar la sucursal.");
     }
   };
-  const handleNoShow = (ticket: TicketItem) => runQueueWrite(() => handleNoShowImpl(ticket), ticket);
   const handleCancelTicket = (ticket: TicketItem) => runQueueWrite(() => handleCancelTicketImpl(ticket), ticket);
   const handleStartService = (ticket: TicketItem, options?: { skipAllergy?: boolean }) =>
     runQueueWrite(() => handleStartServiceImpl(ticket, options), ticket);
   const handleFinishService = () => runQueueWrite(handleFinishServiceImpl, finishTarget);
   const handleDragEnd = (event: DragEndEvent) => runQueueWrite(() => handleDragEndImpl(event), activeDragTicket);
-  const handleMarkCompleted = (ticket: TicketItem) => runQueueWrite(() => handleMarkCompletedImpl(ticket), ticket);
   const handleSaveTicketEdits = (...args: Parameters<typeof handleSaveTicketEditsImpl>) => runQueueWrite(() => handleSaveTicketEditsImpl(...args), args[0]);
   const handleChangeTicketClient = (ticket: TicketItem, clientId: string) => runQueueWrite(() => handleChangeTicketClientImpl(ticket, clientId), ticket);
   const handleRegisterClientSubmit = (form: HTMLFormElement) => runQueueWrite(() => handleRegisterClientSubmitImpl(form), registerClientTarget);

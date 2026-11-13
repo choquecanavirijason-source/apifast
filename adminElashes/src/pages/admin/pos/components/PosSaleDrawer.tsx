@@ -107,10 +107,6 @@ export default function PosSaleDrawer({
   clientAddress,
   sellerId,
   setSellerId,
-  discountValue,
-  setDiscountValue,
-  discountType,
-  setDiscountType,
   paymentMethod,
   setPaymentMethod,
   cashReceived = "",
@@ -130,7 +126,6 @@ export default function PosSaleDrawer({
   isSubmitting = false,
   linkAppointmentId = null,
   ticketPreviews = [],
-  onGoToScheduleStep,
   ticketMode = "group",
   setTicketMode,
   onUpdateTicketTime,
@@ -180,7 +175,6 @@ export default function PosSaleDrawer({
   };
 
   const [showSinHoraConfirm, setShowSinHoraConfirm] = useState(false);
-  const [payLater, setPayLater] = useState(false);
 
   // Historial de la clienta: últimos servicios completados
   const [clientHistory, setClientHistory] = useState<Array<{ id: number; ticket_code: string | null; service_names: string[] | undefined; start_time: string }>>([]);
@@ -211,9 +205,7 @@ export default function PosSaleDrawer({
   const tutorDataComplete = !isMinorClient || (tutorNombre.trim() !== "" && tutorCI.trim() !== "");
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const ticketSummaryRef = useRef<HTMLDivElement | null>(null);
   const prevStep2Ref = useRef(step2Done);
-  const prevStep3Ref = useRef(step3Done);
 
   // Limpiar datos del tutor cuando cambia el cliente
   useEffect(() => {
@@ -259,14 +251,6 @@ export default function PosSaleDrawer({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isSellerOpen]);
 
-  const lineCountByServiceId = useMemo(() => {
-    const counts = new Map<string, number>();
-    cartLines.forEach((line) => {
-      const key = String(line.service_id || "");
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    });
-    return counts;
-  }, [cartLines]);
 
   // Agrupar líneas por service_id para mostrar una sola fila por servicio con cantidad
   const groupedCartLines = useMemo(() => {
@@ -282,42 +266,6 @@ export default function PosSaleDrawer({
   // En modo drawer, si no está abierto no se renderiza
   if (!isOpen && !isPanel) return null;
 
-  const handlePrintTickets = () => {
-    if (!ticketPreviews.length) return;
-    const rows = ticketPreviews
-      .map(
-        (p) =>
-          `<tr>
-            <td>${p.serviceName}</td>
-            <td>${p.date}</td>
-            <td>${p.without_time ? "Sin hora" : p.time}</td>
-            <td>${p.professionalName}</td>
-            <td>${p.status}</td>
-          </tr>`
-      )
-      .join("");
-    const win = window.open("", "_blank", "width=700,height=500");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Tickets en agenda</title>
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; padding: 16px; }
-        h2 { font-size: 15px; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-        th { background: #f3f2f1; font-size: 11px; text-transform: uppercase; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h2>Tickets en agenda</h2>
-      <table>
-        <thead><tr><th>Servicio</th><th>Fecha</th><th>Hora</th><th>Operaria</th><th>Estado</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <br/><button onclick="window.print()">Imprimir</button>
-    </body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
-  };
 
   const stepBorder = (isDone: boolean, isActive: boolean) =>
     isDone

@@ -35,14 +35,6 @@ interface IFollowUp {
   notas: string;
 }
 
-interface IServiceItem {
-  id: number;
-  name: string;
-  category: string;
-  durationMinutes: number;
-  price: number;
-}
-
 const MOCK_CLIENTS = [
     { id: 1, name: "Ana García" },
     { id: 2, name: "Lucía Méndez" },
@@ -56,16 +48,6 @@ const MOCK_FOLLOWUPS: IFollowUp[] = [
   { id: 104, clientId: 3, clientName: "Carla Ruiz", applicationDate: "2023-11-18", diseno: "Natural", curva: ["C"], tamano: ["8", "9", "10"], notas: "" },
 ];
 
-const MOCK_SERVICES: IServiceItem[] = [
-  { id: 1, name: "Clasicas 1D", category: "Extension", durationMinutes: 90, price: 180 },
-  { id: 2, name: "Hibridas 2D/3D", category: "Extension", durationMinutes: 120, price: 230 },
-  { id: 3, name: "Volumen Ruso", category: "Extension", durationMinutes: 150, price: 290 },
-  { id: 4, name: "Efecto Kim K", category: "Diseno", durationMinutes: 135, price: 270 },
-  { id: 5, name: "Retoque 2 semanas", category: "Mantenimiento", durationMinutes: 75, price: 130 },
-  { id: 6, name: "Retoque 3 semanas", category: "Mantenimiento", durationMinutes: 90, price: 160 },
-  { id: 7, name: "Lifting de pestanas", category: "Lash Lift", durationMinutes: 60, price: 140 },
-  { id: 8, name: "Retiro de extensiones", category: "Retiro", durationMinutes: 30, price: 60 },
-];
 
 const emptyForm: IFollowUp = {
     id: 0, clientId: 0, clientName: "", applicationDate: new Date().toISOString().split('T')[0],

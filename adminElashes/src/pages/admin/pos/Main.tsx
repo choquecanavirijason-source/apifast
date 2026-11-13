@@ -497,6 +497,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         /* ── Sale step 2 ─────────────────────────────────────────────── */
         ) : pos.activeTab === "sale" && pos.step === 2 ? (
           <PosSaleStepTwo
+            productLines={pos.productLines}
+            onUpdateProductQuantity={pos.updateProductQuantity}
+            onRemoveProductLine={pos.removeProductLine}
+            mixedPayments={pos.mixedPayments}
+            setMixedPayments={pos.setMixedPayments}
             branchOpeningHours={pos.branches.find((b) => b.id === pos.activeBranchId)?.opening_hours ?? null}
             cartLines={pos.cartLines}
             existingTickets={pos.existingTickets}

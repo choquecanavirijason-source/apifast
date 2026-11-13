@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { ChevronDown, ChevronUp, Clock, UserCheck, Users } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, UserCheck } from "lucide-react";
 import SectionCard from "@/components/common/ui/SectionCard";
 import type { TicketItem, ProfessionalForSelect } from "../../../../core/services/agenda/agenda.service";
 

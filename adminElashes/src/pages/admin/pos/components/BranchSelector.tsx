@@ -1,4 +1,4 @@
-﻿import React from "react";
+﻿
 import { Building2 } from "lucide-react";
 
 type Branch = { id: number; name: string; address?: string | null };

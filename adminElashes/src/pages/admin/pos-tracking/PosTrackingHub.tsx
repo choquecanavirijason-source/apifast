@@ -41,7 +41,7 @@ export default function PosTrackingHub() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [posCartCount, setPosCartCount] = useState(0);
   const [posPendingPayCount, setPosPendingPayCount] = useState(0);
-  const [cartDrawerSignal, setCartDrawerSignal] = useState(0);
+  const [cartDrawerSignal] = useState(0);
 
   // El header global (con el selector de sucursal) se oculta en pantalla
   // completa (ver .pos-hub-clean-fullscreen en styles.css) — sin esto acá,
@@ -126,11 +126,7 @@ export default function PosTrackingHub() {
     void document.documentElement.requestFullscreen();
   };
 
-  const openCartDrawer = () => {
-    setCartDrawerSignal((prev) => prev + 1);
-  };
 
-  const showCartFab = effectiveSection !== "pos" && posCartCount > 0;
 
   return (
     <div

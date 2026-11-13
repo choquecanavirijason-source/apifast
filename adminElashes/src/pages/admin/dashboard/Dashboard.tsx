@@ -54,14 +54,6 @@ type ExportSection = "overview" | "revenue" | "services" | "inventory" | "quickl
  * Todas las series miden lo mismo (importe / cantidad), así que comparten color:
  * pintar cada barra de un color distinto no codifica ninguna información.
  */
-const CHART_ACCENT = "#2a78d6";
-const CHART_GRID = "#edebe9";
-const CHART_TEXT = "#605e5c";
-const CHART_TOOLTIP_STYLE = {
-  borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  fontSize: 12,
-} as const;
 
 /** Paleta categórica (servicios/productos distintos) — tonos de verde de marca + grises. */
 const BC_COLORS = ["#094732", "#146c52", "#2f8f6d", "#5cae8f", "#8ecab3", "#c8e6d9", "#605e5c", "#a19f9d"];
@@ -69,8 +61,6 @@ const BC_COLORS = ["#094732", "#146c52", "#2f8f6d", "#5cae8f", "#8ecab3", "#c8e6
 /** Controles de la página: blancos, mismo alto y radio para que alineen entre sí. */
 const BTN_NEUTRAL =
   "inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50";
-const BTN_DARK =
-  "inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#323130] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#201f1e] disabled:cursor-not-allowed disabled:opacity-50";
 
 const getLocalDateInputValue = (date = new Date()) => {
   const year = date.getFullYear();

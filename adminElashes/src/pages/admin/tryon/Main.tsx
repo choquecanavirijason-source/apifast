@@ -119,7 +119,7 @@ export default function TryOnCatalogPage() {
         }
         return updated;
     }
-    function open(row: StyleRow) { const normalized = availableSelection(row.style); setRecord(row); setDraft(normalized); setPreviewSelection(normalized.defaults); setOpened(true); setTab('general'); setShowHistory(false); }
+    function open(row: StyleRow) { const normalized = availableSelection(row.style); setRecord(row); setDraft(normalized); setPreviewSelection({ ...normalized.defaults, color: normalized.defaults.color ?? 0 }); setOpened(true); setTab('general'); setShowHistory(false); }
     useEffect(() => {
         const key = searchParams.get('style');
         if (loading || error || !key) return;
@@ -152,7 +152,7 @@ export default function TryOnCatalogPage() {
         style.is_active = true;
         setRecord(null);
         setDraft(style);
-        setPreviewSelection(style.defaults);
+        setPreviewSelection({ ...style.defaults, color: style.defaults.color ?? 0 });
         setOpened(true);
         setTab('general');
         setShowHistory(false);

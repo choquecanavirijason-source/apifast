@@ -22,8 +22,6 @@ const VARIANT_STYLES: Record<LayoutVariant, string> = {
 };
 
 export default function Layout({
-  title,
-  subtitle,
   children,
   toolbar,
   topContent,

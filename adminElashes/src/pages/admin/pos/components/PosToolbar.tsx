@@ -1,5 +1,5 @@
-﻿import React from "react";
-import { CalendarDays, ShoppingCart } from "lucide-react";
+﻿
+import { ShoppingCart } from "lucide-react";
 
 type Props = {
   embedded?: boolean;
@@ -17,7 +17,6 @@ type Props = {
 };
 
 export default function PosToolbar({
-  embedded,
   activeTab,
   setActiveTab,
   resetSaleForm,

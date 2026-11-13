@@ -479,7 +479,7 @@ export default function MarketplacePage() {
         isOpen={!!deleteTarget}
         title="Eliminar producto"
         message={`¿Eliminar "${deleteTarget?.name}"? Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar"
+        confirmText="Eliminar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

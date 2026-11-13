@@ -18,7 +18,7 @@ export default function ServicesTopStats({
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
       <StatCard label="Total categorias" value={totalCategories} icon={<Briefcase className="h-4 w-4" />} tone="slate" />
-      <StatCard label="Total servicios" value={totalServices} icon={<Briefcase className="h-4 w-4" />} tone="sky" />
+      <StatCard label="Total servicios" value={totalServices} icon={<Briefcase className="h-4 w-4" />} tone="blue" />
       <StatCard
         label="Con imagen"
         value={totalWithImage}

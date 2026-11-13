@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -172,8 +171,8 @@ export default function Header() {
   const { user, sessionExpiresAt } = useSelector(
     (state: RootState) => state.auth,
   );
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [idleRemainingSeconds, setIdleRemainingSeconds] =
+  const [, setRemainingSeconds] = useState(0);
+  const [, setIdleRemainingSeconds] =
     useState(idleTimeoutSeconds);
   const [branches, setBranches] = useState<Array<{ id: number; name: string }>>(
     [],

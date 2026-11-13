@@ -48,7 +48,7 @@ export interface DataTablePagination {
 
 export type DataTableColumnFilters = Record<string, string>;
 
-interface DataTableProps<T> {
+interface DataTableProps<T extends { id: number | string }> {
   data: T[];
   columns: DataTableColumn<T>[];
   actions?: DataTableAction<T>[];

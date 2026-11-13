@@ -1,6 +1,6 @@
 // src/features/clients/components/ClientFileModal.tsx
-import React, { useState, useEffect } from "react";
-import { X, FileText, CheckCircle2, XCircle, Save, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, CheckCircle2, XCircle, Save } from "lucide-react";
 import type { IClient, IClientAssessment, IClientConsent } from "../../../core/types/IClient";
 
 interface Props {

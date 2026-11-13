@@ -40,7 +40,6 @@ export default function RegisterUserModal({
   permissions = [],
   isSubmitting,
   onSubmit,
-  lockRole = false,
 }: RegisterUserModalProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const wasOpenRef = useRef(false);

@@ -256,7 +256,7 @@ const EMPTY_REPORT: DailyClosingResponse = {
 export default function CierreDeCaja() {
   const [fromDate, setFromDate] = useState(todayStr());
   const [toDate, setToDate] = useState(todayStr());
-  const [branchId, setBranchId] = useState<number | null>(null);
+  const [branchId] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalForSelect[]>(

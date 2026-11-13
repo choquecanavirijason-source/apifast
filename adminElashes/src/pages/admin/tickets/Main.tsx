@@ -42,10 +42,10 @@ export default function TicketsPage() {
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("");
   const [ticketDateFilter, setTicketDateFilter] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState(""); // Código o nombre de cliente
+  const [searchTerm] = useState(""); // Código o nombre de cliente
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isPaymentsListModalOpen, setIsPaymentsListModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null);

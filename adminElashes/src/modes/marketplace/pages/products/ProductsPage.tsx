@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, DollarSign, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X, Star, StarOff, FileDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Eye, EyeOff, ShoppingBag, LayoutList, LayoutGrid, Search, Package, AlertTriangle, TrendingDown, Video, X, Star, StarOff, FileDown } from "lucide-react";
 
 import Layout from "@/components/common/layout";
 import FilterActionBar from "@/components/common/FilterActionBar";
@@ -216,7 +216,6 @@ export default function ProductsPage() {
   const activeCount = products.filter((p) => p.is_active).length;
   const lowStockCount = products.filter((p) => p.is_active && p.is_low_stock && p.stock > 0).length;
   const outOfStockCount = products.filter((p) => p.is_active && p.stock === 0).length;
-  const totalValue = products.reduce((s, p) => s + p.price * (p.stock ?? 0), 0);
 
   const columns: DataTableColumn<MarketplaceProduct>[] = [
     {

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FileDown, RefreshCw, Search, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
+import { FileDown, RefreshCw, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
@@ -51,20 +51,6 @@ type SalesHistoryTableProps = {
 };
 
 export default function SalesHistoryTable({
-  historySearch,
-  onHistorySearchChange,
-  historyClientFilter,
-  onHistoryClientFilterChange,
-  historyClientOptions,
-  historyPaymentFilter,
-  onHistoryPaymentFilterChange,
-  historyPaymentOptions,
-  historyDateFrom,
-  onHistoryDateFromChange,
-  historyDateTo,
-  onHistoryDateToChange,
-  filteredSalesTotalAmount,
-  allSalesTotalAmount,
   rowsPerPage,
   rowsPerPageOptions,
   onRowsPerPageChange,
