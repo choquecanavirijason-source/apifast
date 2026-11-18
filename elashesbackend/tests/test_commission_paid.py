@@ -401,3 +401,43 @@ def test_bloqueo_sin_join_en_postgres(db, seed):
         event.remove(db, "do_orm_execute", on_execute)
     locking = [sql for sql in captured if "FOR UPDATE" in sql]
     assert locking and all("JOIN" not in sql.upper() for sql in locking), locking
+
+
+# ── Listado de tickets: orden y filtros del Historial ───────────────────────
+
+class TestListadoDeTickets:
+    def _ids(self, client, headers, **params):
+        resp = client.get("/agenda/appointments", params={"limit": 100, **params}, headers=headers)
+        assert resp.status_code == 200, resp.text
+        return [r["id"] for r in resp.json()]
+
+    def test_lo_mas_reciente_va_primero(self, client, db, seed):
+        viejo = add_ticket(db, seed, days_ago=10)
+        medio = add_ticket(db, seed, days_ago=5)
+        nuevo = add_ticket(db, seed, days_ago=1)
+        ids = self._ids(client, login(client, "admin_c"))
+        assert ids == [nuevo.id, medio.id, viejo.id]
+
+    def test_filtro_de_fechas_incluye_el_dia_final_completo(self, client, db, seed):
+        h = login(client, "admin_c")
+        dia9 = add_ticket(db, seed, days_ago=1)                                  # 2026-10-09 10:00
+        dia8 = add_ticket(db, seed, days_ago=2)                                  # 2026-10-08 10:00
+        tarde = add_ticket(db, seed, days_ago=3)                                 # 2026-10-07 10:00
+        tarde.start_time = datetime(2026, 10, 8, 23, 30)                         # último minuto del 8
+        db.commit()
+
+        assert set(self._ids(client, h, start_date="2026-10-08", end_date="2026-10-08")) == {dia8.id, tarde.id}
+        assert set(self._ids(client, h, start_date="2026-10-09", end_date="2026-10-09")) == {dia9.id}
+        assert set(self._ids(client, h, start_date="2026-10-08")) == {dia8.id, tarde.id, dia9.id}
+        assert set(self._ids(client, h, end_date="2026-10-08")) == {dia8.id, tarde.id}
+
+    def test_rango_invertido_no_devuelve_nada(self, client, db, seed):
+        add_ticket(db, seed, days_ago=1)
+        assert self._ids(client, login(client, "admin_c"), start_date="2026-10-10", end_date="2026-10-01") == []
+
+    def test_filtro_por_operaria_y_sucursal(self, client, db, seed):
+        h = login(client, "admin_c")
+        de_luna = add_ticket(db, seed, professional="luna", branch="centro")
+        de_sofia = add_ticket(db, seed, professional="sofia", branch="norte")
+        assert self._ids(client, h, professional_id=seed["luna"].id) == [de_luna.id]
+        assert self._ids(client, h, branch_id=seed["norte"].id) == [de_sofia.id]

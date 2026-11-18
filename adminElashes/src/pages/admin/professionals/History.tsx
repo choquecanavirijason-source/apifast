@@ -187,6 +187,8 @@ export default function ProfessionalServiceHistory() {
   const [voiding, setVoiding] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"tickets" | "comisiones">("tickets");
+  // Orden de la tabla: lo más reciente primero (se puede cambiar tocando el encabezado).
+  const [ticketSort, setTicketSort] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "start_time", direction: "desc" });
   const tour = useGuidedTour("equipo-comisiones", user?.id);
   const tourSteps = useMemo(() => buildCommissionsTour(setActiveTab), []);
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -917,6 +919,11 @@ export default function ProfessionalServiceHistory() {
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
         </div>
+        {fromDate && toDate && fromDate > toDate ? (
+          <p role="alert" className="mt-2 text-xs font-medium text-slate-700">
+            La fecha “Desde” es posterior a “Hasta”: no habrá resultados. Corrige el rango.
+          </p>
+        ) : null}
       </SectionCard>
 
       {/* ── Pestaña: Comisiones ─────────────────────────────────────────── */}
@@ -960,6 +967,9 @@ export default function ProfessionalServiceHistory() {
           defaultLimit={25}
           tableMinWidth="min-w-[1280px]"
           rowClassName={(t) => (t.pagado ? PAID_ROW_CLASS : undefined)}
+          sort={ticketSort}
+          onSortChange={(key, direction) => setTicketSort({ key, direction })}
+          resetPageKey={`${selectedProfessionalId ?? "all"}|${fromDate}|${toDate}`}
         />
       </SectionCard>
         </>

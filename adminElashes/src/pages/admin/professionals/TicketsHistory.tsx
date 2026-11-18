@@ -78,6 +78,8 @@ export default function TicketsHistoryPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  // Orden de la tabla: lo más reciente primero (se puede cambiar tocando el encabezado).
+  const [ticketSort, setTicketSort] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "start_time", direction: "desc" });
 
   const trackingByAppointment = useMemo(() => {
     const map = new Map<number, TrackingResponse>();
@@ -139,12 +141,12 @@ export default function TicketsHistoryPage() {
     };
   }, []);
 
-  const filteredTickets = useMemo(() => {
+  // Tickets que cumplen búsqueda y operaria (sin el estado): de aquí salen los contadores de las etiquetas de estado.
+  const ticketsBeforeStatus = useMemo(() => {
     const term = search.trim().toLowerCase();
     const profId = professionalFilter ? Number(professionalFilter) : null;
     return tickets.filter((t) => {
       if (profId !== null && t.professional_id !== profId) return false;
-      if (statusFilter && t.status !== statusFilter) return false;
       if (!term) return true;
       const services = (t.service_names?.join(" ") ?? t.service_name ?? "").toLowerCase();
       return (
@@ -156,7 +158,12 @@ export default function TicketsHistoryPage() {
         (STATUS_LABELS[t.status] ?? t.status).toLowerCase().includes(term)
       );
     });
-  }, [tickets, search, professionalFilter, statusFilter]);
+  }, [tickets, search, professionalFilter]);
+
+  const filteredTickets = useMemo(
+    () => (statusFilter ? ticketsBeforeStatus.filter((t) => t.status === statusFilter) : ticketsBeforeStatus),
+    [ticketsBeforeStatus, statusFilter],
+  );
 
   const totalRevenue = useMemo(
     () => filteredTickets.reduce((s, t) => s + getPrice(t), 0),
@@ -504,6 +511,9 @@ export default function TicketsHistoryPage() {
           enableColumnFilters={false}
           defaultLimit={25}
           tableMinWidth="min-w-[1100px]"
+          sort={ticketSort}
+          onSortChange={(key, direction) => setTicketSort({ key, direction })}
+          resetPageKey={`${search}|${professionalFilter}|${statusFilter}|${fromDate}|${toDate}`}
           renderTopToolbar={() => (
             <div className="space-y-2">
               <div data-tour="eq-status" className="flex max-w-full gap-1 overflow-x-auto pb-0.5">
@@ -516,10 +526,10 @@ export default function TicketsHistoryPage() {
                       : "border-[var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
                   }`}
                 >
-                  Todos · {tickets.length}
+                  Todos · {ticketsBeforeStatus.length}
                 </button>
                 {availableStatuses.map((status) => {
-                  const count = tickets.filter((ticket) => ticket.status === status).length;
+                  const count = ticketsBeforeStatus.filter((ticket) => ticket.status === status).length;
                   return (
                     <button
                       key={status}
@@ -560,6 +570,11 @@ export default function TicketsHistoryPage() {
                     <option key={professional.id} value={professional.id}>{professional.username}</option>
                   ))}
                 </select>
+                {fromDate && toDate && fromDate > toDate ? (
+                  <p role="alert" className="text-xs font-medium text-slate-700 sm:col-span-2 lg:col-span-5">
+                    La fecha “Desde” es posterior a “Hasta”: no habrá resultados. Corrige el rango.
+                  </p>
+                ) : null}
                 <div data-tour="eq-dates" className="grid grid-cols-2 gap-2 sm:col-span-2">
                   <input
                     type="date"

@@ -347,8 +347,8 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
       const isPaid = earned > 0 && pending < 0.01;
 
       const sortedTickets = [
-        ...completedTickets.sort((a, b) => a.start_time.localeCompare(b.start_time)),
-        ...cancelledTickets.sort((a, b) => a.start_time.localeCompare(b.start_time)),
+        ...completedTickets.sort((a, b) => b.start_time.localeCompare(a.start_time)),
+        ...cancelledTickets.sort((a, b) => b.start_time.localeCompare(a.start_time)),
       ];
 
       return {

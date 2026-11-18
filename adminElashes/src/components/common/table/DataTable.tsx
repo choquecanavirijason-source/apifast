@@ -53,6 +53,8 @@ interface DataTableProps<T extends { id: number | string }> {
   columns: DataTableColumn<T>[];
   actions?: DataTableAction<T>[];
   sort?: { key: string; direction: SortDirection };
+  /** Cuando cambia (p. ej. al filtrar desde fuera), la tabla vuelve a la página 1. */
+  resetPageKey?: string | number;
   onSortChange?: (key: string, direction: SortDirection) => void;
   loading?: boolean;
   renderTopToolbar?: () => ReactNode;
@@ -85,6 +87,7 @@ function DataTable<T extends { id: number | string }>({
   columns,
   actions,
   sort,
+  resetPageKey,
   onSortChange,
   loading = false,
   renderTopToolbar,
@@ -216,6 +219,15 @@ function DataTable<T extends { id: number | string }>({
     ? data
     : sortedData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
   
+  // Si los datos se reducen (filtros de la pantalla) la página actual puede dejar de existir: se vuelve a la última.
+  useEffect(() => {
+    if (!isServerPagination && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [isServerPagination, currentPage, totalPages]);
+
+  useEffect(() => {
+    if (resetPageKey !== undefined) setCurrentPage(1);
+  }, [resetPageKey]);
+
   const fromItem = totalItems === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const toItem = Math.min(currentPage * rowsPerPage, totalItems);
 
