@@ -56,13 +56,15 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmado",
 };
 
+// Estados en grises: lo que cuenta es el texto de la etiqueta; el color solo distingue "terminado" (oscuro)
+// de "en curso" (claro) y "cancelado" (apagado), para no saturar la tabla.
 const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  waiting: "bg-blue-100 text-blue-800",
-  in_service: "bg-green-100 text-green-800",
-  completed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-rose-100 text-rose-800",
-  confirmed: "bg-violet-100 text-violet-800",
+  pending: "bg-slate-100 text-slate-700",
+  waiting: "bg-slate-100 text-slate-700",
+  in_service: "bg-slate-100 text-slate-700",
+  completed: "bg-slate-800 text-white",
+  cancelled: "bg-slate-100 text-slate-400 line-through",
+  confirmed: "bg-slate-100 text-slate-700",
 };
 
 const moneyFormatter = new Intl.NumberFormat("es-BO", {
@@ -74,7 +76,7 @@ const moneyFormatter = new Intl.NumberFormat("es-BO", {
 
 // Fila con la comisión pagada: verde suave del tema (acento mezclado con la
 // superficie, opaco) — el texto oscuro normal conserva buen contraste.
-const PAID_ROW_CLASS = "bg-[color-mix(in_srgb,var(--ui-accent)_9%,var(--ui-surface))]";
+const PAID_ROW_CLASS = "bg-slate-50";
 
 // Recorta microsegundos ("...12.345678+00:00") para que cualquier navegador lo parsee.
 const parseIso = (iso: string) => new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
@@ -565,7 +567,7 @@ export default function ProfessionalServiceHistory() {
       render: (t) => {
         const total = getTicketPriceTotal(t);
         return (
-          <span className={`text-xs font-semibold tabular-nums ${total > 0 ? "text-emerald-700" : "text-[var(--ui-text-muted)]"}`}>
+          <span className={`text-xs font-semibold tabular-nums ${total > 0 ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"}`}>
             {total > 0 ? moneyFormatter.format(total) : "—"}
           </span>
         );
@@ -652,7 +654,7 @@ export default function ProfessionalServiceHistory() {
           return (
             <div className="flex flex-col items-start gap-0.5">
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-[var(--ui-accent)] px-2 py-0.5 text-[10px] font-bold text-white"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-white"
                 title={detail}
               >
                 <CheckCircle2 className="h-3 w-3" />
@@ -662,7 +664,7 @@ export default function ProfessionalServiceHistory() {
                 <button
                   type="button"
                   onClick={() => { setVoidMotivo(""); setVoidTarget(t); }}
-                  className="text-[10px] font-semibold text-[var(--ui-text-muted)] underline-offset-2 hover:text-rose-700 hover:underline"
+                  className="text-[10px] font-semibold text-[var(--ui-text-muted)] underline-offset-2 hover:text-slate-800 hover:underline"
                 >
                   Anular
                 </button>
@@ -935,14 +937,14 @@ export default function ProfessionalServiceHistory() {
       {/* ── Stats ────────────────────────────────────────────────────────── */}
       <div data-tour="cm-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total tickets" value={filteredTickets.length} tone="slate" />
-        <StatCard label="Completados" value={completedTickets.length} tone="emerald" />
+        <StatCard label="Completados" value={completedTickets.length} tone="slate" />
         <StatCard
           label="En curso"
           value={filteredTickets.filter((t) => t.status === "in_service" || t.status === "pending").length}
-          tone="amber"
+          tone="slate"
         />
-        <StatCard label="Ingresos (completados)" value={moneyFormatter.format(totalRevenue)} tone="emerald" />
-        <StatCard label="Comisiones" value={moneyFormatter.format(totalCommission)} tone="blue" />
+        <StatCard label="Ingresos (completados)" value={moneyFormatter.format(totalRevenue)} tone="slate" />
+        <StatCard label="Comisiones" value={moneyFormatter.format(totalCommission)} tone="slate" />
       </div>
 
       {/* ── Tabla de tickets ─────────────────────────────────────────────── */}

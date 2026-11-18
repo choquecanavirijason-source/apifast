@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle, Clock, Plus, X, ChevronDown, ChevronUp, Banknote, RefreshCw, Info } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle, Plus, X, ChevronDown, ChevronUp, Banknote, RefreshCw, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import type { ProfessionalForSelect, TicketItem } from "@/core/services/agenda/agenda.service";
 import { CommissionPaymentsService, type CommissionPaymentOut } from "@/core/services/commission-payments/commission-payments.service";
-import { Button, SectionCard } from "@/components/common/ui";
+import { Button } from "@/components/common/ui";
 import {
   getTicketCommission,
   getTicketPriceTotal,
@@ -48,7 +48,7 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-center">
-        <span className="text-sm font-bold text-slate-700">{proName}</span>
+        <span className="text-sm font-bold text-slate-800">{proName}</span>
         <p className="mt-0.5 text-[11px] text-slate-500">
           Cada fila es un servicio atendido en el período. Los cancelados (tachados) no suman comisión.
         </p>
@@ -90,7 +90,7 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
               <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-slate-700"}`}>
                 {isCancelled ? "—" : moneyFmt.format(comision)}
               </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-[#094732]"}`}>
+              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-slate-800"}`}>
                 {isCancelled ? "—" : moneyFmt.format(caja)}
               </td>
             </tr>
@@ -100,7 +100,7 @@ function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: st
           <tr className="bg-slate-100 font-bold">
             <td className="border-t-2 border-slate-300 px-3 py-2 text-slate-700" colSpan={2}>TOTAL</td>
             <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-slate-800">{moneyFmt.format(totalComision)}</td>
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-[#094732]">{moneyFmt.format(totalCaja)}</td>
+            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-slate-800">{moneyFmt.format(totalCaja)}</td>
           </tr>
         </tfoot>
         </table>
@@ -143,8 +143,8 @@ function RegisterPaymentForm({
   };
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4">
-      <p className="mb-1 text-xs font-semibold text-[#094732]">
+    <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="mb-1 text-sm font-semibold text-slate-800">
         Registrar pago — {professional.username}
       </p>
       <p className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-slate-600">
@@ -331,228 +331,228 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
     );
   }
 
+  const operariasConPendiente = proStats.filter((p) => p.pending > 0.005).length;
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Cómo leer esta pantalla */}
-      <details data-tour="cm-legend" open className="group rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3">
-        <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold text-sky-900">
-          <Info className="h-4 w-4 shrink-0" />
-          ¿Cómo leer esta pantalla?
-          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
-        </summary>
-        <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-700">
-          <li>
-            <strong className="text-slate-900">Comisión ganada:</strong> lo que le corresponde a cada operaria por los servicios{" "}
-            <em>completados</em> en el período elegido (los cancelados no cuentan). Se calcula con el porcentaje de cada servicio.
-          </li>
-          <li>
-            <strong className="text-slate-900">Pagado:</strong> todo lo que ya se le registró como pagado, sea con{" "}
-            <em>Confirmar pago</em> en Historial de tickets o con <em>Registrar pago</em> aquí.
-          </li>
-          <li>
-            <strong className="text-slate-900">Pendiente:</strong> lo ganado menos lo pagado, es decir, lo que todavía falta darle.
-          </li>
-          <li>
-            <strong className="text-slate-900">Registrar pago</strong> (botón verde de cada operaria): anota un pago por un monto libre como control.{" "}
-            No marca tickets ni aparece en el Corte de caja; para eso usa <em>Confirmar pago</em> en Historial de tickets.
-          </li>
-          <li>
-            <strong className="text-slate-900">Ver detalle:</strong> abre los servicios que sumaron la comisión y el historial de pagos de esa operaria.
-          </li>
-        </ul>
-      </details>
-
-      {/* Resumen global */}
+      {/* Resumen: tres cifras, sin colores */}
       <div data-tour="cm-summary" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm" title="Suma de las comisiones de todos los servicios completados en el período">
-          <p className="text-xs font-semibold text-slate-500">Comisiones ganadas</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalEarned)}</p>
-          <p className="text-[11px] text-slate-400">de servicios completados en el período</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4" title="Suma de las comisiones de los servicios completados en el período">
+          <p className="text-xs font-medium text-slate-500">Comisión ganada</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(totalEarned)}</p>
+          <p className="mt-0.5 text-xs text-slate-500">por servicios completados</p>
         </div>
-        <div className="rounded-xl border border-[#094732]/20 bg-[#ecfdf5] p-4 text-center shadow-sm" title="Suma de todos los pagos registrados a estas operarias">
-          <p className="text-xs font-semibold text-[#094732]">Total pagado</p>
-          <p className="mt-1 text-xl font-bold text-[#094732]">{moneyFmt.format(totalPaid)}</p>
-          <p className="text-[11px] text-[#094732]/80">
-            {loadingPayments ? "…" : `ya entregado · ${payments.length} pago${payments.length !== 1 ? "s" : ""} registrado${payments.length !== 1 ? "s" : ""}`}
+        <div className="rounded-xl border border-slate-200 bg-white p-4" title="Suma de todos los pagos registrados a estas operarias">
+          <p className="text-xs font-medium text-slate-500">Ya pagado</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(totalPaid)}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {loadingPayments ? "…" : `${payments.length} pago${payments.length !== 1 ? "s" : ""} registrado${payments.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center shadow-sm" title="Lo ganado menos lo pagado">
-          <p className="text-xs font-semibold text-slate-500">Pendiente por pagar</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">{moneyFmt.format(totalPending)}</p>
-          <p className="text-[11px] text-slate-500">
-            falta darle a {proStats.filter((s) => s.pending > 0).length} operaria{proStats.filter((s) => s.pending > 0).length !== 1 ? "s" : ""}
+        <div className="rounded-xl border-2 border-slate-800 bg-white p-4" title="Comisión ganada menos lo ya pagado">
+          <p className="text-xs font-medium text-slate-600">Falta pagar</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(totalPending)}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {operariasConPendiente === 0 ? "todas al día" : `a ${operariasConPendiente} operaria${operariasConPendiente !== 1 ? "s" : ""}`}
           </p>
         </div>
       </div>
 
-      {selectedProfessionalId !== null && visibleProfessionals[0] && (
-        <p className="text-xs font-semibold text-slate-600">
-          Mostrando solo a {visibleProfessionals[0].username} — elegido en "Historial de tickets".
-        </p>
-      )}
-
-      {(fromDate || toDate) && (
+      {(selectedProfessionalId !== null && visibleProfessionals[0]) || fromDate || toDate ? (
         <p className="text-xs text-slate-500">
-          Período: <strong>{fromDate ? dateFmt(fromDate) : "inicio"}</strong> — <strong>{toDate ? dateFmt(toDate) : "hoy"}</strong>
+          {selectedProfessionalId !== null && visibleProfessionals[0] ? (
+            <>Solo <strong className="text-slate-700">{visibleProfessionals[0].username}</strong>. </>
+          ) : null}
+          {fromDate || toDate ? (
+            <>
+              Período: <strong className="text-slate-700">{fromDate ? dateFmt(fromDate) : "inicio"}</strong> —{" "}
+              <strong className="text-slate-700">{toDate ? dateFmt(toDate) : "hoy"}</strong>
+            </>
+          ) : null}
         </p>
-      )}
+      ) : null}
 
-      {/* Tarjetas por operaria */}
-      {proStats.map(({ pro, earned, paid, pending, isPaid, totalCaja, proPayments, sortedTickets, completedCount, cancelledCount }, proIndex) => {
-        const isExpanded = expandedId === pro.id;
-        const isRegistering = registeringId === pro.id;
+      {/* Tabla por operaria */}
+      <div data-tour="cm-card" className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+              <th className="px-4 py-2.5">Operaria</th>
+              <th className="px-3 py-2.5" title="Servicios terminados en el período: son los que generan comisión">Servicios</th>
+              <th className="px-3 py-2.5 text-right" title="Lo que le corresponde por esos servicios">Comisión ganada</th>
+              <th className="px-3 py-2.5 text-right" title="Lo que ya se le entregó">Ya pagado</th>
+              <th className="px-3 py-2.5 text-right" title="Comisión ganada menos ya pagado">Falta pagar</th>
+              <th className="px-4 py-2.5 text-right">
+                <span className="sr-only">Acciones</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {proStats.map(({ pro, earned, paid, pending, isPaid, totalCaja, proPayments, sortedTickets, completedCount, cancelledCount }, proIndex) => {
+              const isExpanded = expandedId === pro.id;
+              const isRegistering = registeringId === pro.id;
+              const hasPending = pending > 0.005;
 
-        return (
-          <SectionCard key={pro.id} bodyClassName="!p-4">
-            <div {...(proIndex === 0 ? { "data-tour": "cm-card" } : {})} className="flex flex-wrap items-center gap-3">
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                isPaid ? "bg-[#094732] text-white" : "bg-slate-200 text-slate-600"
-              }`}>
-                {getInitials(pro.username)}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-800">{pro.username}</p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className="font-semibold text-[#094732]" title="Servicios terminados en el período: son los que generan comisión">{completedCount} completados</span>
-                  {cancelledCount > 0 && (
-                    <span className="font-semibold text-slate-500" title="No generan comisión">{cancelledCount} cancelados</span>
-                  )}
-                  <span className="text-slate-300">·</span>
-                  <span title="Lo que pagaron las clientas por los servicios completados">Cobrado en servicios: <strong className="text-slate-700">{moneyFmt.format(totalCaja)}</strong></span>
-                  <span className="text-slate-300">·</span>
-                  <span title="Lo que le corresponde a la operaria por esos servicios">Comisión ganada: <strong className="text-slate-700">{moneyFmt.format(earned)}</strong></span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {earned === 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500" title="No tiene servicios completados en el período, así que no hay nada que pagar">
-                    Sin comisión
-                  </span>
-                ) : isPaid ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf5] px-3 py-1 text-[11px] font-bold text-[#094732]" title="Ya se le pagó toda la comisión ganada">
-                    <CheckCircle className="h-3.5 w-3.5" />Pagado completo
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600" title="Lo que todavía falta pagarle: ganado menos pagado">
-                    <Clock className="h-3.5 w-3.5" />Falta pagar {moneyFmt.format(pending)}
-                  </span>
-                )}
-
-                {earned > 0 && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    {...(proIndex === 0 ? { "data-tour": "cm-register" } : {})}
-                    title="Anota un pago por el monto que le entregaste. No entra al Corte de caja (para eso: Historial de tickets → Confirmar pago)"
-                    variant={isPaid ? "secondary" : "primary"}
-                    onClick={() => { setRegisteringId(isRegistering ? null : pro.id); setExpandedId(pro.id); }}
-                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
-                  >
-                    {isPaid ? "Registrar otro pago" : "Registrar pago"}
-                  </Button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isExpanded ? null : pro.id)}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                >
-                  {isExpanded ? (
-                    <>Ocultar detalle <ChevronUp className="h-3.5 w-3.5" /></>
-                  ) : (
-                    <>Ver detalle <ChevronDown className="h-3.5 w-3.5" /></>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Barra de progreso */}
-            {earned > 0 && (
-              <div className="mt-3">
-                <div className="mb-1 flex justify-between text-[11px] text-slate-500">
-                  <span>Ya pagado: {moneyFmt.format(paid)}</span>
-                  <span>{pending > 0.005 ? `Falta: ${moneyFmt.format(pending)}` : "Al día"}</span>
-                  <span>Comisión ganada: {moneyFmt.format(earned)}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-2 rounded-full bg-[#094732] transition-all"
-                    style={{ width: `${Math.min(100, earned > 0 ? (paid / earned) * 100 : 0)}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Formulario de pago */}
-            {isRegistering && (
-              <RegisterPaymentForm
-                professional={pro}
-                defaultAmount={pending}
-                fromDate={fromDate}
-                toDate={toDate}
-                saving={saving}
-                onSave={(amount, date, notes) => handleSavePayment(pro, amount, date, notes)}
-                onCancel={() => setRegisteringId(null)}
-              />
-            )}
-
-            {/* Detalle expandido */}
-            {isExpanded && !isRegistering && (
-              <div className="mt-4 border-t border-slate-100 pt-3">
-                <TicketLedger tickets={sortedTickets} proName={pro.username} />
-
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-slate-500">
-                    Historial de pagos registrados
-                  </p>
-                  <p className="mb-2 text-[11px] text-slate-400">
-                    Cada fila es un pago ya entregado (de Confirmar pago o registrado aquí). Si eliminas uno por error, ese monto vuelve a quedar como pendiente.
-                  </p>
-                  {loadingPayments ? (
-                    <p className="flex items-center gap-1 text-xs text-slate-400">
-                      <RefreshCw className="h-3 w-3 animate-spin" />Cargando…
-                    </p>
-                  ) : proPayments.length === 0 ? (
-                    <p className="text-xs text-slate-400">No hay pagos registrados aún.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {proPayments.map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-[#094732]/15 bg-[#ecfdf5] px-3 py-2"
-                        >
-                          <div className="flex items-center gap-3">
-                            <CheckCircle className="h-4 w-4 shrink-0 text-[#094732]" />
-                            <div>
-                              <p className="text-xs font-bold text-[#094732]">{moneyFmt.format(p.amount)}</p>
-                              <p className="text-[11px] text-slate-500">
-                                {dateFmt(p.registered_at)}
-                                {p.period_start && <> · {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}</>}
-                                {p.notes && <> · {p.notes}</>}
-                                {p.registered_by_name && <> · por {p.registered_by_name}</>}
-                              </p>
-                            </div>
-                          </div>
+              return (
+                <Fragment key={pro.id}>
+                  <tr className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
+                          {getInitials(pro.username)}
+                        </span>
+                        <span className="font-semibold text-slate-900">{pro.username}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-700">
+                      <span className="font-medium">{completedCount}</span> completados
+                      {cancelledCount > 0 ? <span className="text-xs text-slate-400"> · {cancelledCount} cancelados</span> : null}
+                      <span className="block text-xs text-slate-400" title="Lo que pagaron las clientas por los servicios completados">
+                        Cobrado {moneyFmt.format(totalCaja)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right font-medium tabular-nums text-slate-900">{moneyFmt.format(earned)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-700">{moneyFmt.format(paid)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">
+                      {earned === 0 ? (
+                        <span className="text-slate-400" title="Sin servicios completados en el período">—</span>
+                      ) : hasPending ? (
+                        <span className="font-bold text-slate-900">{moneyFmt.format(pending)}</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                          <CheckCircle className="h-3.5 w-3.5" /> Al día
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {earned > 0 && (
                           <button
                             type="button"
-                            onClick={() => void handleDeletePayment(p.id)}
-                            className="rounded p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                            title="Eliminar registro"
+                            {...(proIndex === 0 ? { "data-tour": "cm-register" } : {})}
+                            title="Anota un pago por el monto que le entregaste. No entra al Corte de caja (para eso: Historial de tickets → Confirmar pago)"
+                            onClick={() => { setRegisteringId(isRegistering ? null : pro.id); setExpandedId(pro.id); }}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                              hasPending && !isPaid
+                                ? "bg-slate-900 text-white hover:bg-slate-700"
+                                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <Banknote className="h-3.5 w-3.5" />
+                            {hasPending ? "Registrar pago" : "Registrar otro pago"}
                           </button>
-                        </div>
-                      ))}
-                    </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : pro.id)}
+                          aria-expanded={isExpanded}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                        >
+                          {isExpanded ? "Ocultar" : "Detalle"}
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {(isRegistering || isExpanded) && (
+                    <tr key={`${pro.id}-detail`} className="border-b border-slate-100 bg-slate-50/50">
+                      <td colSpan={6} className="px-4 pb-4">
+                        {isRegistering && (
+                          <RegisterPaymentForm
+                            professional={pro}
+                            defaultAmount={pending}
+                            fromDate={fromDate}
+                            toDate={toDate}
+                            saving={saving}
+                            onSave={(amount, date, notes) => handleSavePayment(pro, amount, date, notes)}
+                            onCancel={() => setRegisteringId(null)}
+                          />
+                        )}
+
+                        {isExpanded && !isRegistering && (
+                          <div className="pt-1">
+                            <TicketLedger tickets={sortedTickets} proName={pro.username} />
+
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold text-slate-600">Historial de pagos registrados</p>
+                              <p className="mb-2 text-[11px] text-slate-400">
+                                Cada fila es un pago ya entregado (de Confirmar pago o registrado aquí). Si eliminas uno por error, ese monto vuelve a quedar como pendiente.
+                              </p>
+                              {loadingPayments ? (
+                                <p className="flex items-center gap-1 text-xs text-slate-400">
+                                  <RefreshCw className="h-3 w-3 animate-spin" />Cargando…
+                                </p>
+                              ) : proPayments.length === 0 ? (
+                                <p className="text-xs text-slate-400">No hay pagos registrados aún.</p>
+                              ) : (
+                                <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                                  {proPayments.map((p) => (
+                                    <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                      <div>
+                                        <p className="text-sm font-semibold tabular-nums text-slate-900">{moneyFmt.format(p.amount)}</p>
+                                        <p className="text-[11px] text-slate-500">
+                                          {dateFmt(p.registered_at)}
+                                          {p.period_start && <> · {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}</>}
+                                          {p.notes && <> · {p.notes}</>}
+                                          {p.registered_by_name && <> · por {p.registered_by_name}</>}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleDeletePayment(p.id)}
+                                        className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                        title="Eliminar este pago"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
                   )}
-                </div>
-              </div>
-            )}
-          </SectionCard>
-        );
-      })}
+                </Fragment>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-300 bg-slate-50 text-sm font-bold text-slate-900">
+              <td className="px-4 py-3" colSpan={2}>Total</td>
+              <td className="px-3 py-3 text-right tabular-nums">{moneyFmt.format(totalEarned)}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{moneyFmt.format(totalPaid)}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{moneyFmt.format(totalPending)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Cómo se lee: corto y plegable */}
+      <details data-tour="cm-legend" className="group rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold text-slate-700">
+          <Info className="h-4 w-4 shrink-0 text-slate-400" />
+          ¿Cómo leer esta tabla?
+          <ChevronDown className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-600">
+          <li><strong className="text-slate-800">Falta pagar = Comisión ganada − Ya pagado.</strong></li>
+          <li>
+            <strong className="text-slate-800">Comisión ganada:</strong> lo que le corresponde por los servicios <em>completados</em> en el período (los cancelados no cuentan).
+          </li>
+          <li>
+            <strong className="text-slate-800">Ya pagado:</strong> todo lo registrado como entregado, con <em>Confirmar pago</em> en Historial de tickets o con <em>Registrar pago</em> aquí.
+          </li>
+          <li>
+            <strong className="text-slate-800">Registrar pago</strong> anota un monto libre como control; <strong>no entra al Corte de caja</strong>. Para eso usa <em>Confirmar pago</em> en Historial de tickets.
+          </li>
+          <li><strong className="text-slate-800">Detalle</strong> muestra los servicios que sumaron la comisión y los pagos de esa operaria.</li>
+        </ul>
+      </details>
     </div>
   );
 }
