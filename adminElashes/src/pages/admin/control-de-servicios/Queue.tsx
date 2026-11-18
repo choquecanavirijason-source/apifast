@@ -48,7 +48,7 @@ import QueueTvDisplay from "./components/QueueTvDisplay";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
 import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/QueueTutorialModal";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
-import { isPrintOnStartEnabled, printAttentionTicket, setPrintOnStartEnabled } from "./printAttentionTicket";
+import { printAttentionTicket } from "./printAttentionTicket";
 import { needsAllergyConfirmation, sharesAllergyAnswer, withConfirmedAllergies } from "./allergyCheck";
 import CollectPaymentModal from "../calendar/components/CollectPaymentModal";
 import AllergyConfirmModal from "./components/AllergyConfirmModal";
@@ -92,18 +92,12 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   const [operariasOpen, setOperariasOpen] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
   const { user } = useAuth();
-  // Imprimir el ticket de atención al iniciar la atención (se recuerda por
-  // navegador: cada caja tiene su impresora).
-  const [printOnStart, setPrintOnStart] = useState<boolean>(() => isPrintOnStartEnabled());
-  const togglePrintOnStart = (value: boolean) => {
-    setPrintOnStart(value);
-    setPrintOnStartEnabled(value);
-  };
   // Clienta a la que aún no se le confirmaron las alergias: se pregunta antes de iniciar.
   const [allergyTicket, setAllergyTicket] = useState<TicketItem | null>(null);
   // Cobro de una venta reservada, justo antes de iniciar el servicio.
   const [collectTicket, setCollectTicket] = useState<TicketItem | null>(null);
-  // Al iniciar una atención se pregunta antes de abrir la impresión.
+  const [selectOperariaTicketId, setSelectOperariaTicketId] = useState<number | null>(null);
+  // La impresión se confirma únicamente al pulsar el icono de impresora.
   const [printPromptTicket, setPrintPromptTicket] = useState<TicketItem | null>(null);
   const handlePrintTicket = (ticket: TicketItem) => {
     if (!printAttentionTicket([ticket])) toast.warning("No se pudo preparar la impresión del ticket.");
@@ -530,7 +524,6 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       // chequeo los rechazaba sin que hubiera ningún conflicto real.
       await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "in_service", skip_availability_check: true })));
       toast.success("Atención iniciada.");
-      if (printOnStart) setPrintPromptTicket(ticket);
       void loadTickets();
     } catch (error) {
       setTickets(snapshot);
@@ -811,7 +804,6 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
         skip_availability_check: true,
       })));
       toast.success(`Ticket movido a ${STATUS_LABELS[newStatus] ?? targetColumn}.`);
-      if (newStatus === "in_service" && printOnStart) setPrintPromptTicket(ticket);
       void loadTickets(true);
     } catch (error) {
       setTickets(snapshot);
@@ -1223,19 +1215,6 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
 
       {/* Refresh — empujado a la derecha */}
       <div className="ml-auto flex items-center gap-1.5 px-2 py-1">
-        <label
-          className="flex cursor-pointer select-none items-center gap-1.5 rounded-lg border border-[var(--ui-border)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--ui-text-muted)]"
-          title="Imprime el ticket con los datos de la clienta y lo que solicita al iniciar su atención"
-        >
-          <input
-            type="checkbox"
-            checked={printOnStart}
-            onChange={(e) => togglePrintOnStart(e.target.checked)}
-            className="h-3.5 w-3.5 accent-[#094732]"
-          />
-          <Printer className="h-3.5 w-3.5" />
-          Imprimir al iniciar
-        </label>
         <div className="flex flex-col items-center gap-0">
           <button
             type="button"
@@ -1304,18 +1283,24 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                 onOpenRegisterClient={(t) => setRegisterClientTarget(t)}
                 onSaveEdits={(t, payload) => void handleSaveTicketEdits(t, payload)}
                 isSavingEdit={editingTicketId === ticket.id}
+                openOperariaSelector={selectOperariaTicketId === ticket.id}
+                onOperariaSelected={() => setSelectOperariaTicketId(null)}
                 actions={
                   <div className="flex gap-1.5">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); void handleStartService(ticket); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!ticket.professional_id) setSelectOperariaTicketId(ticket.id);
+                        else void handleStartService(ticket);
+                      }}
                       className="rounded-lg bg-[#094732] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#063324] transition-colors"
                     >
                       Iniciar atención
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handlePrintTicket(ticket); }}
+                      onClick={(e) => { e.stopPropagation(); setPrintPromptTicket(ticket); }}
                       title="Imprimir ticket de atención"
                       aria-label="Imprimir ticket de atención"
                       className="flex items-center justify-center rounded-lg border border-slate-200 bg-white/70 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50"
@@ -1370,7 +1355,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handlePrintTicket(ticket); }}
+                      onClick={(e) => { e.stopPropagation(); setPrintPromptTicket(ticket); }}
                       title="Imprimir ticket de atención"
                       aria-label="Imprimir ticket de atención"
                       className="flex items-center justify-center rounded-lg border border-slate-200 bg-white/70 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50"
@@ -1518,25 +1503,41 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
           }}
         />
 
-        <ConfirmDialog
+        <GenericModal
           isOpen={printPromptTicket !== null}
-          title="Imprimir ticket"
-          message={
-            printPromptTicket ? (
-              <p>
-                <strong>{printPromptTicket.client_name}</strong> pasó a En servicio. ¿Quieres imprimir su ticket de atención?
-              </p>
-            ) : ""
+          onClose={() => setPrintPromptTicket(null)}
+          title="Imprimir ticket de atención"
+          size="sm"
+          footer={
+            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setPrintPromptTicket(null)}>Cancelar</Button>
+              <Button type="button" leftIcon={<Printer className="h-4 w-4 shrink-0" />} className="whitespace-nowrap !bg-[#094732] hover:!bg-[#0d6045]" onClick={() => {
+                if (printPromptTicket) handlePrintTicket(printPromptTicket);
+                setPrintPromptTicket(null);
+              }}>Imprimir ticket</Button>
+            </div>
           }
-          confirmText="Imprimir"
-          cancelText="No imprimir"
-          variant="success"
-          onConfirm={() => {
-            if (printPromptTicket) handlePrintTicket(printPromptTicket);
-            setPrintPromptTicket(null);
-          }}
-          onCancel={() => setPrintPromptTicket(null)}
-        />
+        >
+          {printPromptTicket && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-[#094732]/15 bg-[#eaf4ef] p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#094732] text-white"><Printer className="h-5 w-5" /></div>
+                <div>
+                  <p className="text-sm font-semibold text-[#094732]">Ticket listo para imprimir</p>
+                  <p className="text-xs text-[var(--ui-text-muted)]">Revisa los datos antes de enviarlo a la impresora.</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ui-text-muted)]">Clienta</p>
+                <p className="mt-1 text-base font-semibold text-[var(--ui-text)]">{printPromptTicket.client_name}</p>
+                <div className="mt-3 border-t border-[var(--ui-border)] pt-3 text-xs text-[var(--ui-text-muted)]">
+                  <p>{(printPromptTicket.service_names?.length ? printPromptTicket.service_names : [printPromptTicket.service_name]).filter(Boolean).join(" + ")}</p>
+                  <p className="mt-1">{printPromptTicket.ticket_code ?? `Ticket #${printPromptTicket.id}`}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </GenericModal>
 
         <ConfirmDialog
           isOpen={queuePromptTicket !== null}

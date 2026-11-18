@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDraggable } from "@dnd-kit/core";
+import { createPortal } from "react-dom";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, ChevronDown, Info, Pencil, Plus, Scissors, Trash2, User, UserCog } from "lucide-react";
 
@@ -28,6 +29,8 @@ export default function DraggableTicketCard({
   ticket, actions, showRemaining, getRemainingLabel,
   onDelete, professionals, busyProfessionalIds, onSaveEdits, isSavingEdit,
   clients, onChangeClient, onOpenRegisterClient, compact = false,
+  openOperariaSelector = false,
+  onOperariaSelected,
 }: {
   ticket: TicketItem;
   actions: ReactNode;
@@ -48,18 +51,77 @@ export default function DraggableTicketCard({
   onOpenRegisterClient?: (ticket: TicketItem) => void;
   /** Versión reducida (2 líneas) para columnas con muchos tickets. */
   compact?: boolean;
+  openOperariaSelector?: boolean;
+  onOperariaSelected?: () => void;
 }) {
   const [quickDate, setQuickDate] = useState(getDateInputValue(ticket.start_time));
   const [quickProId, setQuickProId] = useState(ticket.professional_id ? String(ticket.professional_id) : "");
   const [quickTime, setQuickTime] = useState(getTimeInputValue(ticket.start_time));
   const [editOpen, setEditOpen] = useState(false);
+  const [operariaListOpen, setOperariaListOpen] = useState(false);
+  const [operariaSearch, setOperariaSearch] = useState("");
+  const [operariaListHeight, setOperariaListHeight] = useState(288);
+  const [clientListOpen, setClientListOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientListHeight, setClientListHeight] = useState(288);
+  const [operariaListBounds, setOperariaListBounds] = useState<React.CSSProperties>({});
+  const [clientListBounds, setClientListBounds] = useState<React.CSSProperties>({});
   const [detailOpen, setDetailOpen] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
+  const operariaSelectRef = useRef<HTMLInputElement>(null);
+  const clientSelectRef = useRef<HTMLInputElement>(null);
+  const operariaListRef = useRef<HTMLDivElement>(null);
+  const clientListRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | null>(null);
   const lastKeyRef = useRef("");
   const savingRef = useRef(isSavingEdit);
 
   useEffect(() => { savingRef.current = isSavingEdit; }, [isSavingEdit]);
+
+  useEffect(() => {
+    if (!openOperariaSelector) return;
+    setEditOpen(true);
+    setOperariaListOpen(true);
+    setOperariaSearch("");
+    requestAnimationFrame(() => operariaSelectRef.current?.focus());
+  }, [openOperariaSelector]);
+
+  useEffect(() => {
+    if (!operariaListOpen || !operariaSelectRef.current) return;
+    const input = operariaSelectRef.current;
+    const inputBounds = input.getBoundingClientRect();
+    const above = inputBounds.top - 8;
+    const below = window.innerHeight - inputBounds.bottom - 8;
+    const placement = above >= 220 || above >= below ? "up" : "down";
+    const height = Math.max(80, Math.min(288, placement === "up" ? above : below));
+    setOperariaListHeight(height);
+    setOperariaListBounds({ position: "fixed", left: inputBounds.left, width: inputBounds.width,
+      top: placement === "up" ? inputBounds.top - height - 4 : inputBounds.bottom + 4 });
+  }, [operariaListOpen]);
+
+  useEffect(() => {
+    if (!clientListOpen || !clientSelectRef.current) return;
+    const input = clientSelectRef.current;
+    const inputBounds = input.getBoundingClientRect();
+    const above = inputBounds.top - 8;
+    const below = window.innerHeight - inputBounds.bottom - 8;
+    const placement = above >= 220 || above >= below ? "up" : "down";
+    const height = Math.max(80, Math.min(288, placement === "up" ? above : below));
+    setClientListHeight(height);
+    setClientListBounds({ position: "fixed", left: inputBounds.left, width: inputBounds.width,
+      top: placement === "up" ? inputBounds.top - height - 4 : inputBounds.bottom + 4 });
+  }, [clientListOpen]);
+
+  useEffect(() => {
+    if (!operariaListOpen && !clientListOpen) return;
+    const closeOnScroll = (event: Event) => {
+      if (operariaListRef.current?.contains(event.target as Node) || clientListRef.current?.contains(event.target as Node)) return;
+      setOperariaListOpen(false);
+      setClientListOpen(false);
+    };
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => window.removeEventListener("scroll", closeOnScroll, true);
+  }, [operariaListOpen, clientListOpen]);
 
   useEffect(() => {
     setQuickDate(getDateInputValue(ticket.start_time));
@@ -83,11 +145,18 @@ export default function DraggableTicketCard({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (editRef.current && !editRef.current.contains(e.target as Node)) setEditOpen(false);
+      if (editRef.current && !editRef.current.contains(e.target as Node)
+        && !operariaListRef.current?.contains(e.target as Node)
+        && !clientListRef.current?.contains(e.target as Node)) {
+        setEditOpen(false);
+        setOperariaListOpen(false);
+        setClientListOpen(false);
+        if (openOperariaSelector) onOperariaSelected?.();
+      }
     };
     if (editOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [editOpen]);
+  }, [editOpen, openOperariaSelector, onOperariaSelected]);
 
   // Con el popup de "Ajustar turno" o el panel de "Info" abiertos, el ticket
   // debería poder seguir arrastrándose a otra columna sin tener que cerrarlo
@@ -137,7 +206,7 @@ export default function DraggableTicketCard({
         else setDetailOpen((v) => !v);
       }}
       title={canEdit ? "Arrastra para mover de columna · doble clic para editar" : "Arrastra para mover de columna"}
-      className={`group relative cursor-grab touch-none select-none rounded-lg border border-l-[3px] shadow-sm transition-shadow active:cursor-grabbing ${ticketCardClass(ticket.status)} ${
+      className={`group relative cursor-grab touch-none select-none rounded-lg border border-l-[3px] shadow-sm transition-shadow active:cursor-grabbing ${operariaListOpen || clientListOpen ? "z-20" : ""} ${ticketCardClass(ticket.status)} ${
         isDragging ? "border-dashed opacity-40 shadow-none" : "hover:shadow-md"
       }`}
     >
@@ -195,7 +264,8 @@ export default function DraggableTicketCard({
             <button
               type="button"
               onPointerDown={stopPtr}
-              onClick={() => setEditOpen(true)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { setEditOpen((value) => !value); setOperariaListOpen(false); }}
               title={proName ? "Cambiar operaria" : "Asignar operaria"}
               className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                 proName
@@ -238,7 +308,7 @@ export default function DraggableTicketCard({
                 )}
                 <button
                   type="button"
-                  onClick={() => setEditOpen(false)}
+                  onClick={() => { setEditOpen(false); setOperariaListOpen(false); setClientListOpen(false); if (openOperariaSelector) onOperariaSelected?.(); }}
                   className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-medium text-white hover:bg-brand-hover"
                 >
                   Listo
@@ -247,40 +317,56 @@ export default function DraggableTicketCard({
             </div>
 
             {canEditOperaria && (
-              <label className="block">
+              <div className="relative">
                 <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--ui-text-muted)]">
                   <UserCog size={11} /> Operaria
                 </span>
-                <select value={quickProId} onChange={(e) => setQuickProId(e.target.value)} className={fieldCls}>
-                  <option value="">Sin operaria</option>
-                  {professionals.map((p) => {
-                    const inService = busyProfessionalIds?.has(p.id) ?? (p.is_busy === true);
-                    // No se bloquea a las ocupadas: elegirla la deja en su cola para cuando se libere.
-                    return (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.username} — {inService ? "En servicio" : "Libre"}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
+                <div className="relative">
+                  <input ref={operariaSelectRef} type="text" aria-label="Buscar operaria" aria-expanded={operariaListOpen}
+                    value={operariaSearch}
+                    placeholder={professionals.find((p) => String(p.id) === quickProId)?.username ?? "Sin operaria"}
+                    onFocus={() => setOperariaListOpen(true)}
+                    onChange={(e) => { setOperariaSearch(e.target.value); setOperariaListOpen(true); }}
+                    className={`${fieldCls} pr-9 placeholder:text-[var(--ui-text)]`} />
+                  <button type="button" aria-label={operariaListOpen ? "Cerrar operarias" : "Mostrar operarias"}
+                    onClick={() => { if (operariaListOpen) setOperariaListOpen(false); else { setOperariaListOpen(true); operariaSelectRef.current?.focus(); } }}
+                    className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-[var(--ui-text)]">
+                    <ChevronDown size={15} className={operariaListOpen ? "rotate-180" : ""} />
+                  </button>
+                </div>
+                {operariaListOpen && createPortal(
+                  <div ref={operariaListRef} style={{ ...operariaListBounds, maxHeight: operariaListHeight }} className="z-[1000] overflow-y-auto rounded-lg border border-[#094732]/30 bg-white p-1 shadow-lg">
+                    <button type="button" aria-label="Cerrar lista de operarias" title="Cerrar lista" onClick={() => setOperariaListOpen(false)} className="sticky top-1 z-10 float-right -mb-7 mr-1 flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-lg leading-none text-slate-600 shadow-sm hover:bg-[#eaf4ef] hover:text-[#094732]">×</button>
+                    {[{ id: 0, username: "Sin operaria", is_busy: false }, ...professionals].filter((p) => p.username.toLocaleLowerCase().includes(operariaSearch.trim().toLocaleLowerCase())).map((p) => {
+                      const selected = quickProId === (p.id ? String(p.id) : "");
+                      const inService = busyProfessionalIds?.has(p.id) ?? (p.is_busy === true);
+                      return (
+                        <button key={p.id} type="button" aria-selected={selected} role="option"
+                          onClick={() => { setQuickProId(p.id ? String(p.id) : ""); setOperariaSearch(""); setOperariaListOpen(false); setEditOpen(false); onOperariaSelected?.(); }}
+                          className={`block w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${selected ? "bg-[#094732] text-white" : "text-[var(--ui-text)] hover:bg-[#eaf4ef]"}`}>
+                          {p.username}{p.id ? ` — ${inService ? "En servicio" : "Libre"}` : ""}
+                        </button>
+                      );
+                    })}
+                    {![{ username: "Sin operaria" }, ...professionals].some((p) => p.username.toLocaleLowerCase().includes(operariaSearch.trim().toLocaleLowerCase())) && (
+                      <p className="px-3 py-2 text-xs text-[var(--ui-text-muted)]">Sin coincidencias</p>
+                    )}
+                  </div>, document.body
+                )}
+              </div>
             )}
 
             {canEditClient && (
-              <label className="block">
+              <div className="relative">
                 <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--ui-text-muted)]">
                   <User size={11} /> Clienta
                 </span>
                 <span className="flex gap-1.5">
-                  <select
-                    value={String(ticket.client_id ?? "")}
-                    onChange={(e) => onChangeClient?.(ticket, e.target.value)}
-                    className={`${fieldCls} min-w-0 flex-1`}
-                  >
-                    {(clients ?? []).map((c) => (
-                      <option key={c.id} value={String(c.id)}>{`${c.nombre} ${c.apellido}`.trim()}</option>
-                    ))}
-                  </select>
+                  <input ref={clientSelectRef} type="text" value={clientSearch} aria-label="Buscar clienta"
+                    placeholder={(clients ?? []).find((c) => String(c.id) === String(ticket.client_id)) ? `${(clients ?? []).find((c) => String(c.id) === String(ticket.client_id))!.nombre} ${(clients ?? []).find((c) => String(c.id) === String(ticket.client_id))!.apellido}`.trim() : "Buscar clienta..."}
+                    onFocus={() => { setClientListOpen(true); setOperariaListOpen(false); }}
+                    onChange={(e) => { setClientSearch(e.target.value); setClientListOpen(true); }}
+                    className={`${fieldCls} min-w-0 flex-1`} />
                   {onOpenRegisterClient && (
                     <button
                       type="button"
@@ -292,7 +378,17 @@ export default function DraggableTicketCard({
                     </button>
                   )}
                 </span>
-              </label>
+                {clientListOpen && createPortal(
+                  <div ref={clientListRef} style={{ ...clientListBounds, maxHeight: clientListHeight }} className="z-[1000] overflow-y-auto rounded-lg border border-[#094732]/30 bg-white p-1 shadow-lg">
+                    <button type="button" aria-label="Cerrar lista de clientas" title="Cerrar lista" onClick={() => setClientListOpen(false)} className="sticky top-1 z-10 float-right -mb-7 mr-1 flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-lg leading-none text-slate-600 shadow-sm hover:bg-[#eaf4ef] hover:text-[#094732]">×</button>
+                    {(clients ?? []).filter((c) => `${c.nombre} ${c.apellido}`.toLocaleLowerCase().includes(clientSearch.trim().toLocaleLowerCase())).map((c) => (
+                      <button key={c.id} type="button" onClick={() => { onChangeClient?.(ticket, String(c.id)); setClientSearch(""); setClientListOpen(false); setEditOpen(false); }}
+                        className="block w-full rounded-md px-3 py-2 text-left text-xs text-[var(--ui-text)] hover:bg-[#eaf4ef]">{`${c.nombre} ${c.apellido}`.trim()}</button>
+                    ))}
+                    {!(clients ?? []).some((c) => `${c.nombre} ${c.apellido}`.toLocaleLowerCase().includes(clientSearch.trim().toLocaleLowerCase())) && <p className="px-3 py-2 text-xs text-[var(--ui-text-muted)]">Sin coincidencias</p>}
+                  </div>, document.body
+                )}
+              </div>
             )}
           </div>
         )}

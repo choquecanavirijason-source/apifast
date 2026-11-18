@@ -50,7 +50,7 @@ export default function ResumenCaja({
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ui-text)] hover:underline"
+            className="inline-flex min-h-9 items-center gap-2 rounded-md border border-[#094732] bg-[#094732] px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0d6045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#094732]"
           >
             {open ? "Ocultar detalle" : "Ver detalle"}
             {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}

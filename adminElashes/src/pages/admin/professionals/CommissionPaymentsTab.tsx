@@ -717,7 +717,7 @@ export default function CommissionPaymentsTab({
                             {...(proIndex === 0 ? { "data-tour": "cm-register" } : {})}
                             title="Elige qué servicios pagarle ahora"
                             onClick={() => setExpandedId(pro.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#094732] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0d6045]"
                           >
                             <Banknote className="h-3.5 w-3.5" />
                             Pagar
