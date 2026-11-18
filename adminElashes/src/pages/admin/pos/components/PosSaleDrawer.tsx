@@ -289,6 +289,21 @@ export default function PosSaleDrawer({
           {cartCount} ítem(s) · Total Bs {total.toFixed(2)}
         </p>
       </div>
+      <div className="flex shrink-0 items-center gap-1">
+      {cartCount > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm("¿Vaciar el carrito? Se quitan todos los servicios.")) cartLines.forEach((l) => onRemoveLine(l.localId));
+          }}
+          disabled={isSubmitting}
+          title="Quitar todo del carrito"
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Vaciar
+        </button>
+      )}
       {!isPanel && (
         <button
           type="button"
@@ -299,6 +314,7 @@ export default function PosSaleDrawer({
           <X className="h-5 w-5" />
         </button>
       )}
+      </div>
     </div>
   );
 
@@ -487,16 +503,6 @@ export default function PosSaleDrawer({
           )}
         </div>
 
-        <div className="px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setActiveStep("cliente")}
-            disabled={!step1Done}
-            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#094732] text-sm font-semibold text-white transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]"
-          >
-            Siguiente: Cliente
-          </button>
-        </div>
       </div>
       )}
 
@@ -698,23 +704,6 @@ export default function PosSaleDrawer({
           </div>
         )}
 
-        <div className="flex gap-2 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setActiveStep("servicios")}
-            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[var(--ui-border-strong)] bg-white text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
-          >
-            Atrás
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveStep("pago")}
-            disabled={!tutorDataComplete}
-            className="flex h-10 flex-2 items-center justify-center gap-1.5 rounded-lg bg-[#094732] text-sm font-semibold text-white transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]"
-          >
-            Siguiente: Pago
-          </button>
-        </div>
       </div>
       )}
 
@@ -1128,6 +1117,37 @@ export default function PosSaleDrawer({
     </div>
   );
 
+  // Un solo lugar para el botón de cada paso: Siguiente en Servicios y Cliente; el cobro solo en Pago.
+  const stepNav =
+    activeStep === "servicios" ? (
+      <button
+        type="button"
+        onClick={() => setActiveStep("cliente")}
+        disabled={!step1Done}
+        className="flex h-11 w-full items-center justify-center rounded-lg bg-[#094732] text-sm font-semibold text-white transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]"
+      >
+        {step1Done ? "Siguiente: Cliente" : "Agrega un servicio para continuar"}
+      </button>
+    ) : (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveStep("servicios")}
+          className="flex h-11 flex-1 items-center justify-center rounded-lg border border-[var(--ui-border-strong)] bg-white text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
+        >
+          Atrás
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveStep("pago")}
+          disabled={!tutorDataComplete}
+          className="flex h-11 flex-[2] items-center justify-center rounded-lg bg-[#094732] text-sm font-semibold text-white transition hover:bg-[#063324] disabled:cursor-not-allowed disabled:bg-[var(--ui-surface-muted)] disabled:text-[var(--ui-text-muted)]"
+        >
+          Siguiente: Pago
+        </button>
+      </div>
+    );
+
   const panelFooter = (
     <div className="shrink-0 border-t border-[var(--ui-border)] bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
 
@@ -1208,23 +1228,9 @@ export default function PosSaleDrawer({
         <span className="text-base font-bold text-[#094732]">Bs {total.toFixed(2)}</span>
       </div>
 
-      {/* Vaciar carrito */}
-      <button
-        type="button"
-        onClick={() => cartLines.forEach((l) => onRemoveLine(l.localId))}
-        disabled={cartCount === 0 || isSubmitting}
-        className={`mb-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border text-xs font-semibold transition-all ${
-          cartCount === 0
-            ? "cursor-not-allowed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
-            : "border-[#f1bfc6] bg-[#fff4f5] text-[#a4262c] hover:bg-[#fde7e9]"
-        }`}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        Vaciar carrito
-      </button>
 
       {/* ── Modo WALK-IN: pago siempre al momento ───────────────────────── */}
-      {onImmediateCheckout && !linkAppointmentId ? ((() => {
+      {activeStep !== "pago" ? stepNav : onImmediateCheckout && !linkAppointmentId ? ((() => {
         // "Pasar a servicio" arranca la atención ya mismo — sin operaria
         // asignada (línea por línea o con el selector general de arriba) no
         // tiene sentido dejarlo pasar, quedaría "en servicio" sin nadie. Si
@@ -1272,7 +1278,7 @@ export default function PosSaleDrawer({
               className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
                 cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
-                  : "bg-[#107c10] text-white hover:bg-[#0b5e0b]"
+                  : "border border-[#094732] bg-white text-[#094732] hover:bg-[#ecfdf5]"
               }`}
             >
               {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR y cobrar" : "Cobrar y poner en espera"}
