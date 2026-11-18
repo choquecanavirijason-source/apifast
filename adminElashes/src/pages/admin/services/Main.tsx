@@ -26,6 +26,7 @@ import ServiceFormModal from "./components/ServiceFormModal";
 import ServicesTopStats from "./components/ServicesTopStats";
 import ServicesToolbar from "./components/ServicesToolbar";
 import OptionsGuide, { SERVICE_GUIDE } from "./components/OptionsGuide";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { emptyServiceForm, emptyServiceItemForm, type ServiceFormState, type ServiceItemFormState } from "./services.types";
 
 export default function ServicesPage() {
@@ -429,6 +430,25 @@ export default function ServicesPage() {
     } finally {
       setIsUploadingServiceImage(false);
     }
+  };
+
+  // Un servicio sin comisión propia se paga con la tasa general de la operaria: se avisa antes de guardar
+  // (al crear, o al quitarle la comisión que ya tenía) para que sea una decisión consciente.
+  const [isNoCommissionAlertOpen, setIsNoCommissionAlertOpen] = useState(false);
+
+  const requestSaveService = () => {
+    const validationError = getServiceFormValidationError();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    const withoutCommission = !serviceForm.commissionRate.trim();
+    const hadCommission = isEditServiceModalOpen && selectedService?.commission_rate != null;
+    if (withoutCommission && (!isEditServiceModalOpen || hadCommission)) {
+      setIsNoCommissionAlertOpen(true);
+      return;
+    }
+    void (isEditServiceModalOpen ? handleEditService() : handleAddService());
   };
 
   const handleAddService = async () => {
@@ -945,8 +965,9 @@ export default function ServicesPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Comisión (%)</label>
+              <label className="text-sm font-medium text-slate-700" htmlFor="service-commission-input">Comisión (%)</label>
               <input
+                id="service-commission-input"
                 type="number"
                 min={0}
                 max={100}
@@ -1049,7 +1070,7 @@ export default function ServicesPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => void (isEditServiceModalOpen ? handleEditService() : handleAddService())}
+              onClick={requestSaveService}
               disabled={isUploadingServiceImage}
             >
               {isEditServiceModalOpen ? "Guardar" : "Crear"}
@@ -1057,6 +1078,28 @@ export default function ServicesPage() {
           </div>
         </div>
       </GenericModal>
+
+      <ConfirmDialog
+        isOpen={isNoCommissionAlertOpen}
+        title="Este servicio no tiene comisión propia"
+        message={
+          <>
+            Si lo guardas así, cuando una operaria lo atienda se le pagará con <strong>la tasa general de la operaria</strong> (40% por defecto), no con
+            un porcentaje pensado para este servicio. Para que la comisión sea la correcta, conviene definirla ahora.
+          </>
+        }
+        confirmText="Guardar sin comisión"
+        cancelText="Poner comisión"
+        variant="secondary"
+        onCancel={() => {
+          setIsNoCommissionAlertOpen(false);
+          window.setTimeout(() => document.getElementById("service-commission-input")?.focus(), 50);
+        }}
+        onConfirm={() => {
+          setIsNoCommissionAlertOpen(false);
+          void (isEditServiceModalOpen ? handleEditService() : handleAddService());
+        }}
+      />
 
       <GenericModal
         isOpen={isDeleteServiceModalOpen}
