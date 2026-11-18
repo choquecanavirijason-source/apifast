@@ -17,6 +17,8 @@ from app.domain.entities.cash_close import CashClose
 from app.domain.entities.expense import Expense
 from app.domain.entities.operator_bonus import OperatorBonus
 from app.domain.entities.payment import Payment
+from app.domain.entities.pos_sale import PosSaleProduct
+from app.domain.entities.service_agenda import Appointment, AppointmentService
 from app.domain.entities.user import User
 
 router = APIRouter(prefix="/cash-sessions", tags=["Caja"])
@@ -317,6 +319,38 @@ def get_session_detail(
         .all()
     )
 
+    # Qué se vendió (como el "diario" del cuaderno): productos y servicios de las ventas cobradas en la sesión.
+    sale_ids = {p.sale_id for p in payments if p.sale_id is not None}
+    products_agg: dict[int, dict] = {}
+    services_agg: dict[int, dict] = {}
+    if sale_ids:
+        for line in (
+            db.query(PosSaleProduct)
+            .options(joinedload(PosSaleProduct.product))
+            .filter(PosSaleProduct.sale_id.in_(sale_ids))
+            .all()
+        ):
+            row = products_agg.setdefault(line.product_id, {
+                "product_id": line.product_id,
+                "name": line.product.name if line.product else f"Producto #{line.product_id}",
+                "quantity": 0.0, "total": 0.0,
+            })
+            row["quantity"] += line.quantity
+            row["total"] = round(row["total"] + line.subtotal, 2)
+        for appt in (
+            db.query(Appointment)
+            .options(joinedload(Appointment.service), joinedload(Appointment.appointment_services).joinedload(AppointmentService.service))
+            .filter(Appointment.sale_id.in_(sale_ids), Appointment.status != "cancelled")
+            .all()
+        ):
+            services = [item.service for item in appt.appointment_services if item.service] or ([appt.service] if appt.service else [])
+            for svc in services:
+                row = services_agg.setdefault(svc.id, {"service_id": svc.id, "name": svc.name, "count": 0, "total": 0.0})
+                row["count"] += 1
+                row["total"] = round(row["total"] + float(svc.effective_price), 2)
+    products_sold = sorted(products_agg.values(), key=lambda r: -r["total"])
+    services_sold = sorted(services_agg.values(), key=lambda r: -r["total"])
+
     cash_sales_live = by_method["cash"]
     cash_expenses_live = sum(e.amount for e in expenses)
     cash_commissions_live = cash_commissions_in_window(db, session.branch_id, session.opened_at, window_end)
@@ -333,6 +367,8 @@ def get_session_detail(
         "cash_commissions": cash_commissions_live,
         "cash_extras": cash_extras_live,
         "expected_cash": expected_cash_live,
+        "products_sold": products_sold,
+        "services_sold": services_sold,
         "income_by_method": {
             "efectivo": by_method["cash"],
             "tarjeta": by_method["card"],

@@ -33,6 +33,9 @@ export interface CashSessionDetail {
   cash_commissions?: number;
   cash_extras?: number;
   expected_cash: number;
+  /** Lo vendido en la sesión, agrupado (como el "diario" del cuaderno). */
+  products_sold?: Array<{ product_id: number; name: string; quantity: number; total: number }>;
+  services_sold?: Array<{ service_id: number; name: string; count: number; total: number }>;
   income_by_method: {
     efectivo: number;
     tarjeta: number;

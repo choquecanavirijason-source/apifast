@@ -1,10 +1,11 @@
 """
-Simula una JORNADA COMPLETA en una sucursal NUEVA y aislada ("Sucursal Simulación"), usando la API real del sistema:
-abre una caja con Bs 100, hace atenciones con distintos métodos de pago, vende productos, registra gastos y un bono,
-paga comisiones (una del efectivo de la caja y otra por transferencia) y deja la caja ABIERTA para que se vea el
-cierre y el "Cuadre del día" en pantalla.
+Simula una JORNADA COMPLETA en una sucursal NUEVA y aislada ("Sucursal Simulación"), usando la API real del sistema,
+parecida al "diario" del cuaderno del cliente: abre una caja con Bs 100, 10 atenciones de 3 operarias con distintos
+métodos de pago, ventas de productos (vitaminas, rimel, crema, peines, parches), gastos, dos bonos y el pago de
+comisiones (una del efectivo de la caja, otra por transferencia y una operaria queda pendiente). La caja queda ABIERTA
+para ver el cierre y el "Cuadre del día" en pantalla.
 
-Pensado para mostrarle el flujo al cliente. NO toca las otras sucursales.
+Pensado para mostrarle el flujo al cliente. NO toca las otras sucursales. Para borrarla: python limpiar_simulacion.py --apply
 
 Uso (dentro del contenedor del backend, carpeta /app):
   python simulacion_dia.py --dry-run     # solo muestra qué clientas y servicios usaría; no crea nada
@@ -56,7 +57,8 @@ clients = db.query(Client).order_by(Client.id).limit(5).all()
 if not clients:
     print("No hay clientas registradas para simular las atenciones.")
     sys.exit(1)
-WANTED = ["Extensiones Clásicas", "Lifting de Pestañas", "Extensiones Volumen 3D", "Retoque de Extensiones", "Permanente de Pestañas"]
+WANTED = ["Extensiones Clásicas", "Lifting de Pestañas", "Extensiones Volumen 3D", "Retoque de Extensiones", "Permanente de Pestañas",
+          "Extensiones Volumen 5D", "Remoción de Extensiones", "Tratamiento de Queratina"]
 active = db.query(Service).filter(Service.is_active.isnot(False)).order_by(Service.id).all()
 chosen: list[Service] = []
 for name in WANTED:
@@ -64,12 +66,12 @@ for name in WANTED:
     if found:
         chosen.append(found)
 for s in active:                       # si faltan, se completan con cualquier otro servicio activo
-    if len(chosen) >= 5:
+    if len(chosen) >= 8:
         break
     if s not in chosen:
         chosen.append(s)
-if len(chosen) < 5:
-    print(f"Hacen falta al menos 5 servicios activos (hay {len(chosen)}).")
+if len(chosen) < 3:
+    print(f"Hacen falta al menos 3 servicios activos (hay {len(chosen)}).")
     sys.exit(1)
 
 print("Clientas:", ", ".join(f"{c.name} {c.last_name or ''}".strip() for c in clients))
@@ -107,7 +109,7 @@ BID = branch["id"]
 
 pros = {}
 existing_users = {u.username: u for u in db.query(User).filter(User.email.like("%@simulacion.com"), User.branch_id == BID).all()}
-for key in ("sim_ana", "sim_luna"):
+for key in ("sim_ana", "sim_luna", "sim_mia"):
     found = next((u for name, u in existing_users.items() if name.startswith(key)), None)
     if found:
         pros[key] = found.id
@@ -126,8 +128,11 @@ def product(name, sku_prefix, price, cost, stock):
     return call("POST", "/inventory/products", json={"sku": f"{sku_prefix}{STAMP}", "name": name, "price": price, "cost": cost, "status": True, "initial_stock": stock, "branch_id": BID})
 
 
-vit = product("Vitaminas (sim)", "VIT", 20, 8, 30)
-pei = product("Peines (sim)", "PEI", 8, 3, 50)
+vit = product("Vitaminas (sim)", "VIT", 55, 25, 40)
+rim = product("Rimel (sim)", "RIM", 25, 10, 40)
+cre = product("Crema (sim)", "CRE", 35, 15, 30)
+pei = product("Peines (sim)", "PEI", 2, 1, 100)
+par = product("Parches (sim)", "PAR", 5, 2, 100)
 
 # ── 2) Abrir la caja con Bs 100 ───────────────────────────────────────────────
 session = call("POST", "/cash-sessions/open", json={"branch_id": BID, "opening_amount": 100})
@@ -136,11 +141,11 @@ print(f"Caja abierta: sesión #{SID} con Bs 100")
 
 
 # ── 3) Atenciones (se cobra al iniciar el servicio) ──────────────────────────
-def service_sale(client_obj, service, pro, start_h, end_h, method, complete=True):
+def service_sale(client_obj, service, pro, start_h, method, complete=True):
     price = float(service.effective_price)
     body = {"client_id": client_obj.id, "branch_id": BID, "payment_method": method,
             "items": [{"service_id": service.id, "professional_id": pros[pro], "branch_id": BID,
-                       "start_time": ts(start_h), "end_time": ts(end_h)}]}
+                       "start_time": ts(start_h), "end_time": ts(start_h + 1)}]}
     if method == "mixed":
         qr = 80.0 if price > 100 else round(price / 2, 2)
         body["mixed_payments"] = [{"method": "cash", "amount": round(price - qr, 2)}, {"method": "qr", "amount": qr}]
@@ -151,47 +156,76 @@ def service_sale(client_obj, service, pro, start_h, end_h, method, complete=True
     call("PUT", f"/agenda/appointments/{appt['id']}", json={"status": "in_service"})
     if complete:
         call("PUT", f"/agenda/appointments/{appt['id']}", json={"status": "completed"})
-    print(f"  Venta {sale['sale_code']}: {method:8} Bs {price:>7.2f}  {service.name[:28]:28} {pro}  {'completado' if complete else 'EN SERVICIO'}")
+    print(f"  {sale['sale_code']}: {method:8} Bs {price:>7.2f}  {service.name[:26]:26} {pro}  {'completado' if complete else 'EN SERVICIO'}")
     return appt["id"]
 
 
 print("Atenciones:")
-t1 = service_sale(clients[0], chosen[0], "sim_ana", 9, 10, "cash")
-t2 = service_sale(clients[1 % len(clients)], chosen[1], "sim_luna", 10, 11, "transfer")
-t3 = service_sale(clients[2 % len(clients)], chosen[2], "sim_ana", 11, 13, "mixed")
-t4 = service_sale(clients[3 % len(clients)], chosen[3], "sim_luna", 13, 14, "qr")
-t5 = service_sale(clients[4 % len(clients)], chosen[4], "sim_ana", 15, 16, "card", complete=False)   # sigue en servicio
+done = {"sim_ana": [], "sim_luna": [], "sim_mia": []}
+PLAN = [  # (clienta, servicio, operaria, hora de inicio, método, completado)
+    (0, 0, "sim_ana", 9, "cash", True),
+    (1, 1, "sim_luna", 9, "transfer", True),
+    (2, 2, "sim_mia", 10, "qr", True),
+    (3, 3, "sim_ana", 11, "cash", True),
+    (4, 4, "sim_luna", 12, "mixed", True),
+    (0, 5, "sim_mia", 13, "transfer", True),
+    (1, 6, "sim_ana", 14, "cash", True),
+    (2, 7, "sim_luna", 15, "qr", True),
+    (3, 0, "sim_mia", 16, "card", True),
+    (4, 1, "sim_ana", 16, "card", False),            # este sigue en servicio: cobrado, pero aún sin comisión
+]
+for ci, si, pro, hour, method, complete in PLAN:
+    appt_id = service_sale(clients[ci % len(clients)], chosen[si % len(chosen)], pro, hour, method, complete)
+    if complete:
+        done[pro].append(appt_id)
 
-# ── 4) Venta de productos ────────────────────────────────────────────────────
+# ── 4) Venta de productos (como el "diario" del cuaderno) ────────────────────
 print("Productos:")
-for prod, qty, method, label in ((vit, 2, "cash", "Vitaminas x2"), (pei, 3, "qr", "Peines x3")):
-    body = {"branch_id": BID, "payment_method": method, "items": [], "product_items": [{"product_id": prod["id"], "quantity": qty}]}
+PRODUCT_SALES = [  # (clienta o None = mostrador, [(producto, cantidad)], método)
+    (0, [(vit, 2)], "qr"),
+    (1, [(vit, 1), (cre, 1)], "transfer"),
+    (None, [(pei, 8)], "cash"),
+    (None, [(par, 1)], "cash"),
+    (2, [(rim, 2)], "cash"),
+    (None, [(cre, 1)], "qr"),
+]
+for ci, lines, method in PRODUCT_SALES:
+    total = sum(p["price"] * q for p, q in lines)
+    body = {"branch_id": BID, "payment_method": method, "items": [],
+            "product_items": [{"product_id": p["id"], "quantity": q} for p, q in lines]}
+    if ci is not None:
+        body["client_id"] = clients[ci % len(clients)].id
     if method == "cash":
-        body["cash_received"] = prod["price"] * qty
+        body["cash_received"] = total
     sale = call("POST", "/pos-sales/", json=body)
-    print(f"  Venta {sale['sale_code']}: {label:14} {method:5} Bs {sale['total']}")
+    label = " + ".join(f"{p['name'].replace(' (sim)', '')} x{q:g}" for p, q in lines)
+    print(f"  {sale['sale_code']}: {label:28} {method:8} Bs {sale['total']}")
 
-# ── 5) Gastos de la cajera y un bono ─────────────────────────────────────────
+# ── 5) Gastos de la cajera y bonos ───────────────────────────────────────────
 print("Gastos y extras:")
-for amount, desc in ((10, "Taxi"), (15, "Agua para las clientas")):
+for amount, desc in ((10, "Taxi"), (5, "Pasaje"), (30, "Oficina: útiles de limpieza"), (15, "Agua para las clientas")):
     call("POST", "/expenses", json={"branch_id": BID, "amount": amount, "description": desc, "expense_date": TODAY.isoformat()})
     print(f"  Gasto Bs {amount}: {desc}")
-call("POST", "/operator-bonuses", json={"professional_id": pros["sim_ana"], "amount": 20, "bonus_date": TODAY.isoformat(),
-                                        "reason": "Meta del día", "branch_id": BID, "from_cash": True})
-print("  Bono Bs 20 a sim_ana (del efectivo de la caja)")
+for pro, amount, reason, from_cash in (("sim_ana", 20, "Meta del día", True), ("sim_luna", 30, "Incentivo por atención", False)):
+    call("POST", "/operator-bonuses", json={"professional_id": pros[pro], "amount": amount, "bonus_date": TODAY.isoformat(),
+                                            "reason": reason, "branch_id": BID, "from_cash": from_cash})
+    print(f"  Bono Bs {amount} a {pro} ({'del efectivo de la caja' if from_cash else 'por otro medio'})")
 
 # ── 6) Comisiones al final del día ───────────────────────────────────────────
 print("Comisiones:")
-paid_ana = call("POST", "/agenda/appointments/commission-payments", json={"appointment_ids": [t1, t3], "from_cash": True})
-print(f"  sim_ana  → Bs {paid_ana['total']} del EFECTIVO de la caja")
-paid_luna = call("POST", "/agenda/appointments/commission-payments", json={"appointment_ids": [t2, t4], "from_cash": False})
-print(f"  sim_luna → Bs {paid_luna['total']} por OTRO medio (transferencia)")
+paid = call("POST", "/agenda/appointments/commission-payments", json={"appointment_ids": done["sim_ana"], "from_cash": True})
+print(f"  sim_ana  → Bs {paid['total']} del EFECTIVO de la caja")
+paid = call("POST", "/agenda/appointments/commission-payments", json={"appointment_ids": done["sim_luna"], "from_cash": False})
+print(f"  sim_luna → Bs {paid['total']} por OTRO medio (transferencia)")
+print(f"  sim_mia  → pendiente: {len(done['sim_mia'])} servicios sin pagar (para ver el botón Pagar)")
 
 # ── 7) Lo que ve el sistema ──────────────────────────────────────────────────
 detail = call("GET", f"/cash-sessions/{SID}/detail")
 summary = call("GET", "/reports/cash-summary", params={"branch_id": BID, "start_date": TODAY.isoformat(), "end_date": TODAY.isoformat()})
 print("\n=== Apertura y cierre (arqueo en vivo) ===")
 print(json.dumps({k: detail[k] for k in ("cash_sales", "cash_expenses", "cash_commissions", "cash_extras", "expected_cash", "income_by_method")}, indent=2, ensure_ascii=False))
+print("Productos vendidos:", [(r["name"], r["quantity"], r["total"]) for r in detail["products_sold"]])
+print("Servicios realizados:", [(r["name"], r["count"], r["total"]) for r in detail["services_sold"]])
 print("\n=== Corte de caja (resumen del día) ===")
 print(json.dumps(summary, indent=2, ensure_ascii=False))
 print(f"\nSUCURSAL_ID={BID} SESION_ID={SID}")

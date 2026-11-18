@@ -591,3 +591,33 @@ class TestComisionConPromocion:
     def test_sin_promocion_nada_cambia(self, db, seed):
         appt = add_ticket(db, seed, services=("clasica", "retoque"))              # 100*0.5 + 50*0.4
         assert appointment_commission(appt) == 70.0
+
+
+# ── Qué se vendió en la caja (productos y servicios) ────────────────────────────
+
+class TestVentasDeLaCaja:
+    def test_el_detalle_lista_productos_y_servicios_vendidos(self, client, db, seed):
+        from app.domain.entities.cash_close import CashClose
+        from app.domain.entities.inventory import Product
+        from app.domain.entities.payment import Payment
+        from app.domain.entities.pos_sale import PosSale, PosSaleProduct
+
+        caja = CashClose(date="2026-10-01", branch_id=seed["centro"].id, status="open",
+                         opened_at=datetime(2020, 1, 1), opening_amount=0)
+        vit = Product(sku="VIT1", name="Vitaminas", price=20.0, cost=8.0, status=True)
+        db.add_all([caja, vit])
+        db.flush()
+        sale = PosSale(sale_code="POS-T-1", branch_id=seed["centro"].id, client_id=seed["ana"].id,
+                       payment_method="cash", subtotal=40.0, total=40.0, status="paid")
+        db.add(sale)
+        db.flush()
+        db.add(PosSaleProduct(sale_id=sale.id, product_id=vit.id, quantity=2, unit_price=20.0, subtotal=40.0))
+        db.add(Payment(sale_id=sale.id, client_id=seed["ana"].id, branch_id=seed["centro"].id, amount=40.0, method="cash", status="paid",
+                       paid_at=datetime.utcnow()))
+        appt = add_ticket(db, seed, services=("clasica",))
+        appt.sale_id = sale.id
+        db.commit()
+
+        detail = client.get(f"/cash-sessions/{caja.id}/detail", headers=login(client, "admin_c")).json()
+        assert detail["products_sold"] == [{"product_id": vit.id, "name": "Vitaminas", "quantity": 2.0, "total": 40.0}]
+        assert [(s["name"], s["count"]) for s in detail["services_sold"]] == [("Clásica", 1)]
