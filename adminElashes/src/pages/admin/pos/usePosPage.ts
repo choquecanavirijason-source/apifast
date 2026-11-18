@@ -67,6 +67,10 @@ export type UsePosPageOptions = {
   operationalContext?: PosContext;
 };
 
+/** Venta con servicios ya terminados que todavía no se cobró (ni se canceló): es lo que cuenta el número naranja de Caja POS. */
+export const isPendingPayment = (sale: PosSaleItem) =>
+  sale.status !== "paid" && sale.status !== "cancelled" && (sale.appointments ?? []).some((a) => a.status === "completed");
+
 export function usePosPage({
   embedded,
   initialDate,
@@ -198,6 +202,8 @@ export function usePosPage({
   const [historyPaymentFilter, setHistoryPaymentFilter] = useState("all");
   const [historyDateFrom, setHistoryDateFrom]       = useState("");
   const [historyDateTo, setHistoryDateTo]           = useState("");
+  // Solo ventas con servicios ya terminados que todavía no se cobraron (lo mismo que cuenta el número naranja de Caja POS).
+  const [historyOnlyPending, setHistoryOnlyPending]   = useState(false);
   const [colFilters, setColFilters] = useState({ sale_code: "", client: "", payment_method: "", total: "" });
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -346,6 +352,8 @@ export function usePosPage({
     [sales]
   );
 
+  const pendingPaymentCount = useMemo(() => sales.filter(isPendingPayment).length, [sales]);
+
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
       const clientName = `${sale.client?.name ?? ""} ${sale.client?.last_name ?? ""}`.toLowerCase();
@@ -359,7 +367,8 @@ export function usePosPage({
         (!historyClientFilter || clientName.includes(historyClientFilter.toLowerCase())) &&
         (historyPaymentFilter === "all" || pm === historyPaymentFilter.toLowerCase()) &&
         (!historyDateFrom || saleDate >= historyDateFrom) &&
-        (!historyDateTo || saleDate <= historyDateTo);
+        (!historyDateTo || saleDate <= historyDateTo) &&
+        (!historyOnlyPending || isPendingPayment(sale));
       const colMatch =
         (!colFilters.sale_code      || sale.sale_code.toLowerCase().includes(colFilters.sale_code.toLowerCase())) &&
         (!colFilters.client         || clientName.includes(colFilters.client.toLowerCase())) &&
@@ -367,7 +376,7 @@ export function usePosPage({
         (!colFilters.total          || String(sale.total).includes(colFilters.total));
       return globalMatch && topFiltersMatch && colMatch;
     });
-  }, [sales, historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters]);
+  }, [sales, historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, historyOnlyPending, colFilters]);
 
   // Solo ventas con al menos un ticket/cita — las ventas 100% de productos
   // se gestionan en su propia pestaña (ver ProductSalesHistoryTable), para
@@ -634,9 +643,7 @@ export function usePosPage({
       if (settled[4].status === "fulfilled") {
         const sales = settled[4].value;
         setSales(sales);
-        onPendingPaymentCountChange?.(
-          sales.filter((s) => s.status !== "paid" && s.status !== "cancelled" && s.appointments.some((a) => a.status === "completed")).length
-        );
+        onPendingPaymentCountChange?.(sales.filter(isPendingPayment).length);
       } else {
         failures.push(`${labels[4]}: ${getApiErrorMessage(settled[4].reason, "Error al cargar ventas.")}`);
         setSales([]);
@@ -1011,7 +1018,7 @@ export function usePosPage({
     } catch { toast.warning("No se pudo guardar el borrador local. El carrito sigue en pantalla."); }
   }, [isDraftHydrated, hydratedDraftKey, draftStorageKey, clientId, clientSearch, paymentMethod, mixedPayments, discountType, discountValue, notes, cartLines, productLines, serviceSearch, selectedServiceCategoryId, sellerId]);
 
-  useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, colFilters, rowsPerPage]);
+  useEffect(() => { setCurrentPage(1); }, [historySearch, historyClientFilter, historyPaymentFilter, historyDateFrom, historyDateTo, historyOnlyPending, colFilters, rowsPerPage]);
   useEffect(() => { if (section === "sale" || section === "history") setActiveTab(section); }, [section]);
   useEffect(() => {
     onCartCountChange?.(cartLines.length + productLines.length);
@@ -1646,6 +1653,7 @@ export function usePosPage({
     historySearch, setHistorySearch, historyClientFilter, setHistoryClientFilter,
     historyPaymentFilter, setHistoryPaymentFilter, historyDateFrom, setHistoryDateFrom,
     historyDateTo, setHistoryDateTo, colFilters, setColFilters,
+    historyOnlyPending, setHistoryOnlyPending, pendingPaymentCount,
     rowsPerPage, setRowsPerPage, currentPage, setCurrentPage,
     saleBaseDate, numericDiscount, selectedClient, clientPhone, clientAddress,
     filteredClients, filteredServices, subtotal, discountAmount, total, quickServices,

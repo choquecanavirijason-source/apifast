@@ -567,6 +567,34 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             />
 
             {historyView === "servicios" ? (
+              <>
+              <div className="flex flex-wrap items-center gap-2" data-tour="pos-history-pending">
+                <div className="inline-flex gap-1 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-1">
+                  {([
+                    [false, "Todas"],
+                    [true, `Por cobrar (${pos.pendingPaymentCount})`],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={pos.historyOnlyPending === value}
+                      onClick={() => pos.setHistoryOnlyPending(value)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                        pos.historyOnlyPending === value
+                          ? "bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-sm ring-1 ring-black/5"
+                          : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {pos.historyOnlyPending ? (
+                  <p className="text-xs text-[var(--ui-text-muted)]">
+                    Servicios ya terminados que todavía no se cobraron. Con el menú de la fila: Editar para cobrar, Cancelar venta o Eliminar.
+                  </p>
+                ) : null}
+              </div>
               <SalesHistoryTable
                 historySearch={pos.historySearch}
                 onHistorySearchChange={pos.setHistorySearch}
@@ -600,6 +628,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 onRefresh={() => void pos.loadContext()}
                 isRefreshing={pos.isLoading}
               />
+              </>
             ) : (
               <ProductSalesHistoryTable
                 sales={pos.filteredSales}
