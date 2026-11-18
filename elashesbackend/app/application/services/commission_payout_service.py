@@ -239,6 +239,7 @@ def paid_commissions_summary(
     branch_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    cash_only: bool = False,
 ) -> dict:
     """Comisiones de tickets marcados como pagados, por fecha de PAGO (cuando
     sale la plata de caja), en días de La Paz, ambos extremos incluidos. Por
@@ -254,6 +255,11 @@ def paid_commissions_summary(
         .outerjoin(User, User.id == Appointment.professional_id)
         .filter(Appointment.pagado.is_(True))
     )
+    if cash_only:
+        # Solo las pagadas del efectivo de la caja (las que bajan el efectivo esperado).
+        q = q.join(CommissionPayment, CommissionPayment.id == Appointment.commission_payment_id).filter(
+            CommissionPayment.from_cash.is_(True)
+        )
     if branch_id:
         q = q.filter(Appointment.branch_id == branch_id)
     if start_date:

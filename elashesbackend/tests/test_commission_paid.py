@@ -536,6 +536,26 @@ class TestExtrasEnEfectivo:
         assert client.delete(f"/operator-bonuses/{bono_id}", headers=h).status_code in (200, 204)
         assert self._live(client, h, caja.id)["expected_cash"] == 200.0
 
+    def test_el_corte_de_caja_tambien_descuenta_lo_pagado_del_efectivo(self, client, db, seed):
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("America/La_Paz")).date().isoformat()
+        ticket = add_ticket(db, seed, services=("clasica",))                      # comisión 50
+        h = login(client, "admin_c")
+        client.post(PAY_URL, json={"appointment_ids": [ticket.id], "from_cash": True}, headers=h)
+        client.post("/operator-bonuses", headers=h, json={
+            "professional_id": seed["luna"].id, "amount": 66.0, "bonus_date": today,
+            "reason": "Meta", "branch_id": seed["centro"].id, "from_cash": True})
+        # Otro bono pagado por transferencia: cuenta como egreso pero NO sale del efectivo.
+        client.post("/operator-bonuses", headers=h, json={
+            "professional_id": seed["luna"].id, "amount": 10.0, "bonus_date": today,
+            "reason": "Otro", "branch_id": seed["centro"].id, "from_cash": False})
+        summary = client.get("/reports/cash-summary", params={"branch_id": seed["centro"].id,
+                                                                  "start_date": today, "end_date": today}, headers=h).json()
+        cash = summary["cash_in_register"]
+        assert cash["comisiones_efectivo"] == 50.0 and cash["extras_efectivo"] == 66.0
+        assert cash["saldo"] == -116.0                                            # 0 ventas - 50 - 66
+        assert summary["expenses"]["extras"] == 76.0                              # el total de egresos sí incluye los dos bonos
+
     def test_el_cierre_junta_gastos_comisiones_y_extras(self, client, db, seed):
         caja = self._caja(db, seed)
         ticket = add_ticket(db, seed, services=("clasica",))                      # comisión 50

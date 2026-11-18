@@ -186,7 +186,11 @@ class TestCorteDeCaja:
         assert body["expenses"] == {"gastos": 30.0, "comisiones_pagadas": 75.0, "extras": 15.0, "total": 120.0}
         assert body["balance"] == {"total_ingresos": 300.0, "total_egresos": 120.0, "saldo": 180.0}
         # Compatibilidad: el bloque anterior sigue igual (efectivo - gastos).
-        assert body["cash_in_register"] == {"ventas_efectivo": 200.0, "gastos_efectivo": 30.0, "saldo": 170.0}
+        assert body["cash_in_register"] == {
+            "ventas_efectivo": 200.0, "gastos_efectivo": 30.0,
+            "comisiones_efectivo": 0.0, "extras_efectivo": 0.0,        # nada se pagó del efectivo en este caso
+            "saldo": 170.0,
+        }
 
     def test_cambiar_el_rango_recalcula(self, client, full_day, seed):
         h = login(client, "admin_k")

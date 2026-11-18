@@ -339,8 +339,10 @@ def get_cash_summary(
     if end_date:
         bonuses_q = bonuses_q.filter(OperatorBonus.bonus_date <= end_date)
     total_extras = round(float(bonuses_q.scalar() or 0.0), 2)
+    cash_extras = round(float(bonuses_q.filter(OperatorBonus.from_cash.is_(True)).scalar() or 0.0), 2)
 
     total_commissions = paid_commissions_summary(db, branch_id, start_date, end_date)["total"]
+    cash_commissions = paid_commissions_summary(db, branch_id, start_date, end_date, cash_only=True)["total"]
 
     cash_income = by_method.get("cash", 0.0)
     total_income = sum(by_method.values())
@@ -350,7 +352,10 @@ def get_cash_summary(
         "cash_in_register": {
             "ventas_efectivo": cash_income,
             "gastos_efectivo": total_expenses,
-            "saldo": cash_income - total_expenses,
+            # Lo que salió del cajón además de los gastos: comisiones y extras pagados del efectivo.
+            "comisiones_efectivo": cash_commissions,
+            "extras_efectivo": cash_extras,
+            "saldo": round(cash_income - total_expenses - cash_commissions - cash_extras, 2),
         },
         "income_by_method": {
             "efectivo": by_method.get("cash", 0.0),

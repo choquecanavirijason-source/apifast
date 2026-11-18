@@ -21,7 +21,13 @@ export interface ExpenseCreate {
 }
 
 export interface CashSummary {
-  cash_in_register: { ventas_efectivo: number; gastos_efectivo: number; saldo: number };
+  cash_in_register: {
+    ventas_efectivo: number;
+    gastos_efectivo: number;
+    comisiones_efectivo?: number;
+    extras_efectivo?: number;
+    saldo: number;
+  };
   income_by_method: { efectivo: number; tarjeta: number; transferencia: number; qr: number; total: number };
   /** total = gastos + comisiones_pagadas + extras. */
   expenses: { gastos: number; comisiones_pagadas: number; extras: number; total: number };
