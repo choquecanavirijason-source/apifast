@@ -212,17 +212,26 @@ export default function PosSaleDrawer({
   const mixedMissing = isMixedMode && mixedTotal <= 0;
   const cashErrorText =
     cashReceived.trim() === "" ? "Ingresa el monto que te entregó la clienta." : `El monto no cubre el total (Bs ${total.toFixed(2)}).`;
-  const handleInvalidPay = () => {
+  // "Cobrar e iniciar atención" necesita una operaria libre: si falta o está ocupada se marca su campo.
+  const [startAttempted, setStartAttempted] = useState(false);
+  const noOperaria = cartLines.some((l) => !(l.professional_id || sellerId));
+  const busyOperaria =
+    !noOperaria && cartLines.some((l) => professionals.find((p) => String(p.id) === (l.professional_id || sellerId))?.is_busy === true);
+  const operariaProblem = noOperaria || busyOperaria;
+  const handleInvalidPay = (forStart = false) => {
     setPayAttempted(true);
+    if (forStart) setStartAttempted(true);
     if (!tutorDataComplete) {
       setActiveStep("cliente");
       toast.warning("Completa los datos del tutor para continuar.");
       return;
     }
     window.setTimeout(() => {
-      const target = cashMissing
-        ? document.getElementById("pos-drawer-cash-received")
-        : document.querySelector<HTMLElement>('[data-pay-field="method"], [data-pay-field="mixed"]');
+      const target = !step3Done
+        ? cashMissing
+          ? document.getElementById("pos-drawer-cash-received")
+          : document.querySelector<HTMLElement>('[data-pay-field="method"], [data-pay-field="mixed"]')
+        : document.querySelector<HTMLElement>('[data-start-field="operaria"]');
       target?.scrollIntoView({ block: "center", behavior: "smooth" });
       if (target instanceof HTMLInputElement) target.focus();
     }, 30);
@@ -816,7 +825,11 @@ export default function PosSaleDrawer({
                 <button
                   type="button"
                   onClick={() => setIsSellerOpen((o) => !o)}
-                  className={`${bcField} flex cursor-pointer items-center justify-between pr-8 text-left ${isBusy ? "border-[#d13438] bg-[#fff4f5]" : ""}`}
+                  data-start-field={operariaProblem ? "operaria" : undefined}
+                  aria-invalid={startAttempted && operariaProblem}
+                  className={`${bcField} flex cursor-pointer items-center justify-between pr-8 text-left ${isBusy ? "border-[#d13438] bg-[#fff4f5]" : ""} ${
+                    startAttempted && operariaProblem ? "!border-rose-500 !ring-2 !ring-rose-200" : ""
+                  }`}
                 >
                   {selectedPro ? (
                     <span className={`flex items-center gap-2 ${isBusy ? "text-[var(--ui-text-muted)] line-through" : "text-[var(--ui-text)]"}`}>
@@ -895,6 +908,14 @@ export default function PosSaleDrawer({
                 )}
               </div>
 
+              {startAttempted && noOperaria ? (
+                <p role="alert" className="mt-1.5 text-xs font-medium text-rose-600">Elige la operaria que atenderá a la clienta.</p>
+              ) : null}
+              {startAttempted && busyOperaria && !isBusy ? (
+                <p role="alert" className="mt-1.5 text-xs font-medium text-rose-600">
+                  Una operaria asignada está ocupada. Elige otra o usa «Cobrar y poner en espera».
+                </p>
+              ) : null}
               {isBusy && (
                 <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#d13438]">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -1268,23 +1289,7 @@ export default function PosSaleDrawer({
 
       {/* ── Modo WALK-IN: pago siempre al momento ───────────────────────── */}
       {activeStep !== "pago" ? stepNav : onImmediateCheckout && !linkAppointmentId ? ((() => {
-        // "Pasar a servicio" arranca la atención ya mismo — sin operaria
-        // asignada (línea por línea o con el selector general de arriba) no
-        // tiene sentido dejarlo pasar, quedaría "en servicio" sin nadie. Si
-        // la operaria elegida está ocupada tampoco puede arrancar ya mismo
-        // (para eso está "Crear turno", que la deja en su cola).
-        const missingSellerForService = cartLines.some((l) => {
-          const effectiveId = l.professional_id || sellerId;
-          if (!effectiveId) return true;
-          const pro = professionals.find((p) => String(p.id) === effectiveId);
-          return pro?.is_busy === true;
-        });
-        // Por qué "Cobrar e iniciar atención" está desactivado (se muestra bajo los botones).
-        const startBlockedReason = !missingSellerForService
-          ? null
-          : cartLines.some((l) => !(l.professional_id || sellerId))
-            ? "Elige una operaria para poder iniciar la atención ahora."
-            : "La operaria elegida está ocupada: usa «Cobrar y poner en espera».";
+        // "Cobrar e iniciar atención" necesita una operaria libre: si falta o está ocupada se marca su campo (ver handleInvalidPay).
         return (
         <>
           <div className="flex gap-2" data-tour="pos-drawer-checkout-buttons">
@@ -1312,16 +1317,16 @@ export default function PosSaleDrawer({
             </button>
             <button
               type="button"
-              disabled={cartCount === 0 || missingSellerForService || isSubmitting}
+              disabled={cartCount === 0 || isSubmitting}
               onClick={() => {
-                if (!step3Done || !tutorDataComplete) {
-                  handleInvalidPay();
+                if (!step3Done || !tutorDataComplete || operariaProblem) {
+                  handleInvalidPay(true);
                   return;
                 }
                 onImmediateCheckout(false, true);
               }}
               className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
-                cartCount === 0 || missingSellerForService || isSubmitting
+                cartCount === 0 || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
                   : "bg-[#094732] text-white hover:bg-[#063324]"
               }`}
@@ -1329,9 +1334,6 @@ export default function PosSaleDrawer({
               {isSubmitting ? "Procesando…" : "Cobrar e iniciar atención"}
             </button>
           </div>
-          {startBlockedReason && cartCount > 0 && (
-            <p className="mt-1.5 text-center text-[10px] font-medium text-[var(--ui-text-muted)]">{startBlockedReason}</p>
-          )}
         </>
         );
       })()) : (
