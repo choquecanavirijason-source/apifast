@@ -64,6 +64,8 @@ export type PosCheckoutTicketPreview = {
 };
 
 export type PosSaleStepOneProps = {
+  /** Qué catálogo se ve: lo elige el selector Servicios | Productos de la barra superior de la caja. */
+  catalogView: "servicios" | "productos";
   labelClass: string;
   fieldClass: string;
   isLoading: boolean;

@@ -1,9 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Package, ShoppingCart, Wrench } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import ServiceSelectorCard from "./ServiceSelectorCard";
 import ProductSelectorCard from "./ProductSelectorCard";
 import PosSaleDrawer from "./PosSaleDrawer";
-import { SegmentedTabs } from "../../../../components/common/ui";
 import type { PosSaleStepOneProps } from "../pos.types";
 
 export default function PosSaleStepOne({
@@ -82,9 +81,9 @@ export default function PosSaleStepOne({
   onUpdateTicketTime,
   branchQrImageUrl,
   drawerForceStep = null,
+  catalogView,
 }: PosSaleStepOneProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
-  const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
   const cartCount = cartLines.length + productLines.length;
 
   const cartCountByServiceId = useMemo(() => {
@@ -153,31 +152,6 @@ export default function PosSaleStepOne({
           <span className="truncate">{addToCartMessage}</span>
         </div>
       )}
-
-      {/* Servicios | Productos */}
-      <div className="shrink-0">
-        <SegmentedTabs
-          options={[
-            { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
-            {
-              id: "productos",
-              label: (
-                <span className="flex items-center gap-1.5">
-                  Productos
-                  {productLines.length > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
-                      {productLines.length}
-                    </span>
-                  )}
-                </span>
-              ),
-              icon: <Package className="h-3.5 w-3.5" />,
-            },
-          ]}
-          value={catalogView}
-          onChange={setCatalogView}
-        />
-      </div>
 
       {/* Catálogo — ocupa todo el espacio */}
       <div className="min-h-0 w-full flex-1 overflow-hidden">

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { FileDown, RefreshCw, Receipt, Eye, Pencil, XCircle, Trash2 } from "lucide-react";
 import FilterActionBar from "../../../../components/common/FilterActionBar";
 import Button from "../../../../components/common/ui/Button";
@@ -18,6 +18,8 @@ type SalesColFilters = {
 };
 
 type SalesHistoryTableProps = {
+  /** Controles extra en la cabecera de la tabla (p. ej. el filtro Todas / Por cobrar). */
+  headerExtra?: ReactNode;
   historySearch: string;
   onHistorySearchChange: (value: string) => void;
   historyClientFilter: string;
@@ -70,6 +72,7 @@ function saleState(sale: PosSaleItem): { label: string; className: string; hint:
 }
 
 export default function SalesHistoryTable({
+  headerExtra,
   rowsPerPage,
   rowsPerPageOptions,
   onRowsPerPageChange,
@@ -134,6 +137,7 @@ export default function SalesHistoryTable({
         <div className="flex items-center gap-2">
           <Receipt className="h-5 w-5 text-emerald-600" />
           <span className="font-semibold text-slate-800">Ventas</span>
+          {headerExtra}
         </div>
       }
       right={

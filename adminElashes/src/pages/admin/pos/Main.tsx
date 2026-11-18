@@ -71,6 +71,7 @@ export type PosPageProps = {
 export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false, operationalContext }: PosPageProps) {
   const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, operationalContext });
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
+  const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
   const [showTutorial, setShowTutorial] = useState(false);
   const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -227,7 +228,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
       }
       contentClassName="flex-1 min-h-0 overflow-hidden"
       toolbar={
-        <div className="flex w-full items-center justify-between gap-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2">
           <div data-tour="pos-tabs">
             <SegmentedTabs
               options={[
@@ -251,6 +253,33 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 pos.setStep(1);
               }}
             />
+          </div>
+          {/* Servicios | Productos: en la misma línea que las pestañas principales (antes era una fila aparte) */}
+          {(pos.activeTab === "history" || (pos.activeTab === "sale" && pos.step === 1)) && (
+            <div data-tour="pos-kind-tabs">
+              <SegmentedTabs
+                options={[
+                  { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
+                  {
+                    id: "productos",
+                    label: (
+                      <span className="flex items-center gap-1.5">
+                        Productos
+                        {pos.activeTab === "sale" && pos.productLines.length > 0 && (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                            {pos.productLines.length}
+                          </span>
+                        )}
+                      </span>
+                    ),
+                    icon: <Package className="h-3.5 w-3.5" />,
+                  },
+                ]}
+                value={pos.activeTab === "history" ? historyView : catalogView}
+                onChange={pos.activeTab === "history" ? setHistoryView : setCatalogView}
+              />
+            </div>
+          )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -412,6 +441,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         /* ── Sale step 1 ─────────────────────────────────────────────── */
         ) : pos.activeTab === "sale" && pos.step === 1 ? (
           <PosSaleStepOne
+            catalogView={catalogView}
             labelClass={labelClass}
             fieldClass={fieldClass}
             isLoading={pos.isLoading}
@@ -557,45 +587,37 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
         /* ── History tab ─────────────────────────────────────────────── */
         ) : pos.activeTab === "history" ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-            <SegmentedTabs
-              options={[
-                { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
-                { id: "productos", label: "Productos", icon: <Package className="h-3.5 w-3.5" /> },
-              ]}
-              value={historyView}
-              onChange={setHistoryView}
-            />
-
             {historyView === "servicios" ? (
-              <>
-              <div className="flex flex-wrap items-center gap-2" data-tour="pos-history-pending">
-                <div className="inline-flex gap-1 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-1">
-                  {([
-                    [false, "Todas"],
-                    [true, `Por cobrar (${pos.pendingPaymentCount})`],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      aria-pressed={pos.historyOnlyPending === value}
-                      onClick={() => pos.setHistoryOnlyPending(value)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                        pos.historyOnlyPending === value
-                          ? "bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-sm ring-1 ring-black/5"
-                          : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {pos.historyOnlyPending ? (
-                  <p className="text-xs text-[var(--ui-text-muted)]">
-                    Servicios ya terminados que todavía no se cobraron. Con el menú de la fila: Editar para cobrar, Cancelar venta o Eliminar.
-                  </p>
-                ) : null}
-              </div>
               <SalesHistoryTable
+                headerExtra={
+                  <div className="flex flex-wrap items-center gap-2" data-tour="pos-history-pending">
+                    <div className="inline-flex gap-1 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-1">
+                      {([
+                        [false, "Todas"],
+                        [true, `Por cobrar (${pos.pendingPaymentCount})`],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={label}
+                          type="button"
+                          aria-pressed={pos.historyOnlyPending === value}
+                          onClick={() => pos.setHistoryOnlyPending(value)}
+                          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                            pos.historyOnlyPending === value
+                              ? "bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-sm ring-1 ring-black/5"
+                              : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {pos.historyOnlyPending ? (
+                      <p className="hidden text-xs text-[var(--ui-text-muted)] lg:block">
+                        Servicios terminados sin cobrar. Menú de la fila: Editar, Cancelar venta o Eliminar.
+                      </p>
+                    ) : null}
+                  </div>
+                }
                 historySearch={pos.historySearch}
                 onHistorySearchChange={pos.setHistorySearch}
                 historyClientFilter={pos.historyClientFilter}
@@ -628,7 +650,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 onRefresh={() => void pos.loadContext()}
                 isRefreshing={pos.isLoading}
               />
-              </>
             ) : (
               <ProductSalesHistoryTable
                 sales={pos.filteredSales}
