@@ -18,6 +18,7 @@ import useAuth from "@/core/hooks/useAuth";
 import { expenseDraftKey, readExpenseDraft, writeExpenseDraft, readExpensePhoto, restoreExpensePhoto, type DraftExpense } from "@/core/services/expense/expense-draft.storage";
 import variables from "@/core/config/variables";
 import PendingCommissionsToday from "./components/PendingCommissionsToday";
+import QueSeVendio from "./components/QueSeVendio";
 import CuadreDelDia from "./components/CuadreDelDia";
 import ResumenCaja from "./components/ResumenCaja";
 
@@ -43,7 +44,8 @@ const dateTimeFmt = (iso: string) =>
 
 // ─── Modal: detalle de una sesión de caja ────────────────────────────────────
 
-function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose: () => void }) {
+function SessionDetailModal({ session, onClose }: { session: CashSessionOut; onClose: () => void }) {
+  const sessionId = session.id;
   const [detail, setDetail] = useState<CashSessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +67,61 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
         <p className="text-sm text-slate-500">No se pudo cargar el detalle.</p>
       ) : (
         <div className="space-y-5">
+          {/* Quién abrió y cerró la caja, y cuándo */}
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:grid-cols-4">
+            <div>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Sucursal</p>
+              <p className="text-sm font-semibold">{session.branch_name}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Abierta por</p>
+              <p className="text-sm font-semibold">{session.opened_by_name ?? "—"}</p>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">{dateTimeFmt(session.opened_at)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">{session.status === "closed" ? "Cerrada por" : "Estado"}</p>
+              <p className="text-sm font-semibold">{session.status === "closed" ? (session.closed_by_name ?? "—") : "Abierta"}</p>
+              {session.closed_at ? <p className="text-[11px] text-[var(--ui-text-muted)]">{dateTimeFmt(session.closed_at)}</p> : null}
+            </div>
+            <div>
+              <p className="text-[11px] text-[var(--ui-text-muted)]">Monto inicial</p>
+              <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(session.opening_amount ?? 0)}</p>
+            </div>
+          </div>
+
+          {/* Cierre: arqueo y lo que se dejó para el siguiente turno */}
+          {session.status === "closed" && session.counted_amount !== null ? (
+            <div>
+              <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Cierre de caja</h4>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                  <p className="text-[11px] text-[var(--ui-text-muted)]">Esperado en caja</p>
+                  <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(session.expected_cash ?? 0)}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                  <p className="text-[11px] text-[var(--ui-text-muted)]">Contado</p>
+                  <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(session.counted_amount)}</p>
+                </div>
+                <div className="rounded-lg border-2 border-slate-800 p-2 text-center">
+                  <p className="text-[11px] text-[var(--ui-text-muted)]">
+                    {!session.difference ? "Diferencia" : session.difference > 0 ? "Sobra" : "Falta"}
+                  </p>
+                  <p className="text-sm font-bold tabular-nums">{moneyFormatter.format(Math.abs(session.difference ?? 0))}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                  <p className="text-[11px] text-[var(--ui-text-muted)]">Fondo para el siguiente turno</p>
+                  <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(session.next_fund_amount ?? 0)}</p>
+                </div>
+              </div>
+              {session.notes ? (
+                <p className="mt-2 rounded-lg bg-[var(--ui-surface-muted)] px-3 py-2 text-xs text-[var(--ui-text)]">
+                  <span className="font-semibold">Nota de cierre:</span> {session.notes}
+                </p>
+              ) : null}
+              <CuadreDelDia detail={detail} openingAmount={session.opening_amount ?? 0} countedAmount={String(session.counted_amount)} />
+            </div>
+          ) : null}
+
           <div>
             <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Ingresos por método</h4>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -88,6 +145,29 @@ function SessionDetailModal({ sessionId, onClose }: { sessionId: number; onClose
                 <p className="text-[11px] text-emerald-700">Total</p>
                 <p className="text-sm font-bold tabular-nums text-emerald-800">{moneyFormatter.format(detail.income_by_method.total)}</p>
               </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Qué se vendió</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <QueSeVendio detail={detail} />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-xs font-semibold text-[var(--ui-text-muted)]">Lo que salió del efectivo de la caja</h4>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {([
+                ["Gastos", detail.cash_expenses],
+                ["Comisiones pagadas", detail.cash_commissions ?? 0],
+                ["Extras y bonos", detail.cash_extras ?? 0],
+              ] as const).map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-[var(--ui-border)] p-2 text-center">
+                  <p className="text-[11px] text-[var(--ui-text-muted)]">{label}</p>
+                  <p className="text-sm font-semibold tabular-nums">{moneyFormatter.format(value)}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -543,8 +623,11 @@ function AperturaCierreTab() {
         enableColumnFilters={false}
         defaultLimit={10}
       />
-      {detailSessionId !== null && (
-        <SessionDetailModal sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
+      {detailSessionId !== null && [session, ...history].some((item) => item?.id === detailSessionId) && (
+        <SessionDetailModal
+          session={[session, ...history].find((item) => item?.id === detailSessionId) as CashSessionOut}
+          onClose={() => setDetailSessionId(null)}
+        />
       )}
     </SectionCard>
   ) : null;

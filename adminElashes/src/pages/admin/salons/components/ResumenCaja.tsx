@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import type { CashSessionDetail } from "@/core/services/cash-session/cash-session.service";
+import QueSeVendio from "./QueSeVendio";
 
 const money = (value: number) =>
   new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB", maximumFractionDigits: 2 }).format(value);
@@ -87,40 +88,7 @@ export default function ResumenCaja({
             {detail.income_by_method.mixto > 0 ? <Line label="Mixto" value={money(detail.income_by_method.mixto)} /> : null}
             <Line label="Total vendido" value={money(detail.income_by_method.total)} strong />
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Servicios realizados</p>
-            {(detail.services_sold ?? []).length === 0 ? (
-              <p className="py-1.5 text-xs text-slate-400">Todavía no hay servicios cobrados.</p>
-            ) : (
-              <>
-                {(detail.services_sold ?? []).map((row) => (
-                  <Line key={row.service_id} label={`${row.name} × ${row.count}`} value={money(row.total)} />
-                ))}
-                <Line
-                  label={`Total · ${(detail.services_sold ?? []).reduce((sum, row) => sum + row.count, 0)} servicios`}
-                  value={money((detail.services_sold ?? []).reduce((sum, row) => sum + row.total, 0))}
-                  strong
-                />
-              </>
-            )}
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Productos vendidos</p>
-            {(detail.products_sold ?? []).length === 0 ? (
-              <p className="py-1.5 text-xs text-slate-400">Todavía no se vendió ningún producto.</p>
-            ) : (
-              <>
-                {(detail.products_sold ?? []).map((row) => (
-                  <Line key={row.product_id} label={`${row.name} × ${row.quantity}`} value={money(row.total)} />
-                ))}
-                <Line
-                  label={`Total · ${(detail.products_sold ?? []).reduce((sum, row) => sum + row.quantity, 0)} unidades`}
-                  value={money((detail.products_sold ?? []).reduce((sum, row) => sum + row.total, 0))}
-                  strong
-                />
-              </>
-            )}
-          </div>
+          <QueSeVendio detail={detail} />
         </div>
       ) : null}
     </div>
