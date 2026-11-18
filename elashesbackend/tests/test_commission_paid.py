@@ -621,3 +621,49 @@ class TestVentasDeLaCaja:
         detail = client.get(f"/cash-sessions/{caja.id}/detail", headers=login(client, "admin_c")).json()
         assert detail["products_sold"] == [{"product_id": vit.id, "name": "Vitaminas", "quantity": 2.0, "total": 40.0}]
         assert [(s["name"], s["count"]) for s in detail["services_sold"]] == [("Clásica", 1)]
+
+
+# ── Un servicio no arranca sin cobrar ────────────────────────────────────────────
+
+class TestNoIniciarSinCobrar:
+    def _admin_con_permiso_de_agenda(self, client, db):
+        perm = Permission(name="appointments:manage")
+        db.add(perm)
+        db.flush()
+        admin_role = db.query(Role).filter(Role.name == "Admin").one()
+        admin_role.permissions.append(perm)
+        db.commit()
+        return login(client, "admin_c")
+
+    def _ticket_con_venta(self, db, seed, sale_status):
+        from app.domain.entities.pos_sale import PosSale
+        sale = PosSale(sale_code=f"POS-NC-{sale_status}", branch_id=seed["centro"].id, client_id=seed["ana"].id,
+                       payment_method="cash", subtotal=100.0, total=100.0, status=sale_status)
+        db.add(sale)
+        db.flush()
+        appt = add_ticket(db, seed, status="pending", services=("clasica",))
+        appt.sale_id = sale.id
+        db.commit()
+        return appt
+
+    def test_una_venta_reservada_no_deja_iniciar_el_servicio(self, client, db, seed):
+        headers = self._admin_con_permiso_de_agenda(client, db)
+        appt = self._ticket_con_venta(db, seed, "reserved")
+        resp = client.put(f"/agenda/appointments/{appt.id}", json={"status": "in_service"}, headers=headers)
+        assert resp.status_code == 409
+        assert "cobrada" in resp.json()["detail"]
+        db.refresh(appt)
+        assert appt.status == "pending"
+
+    def test_una_venta_cobrada_si_deja_iniciar(self, client, db, seed):
+        headers = self._admin_con_permiso_de_agenda(client, db)
+        appt = self._ticket_con_venta(db, seed, "paid")
+        resp = client.put(f"/agenda/appointments/{appt.id}", json={"status": "in_service"}, headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "in_service"
+
+    def test_un_ticket_sin_venta_no_se_ve_afectado(self, client, db, seed):
+        headers = self._admin_con_permiso_de_agenda(client, db)
+        appt = add_ticket(db, seed, status="pending", services=("clasica",))
+        resp = client.put(f"/agenda/appointments/{appt.id}", json={"status": "in_service"}, headers=headers)
+        assert resp.status_code == 200, resp.text

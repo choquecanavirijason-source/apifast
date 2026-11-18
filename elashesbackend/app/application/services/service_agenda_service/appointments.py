@@ -599,6 +599,18 @@ def update_appointment(
         appointment.sale_id = sale_id
 
     if status_value is not None:
+        # Un servicio no arranca sin cobrar: la venta reservada se cobra antes (agenda, POS o Control de servicios).
+        if status_value == "in_service" and previous_status != "in_service" and appointment.sale_id:
+            unpaid_sale = (
+                db.query(PosSale)
+                .filter(PosSale.id == appointment.sale_id, PosSale.status == "reserved")
+                .first()
+            )
+            if unpaid_sale:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="La venta de este ticket aún no está cobrada. Cóbrala antes de iniciar el servicio.",
+                )
         if status_value == "in_service" and final_professional_id:
             today_start = datetime.combine(date.today(), time.min)
             conflict = (

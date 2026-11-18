@@ -50,6 +50,7 @@ import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/Que
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
 import { isPrintOnStartEnabled, printAttentionTicket, setPrintOnStartEnabled } from "./printAttentionTicket";
 import { needsAllergyConfirmation, sharesAllergyAnswer, withConfirmedAllergies } from "./allergyCheck";
+import CollectPaymentModal from "../calendar/components/CollectPaymentModal";
 import AllergyConfirmModal from "./components/AllergyConfirmModal";
 import useAuth from "../../../core/hooks/useAuth";
 
@@ -100,6 +101,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   };
   // Clienta a la que aún no se le confirmaron las alergias: se pregunta antes de iniciar.
   const [allergyTicket, setAllergyTicket] = useState<TicketItem | null>(null);
+  // Cobro de una venta reservada, justo antes de iniciar el servicio.
+  const [collectTicket, setCollectTicket] = useState<TicketItem | null>(null);
   // Al iniciar una atención se pregunta antes de abrir la impresión.
   const [printPromptTicket, setPrintPromptTicket] = useState<TicketItem | null>(null);
   const handlePrintTicket = (ticket: TicketItem) => {
@@ -480,7 +483,11 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     }
   };
 
-  const handleStartServiceImpl = async (ticket: TicketItem, options?: { skipAllergy?: boolean }) => {
+  // Un servicio no arranca sin cobrar: si la venta del ticket sigue reservada, primero se cobra.
+  const ticketNeedsPayment = (ticket: TicketItem) =>
+    Boolean(ticket.sale_id) && ticket.sale_status != null && ticket.sale_status !== "paid" && ticket.sale_status !== "cancelled";
+
+  const handleStartServiceImpl = async (ticket: TicketItem, options?: { skipAllergy?: boolean; skipPayment?: boolean }) => {
     if (!ticket.professional_id) {
       toast.warning("Asigna una operaria antes de iniciar la atención.");
       return;
@@ -494,6 +501,12 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.error(
         `La operaria ya está atendiendo a ${clientName}. Finaliza ese servicio antes de iniciar uno nuevo.`
       );
+      return;
+    }
+
+    // Primero se cobra (si la venta sigue reservada) y luego se confirman las alergias.
+    if (!options?.skipPayment && ticketNeedsPayment(ticket)) {
+      setCollectTicket(ticket);
       return;
     }
 
@@ -774,6 +787,11 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.warning("Asigna una operaria antes de mover a En servicio.");
       return;
     }
+    // Sin cobrar no se mueve a servicio: se abre el cobro (igual que con el botón Iniciar atención).
+    if (newStatus === "in_service" && ticketNeedsPayment(ticket)) {
+      setCollectTicket(ticket);
+      return;
+    }
     // Sin alergias confirmadas no se mueve todavía: se pregunta y luego inicia igual que el botón.
     if (newStatus === "in_service" && needsAllergyConfirmation(ticket)) {
       setAllergyTicket(ticket);
@@ -999,7 +1017,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     }
   };
   const handleCancelTicket = (ticket: TicketItem) => runQueueWrite(() => handleCancelTicketImpl(ticket), ticket);
-  const handleStartService = (ticket: TicketItem, options?: { skipAllergy?: boolean }) =>
+  const handleStartService = (ticket: TicketItem, options?: { skipAllergy?: boolean; skipPayment?: boolean }) =>
     runQueueWrite(() => handleStartServiceImpl(ticket, options), ticket);
   const handleFinishService = () => runQueueWrite(handleFinishServiceImpl, finishTarget);
   const handleDragEnd = (event: DragEndEvent) => runQueueWrite(() => handleDragEndImpl(event), activeDragTicket);
@@ -1475,6 +1493,17 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
               setTicketToDelete(null);
               setDeleteConfirmationCode("");
             }
+          }}
+        />
+
+        <CollectPaymentModal
+          ticket={collectTicket}
+          onClose={() => setCollectTicket(null)}
+          onPaid={(ticket, sale) => {
+            setCollectTicket(null);
+            // La venta cubre todos sus tickets: todos quedan como pagados.
+            setTickets((prev) => prev.map((t) => (t.sale_id === sale.id ? { ...t, sale_status: sale.status } : t)));
+            void handleStartService({ ...ticket, sale_status: sale.status }, { skipPayment: true });
           }}
         />
 
