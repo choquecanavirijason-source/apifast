@@ -255,11 +255,12 @@ export default function PosTrackingHub() {
       />
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
-      {(branchContext.changed || branchContext.error) && (
+      {/* En la caja el aviso se muestra dentro del propio POS; aquí solo para las otras pestañas. */}
+      {(branchContext.changed || branchContext.error) && effectiveSection !== "pos" && (
         <div role="status" className="border-b border-slate-200 px-4 py-2 text-sm">
           {branchContext.error || "La sucursal autorizada cambió. Las operaciones quedan bloqueadas; los cambios pendientes se conservan."}
-          <button type="button" disabled={branchContext.busy} onClick={() => void operationalContext.refresh()} className="ml-3 border px-2 py-1">Verificar sucursal</button>
-          {branchContext.changed && <button type="button" disabled={branchContext.busy || !branchContext.verified} onClick={operationalContext.acceptChange} className="ml-2 border px-2 py-1">Cambiar al nuevo contexto</button>}
+          <button type="button" disabled={branchContext.busy} onClick={() => void operationalContext.refresh()} className="ml-3 border px-2 py-1">Reintentar</button>
+          {branchContext.changed && <button type="button" disabled={branchContext.busy || !branchContext.verified} onClick={operationalContext.acceptChange} className="ml-2 border px-2 py-1">Cambiar a la nueva sucursal</button>}
         </div>
       )}
       <div className={`relative min-h-0 flex-1 overflow-hidden ${isFullscreen ? "px-4 pb-4 pt-3" : "pt-4"}`}>

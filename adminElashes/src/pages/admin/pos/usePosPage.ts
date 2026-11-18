@@ -575,6 +575,14 @@ export function usePosPage({
     setCategoryModalSearch("");
   }, [isCategoryModalOpen, selectedServiceCategoryId]);
 
+  // Si la sucursal autorizada cambió (p. ej. un admin movió a la cajera) y NO hay una venta a medias, se acepta sola: no
+  // hay nada que proteger. Solo si hay un carrito con cosas se le pregunta, para no cobrar en otra sucursal sin querer.
+  const hasUnfinishedSale = cartLines.length + productLines.length > 0;
+  useEffect(() => {
+    if (!branchContext.changed || !branchContext.verified || branchContext.busy || hasUnfinishedSale) return;
+    context.acceptChange();
+  }, [branchContext.changed, branchContext.verified, branchContext.busy, hasUnfinishedSale, context]);
+
   // ── Data loaders ──────────────────────────────────────────────────────────
 
   // `silent`: recarga en segundo plano (sin pantalla de carga ni avisos) para ver productos/servicios nuevos.

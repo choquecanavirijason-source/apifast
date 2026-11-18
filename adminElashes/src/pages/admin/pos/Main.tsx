@@ -318,7 +318,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
             <p className="min-w-0 flex-1">
               {pos.branchContext.error
                 ? `${pos.branchContext.error} El carrito se conserva.`
-                : "La sucursal autorizada cambió. Tu borrador permanece en la sucursal anterior."}
+                : "Tu sucursal de trabajo cambió, pero tienes una venta sin terminar de la sucursal anterior. Termínala o descártala antes de cambiar."}
             </p>
             <button
               type="button"
@@ -326,7 +326,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
               disabled={pos.branchContext.busy}
               onClick={() => void pos.refreshBranch()}
             >
-              {pos.branchContext.busy ? "Verificando…" : "Verificar sucursal"}
+              {pos.branchContext.busy ? "Verificando…" : "Reintentar"}
             </button>
             {pos.branchContext.changed && (
               <button
@@ -335,7 +335,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                 disabled={pos.branchContext.busy || !pos.branchContext.verified}
                 onClick={pos.acceptBranchChange}
               >
-                Cambiar al nuevo contexto
+                Cambiar a la nueva sucursal
               </button>
             )}
           </div>
