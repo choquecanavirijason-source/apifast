@@ -540,7 +540,7 @@ export default function CommissionPaymentsTab({
 
   const openPay = (proName: string, ids: number[]) => {
     if (ids.length === 0) return;
-    setFromCash(null);
+    setFromCash("yes"); // por defecto sale del efectivo de la caja; se puede cambiar a otro medio
     setPayTarget({ proName, ids });
   };
 

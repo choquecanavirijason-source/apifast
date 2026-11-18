@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.infrastructure.database import Base
@@ -21,6 +21,8 @@ class OperatorBonus(Base):
     amount = Column(Float, nullable=False)
     bonus_date = Column(Date, nullable=False, index=True)  # fecha del pago (puede no ser hoy)
     reason = Column(String(300), nullable=False)
+    # El pago salió del efectivo de la caja: descuenta del efectivo esperado en el arqueo del cierre.
+    from_cash = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 

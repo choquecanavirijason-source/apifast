@@ -19,6 +19,7 @@ export interface CashSessionOut {
   cash_expenses: number | null;
   /** Comisiones pagadas del efectivo de la caja durante la sesión. */
   cash_commissions?: number | null;
+  cash_extras?: number | null;
   expected_cash: number | null;
   counted_amount: number | null;
   difference: number | null;
@@ -30,6 +31,7 @@ export interface CashSessionDetail {
   cash_sales: number;
   cash_expenses: number;
   cash_commissions?: number;
+  cash_extras?: number;
   expected_cash: number;
   income_by_method: {
     efectivo: number;

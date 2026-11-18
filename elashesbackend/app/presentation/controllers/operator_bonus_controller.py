@@ -24,6 +24,8 @@ class OperatorBonusCreate(BaseModel):
     reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
     # Caja de la que sale. Si no viene, la sucursal de la operaria.
     branch_id: Optional[int] = Field(default=None, ge=1)
+    # True si se pagó con efectivo de la caja: se descuenta del efectivo esperado al cerrar.
+    from_cash: bool = False
 
 
 class OperatorBonusOut(BaseModel):
@@ -35,6 +37,7 @@ class OperatorBonusOut(BaseModel):
     amount: float
     bonus_date: str
     reason: str
+    from_cash: bool = False
     created_at: str
     created_by_name: Optional[str]
 
@@ -49,6 +52,7 @@ def _to_out(b: OperatorBonus) -> OperatorBonusOut:
         amount=b.amount,
         bonus_date=b.bonus_date.isoformat(),
         reason=b.reason,
+        from_cash=bool(b.from_cash),
         created_at=b.created_at.isoformat() if b.created_at else "",
         created_by_name=b.created_by.username if b.created_by else None,
     )
@@ -108,6 +112,7 @@ def create_operator_bonus(
         amount=round(body.amount, 2),
         bonus_date=body.bonus_date,
         reason=body.reason,
+        from_cash=body.from_cash,
         created_by_id=current_user.id,
     )
     db.add(bonus)

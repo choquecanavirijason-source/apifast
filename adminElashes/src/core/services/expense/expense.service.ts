@@ -39,6 +39,8 @@ export interface OperatorBonusOut {
   /** YYYY-MM-DD */
   bonus_date: string;
   reason: string;
+  /** Salió del efectivo de la caja (descuenta del efectivo esperado al cerrar). */
+  from_cash?: boolean;
   created_at: string;
   created_by_name: string | null;
 }
@@ -49,6 +51,7 @@ export interface OperatorBonusCreate {
   bonus_date: string;
   reason: string;
   branch_id?: number;
+  from_cash?: boolean;
 }
 
 /** Pagos extra / bonos a operarias (Corte de Caja). Cuentan como egreso. */

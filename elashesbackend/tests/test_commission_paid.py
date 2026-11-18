@@ -494,3 +494,57 @@ class TestEfectivoDeCaja:
         body = closed.json()
         assert body["cash_commissions"] == 50.0
         assert body["expected_cash"] == 50.0 and body["difference"] == 0.0
+
+
+# ── Extras y bonos del efectivo de la caja ──────────────────────────────────────
+
+class TestExtrasEnEfectivo:
+    def _caja(self, db, seed, opening=200.0):
+        from app.domain.entities.cash_close import CashClose
+        session = CashClose(date="2026-10-01", branch_id=seed["centro"].id, status="open",
+                            opened_at=datetime(2020, 1, 1), opening_amount=opening)
+        db.add(session)
+        db.commit()
+        return session
+
+    def _bono(self, client, headers, seed, amount, from_cash):
+        return client.post("/operator-bonuses", headers=headers, json={
+            "professional_id": seed["luna"].id, "amount": amount, "bonus_date": "2026-10-10",
+            "reason": "Meta de la semana", "branch_id": seed["centro"].id, "from_cash": from_cash})
+
+    def _live(self, client, headers, session_id):
+        return client.get(f"/cash-sessions/{session_id}/detail", headers=headers).json()
+
+    def test_un_bono_en_efectivo_baja_el_esperado(self, client, db, seed):
+        caja = self._caja(db, seed)
+        h = login(client, "admin_c")
+        assert self._bono(client, h, seed, 66.0, True).status_code == 201
+        live = self._live(client, h, caja.id)
+        assert live["cash_extras"] == 66.0 and live["expected_cash"] == 134.0      # 200 - 66
+
+    def test_un_bono_por_otro_medio_no_toca_el_arqueo(self, client, db, seed):
+        caja = self._caja(db, seed)
+        h = login(client, "admin_c")
+        assert self._bono(client, h, seed, 66.0, False).status_code == 201
+        live = self._live(client, h, caja.id)
+        assert live["cash_extras"] == 0.0 and live["expected_cash"] == 200.0
+
+    def test_eliminar_el_bono_devuelve_el_efectivo(self, client, db, seed):
+        caja = self._caja(db, seed)
+        h = login(client, "admin_c")
+        bono_id = self._bono(client, h, seed, 66.0, True).json()["id"]
+        assert client.delete(f"/operator-bonuses/{bono_id}", headers=h).status_code in (200, 204)
+        assert self._live(client, h, caja.id)["expected_cash"] == 200.0
+
+    def test_el_cierre_junta_gastos_comisiones_y_extras(self, client, db, seed):
+        caja = self._caja(db, seed)
+        ticket = add_ticket(db, seed, services=("clasica",))                      # comisión 50
+        h = login(client, "admin_c")
+        client.post(PAY_URL, json={"appointment_ids": [ticket.id], "from_cash": True}, headers=h)
+        self._bono(client, h, seed, 66.0, True)
+        closed = client.post(f"/cash-sessions/{caja.id}/close",
+                             json={"counted_amount": 84.0, "next_fund_amount": 0.0}, headers=h)
+        assert closed.status_code == 200, closed.text
+        body = closed.json()
+        assert body["cash_commissions"] == 50.0 and body["cash_extras"] == 66.0
+        assert body["expected_cash"] == 84.0 and body["difference"] == 0.0         # 200 - 50 - 66

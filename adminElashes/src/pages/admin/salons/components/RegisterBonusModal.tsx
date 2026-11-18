@@ -28,6 +28,8 @@ export default function RegisterBonusModal({ isOpen, branchId, onClose, onSaved 
   const [amount, setAmount] = useState("");
   const [bonusDate, setBonusDate] = useState(todayLocal);
   const [reason, setReason] = useState("");
+  // Por defecto sale del efectivo de la caja (así se paga normalmente); se puede cambiar a "otro medio".
+  const [fromCash, setFromCash] = useState<"yes" | "no">("yes");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function RegisterBonusModal({ isOpen, branchId, onClose, onSaved 
     setAmount("");
     setBonusDate(todayLocal());
     setReason("");
+    setFromCash("yes");
     AgendaService.listProfessionalsForSelect({ limit: 200, role_name: "Operaria", branch_id: branchId ?? undefined })
       .then(setProfessionals)
       .catch(() => {
@@ -60,6 +63,7 @@ export default function RegisterBonusModal({ isOpen, branchId, onClose, onSaved 
         bonus_date: bonusDate,
         reason: reason.trim(),
         branch_id: branchId ?? undefined,
+        from_cash: fromCash === "yes",
       });
       toast.success(`Extra de Bs ${saved.amount.toFixed(2)} registrado para ${saved.professional_name}.`);
       onSaved(saved);
@@ -144,6 +148,32 @@ export default function RegisterBonusModal({ isOpen, branchId, onClose, onSaved 
           </span>
         </label>
       </div>
+      <fieldset className="mt-3 space-y-2">
+        <legend className="mb-1 text-xs font-semibold text-[var(--ui-text-muted)]">¿De dónde sale el dinero?</legend>
+        {([
+          ["yes", "Del efectivo de la caja", "Se descuenta del efectivo esperado al cerrar la caja."],
+          ["no", "De otro medio", "Transferencia u otro: no afecta el efectivo de la caja."],
+        ] as const).map(([value, title, hint]) => (
+          <label
+            key={value}
+            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition ${
+              fromCash === value ? "border-slate-800 bg-slate-50" : "border-[var(--ui-border)] hover:bg-slate-50"
+            }`}
+          >
+            <input
+              type="radio"
+              name="bonus-from-cash"
+              className="mt-0.5 h-4 w-4 accent-slate-800"
+              checked={fromCash === value}
+              onChange={() => setFromCash(value)}
+            />
+            <span>
+              <span className="block text-sm font-medium text-[var(--ui-text)]">{title}</span>
+              <span className="block text-xs text-[var(--ui-text-muted)]">{hint}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
       <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
         Cuenta como egreso en el Corte de Caja de la fecha elegida
         {branchId ? " (sucursal activa)" : " (sucursal de la operaria)"}.

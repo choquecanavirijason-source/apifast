@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Banknote, CheckCircle2, Download, List, X } from "lucide-react";
 import CommissionPaymentsTab from "./CommissionPaymentsTab";
 import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
@@ -102,7 +103,8 @@ export default function ProfessionalServiceHistory() {
   const canPay = isAdmin() || hasPermissionByName("commissions:pay");
   const canVoid = isAdmin() || hasPermissionByName("commissions:void");
 
-  const [activeTab, setActiveTab] = useState<"tickets" | "comisiones">("tickets");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"tickets" | "comisiones">(() => (searchParams.get("tab") === "comisiones" ? "comisiones" : "tickets"));
   // Orden de la tabla: lo más reciente primero (se puede cambiar tocando el encabezado).
   const [ticketSort, setTicketSort] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "start_time", direction: "desc" });
   const tour = useGuidedTour("equipo-comisiones", user?.id);
@@ -115,8 +117,9 @@ export default function ProfessionalServiceHistory() {
 
   const [activeBranchId, setActiveBranchId] = useState<number | null>(() => getSelectedBranchId());
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const isoDay = (value: string | null) => (value && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) ? value : "");
+  const [fromDate, setFromDate] = useState(() => isoDay(searchParams.get("desde")));
+  const [toDate, setToDate] = useState(() => isoDay(searchParams.get("hasta")));
   const [commissionRows, setCommissionRows] = useState<CommissionExportRow[]>([]);
   const [commissionTotals, setCommissionTotals] = useState<CommissionExportTotals>({
     caja: 0,
@@ -131,6 +134,22 @@ export default function ProfessionalServiceHistory() {
     },
     []
   );
+
+  // Atajos de período: hoy, ayer, esta semana (desde el lunes) y todo.
+  const periodShortcuts = useMemo(() => {
+    const fmt = (d: Date) => d.toLocaleDateString("en-CA");
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    return [
+      { label: "Hoy", from: fmt(now), to: fmt(now) },
+      { label: "Ayer", from: fmt(yesterday), to: fmt(yesterday) },
+      { label: "Esta semana", from: fmt(monday), to: fmt(now) },
+      { label: "Todo", from: "", to: "" },
+    ];
+  }, []);
 
   const trackingByAppointment = useMemo(() => {
     const map = new Map<number, TrackingResponse>();
@@ -655,6 +674,27 @@ export default function ProfessionalServiceHistory() {
             <label className="text-xs font-semibold text-[var(--ui-text-muted)]">Hasta</label>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${fieldClass} mt-1`} />
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5" data-tour="cm-periods">
+          <span className="text-xs font-semibold text-[var(--ui-text-muted)]">Período:</span>
+          {periodShortcuts.map(({ label, from, to }) => {
+            const active = fromDate === from && toDate === to;
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => { setFromDate(from); setToDate(to); }}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  active
+                    ? "border-slate-800 bg-slate-800 text-white"
+                    : "border-[var(--ui-border-strong)] bg-white text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-hover)]"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
         {fromDate && toDate && fromDate > toDate ? (
           <p role="alert" className="mt-2 text-xs font-medium text-slate-700">

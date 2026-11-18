@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import record_audit
@@ -14,6 +15,7 @@ from app.core.dependencies import get_db, require_any_permission, enforce_own_br
 from app.application.services.commission_payout_service import cash_commissions_in_window
 from app.domain.entities.cash_close import CashClose
 from app.domain.entities.expense import Expense
+from app.domain.entities.operator_bonus import OperatorBonus
 from app.domain.entities.payment import Payment
 from app.domain.entities.user import User
 
@@ -58,6 +60,7 @@ class CashSessionOut(BaseModel):
     cash_sales: Optional[float]
     cash_expenses: Optional[float]
     cash_commissions: Optional[float] = None
+    cash_extras: Optional[float] = None
     expected_cash: Optional[float]
     counted_amount: Optional[float]
     difference: Optional[float]
@@ -65,6 +68,21 @@ class CashSessionOut(BaseModel):
     notes: Optional[str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def _cash_extras(db: Session, branch_id: Optional[int], start: datetime, end: datetime) -> float:
+    """Extras y bonos pagados DEL EFECTIVO de la caja (from_cash) en la sucursal entre `start` y `end`."""
+    total = (
+        db.query(func.coalesce(func.sum(OperatorBonus.amount), 0.0))
+        .filter(
+            OperatorBonus.from_cash.is_(True),
+            OperatorBonus.branch_id == branch_id,
+            OperatorBonus.created_at >= start,
+            OperatorBonus.created_at <= end,
+        )
+        .scalar()
+    )
+    return round(float(total or 0.0), 2)
 
 
 def _to_out(c: CashClose) -> CashSessionOut:
@@ -86,6 +104,7 @@ def _to_out(c: CashClose) -> CashSessionOut:
         cash_sales=c.cash_sales,
         cash_expenses=c.cash_expenses,
         cash_commissions=c.cash_commissions,
+        cash_extras=c.cash_extras,
         expected_cash=c.expected_cash,
         counted_amount=c.counted_amount,
         difference=c.difference,
@@ -226,7 +245,8 @@ def close_cash_session(
     cash_expenses = sum(e.amount for e in cash_expenses_qs)
     # Comisiones pagadas del efectivo de la caja: también sacaron billetes del cajón.
     cash_commissions = cash_commissions_in_window(db, session.branch_id, session.opened_at, now)
-    expected_cash = (session.opening_amount or 0.0) + cash_sales - cash_expenses - cash_commissions
+    cash_extras = _cash_extras(db, session.branch_id, session.opened_at, now)
+    expected_cash = (session.opening_amount or 0.0) + cash_sales - cash_expenses - cash_commissions - cash_extras
 
     session.status = "closed"
     session.closed_by_id = current_user.id
@@ -237,6 +257,7 @@ def close_cash_session(
     session.cash_sales = cash_sales
     session.cash_expenses = cash_expenses
     session.cash_commissions = cash_commissions
+    session.cash_extras = cash_extras
     session.expected_cash = expected_cash
     session.counted_amount = body.counted_amount
     session.difference = body.counted_amount - expected_cash
@@ -299,8 +320,9 @@ def get_session_detail(
     cash_sales_live = by_method["cash"]
     cash_expenses_live = sum(e.amount for e in expenses)
     cash_commissions_live = cash_commissions_in_window(db, session.branch_id, session.opened_at, window_end)
+    cash_extras_live = _cash_extras(db, session.branch_id, session.opened_at, window_end)
     expected_cash_live = (
-        (session.opening_amount or 0.0) + cash_sales_live - cash_expenses_live - cash_commissions_live
+        (session.opening_amount or 0.0) + cash_sales_live - cash_expenses_live - cash_commissions_live - cash_extras_live
     )
 
     return {
@@ -309,6 +331,7 @@ def get_session_detail(
         "cash_sales": cash_sales_live,
         "cash_expenses": cash_expenses_live,
         "cash_commissions": cash_commissions_live,
+        "cash_extras": cash_extras_live,
         "expected_cash": expected_cash_live,
         "income_by_method": {
             "efectivo": by_method["cash"],
