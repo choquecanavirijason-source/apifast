@@ -284,6 +284,8 @@ export interface TicketItem {
   pagado_por?: number | null;
   pagado_por_nombre?: string | null;
   pagado_monto?: number | null;
+  /** Pago agregado (Comisiones y pagos) en el que se pagó este ticket. */
+  commission_payment_id?: number | null;
 }
 
 export interface CommissionPayResult {
@@ -338,6 +340,7 @@ interface BackendAppointment {
   pagado_en?: string | null;
   pagado_por?: number | null;
   pagado_monto?: number | null;
+  commission_payment_id?: number | null;
   pagador?: { id: number; username: string } | null;
 }
 
@@ -395,6 +398,7 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   pagado_por: a.pagado_por ?? null,
   pagado_por_nombre: a.pagador?.username ?? null,
   pagado_monto: a.pagado_monto ?? null,
+  commission_payment_id: a.commission_payment_id ?? null,
   };
 };
 

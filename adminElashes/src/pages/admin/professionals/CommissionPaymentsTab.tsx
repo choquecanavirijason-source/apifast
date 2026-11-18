@@ -25,86 +25,163 @@ function getInitials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
 }
 
-// ─── Tabla tipo libreta ───────────────────────────────────────────────────────
+// ─── Detalle agrupado por pagos ───────────────────────────────────────────────
 
-function TicketLedger({ tickets, proName }: { tickets: TicketItem[]; proName: string }) {
-  if (tickets.length === 0) {
-    return <p className="py-3 text-xs text-slate-400">Sin tickets en el período seleccionado.</p>;
-  }
+const dateTimeFmt = (iso: string) =>
+  iso
+    ? new Date(iso).toLocaleString("es-BO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
 
-  let totalComision = 0;
-  let totalCaja = 0;
+const serviceLabel = (t: TicketItem) => (t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? "—"));
 
-  const rows = tickets.map((t) => {
-    const isCancelled = t.status === "cancelled";
-    const caja = isCancelled ? 0 : getTicketPriceTotal(t);
-    const comision = isCancelled ? 0 : getTicketCommission(t);
-    totalComision += comision;
-    totalCaja += caja;
-    const services = t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? "");
-    return { t, isCancelled, caja, comision, services };
-  });
-
+function ServicesTable({ tickets, amountOf }: { tickets: TicketItem[]; amountOf: (t: TicketItem) => number }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-center">
-        <span className="text-sm font-bold text-slate-800">{proName}</span>
-        <p className="mt-0.5 text-[11px] text-slate-500">
-          Cada fila es un servicio atendido en el período. Los cancelados (tachados) no suman comisión.
-        </p>
-      </div>
-      {/* overflow-x-auto + table-fixed: sin esto, el ancho de cada columna
-          seguía al contenido de esa fila y quedaba despareja entre filas,
-          además de desbordar el contenedor en pantallas angostas. */}
-      <div className="overflow-x-auto">
-        {/* Comisión/Caja con ancho fijo en px (no %): en una tabla de solo 4
-            columnas ocupando todo el ancho del modal, darles porcentaje las
-            estiraba mucho y el número quedaba pegado al borde derecho, muy
-            lejos del resto de la fila. Con ancho fijo angosto quedan cerca
-            del contenido, igual que en Historial de tickets. */}
-        <table className="w-full min-w-[480px] table-fixed border-collapse text-xs">
-          <colgroup>
-            <col className="w-[26%]" />
-            <col />
-            <col className="w-28" />
-            <col className="w-28" />
-          </colgroup>
-          <thead>
-            <tr className="bg-slate-100 text-slate-600">
-              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">Cliente</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[11px]">Servicio</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold" title="Lo que le corresponde a la operaria por este servicio">Comisión</th>
-              <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold" title="Lo que pagó la clienta por el servicio">Cobrado</th>
-            </tr>
-          </thead>
+    <div className="max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white">
+      <table className="w-full min-w-[520px] border-collapse text-xs">
+        <thead>
+          <tr className="sticky top-0 bg-slate-50 text-left text-slate-500">
+            <th className="px-3 py-2 font-semibold">Cliente</th>
+            <th className="px-3 py-2 font-semibold">Servicio</th>
+            <th className="px-3 py-2 font-semibold">Atendido</th>
+            <th className="px-3 py-2 text-right font-semibold">Comisión</th>
+          </tr>
+        </thead>
         <tbody>
-          {rows.map(({ t, isCancelled, caja, comision, services }) => (
-            <tr key={t.id} className={isCancelled ? "bg-slate-100" : "odd:bg-white even:bg-slate-50"}>
-              <td className={`truncate border-b border-slate-100 px-3 py-2 font-medium ${isCancelled ? "text-slate-400 line-through" : "text-slate-800"}`} title={t.client_name || undefined}>
-                {isCancelled && <span className="mr-1 font-bold text-slate-400">✕</span>}
-                {t.client_name || "—"}
-              </td>
-              <td className={`truncate border-b border-slate-100 px-3 py-2 text-[10px] ${isCancelled ? "text-slate-300 line-through" : "text-slate-500"}`} title={services || undefined}>
-                {services || "—"}
-              </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-slate-700"}`}>
-                {isCancelled ? "—" : moneyFmt.format(comision)}
-              </td>
-              <td className={`border-b border-slate-100 px-3 py-2 text-right tabular-nums ${isCancelled ? "text-slate-300" : "font-semibold text-slate-800"}`}>
-                {isCancelled ? "—" : moneyFmt.format(caja)}
-              </td>
+          {tickets.map((t) => (
+            <tr key={t.id} className="border-t border-slate-100">
+              <td className="px-3 py-2 font-medium text-slate-800">{t.client_name || "—"}</td>
+              <td className="px-3 py-2 text-slate-600">{serviceLabel(t)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-slate-500">{dateTimeFmt(t.start_time)}</td>
+              <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">{moneyFmt.format(amountOf(t))}</td>
             </tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr className="bg-slate-100 font-bold">
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-slate-700" colSpan={2}>TOTAL</td>
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-slate-800">{moneyFmt.format(totalComision)}</td>
-            <td className="border-t-2 border-slate-300 px-3 py-2 text-right tabular-nums text-slate-800">{moneyFmt.format(totalCaja)}</td>
-          </tr>
-        </tfoot>
-        </table>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Detalle de una operaria ordenado por PAGOS: cada pago (cuándo, quién lo hizo y cuánto) es un desplegable que
+ * muestra los servicios que cubrió, y aparte queda lo que todavía no se le pagó.
+ */
+function PaymentGroups({
+  payments,
+  tickets,
+  loading,
+  onDelete,
+}: {
+  payments: CommissionPaymentOut[];
+  tickets: TicketItem[];
+  loading: boolean;
+  onDelete: (id: number) => void;
+}) {
+  const completed = tickets.filter((t) => t.status === "completed");
+  const unpaid = completed.filter((t) => !t.pagado);
+  const unpaidTotal = unpaid.reduce((sum, t) => sum + getTicketCommission(t), 0);
+  const byPayment = new Map<number, TicketItem[]>();
+  for (const t of completed) {
+    if (t.pagado && t.commission_payment_id != null) {
+      byPayment.set(t.commission_payment_id, [...(byPayment.get(t.commission_payment_id) ?? []), t]);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Pagos ya hechos */}
+      <div>
+        <p className="text-xs font-semibold text-slate-700">Pagos realizados</p>
+        <p className="mb-2 text-[11px] text-slate-400">
+          Toca un pago para ver qué servicios cubrió. Si eliminas uno por error, ese monto vuelve a quedar como pendiente.
+        </p>
+        {loading ? (
+          <p className="flex items-center gap-1 text-xs text-slate-400">
+            <RefreshCw className="h-3 w-3 animate-spin" />Cargando…
+          </p>
+        ) : payments.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
+            Todavía no se le registró ningún pago.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {payments.map((p) => {
+              const linked = byPayment.get(p.id) ?? [];
+              const linkedTotal = linked.reduce((sum, t) => sum + (t.pagado_monto ?? getTicketCommission(t)), 0);
+              const outside = Math.max(0, p.amount - linkedTotal);
+              const byTickets = linked.length > 0 || Boolean(p.notes?.includes("desde Historial de tickets"));
+              return (
+                <details key={p.id} className="group rounded-lg border border-slate-200 bg-white">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5">
+                    <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(p.amount)}</span>
+                    <span className="text-xs text-slate-600">{dateTimeFmt(p.registered_at)}</span>
+                    <span className="text-xs text-slate-500">por <strong className="font-semibold text-slate-700">{p.registered_by_name ?? "—"}</strong></span>
+                    <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      {byTickets ? "Confirmar pago por tickets" : "Pago manual"}
+                    </span>
+                    <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+                      {byTickets ? `${linked.length} servicio${linked.length !== 1 ? "s" : ""}` : null}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onDelete(p.id);
+                        }}
+                        className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        title="Eliminar este pago"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                    </span>
+                  </summary>
+                  <div className="space-y-2 border-t border-slate-100 px-3 py-3">
+                    {p.period_start || p.notes ? (
+                      <p className="text-[11px] text-slate-500">
+                        {p.period_start ? <>Período: {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}. </> : null}
+                        {p.notes ?? ""}
+                      </p>
+                    ) : null}
+                    {linked.length > 0 ? (
+                      <ServicesTable tickets={linked} amountOf={(t) => t.pagado_monto ?? getTicketCommission(t)} />
+                    ) : byTickets ? (
+                      <p className="text-xs text-slate-500">Los servicios de este pago están fuera del período filtrado arriba.</p>
+                    ) : (
+                      <p className="text-xs text-slate-500">Pago registrado a mano por un monto: no está ligado a servicios concretos.</p>
+                    )}
+                    {linked.length > 0 && outside > 0.005 ? (
+                      <p className="text-[11px] text-slate-400">
+                        + {moneyFmt.format(outside)} de servicios fuera del período filtrado.
+                      </p>
+                    ) : null}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Pendiente */}
+      <details open={unpaid.length > 0} className="group rounded-lg border border-slate-300 bg-white">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
+          <span className="text-sm font-semibold text-slate-900">Pendiente de pago</span>
+          <span className="text-xs text-slate-500">
+            {unpaid.length} servicio{unpaid.length !== 1 ? "s" : ""}
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(unpaidTotal)}</span>
+            <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="border-t border-slate-100 px-3 py-3">
+          {unpaid.length === 0 ? (
+            <p className="text-xs text-slate-500">Todos los servicios completados de este período ya están pagados.</p>
+          ) : (
+            <ServicesTable tickets={unpaid} amountOf={(t) => getTicketCommission(t)} />
+          )}
+        </div>
+      </details>
     </div>
   );
 }
@@ -472,45 +549,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
 
                         {isExpanded && !isRegistering && (
                           <div className="pt-1">
-                            <TicketLedger tickets={sortedTickets} proName={pro.username} />
-
-                            <div className="mt-4">
-                              <p className="text-xs font-semibold text-slate-600">Historial de pagos registrados</p>
-                              <p className="mb-2 text-[11px] text-slate-400">
-                                Cada fila es un pago ya entregado (de Confirmar pago o registrado aquí). Si eliminas uno por error, ese monto vuelve a quedar como pendiente.
-                              </p>
-                              {loadingPayments ? (
-                                <p className="flex items-center gap-1 text-xs text-slate-400">
-                                  <RefreshCw className="h-3 w-3 animate-spin" />Cargando…
-                                </p>
-                              ) : proPayments.length === 0 ? (
-                                <p className="text-xs text-slate-400">No hay pagos registrados aún.</p>
-                              ) : (
-                                <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-                                  {proPayments.map((p) => (
-                                    <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                                      <div>
-                                        <p className="text-sm font-semibold tabular-nums text-slate-900">{moneyFmt.format(p.amount)}</p>
-                                        <p className="text-[11px] text-slate-500">
-                                          {dateFmt(p.registered_at)}
-                                          {p.period_start && <> · {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}</>}
-                                          {p.notes && <> · {p.notes}</>}
-                                          {p.registered_by_name && <> · por {p.registered_by_name}</>}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => void handleDeletePayment(p.id)}
-                                        className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                                        title="Eliminar este pago"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
+                            <PaymentGroups payments={proPayments} tickets={sortedTickets} loading={loadingPayments} onDelete={(id) => void handleDeletePayment(id)} />
                           </div>
                         )}
                       </td>
@@ -550,7 +589,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
           <li>
             <strong className="text-slate-800">Registrar pago</strong> anota un monto libre como control; <strong>no entra al Corte de caja</strong>. Para eso usa <em>Confirmar pago</em> en Historial de tickets.
           </li>
-          <li><strong className="text-slate-800">Detalle</strong> muestra los servicios que sumaron la comisión y los pagos de esa operaria.</li>
+          <li><strong className="text-slate-800">Detalle</strong> muestra los pagos que se le hicieron (cuándo y quién), con los servicios que cubrió cada uno, y aparte lo que todavía está pendiente.</li>
         </ul>
       </details>
     </div>

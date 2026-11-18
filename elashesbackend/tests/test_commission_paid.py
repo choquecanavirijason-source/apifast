@@ -364,6 +364,10 @@ class TestListadoYPagoAgregado:
         assert rows[pagado.id]["pagado_en"].endswith("+00:00")
         assert rows[pagado.id]["pagado_monto"] == 50.0
         assert rows[pagado.id]["pagador"]["username"] == "admin_c"
+        # cada ticket pagado dice en qué pago entró (para agrupar el detalle por pagos)
+        payment_id = db.query(CommissionPayment).one().id
+        assert rows[pagado.id]["commission_payment_id"] == payment_id
+        assert rows[pendiente.id]["commission_payment_id"] is None
         assert rows[pendiente.id]["pagado"] is False and rows[pendiente.id]["pagador"] is None
 
     def test_borrar_el_pago_agregado_desmarca_sus_tickets(self, client, db, seed):

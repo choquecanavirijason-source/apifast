@@ -207,6 +207,8 @@ class AppointmentResponse(BaseModel):
     pagado_en: Optional[datetime] = None
     pagado_por: Optional[int] = None
     pagado_monto: Optional[float] = None
+    # Pago agregado (commission_payments) en el que se pagó este ticket: agrupa los tickets por pago.
+    commission_payment_id: Optional[int] = None
     pagador: Optional[UserSummary] = None
 
     @field_serializer("pagado_en")

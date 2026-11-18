@@ -163,7 +163,7 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
       selector: t("cm-card"),
       icon: UserCheck,
       title: "Una fila por operaria",
-      description: "Servicios completados, comisión ganada, lo ya pagado y lo que falta. \"Detalle\" abre los servicios que sumaron la comisión y sus pagos.",
+      description: "Servicios completados, comisión ganada, lo ya pagado y lo que falta. \"Detalle\" muestra sus pagos (cuándo y quién) con los servicios de cada uno, y lo pendiente.",
     },
     {
       selector: t("cm-register"),
