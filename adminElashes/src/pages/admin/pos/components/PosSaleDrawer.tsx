@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { toast } from "react-toastify";
 import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, Minus, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
@@ -203,6 +204,29 @@ export default function PosSaleDrawer({
   const clientAge = typeof selectedClient?.age === "number" ? selectedClient.age : null;
   const isMinorClient = clientAge !== null && clientAge < 18;
   const tutorDataComplete = !isMinorClient || (tutorNombre.trim() !== "" && tutorCI.trim() !== "");
+
+  // Al pulsar Cobrar con algo incompleto no se bloquea el botón ni sale un aviso aparte: se marca el campo que falta.
+  const [payAttempted, setPayAttempted] = useState(false);
+  const methodMissing = !isMixedMode && !paymentMethod;
+  const cashMissing = !isMixedMode && paymentMethod === "cash" && !cashReceivedValid;
+  const mixedMissing = isMixedMode && mixedTotal <= 0;
+  const cashErrorText =
+    cashReceived.trim() === "" ? "Ingresa el monto que te entregó la clienta." : `El monto no cubre el total (Bs ${total.toFixed(2)}).`;
+  const handleInvalidPay = () => {
+    setPayAttempted(true);
+    if (!tutorDataComplete) {
+      setActiveStep("cliente");
+      toast.warning("Completa los datos del tutor para continuar.");
+      return;
+    }
+    window.setTimeout(() => {
+      const target = cashMissing
+        ? document.getElementById("pos-drawer-cash-received")
+        : document.querySelector<HTMLElement>('[data-pay-field="method"], [data-pay-field="mixed"]');
+      target?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (target instanceof HTMLInputElement) target.focus();
+    }, 30);
+  };
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const prevStep2Ref = useRef(step2Done);
@@ -901,15 +925,15 @@ export default function PosSaleDrawer({
         })()}
 
         {/* Método de pago + Notas */}
-        <div data-tour="pos-drawer-payment" className={`space-y-4 border-b border-[var(--ui-border)] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)} ${step2Done && !step3Done ? "bg-[#fffdf5]" : ""}`}>
+        <div data-tour="pos-drawer-payment" className={`space-y-4 border-b border-[var(--ui-border)] px-4 py-4 ${stepBorder(step3Done, step2Done && !step3Done)}`}>
           <div>
             <div className="mb-1.5 flex items-center gap-1.5">
-              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#8a6a1f] text-white"}`}>
+              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step3Done ? "bg-[#107c10] text-white" : "bg-[#094732] text-white"}`}>
                 {step3Done ? "✓" : "3"}
               </span>
               <p className="text-[13px] font-semibold text-[var(--ui-text)]">Método de pago <span className="text-[#d13438]">*</span></p>
               {!step3Done && step1Done && (
-                <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>
+                <span className="ml-auto text-[10px] font-medium text-[var(--ui-text-muted)]">Requerido</span>
               )}
             </div>
 
@@ -938,7 +962,7 @@ export default function PosSaleDrawer({
             {/* Pago simple */}
             {!isMixedMode && (
               <>
-                <div className={`grid grid-cols-2 gap-1.5 sm:grid-cols-4 ${!step3Done && step1Done ? "rounded-lg ring-2 ring-[#f0c477] ring-offset-1" : ""}`}>
+                <div data-pay-field={methodMissing ? "method" : undefined} className={`grid grid-cols-2 gap-1.5 sm:grid-cols-4 ${payAttempted && methodMissing ? "rounded-lg ring-2 ring-rose-400 ring-offset-1" : ""}`}>
                   {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
@@ -956,6 +980,10 @@ export default function PosSaleDrawer({
                   ))}
                 </div>
 
+                {payAttempted && methodMissing ? (
+                  <p role="alert" className="mt-1.5 text-xs font-medium text-rose-600">Elige cómo paga la clienta.</p>
+                ) : null}
+
                 {/* Efectivo: monto recibido + vuelto */}
                 {paymentMethod === "cash" && setCashReceived && (
                   <div className="mt-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
@@ -972,8 +1000,14 @@ export default function PosSaleDrawer({
                       value={cashReceived}
                       onChange={(e) => setCashReceived(e.target.value)}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-2.5 text-sm text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]"
+                      aria-invalid={payAttempted && cashMissing}
+                      className={`h-9 w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-2.5 text-sm text-[var(--ui-text)] outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732] ${
+                        payAttempted && cashMissing ? "!border-rose-500 !ring-2 !ring-rose-200" : ""
+                      }`}
                     />
+                    {payAttempted && cashMissing ? (
+                      <p role="alert" className="mt-1 text-xs font-medium text-rose-600">{cashErrorText}</p>
+                    ) : null}
                     {cashReceived.trim() !== "" && (() => {
                       const received = Number(cashReceived);
                       if (!Number.isFinite(received)) return null;
@@ -1065,11 +1099,14 @@ export default function PosSaleDrawer({
                 </button>
 
                 {/* Resumen mixto */}
-                <div className={`flex items-center justify-between rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
-                  mixedTotal >= total
-                    ? "border-[#a3d7a4] bg-[#f1fbf1] text-[#107c10]"
-                    : "border-[#f0c477] bg-[#fff4ce] text-[#8a6a1f]"
-                }`}>
+                <div
+                  data-pay-field={mixedMissing ? "mixed" : undefined}
+                  className={`flex items-center justify-between rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
+                    payAttempted && mixedMissing
+                      ? "border-rose-400 bg-white text-rose-600 ring-2 ring-rose-200"
+                      : "border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] text-[var(--ui-text)]"
+                  }`}
+                >
                   <span>Total pagado: Bs {mixedTotal.toFixed(2)}</span>
                   {mixedTotal < total ? (
                     <span>Falta: Bs {(total - mixedTotal).toFixed(2)}</span>
@@ -1250,25 +1287,15 @@ export default function PosSaleDrawer({
             : "La operaria elegida está ocupada: usa «Cobrar y poner en espera».";
         return (
         <>
-          {/* Validación */}
-          {(cartCount === 0 || !tutorDataComplete || !step3Done) && (
-            <p className="mb-1.5 rounded-lg bg-[#fff4ce] px-2.5 py-1 text-center text-[10px] font-medium text-[#8a6a1f]">
-              {cartCount === 0
-                ? "Agrega al menos un servicio"
-                : !tutorDataComplete
-                  ? "Completa los datos del tutor (cliente menor)"
-                  : isMixedMode
-                    ? "Ingresa los montos del pago mixto"
-                    : !paymentMethod
-                      ? "Selecciona método de pago"
-                      : "Ingresa el monto recibido en efectivo"}
-            </p>
-          )}
           <div className="flex gap-2" data-tour="pos-drawer-checkout-buttons">
             <button
               type="button"
-              disabled={cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting}
+              disabled={cartCount === 0 || isSubmitting}
               onClick={() => {
+                if (!step3Done || !tutorDataComplete) {
+                  handleInvalidPay();
+                  return;
+                }
                 if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
                   openQrOverlay(() => onImmediateCheckout(false));
                 } else {
@@ -1276,7 +1303,7 @@ export default function PosSaleDrawer({
                 }
               }}
               className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
-                cartCount === 0 || !step3Done || !tutorDataComplete || isSubmitting
+                cartCount === 0 || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
                   : "border border-[#094732] bg-white text-[#094732] hover:bg-[#ecfdf5]"
               }`}
@@ -1285,10 +1312,16 @@ export default function PosSaleDrawer({
             </button>
             <button
               type="button"
-              disabled={cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting}
-              onClick={() => onImmediateCheckout(false, true)}
+              disabled={cartCount === 0 || missingSellerForService || isSubmitting}
+              onClick={() => {
+                if (!step3Done || !tutorDataComplete) {
+                  handleInvalidPay();
+                  return;
+                }
+                onImmediateCheckout(false, true);
+              }}
               className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
-                cartCount === 0 || !step3Done || !tutorDataComplete || missingSellerForService || isSubmitting
+                cartCount === 0 || missingSellerForService || isSubmitting
                   ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
                   : "bg-[#094732] text-white hover:bg-[#063324]"
               }`}
@@ -1296,7 +1329,7 @@ export default function PosSaleDrawer({
               {isSubmitting ? "Procesando…" : "Cobrar e iniciar atención"}
             </button>
           </div>
-          {startBlockedReason && cartCount > 0 && step3Done && tutorDataComplete && (
+          {startBlockedReason && cartCount > 0 && (
             <p className="mt-1.5 text-center text-[10px] font-medium text-[var(--ui-text-muted)]">{startBlockedReason}</p>
           )}
         </>
@@ -1370,7 +1403,7 @@ export default function PosSaleDrawer({
         return (
           <>
             {isDisabled && !isSubmitting && (
-              <p className={`mb-1.5 rounded-lg px-3 py-1.5 text-center text-[11px] font-medium ${sellerBusy ? "bg-[#fde7e9] text-[#d13438]" : "bg-[#fff4ce] text-[#8a6a1f]"}`}>
+              <p className="mb-1.5 text-center text-[11px] font-medium text-[var(--ui-text-muted)]">
                 {sellerBusy
                   ? "⛔ La operaria seleccionada está ocupada. Espera o elige otra."
                   : cartCount === 0
@@ -1383,7 +1416,7 @@ export default function PosSaleDrawer({
               </p>
             )}
             {!isDisabled && sinHoraCount > 0 && !isSubmitting && (
-              <p className="mb-1.5 flex items-center gap-1 rounded-lg bg-[#fff4ce] px-3 py-1.5 text-[11px] font-medium text-[#8a6a1f]">
+              <p className="mb-1.5 flex items-center justify-center gap-1 text-[11px] font-medium text-[var(--ui-text-muted)]">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {sinHoraCount} ticket(s) sin hora — se pedirá confirmación
               </p>
