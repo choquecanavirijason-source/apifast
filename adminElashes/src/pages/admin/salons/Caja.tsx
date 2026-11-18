@@ -19,6 +19,7 @@ import { expenseDraftKey, readExpenseDraft, writeExpenseDraft, readExpensePhoto,
 import variables from "@/core/config/variables";
 import PendingCommissionsToday from "./components/PendingCommissionsToday";
 import CuadreDelDia from "./components/CuadreDelDia";
+import ResumenCaja from "./components/ResumenCaja";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -598,42 +599,12 @@ function AperturaCierreTab() {
         </div>
         {session.notes && <p className="mt-3 text-xs text-[var(--ui-text-muted)]">Nota: {session.notes}</p>}
 
-        <div className="mt-4 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-4 py-3">
-          <div className="flex flex-wrap items-start gap-3">
-            <div>
-              <p className="text-xs font-semibold text-[var(--ui-text)]">Esperado en caja (solo efectivo)</p>
-              <p className="text-lg font-bold tabular-nums text-[var(--ui-text)]">
-                {liveDetail ? moneyFormatter.format(liveDetail.expected_cash) : "…"}
-              </p>
-              {liveDetail && (
-                <span className="text-xs text-[var(--ui-text-muted)]">
-                  inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)}
-                  {(liveDetail.cash_commissions ?? 0) > 0 ? <> − comisiones pagadas en efectivo {moneyFormatter.format(liveDetail.cash_commissions ?? 0)}</> : null}
-                  {(liveDetail.cash_extras ?? 0) > 0 ? <> − extras y bonos en efectivo {moneyFormatter.format(liveDetail.cash_extras ?? 0)}</> : null}
-                </span>
-              )}
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-emerald-700">Total vendido (todos los métodos)</p>
-              <p className="text-lg font-bold tabular-nums text-emerald-800">
-                {liveDetail ? moneyFormatter.format(liveDetail.income_by_method.total) : "…"}
-              </p>
-              {liveDetail && (
-                <span className="text-xs text-emerald-700">
-                  efectivo {moneyFormatter.format(liveDetail.income_by_method.efectivo)} · tarjeta {moneyFormatter.format(liveDetail.income_by_method.tarjeta)} · transferencia {moneyFormatter.format(liveDetail.income_by_method.transferencia)} · QR {moneyFormatter.format(liveDetail.income_by_method.qr)}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => void loadLiveDetail(session.id)}
-              disabled={liveLoading}
-              className="ml-auto text-xs font-semibold text-[var(--ui-text)] underline hover:text-[#094732] disabled:opacity-50"
-            >
-              {liveLoading ? "Actualizando…" : "Actualizar ahora"}
-            </button>
-          </div>
-        </div>
+        <ResumenCaja
+          detail={liveDetail}
+          openingAmount={session.opening_amount ?? 0}
+          loading={liveLoading}
+          onRefresh={() => void loadLiveDetail(session.id)}
+        />
 
         <PendingCommissionsToday branchId={session.branch_id} />
 
