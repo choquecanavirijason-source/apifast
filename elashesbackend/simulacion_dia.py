@@ -9,6 +9,7 @@ Pensado para mostrarle el flujo al cliente. NO toca las otras sucursales. Para b
 
 Uso (dentro del contenedor del backend, carpeta /app):
   python simulacion_dia.py --dry-run     # solo muestra qué clientas y servicios usaría; no crea nada
+  (si el archivo no está dentro de la imagen: docker exec -i elashes-backend python - --dry-run < elashesbackend/simulacion_dia.py)
   python simulacion_dia.py               # crea la sucursal y simula el día
   REUSE_BRANCH=3 python simulacion_dia.py  # reutiliza una sucursal de simulación ya creada (sin caja abierta)
 
@@ -23,6 +24,7 @@ import sys
 from datetime import datetime
 
 from fastapi.testclient import TestClient
+from sqlalchemy import or_
 
 from main import app
 from app.domain.entities.branch import Branch
@@ -53,7 +55,14 @@ TODAY = datetime.now().date()
 STAMP = datetime.now().strftime("%H%M%S")
 
 # Clientas y servicios: se buscan en la base (los ids cambian entre instalaciones).
-clients = db.query(Client).order_by(Client.id).limit(5).all()
+# Se salta la clienta genérica "Cliente Mostrador" de cada sucursal: en la demo se ven mejor clientas con nombre.
+clients = (
+    db.query(Client)
+    .filter(or_(Client.last_name.is_(None), ~Client.last_name.like("Mostrador%")))
+    .order_by(Client.id)
+    .limit(5)
+    .all()
+)
 if not clients:
     print("No hay clientas registradas para simular las atenciones.")
     sys.exit(1)
