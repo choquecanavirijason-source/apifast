@@ -70,15 +70,21 @@ function PaymentGroups({
   tickets,
   loading,
   onDelete,
+  pendingAmount,
+  overpaidAmount,
 }: {
   payments: CommissionPaymentOut[];
   tickets: TicketItem[];
   loading: boolean;
   onDelete: (id: number) => void;
+  /** Falta pagar según montos: comisión ganada − todo lo pagado (es la cifra de la tabla). */
+  pendingAmount: number;
+  /** Cuánto se pagó de más (si pagado > ganado). */
+  overpaidAmount: number;
 }) {
   const completed = tickets.filter((t) => t.status === "completed");
   const unpaid = completed.filter((t) => !t.pagado);
-  const unpaidTotal = unpaid.reduce((sum, t) => sum + getTicketCommission(t), 0);
+  const hasPending = pendingAmount > 0.005;
   const byPayment = new Map<number, TicketItem[]>();
   for (const t of completed) {
     if (t.pagado && t.commission_payment_id != null) {
@@ -162,23 +168,36 @@ function PaymentGroups({
         )}
       </div>
 
-      {/* Pendiente */}
-      <details open={unpaid.length > 0} className="group rounded-lg border border-slate-300 bg-white">
-        <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
+      {/* Pendiente: la cifra sale de los montos (igual que la tabla); la lista son los servicios sin marcar */}
+      <details open={hasPending} className="group rounded-lg border border-slate-300 bg-white">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5">
           <span className="text-sm font-semibold text-slate-900">Pendiente de pago</span>
           <span className="text-xs text-slate-500">
-            {unpaid.length} servicio{unpaid.length !== 1 ? "s" : ""}
+            {hasPending ? "según lo ganado y lo ya pagado" : overpaidAmount > 0.005 ? "no falta nada" : "al día"}
           </span>
           <span className="ml-auto flex items-center gap-2">
-            <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(unpaidTotal)}</span>
+            <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(hasPending ? pendingAmount : 0)}</span>
             <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
           </span>
         </summary>
-        <div className="border-t border-slate-100 px-3 py-3">
+        <div className="space-y-2 border-t border-slate-100 px-3 py-3">
+          {overpaidAmount > 0.005 ? (
+            <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+              Se le pagó <strong>{moneyFmt.format(overpaidAmount)} de más</strong> respecto a lo que ganó en este período. Si no es lo esperado, revisa
+              los pagos de arriba y elimina el que corresponda.
+            </p>
+          ) : null}
           {unpaid.length === 0 ? (
-            <p className="text-xs text-slate-500">Todos los servicios completados de este período ya están pagados.</p>
+            <p className="text-xs text-slate-500">Todos los servicios completados de este período ya están marcados como pagados.</p>
           ) : (
-            <ServicesTable tickets={unpaid} amountOf={(t) => getTicketCommission(t)} />
+            <>
+              <p className="text-xs text-slate-500">
+                {unpaid.length} servicio{unpaid.length !== 1 ? "s" : ""} completado{unpaid.length !== 1 ? "s" : ""} sin marcar como pagado
+                {hasPending ? "" : ". Aun así no falta dinero: los pagos manuales cubren la comisión ganada, pero un pago manual es solo un monto y no marca servicios uno por uno"}.
+                {hasPending ? " Para marcarlos uno por uno usa Confirmar pago en Historial de tickets." : ""}
+              </p>
+              <ServicesTable tickets={unpaid} amountOf={(t) => getTicketCommission(t)} />
+            </>
           )}
         </div>
       </details>
@@ -495,6 +514,14 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                         <span className="text-slate-400" title="Sin servicios completados en el período">—</span>
                       ) : hasPending ? (
                         <span className="font-bold text-slate-900">{moneyFmt.format(pending)}</span>
+                      ) : paid - earned > 0.005 ? (
+                        <span
+                          className="inline-flex flex-col items-end text-xs font-medium text-slate-600"
+                          title="Se le pagó más de lo que ganó en este período"
+                        >
+                          <span className="inline-flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Sin pendiente</span>
+                          <span className="text-[11px] font-semibold text-slate-800">Pagado de más {moneyFmt.format(paid - earned)}</span>
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
                           <CheckCircle className="h-3.5 w-3.5" /> Al día
@@ -549,7 +576,14 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
 
                         {isExpanded && !isRegistering && (
                           <div className="pt-1">
-                            <PaymentGroups payments={proPayments} tickets={sortedTickets} loading={loadingPayments} onDelete={(id) => void handleDeletePayment(id)} />
+                            <PaymentGroups
+                              payments={proPayments}
+                              tickets={sortedTickets}
+                              loading={loadingPayments}
+                              onDelete={(id) => void handleDeletePayment(id)}
+                              pendingAmount={pending}
+                              overpaidAmount={Math.max(0, paid - earned)}
+                            />
                           </div>
                         )}
                       </td>
