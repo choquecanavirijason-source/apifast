@@ -170,6 +170,25 @@ class TestComision:
     def test_no_completado_es_cero(self, db, seed):
         assert appointment_commission(add_ticket(db, seed, status="pending")) == 0.0
 
+    def test_cierre_de_caja_coincide_con_el_pago_y_no_cuenta_reservas_confirmadas(self, client, db, seed):
+        # 2026-10-09: completado (Clásica 50 + Retoque 20 = 70), confirmado sin atender y cancelado.
+        done = add_ticket(db, seed, services=("clasica", "retoque"))
+        add_ticket(db, seed, status="confirmed", services=("clasica",))
+        add_ticket(db, seed, status="cancelled", services=("clasica",))
+        headers = login(client, "admin_c")
+        report = client.get("/reports/daily-closing", params={"date": "2026-10-09"}, headers=headers).json()
+
+        assert report["grand_commission"] == 70.0                      # solo el completado
+        assert report["grand_total"] == 150.0                          # 100 + 50 del completado
+        by_status = {i["status"]: i["commission"] for i in report["items"]}
+        assert by_status == {"completed": 70.0, "confirmed": 0.0, "cancelled": 0.0}
+        assert [p["commission"] for p in report["summary_by_professional"]] == [70.0]
+        assert report["summary_by_professional"][0]["ticket_count"] == 1
+
+        # y es exactamente lo que se registra al pagar ese ticket
+        paid = pay(client, headers, [done.id]).json()
+        assert paid["total"] == report["grand_commission"]
+
 
 # ── Lote ─────────────────────────────────────────────────────────────────────
 

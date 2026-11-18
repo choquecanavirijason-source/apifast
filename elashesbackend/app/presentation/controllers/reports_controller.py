@@ -79,7 +79,9 @@ def get_daily_closing(
     total_unpaid = 0.0
 
     # Solo tickets completados cuentan para comisiones y totales de ingresos
-    COMPLETED_STATUS = {"completed", "confirmed"}
+    # Solo "completed": una reserva "confirmed" aún no se atendió, así que no suma ingresos ni comisión
+    # (igual que en Comisiones por operaria y al pagar la comisión).
+    COMPLETED_STATUS = {"completed"}
     prof_agg: dict[int | None, dict] = {}
 
     for appt in appointments:

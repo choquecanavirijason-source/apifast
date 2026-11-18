@@ -535,8 +535,8 @@ export default function CierreDeCaja() {
       key: "commission",
       header: "Comisión",
       render: (item) => {
-        const isCompleted =
-          item.status === "completed" || item.status === "confirmed";
+        // La comisión se gana al completar el servicio: una reserva "confirmada" aún no la genera.
+        const isCompleted = item.status === "completed";
         if (isCompleted)
           return (
             <span className="whitespace-nowrap font-semibold text-[var(--ui-text)]">
