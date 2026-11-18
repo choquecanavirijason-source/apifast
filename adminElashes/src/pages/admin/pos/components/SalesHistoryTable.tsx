@@ -8,6 +8,7 @@ import { generateTablePdf } from "../../../../core/utils/generateTablePdf";
 import type { PosSaleItem } from "../../../../core/services/pos-sale/pos-sale.service";
 import DataTable, { type DataTableAction, type DataTableColumn, type DataTableColumnFilters } from "../../../../components/common/table/DataTable";
 import StatusBadge from "./StatusBadge";
+import { isPendingPayment } from "../usePosPage";
 
 type SalesColFilters = {
   sale_code: string;
@@ -49,6 +50,24 @@ type SalesHistoryTableProps = {
   onRefresh?: () => void;
   isRefreshing?: boolean;
 };
+
+/** Estado de cobro de una venta, en grises: lo importante (por cobrar) resalta por contorno y peso, no por color. */
+function saleState(sale: PosSaleItem): { label: string; className: string; hint: string } {
+  if (sale.status === "paid") {
+    return { label: "Pagada", className: "bg-slate-800 text-white", hint: "La clienta ya pagó esta venta." };
+  }
+  if (sale.status === "cancelled") {
+    return { label: "Cancelada", className: "bg-slate-100 text-slate-400 line-through", hint: "Venta cancelada." };
+  }
+  if (isPendingPayment(sale)) {
+    return {
+      label: "Por cobrar",
+      className: "border-2 border-slate-800 bg-white text-slate-900",
+      hint: "El servicio ya se hizo pero todavía no se cobró. Con el menú de la fila: Editar para cobrar.",
+    };
+  }
+  return { label: "Sin cobrar", className: "bg-slate-100 text-slate-600", hint: "Reservada: el servicio aún no se completó y no se cobró." };
+}
 
 export default function SalesHistoryTable({
   rowsPerPage,
@@ -103,7 +122,7 @@ export default function SalesHistoryTable({
         subtotal: `Bs ${Number(s.subtotal ?? 0).toFixed(2)}`,
         descuento: s.discount_value ? `${s.discount_type === "percent" ? `${s.discount_value}%` : `Bs ${s.discount_value}`}` : "—",
         total: `Bs ${Number(s.total ?? 0).toFixed(2)}`,
-        status: s.status === "paid" ? "Pagado" : s.status === "cancelled" ? "Cancelado" : s.status,
+        status: saleState(s).label,
         fecha: s.created_at ? new Date(s.created_at).toLocaleDateString("es-BO") : "—",
       })),
     });
@@ -179,6 +198,25 @@ export default function SalesHistoryTable({
         sortable: true,
         render: (sale) => <span className="font-black text-slate-900">Bs {sale.total?.toFixed(2)}</span>,
         getValue: (sale) => sale.total ?? 0,
+      },
+      {
+        key: "status",
+        header: "Estado",
+        sortable: true,
+        filterable: false,
+        searchable: false,
+        render: (sale) => {
+          const state = saleState(sale);
+          return (
+            <span
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold ${state.className}`}
+              title={state.hint}
+            >
+              {state.label}
+            </span>
+          );
+        },
+        getValue: (sale) => saleState(sale).label,
       },
       {
         key: "tickets",
