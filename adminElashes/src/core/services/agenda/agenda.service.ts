@@ -333,8 +333,8 @@ interface BackendAppointment {
     branch?: { id: number; name: string } | null;
   };
   professional?: { id: number; username: string; email?: string } | null;
-  service?: { id: number; name: string; price?: number; commission_rate?: number | null } | null;
-  services?: Array<{ id: number; name: string; price?: number; commission_rate?: number | null }> | null;
+  service?: { id: number; name: string; price?: number; effective_price?: number; commission_rate?: number | null } | null;
+  services?: Array<{ id: number; name: string; price?: number; effective_price?: number; commission_rate?: number | null }> | null;
   branch?: { id: number; name: string } | null;
   pagado?: boolean;
   pagado_en?: string | null;
@@ -381,8 +381,9 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   client_name: a.client ? `${a.client.name} ${a.client.last_name}`.trim() : `Cliente #${a.client_id}`,
   service_name: a.service?.name ?? null,
   service_names: a.services?.map((service) => service.name) ?? (a.service ? [a.service.name] : undefined),
-  service_price: a.service?.price ?? null,
-  service_prices: a.services?.map((service) => Number(service.price ?? 0)) ?? undefined,
+  // Precio con la promoción del servicio (lo que se cobra): es la base de la comisión.
+  service_price: a.service?.effective_price ?? a.service?.price ?? null,
+  service_prices: a.services?.map((service) => Number(service.effective_price ?? service.price ?? 0)) ?? undefined,
   service_commission_rates: a.services?.map((service) => service.commission_rate ?? null) ?? undefined,
   start_time: a.start_time,
   end_time: a.end_time,

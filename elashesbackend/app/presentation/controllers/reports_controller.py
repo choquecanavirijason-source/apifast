@@ -101,7 +101,7 @@ def get_daily_closing(
                 if as_item.service:
                     svc = as_item.service
                     service_names.append(svc.name)
-                    svc_price = svc.price
+                    svc_price = svc.effective_price  # con la promoción del servicio (lo que se cobra)
                     total_price += svc_price
                     # Tasa: la del servicio si está definida, si no la del profesional
                     svc_rate = svc.commission_rate if svc.commission_rate is not None else prof_default_rate
@@ -110,7 +110,7 @@ def get_daily_closing(
         if not service_names and appt.service:
             svc = appt.service
             service_names.append(svc.name)
-            total_price = svc.price
+            total_price = svc.effective_price
             svc_rate = svc.commission_rate if svc.commission_rate is not None else prof_default_rate
             commission_total = total_price * svc_rate
 

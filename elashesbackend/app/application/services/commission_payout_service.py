@@ -44,8 +44,9 @@ def appointment_commission(appt: Appointment) -> float:
     services = [s.service for s in sorted(appt.appointment_services, key=lambda x: x.sort_order) if s.service]
     if not services and appt.service:
         services = [appt.service]
+    # Sobre el precio con la promoción del servicio (lo que se cobra), no el de lista.
     total = sum(
-        (svc.price or 0.0) * (svc.commission_rate if svc.commission_rate is not None else prof_rate)
+        (svc.effective_price or 0.0) * (svc.commission_rate if svc.commission_rate is not None else prof_rate)
         for svc in services
     )
     return round(total, 2)

@@ -568,3 +568,26 @@ class TestExtrasEnEfectivo:
         body = closed.json()
         assert body["cash_commissions"] == 50.0 and body["cash_extras"] == 66.0
         assert body["expected_cash"] == 84.0 and body["difference"] == 0.0         # 200 - 50 - 66
+
+
+# ── Comisión sobre el precio con la promoción del servicio ───────────────────────
+
+class TestComisionConPromocion:
+    def test_la_comision_se_calcula_sobre_el_precio_con_descuento(self, client, db, seed):
+        # Clásica: 100 con 20% de promoción = 80 cobrados; comisión 50% => 40 (y no 50).
+        seed["clasica"].discount_percent = 20
+        db.commit()
+        appt = add_ticket(db, seed, services=("clasica",))
+        assert appointment_commission(appt) == 40.0
+
+        # el reporte diario usa la misma base
+        h = login(client, "admin_c")
+        report = client.get("/reports/daily-closing", params={"date": "2026-10-09"}, headers=h).json()
+        assert report["grand_commission"] == 40.0 and report["grand_total"] == 80.0
+
+        # y al pagar queda lo mismo
+        assert pay(client, h, [appt.id]).json()["total"] == 40.0
+
+    def test_sin_promocion_nada_cambia(self, db, seed):
+        appt = add_ticket(db, seed, services=("clasica", "retoque"))              # 100*0.5 + 50*0.4
+        assert appointment_commission(appt) == 70.0
