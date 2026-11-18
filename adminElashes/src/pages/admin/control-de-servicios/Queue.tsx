@@ -36,7 +36,6 @@ import {
   BC_BTN_PRIMARY,
   BC_BTN_SECONDARY,
   BC_FIELD,
-  BC_INFO_BOX,
   BC_LABEL,
   BC_TEXTAREA,
   BC_WARN_BOX,
@@ -1300,6 +1299,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     </button>
                     <button
                       type="button"
+                      data-compact-hide
                       onClick={(e) => { e.stopPropagation(); setPrintPromptTicket(ticket); }}
                       title="Imprimir ticket de atención"
                       aria-label="Imprimir ticket de atención"
@@ -1355,6 +1355,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     </button>
                     <button
                       type="button"
+                      data-compact-hide
                       onClick={(e) => { e.stopPropagation(); setPrintPromptTicket(ticket); }}
                       title="Imprimir ticket de atención"
                       aria-label="Imprimir ticket de atención"
@@ -1539,42 +1540,61 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
           )}
         </GenericModal>
 
-        <ConfirmDialog
+        <GenericModal
           isOpen={queuePromptTicket !== null}
+          onClose={() => setQueuePromptTicket(null)}
           title="Operaria libre"
-          message={
-            queuePromptTicket ? (
-              <p>
-                <strong>{professionals.find((p) => p.id === queuePromptTicket.professional_id)?.username ?? "La operaria"}</strong> quedó libre
-                y tiene a <strong>{queuePromptTicket.client_name}</strong> esperándola (ticket {queuePromptTicket.ticket_code ?? `#${queuePromptTicket.id}`}).
-                ¿Iniciar su atención ahora?
-              </p>
-            ) : ""
+          size="sm"
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setQueuePromptTicket(null)}>Ahora no</Button>
+              <Button type="button" onClick={() => void handleConfirmQueueStart()}>Iniciar atención</Button>
+            </div>
           }
-          confirmText="Iniciar atención"
-          cancelText="Todavía no"
-          variant="success"
-          onConfirm={() => void handleConfirmQueueStart()}
-          onCancel={() => setQueuePromptTicket(null)}
-        />
+        >
+          {queuePromptTicket && (
+            <div className="py-1">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#094732]/20 bg-[#eaf4ef] text-[#094732]">
+                  <Users className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ui-text)]">
+                    {professionals.find((p) => p.id === queuePromptTicket.professional_id)?.username ?? "La operaria"} está disponible
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--ui-text-muted)]">Hay una clienta esperando. Puedes iniciar su atención ahora.</p>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-[var(--ui-border)] pt-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-xs text-[var(--ui-text-muted)]">Clienta</span>
+                  <span className="text-right text-sm font-semibold text-[var(--ui-text)]">{queuePromptTicket.client_name}</span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between gap-3">
+                  <span className="text-xs text-[var(--ui-text-muted)]">Ticket</span>
+                  <span className="text-right text-xs font-medium text-[var(--ui-text)]">{queuePromptTicket.ticket_code ?? `#${queuePromptTicket.id}`}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </GenericModal>
 
-        <GenericModal isOpen={isFinishModalOpen} onClose={() => setIsFinishModalOpen(false)} title="Finalizar atencion" size="lg">
+        <GenericModal isOpen={isFinishModalOpen} onClose={() => setIsFinishModalOpen(false)} title="Finalizar atención" size="lg">
           <div className="space-y-4">
-            <div className={BC_INFO_BOX}>
-              Registra el tracking tecnico y el cuestionario antes de finalizar.
+            <div className="border-l-[3px] border-[#094732] bg-[var(--ui-surface-muted)] px-3 py-2 text-sm text-[var(--ui-text-muted)]">
+              Revisa los datos de la atención. Completa el cuestionario si este servicio lo requiere.
             </div>
 
             {finishPreview && (
               <div className="rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)] px-4 py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <p className="text-sm font-semibold text-[var(--ui-text)]">
-                    {finishPreview.clientName}
-                    <span className="ml-2 font-normal text-[var(--ui-text-muted)]">
-                      · {finishPreview.serviceNames.join(" + ") || "Servicio"}
-                    </span>
-                  </p>
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ui-text-muted)]">Atención actual</p>
+                    <p className="mt-0.5 text-sm font-semibold text-[var(--ui-text)]">{finishPreview.clientName}</p>
+                    <p className="text-xs text-[var(--ui-text-muted)]">{finishPreview.serviceNames.join(" + ") || "Servicio"}</p>
+                  </div>
                   {finishPreview.totalPrice > 0 && (
-                    <p className="text-sm font-semibold text-[var(--ui-text)]">Bs {finishPreview.totalPrice.toFixed(2)}</p>
+                    <p className="shrink-0 text-sm font-semibold tabular-nums text-[#094732]">Bs {finishPreview.totalPrice.toFixed(2)}</p>
                   )}
                 </div>
 
@@ -1601,7 +1621,9 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
               </div>
             ) : null}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--ui-text-muted)]">Datos de la atención</p>
+              <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className={BC_LABEL}>Profesional</label>
                 <select
@@ -1690,9 +1712,10 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                   </div>
                 ) : null}
               </div>
+              </div>
             </div>
 
-            <div className="border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
+            <div className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <label htmlFor="finish-observations" className={BC_LABEL}>
                   Observaciones del servicio

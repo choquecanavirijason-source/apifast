@@ -4,7 +4,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
 
 /** Con más tickets que esto, la columna se compacta sola (salvo que el usuario la expanda). */
-const AUTO_COMPACT_FROM = 5;
+const AUTO_COMPACT_FROM = 4;
 const DENSITY_STORAGE_PREFIX = "queue-density:";
 
 type Density = "auto" | "compact" | "full";

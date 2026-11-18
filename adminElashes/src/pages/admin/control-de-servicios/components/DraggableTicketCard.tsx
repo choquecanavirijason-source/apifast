@@ -193,6 +193,7 @@ export default function DraggableTicketCard({
     "h-8 w-full cursor-pointer rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2 text-xs text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20";
 
   const canEdit = canEditOperaria || canEditClient;
+  const compactCollapsed = compact && !editOpen && !detailOpen;
 
   return (
     <div
@@ -258,8 +259,9 @@ export default function DraggableTicketCard({
           </div>
         )}
 
-        {/* Línea 2: operaria + tiempo restante */}
-        <div className={`flex items-center justify-between gap-1.5 ${compact ? "mt-1" : "mt-1.5"}`}>
+        {/* En compacto, la operaria y las acciones principales comparten una fila. */}
+        <div className={compactCollapsed ? "mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1" : ""}>
+        <div className={`flex min-w-0 items-center justify-between gap-1.5 ${compactCollapsed ? "flex-1" : compact ? "mt-1" : "mt-1.5"}`}>
           {canEditOperaria ? (
             <button
               type="button"
@@ -288,6 +290,12 @@ export default function DraggableTicketCard({
               {remaining}
             </span>
           )}
+        </div>
+        {compactCollapsed && (
+          <div className="shrink-0 [&_button]:!px-2 [&_button]:!py-0.5 [&_button]:text-[11px] [&_button[data-compact-hide]]:hidden" onPointerDown={stopPtr} onDoubleClick={(e) => e.stopPropagation()}>
+            {actions}
+          </div>
+        )}
         </div>
 
         {/* Edición en línea (doble clic o "Editar"): dentro de la tarjeta, nunca se corta */}
@@ -439,15 +447,17 @@ export default function DraggableTicketCard({
         )}
 
         {/* Acciones */}
-        <div
+        {!compactCollapsed && <div
           className={`flex items-center gap-1.5 ${compact ? "mt-1" : "mt-2"} [&_button]:text-[11px] ${
             compact ? "[&_button]:!px-2 [&_button]:!py-0.5" : ""
+          } ${
+            compactCollapsed ? "[&_button[data-compact-hide]]:hidden" : ""
           }`}
           onPointerDown={stopPtr}
           onDoubleClick={(e) => e.stopPropagation()}
         >
           <div className="min-w-0 flex-1">{actions}</div>
-          <button
+          {!compactCollapsed && <button
             type="button"
             onPointerDown={stopPtr}
             onClick={() => onDelete(ticket)}
@@ -455,8 +465,8 @@ export default function DraggableTicketCard({
             className="shrink-0 rounded-md p-1 opacity-50 transition hover:bg-rose-50 hover:text-rose-700 hover:opacity-100"
           >
             <Trash2 size={12} />
-          </button>
-        </div>
+          </button>}
+        </div>}
       </div>
     </div>
   );
