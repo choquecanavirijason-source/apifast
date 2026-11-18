@@ -41,6 +41,14 @@ function getInitials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
 }
 
+/** Porcentaje que representa la comisión sobre el precio del servicio ("40%"). Con varios servicios es el promedio. */
+function commissionPercent(t: TicketItem, commission: number): string {
+  const price = getTicketPriceTotal(t);
+  if (!(price > 0)) return "—";
+  const pct = (commission / price) * 100;
+  return `${Number.isInteger(Math.round(pct * 10) / 10) ? Math.round(pct) : (Math.round(pct * 10) / 10).toFixed(1)}%`;
+}
+
 const serviceLabel = (t: TicketItem) => (t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? "—"));
 
 // Los pagos hechos con "Confirmar pago" por tickets guardan esta nota (ver commission_payout_service).
@@ -105,7 +113,8 @@ function ServicesTable({
             <th className="px-3 py-2 font-semibold">Cliente</th>
             <th className="px-3 py-2 font-semibold">Servicio</th>
             <th className="px-3 py-2 font-semibold">Atendido</th>
-            <th className="px-3 py-2 text-right font-semibold">Comisión</th>
+            <th className="px-3 py-2 text-right font-semibold" title="Lo que costó el servicio (lo que pagó la clienta)">Precio</th>
+            <th className="px-3 py-2 text-right font-semibold" title="Lo que gana la operaria por este servicio y qué porcentaje del precio es">Comisión</th>
             {onVoid ? <th className="px-3 py-2"><span className="sr-only">Anular</span></th> : null}
           </tr>
         </thead>
@@ -126,7 +135,11 @@ function ServicesTable({
               <td className="px-3 py-2 font-medium text-slate-800">{t.client_name || "—"}</td>
               <td className="px-3 py-2 text-slate-600">{serviceLabel(t)}</td>
               <td className="whitespace-nowrap px-3 py-2 text-slate-500">{dateTimeFmt(t.start_time)}</td>
-              <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">{moneyFmt.format(amountOf(t))}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-slate-600">{moneyFmt.format(getTicketPriceTotal(t))}</td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                <span className="block font-semibold text-slate-800">{moneyFmt.format(amountOf(t))}</span>
+                <span className="block text-[11px] text-slate-400">{commissionPercent(t, amountOf(t))}</span>
+              </td>
               {onVoid ? (
                 <td className="px-3 py-2 text-right">
                   <button
@@ -142,6 +155,16 @@ function ServicesTable({
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr className="sticky bottom-0 border-t border-slate-300 bg-slate-50 font-semibold text-slate-800">
+            <td className="px-3 py-2" colSpan={selection ? 4 : 3}>
+              Total · {tickets.length} servicio{tickets.length !== 1 ? "s" : ""}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">{moneyFmt.format(tickets.reduce((sum, t) => sum + getTicketPriceTotal(t), 0))}</td>
+            <td className="px-3 py-2 text-right tabular-nums">{moneyFmt.format(tickets.reduce((sum, t) => sum + amountOf(t), 0))}</td>
+            {onVoid ? <td /> : null}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
@@ -210,13 +233,21 @@ function PaymentGroups({
           <span className="text-xs text-slate-500">
             {payable.length} servicio{payable.length !== 1 ? "s" : ""}
           </span>
-          <span className="ml-auto text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(Math.max(pendingAmount, 0))}</span>
+          <span className="ml-auto text-sm font-bold tabular-nums text-slate-900" title="Comisión ganada menos lo ya pagado">
+            Falta {moneyFmt.format(Math.max(pendingAmount, 0))}
+          </span>
         </div>
         <div className="space-y-3 px-3 py-3">
           {overpaidAmount > 0.005 ? (
             <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
               Se le registró <strong>{moneyFmt.format(overpaidAmount)} de más</strong> respecto a lo que ganó en este período (pagos manuales antiguos).
               Revisa los pagos de abajo.
+            </p>
+          ) : null}
+          {payable.length > 0 && Math.abs(payableTotal - pendingAmount) > 0.005 ? (
+            <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+              La lista suma <strong>{moneyFmt.format(payableTotal)}</strong> pero a la operaria le faltan <strong>{moneyFmt.format(Math.max(pendingAmount, 0))}</strong>:
+              tiene pagos manuales antiguos que cubrían parte sin marcar servicios. Marca solo lo que realmente falte.
             </p>
           ) : null}
           {payable.length === 0 ? (
@@ -517,6 +548,13 @@ export default function CommissionPaymentsTab({
     () => (payTarget ? tickets.filter((t) => payTarget.ids.includes(t.id)).reduce((s, t) => s + getTicketCommission(t), 0) : 0),
     [payTarget, tickets],
   );
+  // Lo que falta según montos (comisión ganada − pagado). Si lo que se va a pagar lo supera, hay pagos manuales antiguos
+  // que ya cubrían parte de estos servicios sin marcarlos: se avisa para no pagar dos veces.
+  const payExcess = useMemo(() => {
+    if (!payTarget) return 0;
+    const stat = proStats.find((p) => p.pro.username === payTarget.proName);
+    return stat ? Math.max(0, payTotal - stat.pending) : 0;
+  }, [payTarget, payTotal, proStats]);
 
   const handleConfirmPay = async () => {
     if (!payTarget || fromCash === null) return;
@@ -783,6 +821,13 @@ export default function CommissionPaymentsTab({
               </p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(payTotal)}</p>
             </div>
+
+            {payExcess > 0.005 ? (
+              <p role="alert" className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-xs text-slate-800">
+                <strong>Ojo:</strong> esto es <strong>{moneyFmt.format(payExcess)} más</strong> de lo que le falta. Ya tiene pagos manuales antiguos que cubrían
+                parte de estos servicios sin marcarlos. Si confirmas, quedará pagado de más.
+              </p>
+            ) : null}
 
             <fieldset className="space-y-2">
               <legend className="mb-1 text-xs font-semibold text-slate-700">¿De dónde sale el dinero? *</legend>
