@@ -232,6 +232,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           <div className="flex flex-wrap items-center gap-2">
           <div data-tour="pos-tabs">
             <SegmentedTabs
+              tone="brand"
               options={[
                 { id: "sale", label: "Nueva venta" },
                 { id: "history", label: "Historial" },
@@ -258,6 +259,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           {(pos.activeTab === "history" || (pos.activeTab === "sale" && pos.step === 1)) && (
             <div data-tour="pos-kind-tabs">
               <SegmentedTabs
+                tone="brand"
                 options={[
                   { id: "servicios", label: "Servicios", icon: <Wrench className="h-3.5 w-3.5" /> },
                   {
@@ -266,7 +268,11 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
                       <span className="flex items-center gap-1.5">
                         Productos
                         {pos.activeTab === "sale" && pos.productLines.length > 0 && (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                          <span
+                            className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+                              catalogView === "productos" ? "bg-white text-[#094732]" : "bg-brand text-white"
+                            }`}
+                          >
                             {pos.productLines.length}
                           </span>
                         )}
