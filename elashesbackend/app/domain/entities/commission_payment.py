@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, Float, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.infrastructure.database import Base
@@ -13,6 +13,8 @@ class CommissionPayment(Base):
     period_start = Column(String(10), nullable=True)   # YYYY-MM-DD
     period_end = Column(String(10), nullable=True)     # YYYY-MM-DD
     notes = Column(String(500), nullable=True)
+    # El pago salió del efectivo de la caja: descuenta del efectivo esperado en el arqueo del cierre.
+    from_cash = Column(Boolean, nullable=False, default=False)
     registered_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     registered_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 

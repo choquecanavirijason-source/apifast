@@ -66,7 +66,7 @@ def _ticket_label(appt: Appointment) -> str:
     return appt.ticket_code or f"#{appt.id}"
 
 
-def pay_commissions(db: Session, appointment_ids: list[int], user: User) -> dict:
+def pay_commissions(db: Session, appointment_ids: list[int], user: User, from_cash: bool = False) -> dict:
     ids = list(dict.fromkeys(appointment_ids))
     if not ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No hay tickets seleccionados.")
@@ -130,6 +130,7 @@ def pay_commissions(db: Session, appointment_ids: list[int], user: User) -> dict
             notes=f"Pago de {len(appts)} ticket(s) desde Historial de tickets",
             registered_at=now,
             registered_by_id=user.id,
+            from_cash=from_cash,
         )
         db.add(payment)
         db.flush()
@@ -296,3 +297,21 @@ def unmark_tickets_of_payment(db: Session, payment_id: int) -> int:
             synchronize_session=False,
         )
     )
+
+
+def cash_commissions_in_window(db: Session, branch_id: Optional[int], start: datetime, end: datetime) -> float:
+    """Comisiones pagadas DEL EFECTIVO de la caja (from_cash) a tickets de la sucursal entre `start` y `end`
+    (UTC naive, como la sesión de caja). Usa pagado_monto: lo que de verdad salió; un pago anulado ya no suma."""
+    total = (
+        db.query(func.coalesce(func.sum(Appointment.pagado_monto), 0.0))
+        .join(CommissionPayment, CommissionPayment.id == Appointment.commission_payment_id)
+        .filter(
+            Appointment.pagado.is_(True),
+            CommissionPayment.from_cash.is_(True),
+            Appointment.branch_id == branch_id,
+            Appointment.pagado_en >= start,
+            Appointment.pagado_en <= end,
+        )
+        .scalar()
+    )
+    return round(float(total or 0.0), 2)

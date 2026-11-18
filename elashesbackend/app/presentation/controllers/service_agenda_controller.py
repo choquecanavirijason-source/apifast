@@ -623,7 +623,7 @@ def pay_appointment_commissions(
     no está completado, no tiene comisión, ya estaba pagado (409) o es de otra
     sucursal (403), no se guarda ninguno. Crea un pago por operaria en
     "Comisiones y pagos" y lo audita."""
-    return pay_commissions(db, payload.appointment_ids, current_user)
+    return pay_commissions(db, payload.appointment_ids, current_user, from_cash=payload.from_cash)
 
 
 @router.post("/appointments/{appointment_id}/commission-payment/void", response_model=AppointmentResponse)

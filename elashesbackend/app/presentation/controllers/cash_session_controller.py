@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission, enforce_own_branch, SUPER_ADMIN_ROLE
+from app.application.services.commission_payout_service import cash_commissions_in_window
 from app.domain.entities.cash_close import CashClose
 from app.domain.entities.expense import Expense
 from app.domain.entities.payment import Payment
@@ -56,6 +57,7 @@ class CashSessionOut(BaseModel):
     total_unpaid: float
     cash_sales: Optional[float]
     cash_expenses: Optional[float]
+    cash_commissions: Optional[float] = None
     expected_cash: Optional[float]
     counted_amount: Optional[float]
     difference: Optional[float]
@@ -83,6 +85,7 @@ def _to_out(c: CashClose) -> CashSessionOut:
         total_unpaid=c.total_unpaid,
         cash_sales=c.cash_sales,
         cash_expenses=c.cash_expenses,
+        cash_commissions=c.cash_commissions,
         expected_cash=c.expected_cash,
         counted_amount=c.counted_amount,
         difference=c.difference,
@@ -221,7 +224,9 @@ def close_cash_session(
         .all()
     )
     cash_expenses = sum(e.amount for e in cash_expenses_qs)
-    expected_cash = (session.opening_amount or 0.0) + cash_sales - cash_expenses
+    # Comisiones pagadas del efectivo de la caja: también sacaron billetes del cajón.
+    cash_commissions = cash_commissions_in_window(db, session.branch_id, session.opened_at, now)
+    expected_cash = (session.opening_amount or 0.0) + cash_sales - cash_expenses - cash_commissions
 
     session.status = "closed"
     session.closed_by_id = current_user.id
@@ -231,6 +236,7 @@ def close_cash_session(
     session.total_unpaid = total_unpaid
     session.cash_sales = cash_sales
     session.cash_expenses = cash_expenses
+    session.cash_commissions = cash_commissions
     session.expected_cash = expected_cash
     session.counted_amount = body.counted_amount
     session.difference = body.counted_amount - expected_cash
@@ -292,13 +298,17 @@ def get_session_detail(
 
     cash_sales_live = by_method["cash"]
     cash_expenses_live = sum(e.amount for e in expenses)
-    expected_cash_live = (session.opening_amount or 0.0) + cash_sales_live - cash_expenses_live
+    cash_commissions_live = cash_commissions_in_window(db, session.branch_id, session.opened_at, window_end)
+    expected_cash_live = (
+        (session.opening_amount or 0.0) + cash_sales_live - cash_expenses_live - cash_commissions_live
+    )
 
     return {
         # Arqueo en vivo — si la sesión sigue abierta, se recalcula con lo
         # que hay hasta este momento (no hace falta cerrar para verlo).
         "cash_sales": cash_sales_live,
         "cash_expenses": cash_expenses_live,
+        "cash_commissions": cash_commissions_live,
         "expected_cash": expected_cash_live,
         "income_by_method": {
             "efectivo": by_method["cash"],

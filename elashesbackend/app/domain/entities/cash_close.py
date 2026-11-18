@@ -32,6 +32,8 @@ class CashClose(Base):
     # comparado contra lo que la cajera contó al cerrar.
     cash_sales = Column(Float, nullable=True)
     cash_expenses = Column(Float, nullable=True)
+    # Comisiones a operarias pagadas del efectivo de la caja durante la sesión.
+    cash_commissions = Column(Float, nullable=True)
     expected_cash = Column(Float, nullable=True)
     counted_amount = Column(Float, nullable=True)
     difference = Column(Float, nullable=True)   # counted_amount - expected_cash

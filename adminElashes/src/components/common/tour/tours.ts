@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, BarChart2, Banknote, Calendar, ClipboardList, Clapperboard, Download, FileDown, Filter, Info, LayoutDashboard,
+  BarChart2, Banknote, Calendar, ClipboardList, Clapperboard, Download, FileDown, Filter, Info, LayoutDashboard,
   List, MapPin, Megaphone, MousePointerClick, Package, PackageSearch, Percent, Plus, RefreshCw, Search, Settings,
   ShoppingBag, Sparkles, Store, Tag, UserCheck, Users, Warehouse, Wallet,
 } from "lucide-react";
@@ -105,7 +105,7 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
       icon: List,
       title: "Dos pestañas",
       description:
-        "\"Historial de tickets\" es el detalle ticket por ticket (donde marcas qué pagar). \"Comisiones y pagos\" resume cuánto lleva cada operaria y los pagos ya hechos.",
+        "\"Historial de tickets\" es el detalle ticket por ticket, solo para consultar. \"Comisiones y pagos\" es donde se paga: resume cuánto lleva cada operaria y permite pagarle.",
     },
     {
       selector: t("cm-filters"),
@@ -118,14 +118,6 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
       icon: BarChart2,
       title: "Resumen",
       description: "Tickets totales, completados, en curso, lo que ingresaron y la comisión total, según los filtros.",
-      onEnter: () => setTab("tickets"),
-    },
-    {
-      selector: t("cm-pay"),
-      icon: BadgeCheck,
-      title: "Confirmar pago",
-      description:
-        "Marca los tickets en la columna \"Pago\" de la tabla y pulsa este botón para registrar que ya le pagaste su comisión. El número es cuántos tickets marcaste.",
       onEnter: () => setTab("tickets"),
     },
     {
@@ -150,7 +142,7 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
       selector: t("cm-legend"),
       icon: Info,
       title: "Cómo leer \"Comisiones y pagos\"",
-      description: "Al final de la pestaña, este recuadro explica qué es lo ganado, lo pagado y lo que falta pagar. Está plegado: ábrelo cuando lo necesites.",
+      description: "Al final de la pestaña, este recuadro explica qué es lo ganado, lo pagado, cómo se paga y cómo se anula. Está plegado: ábrelo cuando lo necesites.",
       onEnter: () => setTab("comisiones"),
     },
     {
@@ -168,8 +160,8 @@ export function buildCommissionsTour(setTab: (tab: "tickets" | "comisiones") => 
     {
       selector: t("cm-register"),
       icon: Banknote,
-      title: "Registrar pago",
-      description: "Anota un pago por el monto que le entregaste. Es un control de esta pantalla: no entra al Corte de caja. Para eso usa Confirmar pago en Historial de tickets.",
+      title: "Pagar",
+      description: "Abre el detalle de la operaria para elegir qué servicios pagarle. Marca los que pagas, confirma y di si el dinero salió del efectivo de la caja.",
     },
   ];
 }

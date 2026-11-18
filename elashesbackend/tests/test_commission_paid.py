@@ -441,3 +441,56 @@ class TestListadoDeTickets:
         de_sofia = add_ticket(db, seed, professional="sofia", branch="norte")
         assert self._ids(client, h, professional_id=seed["luna"].id) == [de_luna.id]
         assert self._ids(client, h, branch_id=seed["norte"].id) == [de_sofia.id]
+
+
+# ── Efectivo de la caja: pagar una comisión del cajón baja el efectivo esperado ──
+
+class TestEfectivoDeCaja:
+    def _abrir_caja(self, db, seed, opening=100.0):
+        from app.domain.entities.cash_close import CashClose
+        session = CashClose(date="2026-10-01", branch_id=seed["centro"].id, status="open",
+                            opened_at=datetime(2020, 1, 1), opening_amount=opening)
+        db.add(session)
+        db.commit()
+        return session
+
+    def _esperado(self, client, headers, session_id):
+        detail = client.get(f"/cash-sessions/{session_id}/detail", headers=headers).json()
+        return detail["expected_cash"], detail["cash_commissions"]
+
+    def test_pagar_del_efectivo_descuenta_del_esperado(self, client, db, seed):
+        caja = self._abrir_caja(db, seed)
+        ticket = add_ticket(db, seed, services=("clasica",))                     # comisión 50
+        h = login(client, "admin_c")
+        assert self._esperado(client, h, caja.id) == (100.0, 0.0)
+
+        resp = client.post(PAY_URL, json={"appointment_ids": [ticket.id], "from_cash": True}, headers=h)
+        assert resp.status_code == 200, resp.text
+        assert self._esperado(client, h, caja.id) == (50.0, 50.0)                 # 100 - 50 en efectivo
+
+    def test_pagar_sin_efectivo_no_toca_el_arqueo(self, client, db, seed):
+        caja = self._abrir_caja(db, seed)
+        ticket = add_ticket(db, seed, services=("clasica",))
+        h = login(client, "admin_c")
+        assert pay(client, h, [ticket.id]).status_code == 200                    # from_cash por defecto: no
+        assert self._esperado(client, h, caja.id) == (100.0, 0.0)
+
+    def test_anular_el_pago_devuelve_el_efectivo(self, client, db, seed):
+        caja = self._abrir_caja(db, seed)
+        ticket = add_ticket(db, seed, services=("clasica",))
+        h = login(client, "admin_c")
+        client.post(PAY_URL, json={"appointment_ids": [ticket.id], "from_cash": True}, headers=h)
+        assert client.post(void_url(ticket.id), json={"confirmar": True}, headers=h).status_code == 200
+        assert self._esperado(client, h, caja.id) == (100.0, 0.0)
+
+    def test_el_cierre_guarda_las_comisiones_en_efectivo(self, client, db, seed):
+        caja = self._abrir_caja(db, seed)
+        ticket = add_ticket(db, seed, services=("clasica",))
+        h = login(client, "admin_c")
+        client.post(PAY_URL, json={"appointment_ids": [ticket.id], "from_cash": True}, headers=h)
+        closed = client.post(f"/cash-sessions/{caja.id}/close",
+                             json={"counted_amount": 50.0, "next_fund_amount": 0.0}, headers=h)
+        assert closed.status_code == 200, closed.text
+        body = closed.json()
+        assert body["cash_commissions"] == 50.0
+        assert body["expected_cash"] == 50.0 and body["difference"] == 0.0

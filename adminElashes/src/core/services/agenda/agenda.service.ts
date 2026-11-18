@@ -662,9 +662,10 @@ export const AgendaService = {
   },
 
   /** Marca como pagada la comisión de un lote de tickets (todo o nada: 409/403 si alguno no vale). */
-  async payCommissions(appointmentIds: number[]): Promise<CommissionPayResult> {
+  async payCommissions(appointmentIds: number[], fromCash = false): Promise<CommissionPayResult> {
     const response = await api.post<CommissionPayResult>("/agenda/appointments/commission-payments", {
       appointment_ids: appointmentIds,
+      from_cash: fromCash,
     });
     return response.data;
   },

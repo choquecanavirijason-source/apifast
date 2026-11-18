@@ -1,8 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle, Plus, X, ChevronDown, ChevronUp, Banknote, RefreshCw, Info } from "lucide-react";
+import axios from "axios";
+import { CheckCircle, ChevronDown, ChevronUp, Banknote, RefreshCw, Info, X } from "lucide-react";
 import { toast } from "react-toastify";
-import type { ProfessionalForSelect, TicketItem } from "@/core/services/agenda/agenda.service";
+import { AgendaService, type ProfessionalForSelect, type TicketItem } from "@/core/services/agenda/agenda.service";
 import { CommissionPaymentsService, type CommissionPaymentOut } from "@/core/services/commission-payments/commission-payments.service";
+import { getApiErrorMessage } from "@/core/utils/apiError";
+import GenericModal from "@/components/common/modal/GenericModal";
 import { Button } from "@/components/common/ui";
 import {
   getTicketCommission,
@@ -21,38 +24,121 @@ const dateFmt = (iso: string) =>
     ? new Date(iso).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
 
-function getInitials(name: string) {
-  return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
-}
-
-// ─── Detalle agrupado por pagos ───────────────────────────────────────────────
-
 const dateTimeFmt = (iso: string) =>
   iso
     ? new Date(iso).toLocaleString("es-BO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : "—";
 
+/** Día local (YYYY-MM-DD) de un instante ISO, para compararlo con los filtros de fecha. */
+const localDay = (iso: string) => {
+  const d = new Date(iso);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+};
+
+function getInitials(name: string) {
+  return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
+}
+
 const serviceLabel = (t: TicketItem) => (t.service_names?.length ? t.service_names.join(", ") : (t.service_name ?? "—"));
 
-function ServicesTable({ tickets, amountOf }: { tickets: TicketItem[]; amountOf: (t: TicketItem) => number }) {
+// Los pagos hechos con "Confirmar pago" por tickets guardan esta nota (ver commission_payout_service).
+const TICKET_PAYMENT_NOTE = "desde Historial de tickets";
+const isTicketPayment = (p: CommissionPaymentOut) => Boolean(p.notes?.includes(TICKET_PAYMENT_NOTE));
+
+/** El lote es todo o nada: el servidor devuelve qué tickets lo impidieron. */
+function payErrorMessage(err: unknown, tickets: TicketItem[]): string {
+  if (axios.isAxiosError(err)) {
+    const detail = (err.response?.data as { detail?: unknown } | undefined)?.detail as
+      | { message?: string; errores?: { id: number; motivo: string }[] }
+      | undefined;
+    if (detail && typeof detail === "object" && Array.isArray(detail.errores)) {
+      const label = (id: number) => {
+        const t = tickets.find((x) => x.id === id);
+        return t ? (t.ticket_code ?? `#${t.id}`) : `#${id}`;
+      };
+      return `${detail.message ?? "No se registró ningún pago."} ${detail.errores.map((e) => `${label(e.id)}: ${e.motivo}`).join(" · ")}`;
+    }
+  }
+  return getApiErrorMessage(err, "No se pudo registrar el pago.");
+}
+
+// ─── Tabla de servicios (con casillas para pagar o con "Anular") ───────────────
+
+type Selection = {
+  selected: Set<number>;
+  toggle: (id: number) => void;
+  allSelected: boolean;
+  someSelected: boolean;
+  toggleAll: () => void;
+};
+
+function ServicesTable({
+  tickets,
+  amountOf,
+  selection,
+  onVoid,
+}: {
+  tickets: TicketItem[];
+  amountOf: (t: TicketItem) => number;
+  selection?: Selection;
+  onVoid?: (t: TicketItem) => void;
+}) {
   return (
     <div className="max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white">
-      <table className="w-full min-w-[520px] border-collapse text-xs">
+      <table className="w-full min-w-[560px] border-collapse text-xs">
         <thead>
           <tr className="sticky top-0 bg-slate-50 text-left text-slate-500">
+            {selection ? (
+              <th className="w-9 px-3 py-2">
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar todos los servicios pendientes"
+                  className="h-4 w-4 accent-slate-800"
+                  checked={selection.allSelected}
+                  ref={(el) => { if (el) el.indeterminate = selection.someSelected && !selection.allSelected; }}
+                  onChange={selection.toggleAll}
+                />
+              </th>
+            ) : null}
             <th className="px-3 py-2 font-semibold">Cliente</th>
             <th className="px-3 py-2 font-semibold">Servicio</th>
             <th className="px-3 py-2 font-semibold">Atendido</th>
             <th className="px-3 py-2 text-right font-semibold">Comisión</th>
+            {onVoid ? <th className="px-3 py-2"><span className="sr-only">Anular</span></th> : null}
           </tr>
         </thead>
         <tbody>
           {tickets.map((t) => (
             <tr key={t.id} className="border-t border-slate-100">
+              {selection ? (
+                <td className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Pagar ${serviceLabel(t)} de ${t.client_name}`}
+                    className="h-4 w-4 accent-slate-800"
+                    checked={selection.selected.has(t.id)}
+                    onChange={() => selection.toggle(t.id)}
+                  />
+                </td>
+              ) : null}
               <td className="px-3 py-2 font-medium text-slate-800">{t.client_name || "—"}</td>
               <td className="px-3 py-2 text-slate-600">{serviceLabel(t)}</td>
               <td className="whitespace-nowrap px-3 py-2 text-slate-500">{dateTimeFmt(t.start_time)}</td>
               <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">{moneyFmt.format(amountOf(t))}</td>
+              {onVoid ? (
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onVoid(t)}
+                    className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+                    title="Deshacer el pago de este servicio"
+                  >
+                    Anular
+                  </button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -61,30 +147,43 @@ function ServicesTable({ tickets, amountOf }: { tickets: TicketItem[]; amountOf:
   );
 }
 
-/**
- * Detalle de una operaria ordenado por PAGOS: cada pago (cuándo, quién lo hizo y cuánto) es un desplegable que
- * muestra los servicios que cubrió, y aparte queda lo que todavía no se le pagó.
- */
+// ─── Detalle de una operaria: pendiente (se paga aquí) y pagos hechos ──────────
+
 function PaymentGroups({
   payments,
   tickets,
   loading,
-  onDelete,
   pendingAmount,
   overpaidAmount,
+  canPay,
+  canVoid,
+  selected,
+  onToggle,
+  onToggleAll,
+  onPay,
+  onVoid,
+  onDeletePayment,
 }: {
   payments: CommissionPaymentOut[];
   tickets: TicketItem[];
   loading: boolean;
-  onDelete: (id: number) => void;
-  /** Falta pagar según montos: comisión ganada − todo lo pagado (es la cifra de la tabla). */
   pendingAmount: number;
-  /** Cuánto se pagó de más (si pagado > ganado). */
   overpaidAmount: number;
+  canPay: boolean;
+  canVoid: boolean;
+  selected: Set<number>;
+  onToggle: (id: number) => void;
+  onToggleAll: (ids: number[]) => void;
+  onPay: (ids: number[]) => void;
+  onVoid: (t: TicketItem) => void;
+  onDeletePayment: (id: number) => void;
 }) {
   const completed = tickets.filter((t) => t.status === "completed");
-  const unpaid = completed.filter((t) => !t.pagado);
-  const hasPending = pendingAmount > 0.005;
+  const payable = completed.filter((t) => !t.pagado && getTicketCommission(t) > 0);
+  const payableIds = payable.map((t) => t.id);
+  const selectedPayable = payable.filter((t) => selected.has(t.id));
+  const selectedTotal = selectedPayable.reduce((sum, t) => sum + getTicketCommission(t), 0);
+  const payableTotal = payable.reduce((sum, t) => sum + getTicketCommission(t), 0);
   const byPayment = new Map<number, TicketItem[]>();
   for (const t of completed) {
     if (t.pagado && t.commission_payment_id != null) {
@@ -92,13 +191,87 @@ function PaymentGroups({
     }
   }
 
+  const selection: Selection | undefined = canPay
+    ? {
+        selected,
+        toggle: onToggle,
+        allSelected: payable.length > 0 && selectedPayable.length === payable.length,
+        someSelected: selectedPayable.length > 0,
+        toggleAll: () => onToggleAll(payableIds),
+      }
+    : undefined;
+
   return (
     <div className="space-y-4">
+      {/* Pendiente: aquí se elige qué pagar */}
+      <section className="rounded-lg border border-slate-300 bg-white">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-3 py-2.5">
+          <span className="text-sm font-semibold text-slate-900">Pendiente de pago</span>
+          <span className="text-xs text-slate-500">
+            {payable.length} servicio{payable.length !== 1 ? "s" : ""}
+          </span>
+          <span className="ml-auto text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(Math.max(pendingAmount, 0))}</span>
+        </div>
+        <div className="space-y-3 px-3 py-3">
+          {overpaidAmount > 0.005 ? (
+            <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+              Se le registró <strong>{moneyFmt.format(overpaidAmount)} de más</strong> respecto a lo que ganó en este período (pagos manuales antiguos).
+              Revisa los pagos de abajo.
+            </p>
+          ) : null}
+          {payable.length === 0 ? (
+            <p className="text-xs text-slate-500">No hay servicios pendientes de pago en este período.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">
+                {canPay
+                  ? "Marca los servicios que quieres pagar ahora y pulsa Pagar. Lo que no marques queda pendiente."
+                  : "No tienes permiso para pagar comisiones: aquí solo puedes ver lo pendiente."}
+              </p>
+              <ServicesTable tickets={payable} amountOf={(t) => getTicketCommission(t)} selection={selection} />
+              {canPay ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-slate-600">
+                    {selectedPayable.length === 0 ? (
+                      "Ningún servicio marcado"
+                    ) : (
+                      <>
+                        <strong className="text-slate-900">{selectedPayable.length}</strong> servicio{selectedPayable.length !== 1 ? "s" : ""} marcado
+                        {selectedPayable.length !== 1 ? "s" : ""} · <strong className="text-slate-900">{moneyFmt.format(selectedTotal)}</strong>
+                      </>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={selectedPayable.length === 0}
+                      onClick={() => onPay(selectedPayable.map((t) => t.id))}
+                      className="!bg-slate-900 hover:!bg-slate-700"
+                      leftIcon={<Banknote className="h-3.5 w-3.5" />}
+                    >
+                      Pagar seleccionados
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => onPay(payableIds)}
+                      className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Pagar todo ({moneyFmt.format(payableTotal)})
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
+
       {/* Pagos ya hechos */}
       <div>
         <p className="text-xs font-semibold text-slate-700">Pagos realizados</p>
         <p className="mb-2 text-[11px] text-slate-400">
-          Toca un pago para ver qué servicios cubrió. Si eliminas uno por error, ese monto vuelve a quedar como pendiente.
+          Toca un pago para ver qué servicios cubrió{canVoid ? ". Con \"Anular\" deshaces el pago de un servicio" : ""}.
         </p>
         {loading ? (
           <p className="flex items-center gap-1 text-xs text-slate-400">
@@ -106,60 +279,58 @@ function PaymentGroups({
           </p>
         ) : payments.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
-            Todavía no se le registró ningún pago.
+            No hay pagos registrados en este período.
           </p>
         ) : (
           <div className="space-y-2">
             {payments.map((p) => {
               const linked = byPayment.get(p.id) ?? [];
-              const linkedTotal = linked.reduce((sum, t) => sum + (t.pagado_monto ?? getTicketCommission(t)), 0);
-              const outside = Math.max(0, p.amount - linkedTotal);
-              const byTickets = linked.length > 0 || Boolean(p.notes?.includes("desde Historial de tickets"));
+              const byTickets = isTicketPayment(p);
               return (
                 <details key={p.id} className="group rounded-lg border border-slate-200 bg-white">
                   <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5">
                     <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(p.amount)}</span>
                     <span className="text-xs text-slate-600">{dateTimeFmt(p.registered_at)}</span>
-                    <span className="text-xs text-slate-500">por <strong className="font-semibold text-slate-700">{p.registered_by_name ?? "—"}</strong></span>
+                    <span className="text-xs text-slate-500">
+                      por <strong className="font-semibold text-slate-700">{p.registered_by_name ?? "—"}</strong>
+                    </span>
                     <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                      {byTickets ? "Confirmar pago por tickets" : "Pago manual"}
+                      {byTickets ? "Por servicios" : "Pago manual (antiguo)"}
                     </span>
                     <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
                       {byTickets ? `${linked.length} servicio${linked.length !== 1 ? "s" : ""}` : null}
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          onDelete(p.id);
-                        }}
-                        className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                        title="Eliminar este pago"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      {canVoid ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onDeletePayment(p.id);
+                          }}
+                          className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                          title="Eliminar este pago completo (sus servicios vuelven a quedar pendientes)"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
                       <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
                     </span>
                   </summary>
                   <div className="space-y-2 border-t border-slate-100 px-3 py-3">
-                    {p.period_start || p.notes ? (
-                      <p className="text-[11px] text-slate-500">
-                        {p.period_start ? <>Período: {dateFmt(p.period_start)} — {p.period_end ? dateFmt(p.period_end) : "hoy"}. </> : null}
-                        {p.notes ?? ""}
-                      </p>
-                    ) : null}
+                    {p.notes ? <p className="text-[11px] text-slate-500">{p.notes}</p> : null}
                     {linked.length > 0 ? (
-                      <ServicesTable tickets={linked} amountOf={(t) => t.pagado_monto ?? getTicketCommission(t)} />
+                      <ServicesTable
+                        tickets={linked}
+                        amountOf={(t) => t.pagado_monto ?? getTicketCommission(t)}
+                        onVoid={canVoid ? onVoid : undefined}
+                      />
                     ) : byTickets ? (
                       <p className="text-xs text-slate-500">Los servicios de este pago están fuera del período filtrado arriba.</p>
                     ) : (
-                      <p className="text-xs text-slate-500">Pago registrado a mano por un monto: no está ligado a servicios concretos.</p>
-                    )}
-                    {linked.length > 0 && outside > 0.005 ? (
-                      <p className="text-[11px] text-slate-400">
-                        + {moneyFmt.format(outside)} de servicios fuera del período filtrado.
+                      <p className="text-xs text-slate-500">
+                        Pago antiguo registrado por un monto: no está ligado a servicios concretos.
                       </p>
-                    ) : null}
+                    )}
                   </div>
                 </details>
               );
@@ -167,120 +338,7 @@ function PaymentGroups({
           </div>
         )}
       </div>
-
-      {/* Pendiente: la cifra sale de los montos (igual que la tabla); la lista son los servicios sin marcar */}
-      <details open={hasPending} className="group rounded-lg border border-slate-300 bg-white">
-        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5">
-          <span className="text-sm font-semibold text-slate-900">Pendiente de pago</span>
-          <span className="text-xs text-slate-500">
-            {hasPending ? "según lo ganado y lo ya pagado" : overpaidAmount > 0.005 ? "no falta nada" : "al día"}
-          </span>
-          <span className="ml-auto flex items-center gap-2">
-            <span className="text-sm font-bold tabular-nums text-slate-900">{moneyFmt.format(hasPending ? pendingAmount : 0)}</span>
-            <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
-          </span>
-        </summary>
-        <div className="space-y-2 border-t border-slate-100 px-3 py-3">
-          {overpaidAmount > 0.005 ? (
-            <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
-              Se le pagó <strong>{moneyFmt.format(overpaidAmount)} de más</strong> respecto a lo que ganó en este período. Si no es lo esperado, revisa
-              los pagos de arriba y elimina el que corresponda.
-            </p>
-          ) : null}
-          {unpaid.length === 0 ? (
-            <p className="text-xs text-slate-500">Todos los servicios completados de este período ya están marcados como pagados.</p>
-          ) : (
-            <>
-              <p className="text-xs text-slate-500">
-                {unpaid.length} servicio{unpaid.length !== 1 ? "s" : ""} completado{unpaid.length !== 1 ? "s" : ""} sin marcar como pagado
-                {hasPending ? "" : ". Aun así no falta dinero: los pagos manuales cubren la comisión ganada, pero un pago manual es solo un monto y no marca servicios uno por uno"}.
-                {hasPending ? " Para marcarlos uno por uno usa Confirmar pago en Historial de tickets." : ""}
-              </p>
-              <ServicesTable tickets={unpaid} amountOf={(t) => getTicketCommission(t)} />
-            </>
-          )}
-        </div>
-      </details>
     </div>
-  );
-}
-
-// ─── Formulario para registrar pago ──────────────────────────────────────────
-
-function RegisterPaymentForm({
-  professional,
-  defaultAmount,
-  fromDate,
-  toDate,
-  onSave,
-  onCancel,
-  saving,
-}: {
-  professional: ProfessionalForSelect;
-  defaultAmount: number;
-  fromDate: string;
-  toDate: string;
-  onSave: (amount: number, date: string, notes: string) => Promise<void>;
-  onCancel: () => void;
-  saving: boolean;
-}) {
-  const [amount, setAmount] = useState(String(Math.max(0, defaultAmount).toFixed(2)));
-  const [notes, setNotes] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-
-  const fieldClass =
-    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/25";
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = parseFloat(amount);
-    if (Number.isNaN(amt) || amt <= 0) return;
-    await onSave(amt, date, notes.trim());
-  };
-
-  return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="mb-1 text-sm font-semibold text-slate-800">
-        Registrar pago — {professional.username}
-      </p>
-      <p className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-slate-600">
-        <Info className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
-        <span>
-          Anota un pago por el monto que le entregaste (ya viene el pendiente, puedes cambiarlo). Sirve de control en esta pantalla:{" "}
-          <strong>no marca tickets ni entra al Corte de caja</strong>. Para que salga como egreso en el Corte, usa{" "}
-          <strong>Historial de tickets → Confirmar pago</strong>.
-        </span>
-      </p>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Monto (Bs.)</label>
-          <input type="number" step="0.01" min="0.01" required value={amount}
-            onChange={(e) => setAmount(e.target.value)} className={fieldClass} />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Fecha de pago</label>
-          <input type="date" required value={date}
-            onChange={(e) => setDate(e.target.value)} className={fieldClass} />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Notas (opcional)</label>
-          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ej. Quincena mayo..." className={fieldClass} />
-        </div>
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={saving}>
-          {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          {saving ? "Guardando…" : "Guardar pago"}
-        </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={saving}>
-          <X className="h-3.5 w-3.5" />Cancelar
-        </Button>
-        <span className="text-[11px] text-slate-500">
-          Período: {fromDate ? dateFmt(fromDate) : "inicio"} — {toDate ? dateFmt(toDate) : "hoy"}
-        </span>
-      </div>
-    </form>
   );
 }
 
@@ -298,14 +356,37 @@ type Props = {
    * totales hacia arriba, para que el botón "PDF" de la pantalla pueda
    * exportar esta misma vista cuando esta pestaña está activa. */
   onStatsChange?: (rows: CommissionExportRow[], totals: CommissionExportTotals) => void;
+  /** Permiso para pagar comisiones (commissions:pay). */
+  canPay: boolean;
+  /** Permiso para anular pagos (commissions:void). */
+  canVoid: boolean;
+  /** Se llama tras pagar o anular para que la pantalla vuelva a cargar los tickets. */
+  onChanged: () => void | Promise<void>;
 };
 
-export default function CommissionPaymentsTab({ professionals, tickets, fromDate, toDate, selectedProfessionalId, onStatsChange }: Props) {
+export default function CommissionPaymentsTab({
+  professionals,
+  tickets,
+  fromDate,
+  toDate,
+  selectedProfessionalId,
+  onStatsChange,
+  canPay,
+  canVoid,
+  onChanged,
+}: Props) {
   const [payments, setPayments] = useState<CommissionPaymentOut[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [registeringId, setRegisteringId] = useState<number | null>(null);
+
+  // Pago: tickets elegidos de la operaria abierta + diálogo de confirmación.
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [payTarget, setPayTarget] = useState<{ proName: string; ids: number[] } | null>(null);
+  const [fromCash, setFromCash] = useState<"yes" | "no" | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<TicketItem | null>(null);
+  const [voidMotivo, setVoidMotivo] = useState("");
+  const [voiding, setVoiding] = useState(false);
 
   const loadPayments = useCallback(async () => {
     setLoadingPayments(true);
@@ -321,6 +402,20 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
 
   useEffect(() => { void loadPayments(); }, [loadPayments]);
 
+  // Cambiar de operaria abierta o de filtros limpia lo marcado: podría dejar de verse y pagarse sin querer.
+  useEffect(() => {
+    setSelected(new Set());
+  }, [expandedId, fromDate, toDate, selectedProfessionalId]);
+
+  // Tras recargar, conserva solo lo marcado que sigue pendiente.
+  useEffect(() => {
+    setSelected((current) => {
+      if (current.size === 0) return current;
+      const stillPending = new Set(tickets.filter((t) => current.has(t.id) && !t.pagado && t.status === "completed").map((t) => t.id));
+      return stillPending.size === current.size ? current : stillPending;
+    });
+  }, [tickets]);
+
   const visibleProfessionals = useMemo(
     () =>
       selectedProfessionalId !== null
@@ -330,7 +425,11 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
   );
 
   const proStats = useMemo(() => {
-    return visibleProfessionals.map((pro, index) => {
+    const inPeriod = (iso: string) => {
+      const day = localDay(iso);
+      return (!fromDate || day >= fromDate) && (!toDate || day <= toDate);
+    };
+    return visibleProfessionals.map((pro) => {
       const allProTickets = tickets.filter((t) => t.professional_id === pro.id);
       const completedTickets = allProTickets.filter((t) => t.status === "completed");
       const cancelledTickets = allProTickets.filter((t) => t.status === "cancelled");
@@ -338,11 +437,17 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
       const earned = completedTickets.reduce((s, t) => s + getTicketCommission(t), 0);
       const totalCaja = completedTickets.reduce((s, t) => s + getTicketPriceTotal(t), 0);
 
+      // "Ya pagado" se mide en el MISMO período que "Comisión ganada": lo pagado de los servicios de la lista
+      // (por servicios) más los pagos manuales antiguos hechos dentro del período.
+      const linkedIds = new Set(completedTickets.filter((t) => t.pagado && t.commission_payment_id != null).map((t) => t.commission_payment_id));
       const proPayments = payments
         .filter((p) => p.professional_id === pro.id)
         .sort((a, b) => b.registered_at.localeCompare(a.registered_at));
+      const visiblePayments = proPayments.filter((p) => (isTicketPayment(p) ? linkedIds.has(p.id) : inPeriod(p.registered_at)));
+      const paidByTickets = completedTickets.filter((t) => t.pagado).reduce((s, t) => s + (t.pagado_monto ?? getTicketCommission(t)), 0);
+      const paidManual = visiblePayments.filter((p) => !isTicketPayment(p)).reduce((s, p) => s + p.amount, 0);
+      const paid = paidByTickets + paidManual;
 
-      const paid = proPayments.reduce((s, p) => s + p.amount, 0);
       const pending = Math.max(0, earned - paid);
       const isPaid = earned > 0 && pending < 0.01;
 
@@ -350,20 +455,22 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
         ...completedTickets.sort((a, b) => b.start_time.localeCompare(a.start_time)),
         ...cancelledTickets.sort((a, b) => b.start_time.localeCompare(a.start_time)),
       ];
+      const payableCount = completedTickets.filter((t) => !t.pagado && getTicketCommission(t) > 0).length;
 
       return {
-        pro, index, earned, paid, pending, isPaid, totalCaja,
-        proPayments, allProTickets, sortedTickets,
+        pro, earned, paid, pending, isPaid, totalCaja,
+        visiblePayments, sortedTickets, payableCount,
         completedCount: completedTickets.length,
         cancelledCount: cancelledTickets.length,
       };
     });
-  }, [visibleProfessionals, tickets, payments]);
+  }, [visibleProfessionals, tickets, payments, fromDate, toDate]);
 
   const totalEarned = useMemo(() => proStats.reduce((s, p) => s + p.earned, 0), [proStats]);
   const totalPaid = useMemo(() => proStats.reduce((s, p) => s + p.paid, 0), [proStats]);
   const totalPending = useMemo(() => proStats.reduce((s, p) => s + p.pending, 0), [proStats]);
   const totalCaja = useMemo(() => proStats.reduce((s, p) => s + p.totalCaja, 0), [proStats]);
+  const paymentCount = useMemo(() => proStats.reduce((s, p) => s + p.visiblePayments.length, 0), [proStats]);
 
   useEffect(() => {
     if (!onStatsChange) return;
@@ -387,35 +494,75 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
     onStatsChange(rows, { caja: totalCaja, comision: totalEarned, pagado: totalPaid, pendiente: totalPending });
   }, [proStats, totalCaja, totalEarned, totalPaid, totalPending, onStatsChange]);
 
-  const handleSavePayment = async (pro: ProfessionalForSelect, amount: number, date: string, notes: string) => {
-    setSaving(true);
+  const toggleSelected = useCallback((id: number) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback((ids: number[]) => {
+    setSelected((current) => (ids.every((id) => current.has(id)) ? new Set() : new Set(ids)));
+  }, []);
+
+  const openPay = (proName: string, ids: number[]) => {
+    if (ids.length === 0) return;
+    setFromCash(null);
+    setPayTarget({ proName, ids });
+  };
+
+  const payTotal = useMemo(
+    () => (payTarget ? tickets.filter((t) => payTarget.ids.includes(t.id)).reduce((s, t) => s + getTicketCommission(t), 0) : 0),
+    [payTarget, tickets],
+  );
+
+  const handleConfirmPay = async () => {
+    if (!payTarget || fromCash === null) return;
+    setPaying(true);
     try {
-      const created = await CommissionPaymentsService.create({
-        professional_id: pro.id,
-        amount,
-        period_start: fromDate || null,
-        period_end: toDate || null,
-        notes: notes || null,
-        registered_at: new Date(`${date}T12:00:00`).toISOString(),
-      });
-      setPayments((prev) => [created, ...prev]);
-      setRegisteringId(null);
-      toast.success(`Pago de Bs ${amount.toFixed(2)} registrado para ${pro.username}.`);
-    } catch {
-      toast.error("No se pudo guardar el pago.");
+      const result = await AgendaService.payCommissions(payTarget.ids, fromCash === "yes");
+      setPayTarget(null);
+      setSelected(new Set());
+      toast.success(
+        `Pago registrado: ${result.tickets} servicio${result.tickets !== 1 ? "s" : ""} · ${moneyFmt.format(result.total)}` +
+          (fromCash === "yes" ? " (del efectivo de la caja)." : "."),
+      );
+      await Promise.all([onChanged(), loadPayments()]);
+    } catch (err) {
+      // Todo o nada: no se guardó ninguno; la selección queda para corregirla.
+      setPayTarget(null);
+      toast.error(payErrorMessage(err, tickets), { autoClose: 8000 });
     } finally {
-      setSaving(false);
+      setPaying(false);
+    }
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidTarget) return;
+    setVoiding(true);
+    try {
+      await AgendaService.voidCommissionPayment(voidTarget.id, voidMotivo);
+      toast.success(`Pago anulado: ${voidTarget.ticket_code ?? `#${voidTarget.id}`}.`);
+      setVoidTarget(null);
+      setVoidMotivo("");
+      await Promise.all([onChanged(), loadPayments()]);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "No se pudo anular el pago."));
+    } finally {
+      setVoiding(false);
     }
   };
 
   const handleDeletePayment = async (id: number) => {
-    if (!confirm("¿Eliminar este registro de pago?")) return;
+    if (!confirm("¿Eliminar este pago completo? Sus servicios vuelven a quedar pendientes.")) return;
     try {
       await CommissionPaymentsService.remove(id);
-      setPayments((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Registro eliminado.");
-    } catch {
-      toast.error("No se pudo eliminar el registro.");
+      toast.success("Pago eliminado.");
+      await Promise.all([onChanged(), loadPayments()]);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "No se pudo eliminar el pago."));
     }
   };
 
@@ -438,11 +585,11 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
           <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(totalEarned)}</p>
           <p className="mt-0.5 text-xs text-slate-500">por servicios completados</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4" title="Suma de todos los pagos registrados a estas operarias">
+        <div className="rounded-xl border border-slate-200 bg-white p-4" title="Lo ya pagado de esos servicios">
           <p className="text-xs font-medium text-slate-500">Ya pagado</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(totalPaid)}</p>
           <p className="mt-0.5 text-xs text-slate-500">
-            {loadingPayments ? "…" : `${payments.length} pago${payments.length !== 1 ? "s" : ""} registrado${payments.length !== 1 ? "s" : ""}`}
+            {loadingPayments ? "…" : `${paymentCount} pago${paymentCount !== 1 ? "s" : ""} en este período`}
           </p>
         </div>
         <div className="rounded-xl border-2 border-slate-800 bg-white p-4" title="Comisión ganada menos lo ya pagado">
@@ -476,7 +623,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
               <th className="px-4 py-2.5">Operaria</th>
               <th className="px-3 py-2.5" title="Servicios terminados en el período: son los que generan comisión">Servicios</th>
               <th className="px-3 py-2.5 text-right" title="Lo que le corresponde por esos servicios">Comisión ganada</th>
-              <th className="px-3 py-2.5 text-right" title="Lo que ya se le entregó">Ya pagado</th>
+              <th className="px-3 py-2.5 text-right" title="Lo que ya se le pagó de esos servicios">Ya pagado</th>
               <th className="px-3 py-2.5 text-right" title="Comisión ganada menos ya pagado">Falta pagar</th>
               <th className="px-4 py-2.5 text-right">
                 <span className="sr-only">Acciones</span>
@@ -484,9 +631,8 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
             </tr>
           </thead>
           <tbody>
-            {proStats.map(({ pro, earned, paid, pending, isPaid, totalCaja, proPayments, sortedTickets, completedCount, cancelledCount }, proIndex) => {
+            {proStats.map(({ pro, earned, paid, pending, totalCaja: caja, visiblePayments, sortedTickets, payableCount, completedCount, cancelledCount }, proIndex) => {
               const isExpanded = expandedId === pro.id;
-              const isRegistering = registeringId === pro.id;
               const hasPending = pending > 0.005;
 
               return (
@@ -504,7 +650,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                       <span className="font-medium">{completedCount}</span> completados
                       {cancelledCount > 0 ? <span className="text-xs text-slate-400"> · {cancelledCount} cancelados</span> : null}
                       <span className="block text-xs text-slate-400" title="Lo que pagaron las clientas por los servicios completados">
-                        Cobrado {moneyFmt.format(totalCaja)}
+                        Cobrado {moneyFmt.format(caja)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right font-medium tabular-nums text-slate-900">{moneyFmt.format(earned)}</td>
@@ -515,10 +661,7 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                       ) : hasPending ? (
                         <span className="font-bold text-slate-900">{moneyFmt.format(pending)}</span>
                       ) : paid - earned > 0.005 ? (
-                        <span
-                          className="inline-flex flex-col items-end text-xs font-medium text-slate-600"
-                          title="Se le pagó más de lo que ganó en este período"
-                        >
+                        <span className="inline-flex flex-col items-end text-xs font-medium text-slate-600" title="Se le pagó más de lo que ganó en este período">
                           <span className="inline-flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Sin pendiente</span>
                           <span className="text-[11px] font-semibold text-slate-800">Pagado de más {moneyFmt.format(paid - earned)}</span>
                         </span>
@@ -530,22 +673,18 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
-                        {earned > 0 && (
+                        {canPay && payableCount > 0 ? (
                           <button
                             type="button"
                             {...(proIndex === 0 ? { "data-tour": "cm-register" } : {})}
-                            title="Anota un pago por el monto que le entregaste. No entra al Corte de caja (para eso: Historial de tickets → Confirmar pago)"
-                            onClick={() => { setRegisteringId(isRegistering ? null : pro.id); setExpandedId(pro.id); }}
-                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                              hasPending && !isPaid
-                                ? "bg-slate-900 text-white hover:bg-slate-700"
-                                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
+                            title="Elige qué servicios pagarle ahora"
+                            onClick={() => setExpandedId(pro.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
                           >
                             <Banknote className="h-3.5 w-3.5" />
-                            {hasPending ? "Registrar pago" : "Registrar otro pago"}
+                            Pagar
                           </button>
-                        )}
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setExpandedId(isExpanded ? null : pro.id)}
@@ -559,33 +698,24 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
                     </td>
                   </tr>
 
-                  {(isRegistering || isExpanded) && (
-                    <tr key={`${pro.id}-detail`} className="border-b border-slate-100 bg-slate-50/50">
-                      <td colSpan={6} className="px-4 pb-4">
-                        {isRegistering && (
-                          <RegisterPaymentForm
-                            professional={pro}
-                            defaultAmount={pending}
-                            fromDate={fromDate}
-                            toDate={toDate}
-                            saving={saving}
-                            onSave={(amount, date, notes) => handleSavePayment(pro, amount, date, notes)}
-                            onCancel={() => setRegisteringId(null)}
-                          />
-                        )}
-
-                        {isExpanded && !isRegistering && (
-                          <div className="pt-1">
-                            <PaymentGroups
-                              payments={proPayments}
-                              tickets={sortedTickets}
-                              loading={loadingPayments}
-                              onDelete={(id) => void handleDeletePayment(id)}
-                              pendingAmount={pending}
-                              overpaidAmount={Math.max(0, paid - earned)}
-                            />
-                          </div>
-                        )}
+                  {isExpanded && (
+                    <tr className="border-b border-slate-100 bg-slate-50/50">
+                      <td colSpan={6} className="px-4 py-4">
+                        <PaymentGroups
+                          payments={visiblePayments}
+                          tickets={sortedTickets}
+                          loading={loadingPayments}
+                          pendingAmount={pending}
+                          overpaidAmount={Math.max(0, paid - earned)}
+                          canPay={canPay}
+                          canVoid={canVoid}
+                          selected={selected}
+                          onToggle={toggleSelected}
+                          onToggleAll={toggleAll}
+                          onPay={(ids) => openPay(pro.username, ids)}
+                          onVoid={(t) => { setVoidMotivo(""); setVoidTarget(t); }}
+                          onDeletePayment={(id) => void handleDeletePayment(id)}
+                        />
                       </td>
                     </tr>
                   )}
@@ -609,23 +739,122 @@ export default function CommissionPaymentsTab({ professionals, tickets, fromDate
       <details data-tour="cm-legend" className="group rounded-xl border border-slate-200 bg-white px-4 py-3">
         <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold text-slate-700">
           <Info className="h-4 w-4 shrink-0 text-slate-400" />
-          ¿Cómo leer esta tabla?
+          ¿Cómo leer esta tabla y cómo se paga?
           <ChevronDown className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
         </summary>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-600">
-          <li><strong className="text-slate-800">Falta pagar = Comisión ganada − Ya pagado.</strong></li>
+          <li><strong className="text-slate-800">Falta pagar = Comisión ganada − Ya pagado</strong>, siempre del mismo período.</li>
           <li>
-            <strong className="text-slate-800">Comisión ganada:</strong> lo que le corresponde por los servicios <em>completados</em> en el período (los cancelados no cuentan).
+            <strong className="text-slate-800">Comisión ganada:</strong> lo que le corresponde por los servicios <em>completados</em> (los cancelados no cuentan).
           </li>
           <li>
-            <strong className="text-slate-800">Ya pagado:</strong> todo lo registrado como entregado, con <em>Confirmar pago</em> en Historial de tickets o con <em>Registrar pago</em> aquí.
+            <strong className="text-slate-800">Para pagar:</strong> pulsa <em>Pagar</em> en la operaria, marca los servicios que le pagas y confirma. Dirás si el dinero salió del
+            efectivo de la caja: si sí, se descuenta del efectivo esperado al cerrar. El pago también queda como egreso en el Corte de caja.
           </li>
           <li>
-            <strong className="text-slate-800">Registrar pago</strong> anota un monto libre como control; <strong>no entra al Corte de caja</strong>. Para eso usa <em>Confirmar pago</em> en Historial de tickets.
+            <strong className="text-slate-800">Anular:</strong> dentro del <em>Detalle</em>, cada servicio pagado tiene "Anular" por si se marcó por error; vuelve a quedar pendiente.
           </li>
-          <li><strong className="text-slate-800">Detalle</strong> muestra los pagos que se le hicieron (cuándo y quién), con los servicios que cubrió cada uno, y aparte lo que todavía está pendiente.</li>
         </ul>
       </details>
+
+      {/* Confirmar el pago: aquí se pregunta de dónde salió el dinero */}
+      <GenericModal
+        isOpen={payTarget !== null}
+        onClose={() => { if (!paying) setPayTarget(null); }}
+        title="Confirmar pago de comisión"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setPayTarget(null)} disabled={paying}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={() => void handleConfirmPay()} disabled={paying || fromCash === null}>
+              {paying ? "Guardando…" : "Confirmar pago"}
+            </Button>
+          </>
+        }
+      >
+        {payTarget && (
+          <div className="space-y-4 text-sm text-slate-800">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-center">
+              <p className="text-xs text-slate-500">
+                Pagar a <strong className="text-slate-800">{payTarget.proName}</strong> por {payTarget.ids.length} servicio
+                {payTarget.ids.length !== 1 ? "s" : ""}
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{moneyFmt.format(payTotal)}</p>
+            </div>
+
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-xs font-semibold text-slate-700">¿De dónde sale el dinero? *</legend>
+              {([
+                ["yes", "Del efectivo de la caja", "Se descuenta del efectivo esperado al cerrar la caja."],
+                ["no", "De otro medio", "Transferencia u otro: no afecta el efectivo de la caja."],
+              ] as const).map(([value, title, hint]) => (
+                <label
+                  key={value}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 transition ${
+                    fromCash === value ? "border-slate-800 bg-slate-50" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="commission-from-cash"
+                    className="mt-0.5 h-4 w-4 accent-slate-800"
+                    checked={fromCash === value}
+                    onChange={() => setFromCash(value)}
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-slate-900">{title}</span>
+                    <span className="block text-xs text-slate-500">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <p className="text-xs text-slate-500">
+              Se guarda todo junto o nada, y queda como egreso en el Corte de caja con quién lo pagó y cuándo.
+            </p>
+          </div>
+        )}
+      </GenericModal>
+
+      {/* Anular el pago de un servicio */}
+      <GenericModal
+        isOpen={voidTarget !== null}
+        onClose={() => { if (!voiding) setVoidTarget(null); }}
+        title="Anular pago de comisión"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setVoidTarget(null)} disabled={voiding}>
+              Cancelar
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => void handleConfirmVoid()} disabled={voiding}>
+              {voiding ? "Anulando…" : "Anular pago"}
+            </Button>
+          </>
+        }
+      >
+        {voidTarget && (
+          <div className="space-y-3 text-sm text-slate-800">
+            <p>
+              El servicio <strong>{voidTarget.ticket_code ?? `#${voidTarget.id}`}</strong> de{" "}
+              <strong>{voidTarget.professional_name ?? "sin operaria"}</strong> volverá a quedar pendiente y se descontarán{" "}
+              <strong>{moneyFmt.format(voidTarget.pagado_monto ?? getTicketCommission(voidTarget))}</strong> de su pago.
+            </p>
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-500">Motivo (opcional)</span>
+              <input
+                type="text"
+                value={voidMotivo}
+                maxLength={300}
+                onChange={(e) => setVoidMotivo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-500"
+                placeholder="Ej. se marcó por error"
+              />
+            </label>
+          </div>
+        )}
+      </GenericModal>
     </div>
   );
 }

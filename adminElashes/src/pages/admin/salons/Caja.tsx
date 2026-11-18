@@ -599,6 +599,7 @@ function AperturaCierreTab() {
               {liveDetail && (
                 <span className="text-xs text-[var(--ui-text-muted)]">
                   inicial {moneyFormatter.format(session.opening_amount ?? 0)} + efectivo {moneyFormatter.format(liveDetail.cash_sales)} − gastos {moneyFormatter.format(liveDetail.cash_expenses)}
+                  {(liveDetail.cash_commissions ?? 0) > 0 ? <> − comisiones pagadas en efectivo {moneyFormatter.format(liveDetail.cash_commissions ?? 0)}</> : null}
                 </span>
               )}
             </div>
@@ -627,7 +628,7 @@ function AperturaCierreTab() {
         <div className="mt-5 border-t border-[var(--ui-border)] pt-4">
           <p className="mb-3 text-xs text-[var(--ui-text-muted)]">
             Al cerrar, contá el efectivo físico de la caja y cargalo abajo — el sistema compara contra lo esperado
-            (monto inicial + ventas en efectivo − gastos en efectivo) y muestra si sobra o falta.
+            (monto inicial + ventas en efectivo − gastos en efectivo − comisiones pagadas del efectivo) y muestra si sobra o falta.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

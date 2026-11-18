@@ -236,6 +236,8 @@ def _as_utc_iso(value: Optional[datetime]) -> Optional[str]:
 
 class CommissionPayRequest(BaseModel):
     appointment_ids: List[int] = Field(..., min_length=1, max_length=500)
+    # True si se pagó con efectivo de la caja: se descuenta del efectivo esperado al cerrar.
+    from_cash: bool = False
 
 
 class CommissionPaidTicket(BaseModel):
