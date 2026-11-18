@@ -18,6 +18,7 @@ import useAuth from "@/core/hooks/useAuth";
 import { expenseDraftKey, readExpenseDraft, writeExpenseDraft, readExpensePhoto, restoreExpensePhoto, type DraftExpense } from "@/core/services/expense/expense-draft.storage";
 import variables from "@/core/config/variables";
 import PendingCommissionsToday from "./components/PendingCommissionsToday";
+import CuadreDelDia from "./components/CuadreDelDia";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -680,6 +681,7 @@ function AperturaCierreTab() {
               />
             </div>
           </div>
+          <CuadreDelDia detail={liveDetail} openingAmount={session.opening_amount ?? 0} countedAmount={countedAmount} />
         </div>
       </SectionCard>
       {historyTable}
