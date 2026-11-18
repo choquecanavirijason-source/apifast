@@ -675,8 +675,8 @@ export default function CommissionPaymentsTab({
 
               return (
                 <Fragment key={pro.id}>
-                  <tr className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
+                  <tr className={`last:border-b-0 ${isExpanded ? "bg-slate-100" : "border-b border-slate-100 hover:bg-slate-50/70"}`}>
+                    <td className={`border-l-4 px-4 py-3 ${isExpanded ? "border-l-slate-800" : "border-l-transparent"}`}>
                       <div className="flex items-center gap-3">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
                           {getInitials(pro.username)}
@@ -737,8 +737,21 @@ export default function CommissionPaymentsTab({
                   </tr>
 
                   {isExpanded && (
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <td colSpan={6} className="px-4 py-4">
+                    <tr className="border-b-2 border-slate-300 bg-slate-100">
+                      <td colSpan={6} className="border-l-4 border-l-slate-800 px-4 pb-5 pt-1">
+                        <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            Detalle de <span className="font-bold">{pro.username}</span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(null)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                          >
+                            Cerrar detalle <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                         <PaymentGroups
                           payments={visiblePayments}
                           tickets={sortedTickets}
@@ -754,6 +767,7 @@ export default function CommissionPaymentsTab({
                           onVoid={(t) => { setVoidMotivo(""); setVoidTarget(t); }}
                           onDeletePayment={(id) => void handleDeletePayment(id)}
                         />
+                        </div>
                       </td>
                     </tr>
                   )}
