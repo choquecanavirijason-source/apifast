@@ -6,8 +6,8 @@ const money = (value: number) =>
 function Row({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-3 py-1.5 ${strong ? "border-t border-slate-300 pt-2.5 font-bold text-slate-900" : "text-slate-700"}`}>
-      <span className="text-xs" title={hint}>{label}</span>
-      <span className={`tabular-nums ${strong ? "text-base" : "text-sm font-medium"}`}>{value}</span>
+      <span className="min-w-0 text-xs" title={hint}>{label}</span>
+      <span className={`shrink-0 whitespace-nowrap tabular-nums ${strong ? "text-base" : "text-sm font-medium"}`}>{value}</span>
     </div>
   );
 }

@@ -9,8 +9,8 @@ const money = (value: number) =>
 function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-3 py-1 ${strong ? "mt-1 border-t border-slate-300 pt-2 font-bold text-slate-900" : "text-slate-700"}`}>
-      <span className="text-xs">{label}</span>
-      <span className={`tabular-nums ${strong ? "text-sm" : "text-xs font-medium"}`}>{value}</span>
+      <span className="min-w-0 text-xs">{label}</span>
+      <span className={`shrink-0 whitespace-nowrap tabular-nums ${strong ? "text-sm" : "text-xs font-medium"}`}>{value}</span>
     </div>
   );
 }
