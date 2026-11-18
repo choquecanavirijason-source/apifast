@@ -178,6 +178,8 @@ function AperturaCierreTab() {
   const [liveDetail, setLiveDetail] = useState<CashSessionDetail | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+  // Tras pulsar Cerrar caja con algo incompleto se marca el campo que falta (en vez de solo un aviso).
+  const [closeAttempted, setCloseAttempted] = useState(false);
   const [historyFromDate, setHistoryFromDate] = useState("");
   const [historyToDate, setHistoryToDate] = useState("");
   const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
@@ -284,24 +286,30 @@ function AperturaCierreTab() {
     }
   };
 
+  const countedNumber = parseFloat(countedAmount);
+  const fundNumber = parseFloat(nextFundAmount);
+  const countedError = !countedAmount.trim()
+    ? "Escribe cuánto efectivo hay después de contar el cajón."
+    : Number.isNaN(countedNumber) || countedNumber < 0
+      ? "Ingresa un monto válido."
+      : null;
+  const fundError = !nextFundAmount.trim()
+    ? "Escribe cuánto dejas para el siguiente turno (0 si no dejas nada)."
+    : Number.isNaN(fundNumber) || fundNumber < 0
+      ? "Ingresa un monto válido."
+      : !countedError && fundNumber > countedNumber
+        ? "No puede ser mayor al efectivo contado."
+        : null;
+
   const handleClose = () => {
     if (!session || submitting) return;
-    if (!countedAmount.trim() || !nextFundAmount.trim()) {
-      toast.warning('Para cerrar la caja, completá "Monto contado" y "Fondo para el siguiente turno" en los campos de abajo. Si no dejás fondo, ingresá 0.');
-      return;
-    }
-    const counted = parseFloat(countedAmount);
-    if (!countedAmount.trim() || Number.isNaN(counted) || counted < 0) {
-      toast.warning("Contá el efectivo de la caja y cargá el monto antes de cerrar.");
-      return;
-    }
-    const fund = parseFloat(nextFundAmount);
-    if (!nextFundAmount.trim() || Number.isNaN(fund) || fund < 0) {
-      toast.warning("Indicá cuánto dejás en la caja para el siguiente turno.");
-      return;
-    }
-    if (fund > counted) {
-      toast.warning("El fondo para el siguiente turno no puede ser mayor al monto contado.");
+    if (countedError || fundError) {
+      setCloseAttempted(true);
+      window.setTimeout(() => {
+        const target = document.getElementById(countedError ? "cash-close-counted" : "cash-close-fund");
+        target?.scrollIntoView({ block: "center", behavior: "smooth" });
+        (target as HTMLInputElement | null)?.focus();
+      }, 30);
       return;
     }
     setIsCloseConfirmOpen(true);
@@ -317,6 +325,7 @@ function AperturaCierreTab() {
       toast.success("Caja cerrada.");
       setCloseNotes("");
       setCountedAmount("");
+      setCloseAttempted(false);
       setNextFundAmount("");
       setLastClosed(closed);
       void load();
@@ -565,8 +574,6 @@ function AperturaCierreTab() {
             variant="danger"
             onClick={handleClose}
             disabled={submitting}
-            aria-disabled={submitting || !countedAmount.trim() || !nextFundAmount.trim()}
-            className={!countedAmount.trim() || !nextFundAmount.trim() ? "cursor-not-allowed opacity-60 hover:!bg-rose-600" : ""}
             leftIcon={<DoorOpen className="h-4 w-4" />}
           >
             {submitting ? "Cerrando…" : "Cerrar caja"}
@@ -645,11 +652,14 @@ function AperturaCierreTab() {
                 min="0"
                 step="0.01"
                 required
+                id="cash-close-counted"
                 value={countedAmount}
                 onChange={(e) => setCountedAmount(e.target.value)}
                 placeholder="0.00"
-                className={`${fieldClass} mt-1`}
+                aria-invalid={closeAttempted && Boolean(countedError)}
+                className={`${fieldClass} mt-1 ${closeAttempted && countedError ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
               />
+              {closeAttempted && countedError ? <p role="alert" className="mt-1 text-xs font-medium text-rose-600">{countedError}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold text-[var(--ui-text-muted)]">
@@ -661,11 +671,14 @@ function AperturaCierreTab() {
                 max={countedAmount || undefined}
                 step="0.01"
                 required
+                id="cash-close-fund"
                 value={nextFundAmount}
                 onChange={(e) => setNextFundAmount(e.target.value)}
                 placeholder="0.00"
-                className={`${fieldClass} mt-1`}
+                aria-invalid={closeAttempted && Boolean(fundError)}
+                className={`${fieldClass} mt-1 ${closeAttempted && fundError ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
               />
+              {closeAttempted && fundError ? <p role="alert" className="mt-1 text-xs font-medium text-rose-600">{fundError}</p> : null}
               <p className="mt-1 text-[11px] text-[var(--ui-text-muted)]">
                 Cuánto del efectivo contado se deja en el cajón como cambio para quien abra la próxima caja.
               </p>
