@@ -923,7 +923,10 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     const branchRaw = String(fd.get("branch_id") ?? "").trim();
     const allergies = String(fd.get("allergies") ?? "").trim();
     const birthDate = String(fd.get("birth_date") ?? "").trim();
+    const ci = String(fd.get("ci") ?? "").trim();
+    const email = String(fd.get("email") ?? "").trim();
     if (!nombre || !apellido) { toast.warning("Nombre y apellido son obligatorios."); return; }
+    if (ci.length < 4) { toast.warning("El CI es obligatorio: con él la clienta entra al marketplace."); return; }
     const parsedEdad = Number(edadRaw);
     const edad = edadRaw && Number.isFinite(parsedEdad) ? parsedEdad : undefined;
     if (edad !== undefined && (edad < 1 || edad > 100)) {
@@ -941,6 +944,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       const created = await ClientService.create({
         name: nombre, last_name: apellido, age: edad,
         phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined,
+        email: email || undefined, ci,
         eye_type_id, branch_id,
         allergies: allergies || undefined,
         birth_date: birthDate || undefined,

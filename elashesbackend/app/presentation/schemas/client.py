@@ -61,7 +61,14 @@ class ClientBase(BaseModel):
 
 
 class ClientCreate(ClientBase):
-    pass
+    # El CI es la contraseña con la que la clienta entra al marketplace: sin él no podría
+    # iniciar sesión, así que toda clienta nueva lo trae, se registre desde donde se registre.
+    ci: str = Field(..., min_length=4, max_length=20)
+
+    @field_validator("ci", mode="before")
+    @classmethod
+    def _strip_ci(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class ClientUpdate(BaseModel):

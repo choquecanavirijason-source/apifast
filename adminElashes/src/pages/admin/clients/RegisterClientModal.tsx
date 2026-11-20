@@ -162,6 +162,7 @@ export default function RegisterClientModal({
     apellido: "",
     edad: "",
     email: "",
+    ci: "",
     branch_id: "",
     birth_date: "",
   });
@@ -174,7 +175,7 @@ export default function RegisterClientModal({
   useEffect(() => {
     if (!isOpen) {
       setIsConfirmOpen(false);
-      setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "", birth_date: "" });
+      setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", ci: "", branch_id: "", birth_date: "" });
       setFormValues({
         nombre: "",
         apellido: "",
@@ -194,7 +195,7 @@ export default function RegisterClientModal({
 
     const initialPhone = getInitialPhoneParts(initialClient?.phone);
     const defaultBranchId = defaultBranchIdProp ?? getSelectedBranchId();
-    setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", branch_id: "", birth_date: "" });
+    setFieldErrors({ nombre: "", apellido: "", edad: "", email: "", ci: "", branch_id: "", birth_date: "" });
     setFormValues({
       nombre: initialClient?.nombre ?? "",
       apellido: initialClient?.apellido ?? "",
@@ -231,6 +232,14 @@ export default function RegisterClientModal({
   const validateEmail = (value: string) => {
     if (!value.trim()) return "";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return "Ingresa un correo válido.";
+    return "";
+  };
+
+  // Obligatorio al registrar: es la contraseña de la clienta en el marketplace.
+  const validateCi = (value: string) => {
+    if (mode === "edit" && !value.trim()) return "";
+    if (!value.trim()) return "El CI es obligatorio: con él la clienta entra al marketplace.";
+    if (value.trim().length < 4) return "El CI debe tener al menos 4 caracteres.";
     return "";
   };
 
@@ -286,6 +295,10 @@ export default function RegisterClientModal({
       setFieldErrors((prev) => ({ ...prev, email: validateEmail(value) }));
     }
 
+    if (name === "ci") {
+      setFieldErrors((prev) => ({ ...prev, ci: validateCi(value) }));
+    }
+
     if (name === "branch_id") {
       setFieldErrors((prev) => ({ ...prev, branch_id: validateBranch(value) }));
     }
@@ -303,12 +316,13 @@ export default function RegisterClientModal({
       apellido: validateApellido(formValues.apellido),
       edad: validateEdad(formValues.edad),
       email: validateEmail(formValues.email),
+      ci: validateCi(formValues.ci),
       branch_id: validateBranch(formValues.branch_id),
       birth_date: validateBirthDate(formValues.birth_date),
     };
     setFieldErrors(nextErrors);
     return (
-      !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.email &&
+      !nextErrors.nombre && !nextErrors.apellido && !nextErrors.edad && !nextErrors.email && !nextErrors.ci &&
       !nextErrors.branch_id && !nextErrors.birth_date
     );
   };
@@ -461,9 +475,12 @@ export default function RegisterClientModal({
           <InputField
             name="ci"
             label="CI / Carnet de Identidad"
-            placeholder="Número de carnet (opcional)"
+            placeholder="Número de carnet"
+            required={mode === "create"}
+            hint={fieldErrors.ci ? undefined : "Es la contraseña con la que la clienta entra al marketplace."}
             value={formValues.ci}
             onChange={handleInputChange}
+            error={fieldErrors.ci || undefined}
             className={bcInputClass}
             containerClassName="rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 sm:col-span-2"
           />

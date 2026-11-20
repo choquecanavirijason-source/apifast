@@ -294,9 +294,15 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     const branchRaw = String(formData.get("branch_id") ?? "").trim();
     const allergies = String(formData.get("allergies") ?? "").trim();
     const birthDate = String(formData.get("birth_date") ?? "").trim();
+    const ci = String(formData.get("ci") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
 
     if (!nombre || !apellido) {
       toast.warning("Nombre y apellido son obligatorios.");
+      return;
+    }
+    if (ci.length < 4) {
+      toast.warning("El CI es obligatorio: con él la clienta entra al marketplace.");
       return;
     }
 
@@ -327,6 +333,8 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         last_name: apellido,
         age: edad,
         phone: formattedPhone,
+        email: email || undefined,
+        ci,
         eye_type_id,
         branch_id,
         allergies: allergies || undefined,

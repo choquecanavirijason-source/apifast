@@ -57,7 +57,7 @@ def work():
 
 
 def new_client(work, **extra):
-    body = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch, **extra}
+    body = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch, "ci": "1234567", **extra}
     response = work.api.post("/clients/", json=body)
     assert response.status_code == 201, response.text
     return response.json()
@@ -87,8 +87,17 @@ def test_allergies_can_be_edited_and_cleared(work):
     assert cleared.status_code == 200 and cleared.json()["allergies"] is None
 
 
+def test_ci_is_required_to_create_a_client(work):
+    # El CI es la contraseña del marketplace: sin él no se crea la clienta.
+    body = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch}
+    assert work.api.post("/clients/", json=body).status_code == 422
+    assert work.api.post("/clients/", json={**body, "ci": "   "}).status_code == 422
+    assert work.api.post("/clients/", json={**body, "ci": "123"}).status_code == 422
+    assert new_client(work, name="Rosa", ci=" 7654321 ")["ci"] == "7654321"
+
+
 def test_allergies_limit_is_500_chars(work):
-    body = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch, "allergies": "x" * 501}
+    body = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch, "ci": "1234567", "allergies": "x" * 501}
     assert work.api.post("/clients/", json=body).status_code == 422
     assert new_client(work, name="Luz", allergies="x" * 500)["allergies"] == "x" * 500
 
@@ -254,7 +263,7 @@ def test_age_counts_completed_years_only():
 def test_birth_date_cannot_be_in_the_future_or_over_100_years(work):
     from datetime import timedelta
     from app.presentation.schemas.client import today_la_paz
-    base = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch}
+    base = {"name": "Maria", "last_name": "Prueba", "branch_id": work.branch, "ci": "1234567"}
     future = (today_la_paz() + timedelta(days=1)).isoformat()
     assert work.api.post("/clients/", json={**base, "birth_date": future}).status_code == 422
     assert work.api.post("/clients/", json={**base, "birth_date": "1900-01-01"}).status_code == 422

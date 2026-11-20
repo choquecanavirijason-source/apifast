@@ -30,7 +30,6 @@ import type { RootState } from "../../../store";
 import api from "../../../core/services/api";
 import { fetchAllPages } from "../../../core/utils/fetchAllPages";
 import { needsAllergyConfirmation, withConfirmedAllergies } from "../control-de-servicios/allergyCheck";
-import { isPrintOnStartEnabled, printAttentionTicket } from "../control-de-servicios/printAttentionTicket";
 import { PosContext, posDraftKey, persistPosDraft } from "./pos.context";
 import type { Product } from "../../../core/types/IProduct";
 import type { CartLine, PosSaleDraft, ProductCartLine, ReceiptTicketEdit } from "./pos.types";
@@ -173,7 +172,7 @@ export function usePosPage({
   // "Cobrar e iniciar atención": con la venta ya cobrada, se confirman las alergias, se inicia
   // la atención y se pregunta si imprimir el ticket. El comprobante se abre al terminar.
   const [startFlow, setStartFlow] = useState<{
-    sale: PosSaleItem; tickets: TicketItem[]; step: "allergies" | "print";
+    sale: PosSaleItem; tickets: TicketItem[]; step: "allergies";
   } | null>(null);
   const [editingSale, setEditingSale]                 = useState<PosSaleItem | null>(null);
   const [confirmCancelSale, setConfirmCancelSale]     = useState<PosSaleItem | null>(null);
@@ -1170,8 +1169,9 @@ export function usePosPage({
       setReceiptSale(sale);
       return;
     }
-    if (isPrintOnStartEnabled()) setStartFlow({ sale, tickets, step: "print" });
-    else { setStartFlow(null); setReceiptSale(sale); }
+    // Sin pregunta de impresión: se imprime desde el botón "Imprimir" del comprobante.
+    setStartFlow(null);
+    setReceiptSale(sale);
   };
 
   const handleStartFlowAllergiesConfirmedImpl = async (ticket: TicketItem, allergies: string | null) => {
@@ -1196,14 +1196,6 @@ export function usePosPage({
     setStartFlow(null);
     if (!flow) return;
     toast.info("La venta quedó cobrada y el ticket en espera. Inicia la atención desde Control de servicios.");
-    setReceiptSale(flow.sale);
-  };
-
-  const handleStartFlowPrint = (print: boolean) => {
-    const flow = startFlow;
-    setStartFlow(null);
-    if (!flow) return;
-    if (print && !printAttentionTicket(flow.tickets)) toast.warning("No se pudo preparar la impresión del ticket.");
     setReceiptSale(flow.sale);
   };
 
@@ -1504,7 +1496,10 @@ export function usePosPage({
     const branchRaw = String(fd.get("branch_id") ?? "").trim();
     const allergies = String(fd.get("allergies") ?? "").trim();
     const birthDate = String(fd.get("birth_date") ?? "").trim();
+    const ci = String(fd.get("ci") ?? "").trim();
+    const email = String(fd.get("email") ?? "").trim();
     if (!nombre || !apellido) { toast.warning("Nombre y apellido son obligatorios."); return; }
+    if (ci.length < 4) { toast.warning("El CI es obligatorio: con él la clienta entra al marketplace."); return; }
     const parsedEdad = Number(edadRaw);
     const edad = edadRaw && Number.isFinite(parsedEdad) ? parsedEdad : undefined;
     if (edad !== undefined && (edad < 1 || edad > 100)) { toast.warning(edad < 1 ? "La edad no puede ser 0." : "La edad no puede ser mayor a 100."); return; }
@@ -1515,7 +1510,7 @@ export function usePosPage({
     let branch_id: number | undefined = branchRaw && Number.isFinite(parsedBranchId) && parsedBranchId > 0 ? parsedBranchId : undefined;
     if (!branchContext.multibranch || !branch_id) branch_id = activeBranchId ?? undefined;
     try {
-      const created = await ClientService.create({ name: nombre, last_name: apellido, age: edad, phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined, eye_type_id, branch_id, allergies: allergies || undefined, birth_date: birthDate || undefined });
+      const created = await ClientService.create({ name: nombre, last_name: apellido, age: edad, phone: normalizedPhone ? `${phoneCC}${normalizedPhone}` : undefined, email: email || undefined, ci, eye_type_id, branch_id, allergies: allergies || undefined, birth_date: birthDate || undefined });
       setClientId(String(created.id));
       setClientSearch(`${created.nombre} ${created.apellido}`.trim());
       setClients((prev) => prev.some((c) => String(c.id) === String(created.id)) ? prev : [created, ...prev]);
@@ -1640,7 +1635,7 @@ export function usePosPage({
     selectedServiceCategoryId, setSelectedServiceCategoryId, sellerId, setSellerId,
     ticketMode, setTicketMode, linkAppointmentId,
     isSubmitting, receiptSale, setReceiptSale, editingSale,
-    startFlow, handleStartFlowAllergiesConfirmed, handleStartFlowCancel, handleStartFlowPrint,
+    startFlow, handleStartFlowAllergiesConfirmed, handleStartFlowCancel,
     confirmCancelSale, setConfirmCancelSale, confirmDeleteSale, setConfirmDeleteSale, isProcessingConfirm,
     isRegisterClientOpen, setIsRegisterClientOpen, isClientMenuOpen, setIsClientMenuOpen,
     isCartOpen, setIsCartOpen, isServiceMenuOpen, setIsServiceMenuOpen, serviceMenuPosition,
