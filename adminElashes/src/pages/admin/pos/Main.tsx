@@ -716,21 +716,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           onConfirmed={(ticket, allergies) => void pos.handleStartFlowAllergiesConfirmed(ticket, allergies)}
         />
         <ConfirmDialog
-          isOpen={pos.startFlow?.step === "print"}
-          title="Imprimir ticket"
-          message={
-            <p>
-              <strong>{pos.startFlow?.tickets[0]?.client_name}</strong> pasó a En servicio. ¿Quieres imprimir su ticket de atención?
-            </p>
-          }
-          confirmText="Imprimir"
-          cancelText="No imprimir"
-          variant="success"
-          onConfirm={() => pos.handleStartFlowPrint(true)}
-          onCancel={() => pos.handleStartFlowPrint(false)}
-        />
-
-        <ConfirmDialog
           isOpen={!!pos.confirmCancelSale}
           title="Cancelar venta"
           message={`¿Cancelar la venta ${pos.confirmCancelSale?.sale_code}? Esto cancelará también sus tickets y pagos.`}

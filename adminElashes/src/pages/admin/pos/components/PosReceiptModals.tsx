@@ -121,7 +121,18 @@ export default function PosReceiptModals({
     });
   };
 
+  // Impresión directa: el ticket se monta oculto (solo existe para el diálogo de impresión del
+  // navegador) y se cierra al terminar, para que no salgan dos ventanas.
+  const [silentPrint, setSilentPrint] = useState(false);
+
   const handleDirectPrintReceipt = () => {
+    setSilentPrint(true);
+    const finish = () => {
+      window.removeEventListener("afterprint", finish);
+      setSilentPrint(false);
+      onClosePrintPreview();
+    };
+    window.addEventListener("afterprint", finish);
     onOpenPrintPreview();
     let attempts = 0;
     const tryPrint = () => {
@@ -385,6 +396,7 @@ export default function PosReceiptModals({
                 visibility: visible;
               }
               #pos-receipt-print-root {
+                opacity: 1 !important;
                 position: fixed !important;
                 inset: 0 !important;
                 z-index: 2147483647 !important;
@@ -420,7 +432,7 @@ export default function PosReceiptModals({
 
             <div
               id="pos-receipt-print-root"
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+              className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm ${silentPrint ? "pointer-events-none opacity-0" : ""}`}
             >
               <div
                 id="print-ticket-portal"
