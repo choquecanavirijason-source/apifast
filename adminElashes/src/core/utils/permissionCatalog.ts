@@ -7,6 +7,8 @@ export interface PermissionInfo {
   summary: string;
   /** Detalle: las pantallas/acciones concretas. */
   can: string[];
+  /** Aviso de qué más hace falta (o qué NO incluye) para que funcione completo. */
+  note?: string;
 }
 
 export interface ModuleInfo {
@@ -36,56 +38,99 @@ export const MODULE_INFO: Record<string, ModuleInfo> = {
 
 export const PERMISSION_INFO: Record<string, PermissionInfo> = {
   "appointments:view": {
-    summary: "Solo mirar la agenda y las citas; no puede cambiar nada.",
-    can: ["Ver la agenda y las reservas", "Ver el control de servicios y los tickets de atención"],
+    summary: "Ver la agenda, los tickets y las ventas ya hechas. No puede crear ni cambiar nada.",
+    can: [
+      "Abrir la Agenda y ver citas y reservas",
+      "Abrir Tickets y ver el estado de cada atención",
+      "Ver el historial de ventas",
+    ],
+    note: "Para iniciar o mover una atención necesita también “Gestionar Citas”.",
   },
   "appointments:manage": {
-    summary: "Crear y mover citas, atender clientas y vender desde el POS.",
+    summary: "Trabajar la agenda: crear, mover y cancelar citas, iniciar atenciones y crear ventas en el POS.",
     can: [
       "Crear, mover y cancelar citas y reservas",
-      "Iniciar y finalizar la atención de un servicio (asignar operaria)",
-      "Cobrar al iniciar un servicio desde la agenda",
-      "Crear ventas y tickets en el punto de venta",
+      "Iniciar y finalizar la atención de un servicio (elegir operaria)",
+      "Crear ventas en Nueva venta (genera el ticket de atención)",
+      "Cancelar o corregir una venta",
+    ],
+    note: "No cobra por sí solo: para registrar el pago necesita “Gestionar Pagos”.",
+  },
+  "clients:view": {
+    summary: "Ver la lista de clientas y su ficha. No puede registrar ni editar.",
+    can: ["Abrir Clientes y Notificaciones", "Ver contacto, alergias e historial de cada clienta", "Buscar clientas al armar una cita o venta"],
+  },
+  "clients:manage": {
+    summary: "Registrar clientas nuevas y editar o eliminar sus datos.",
+    can: ["Registrar clientas (el CI es obligatorio)", "Editar teléfono, correo, alergias y fecha de nacimiento", "Eliminar clientas", "Activar o apagar sus avisos"],
+  },
+  "payments:view": {
+    summary: "Ver el dinero: pagos, estado de la caja y reportes. No puede cobrar ni cerrar caja.",
+    can: [
+      "Ver Apertura y cierre, Corte de caja y Extras y bonos",
+      "Ver los pagos registrados",
+      "Abrir Equipo: seguimiento por operaria y comisiones pagadas",
     ],
   },
-  "clients:view": { summary: "Solo ver las clientas y sus datos.", can: ["Abrir el listado de Clientas", "Ver la ficha (contacto, alergias, historial)"] },
-  "clients:manage": {
-    summary: "Registrar y editar clientas.",
-    can: ["Registrar clientas nuevas", "Editar sus datos (teléfono, alergias, fecha de nacimiento)"],
-  },
-  "payments:view": { summary: "Solo consultar pagos y caja.", can: ["Ver cobros, movimientos y el estado de la caja"] },
   "payments:manage": {
-    summary: "Cobrar, abrir y cerrar caja.",
-    can: ["Registrar cobros en el POS y en la agenda", "Abrir y cerrar la caja (corte de caja)", "Registrar ingresos y egresos de caja"],
+    summary: "Mover el dinero: cobrar, abrir y cerrar caja, registrar egresos, bonos y pagar comisiones.",
+    can: [
+      "Cobrar una venta o un servicio",
+      "Abrir y cerrar la caja",
+      "Registrar egresos y bonos a operarias",
+      "Registrar el pago de comisiones",
+    ],
+    note: "No crea ventas por sí solo: para armar una venta necesita “Gestionar Citas”.",
   },
-  "inventory:view": { summary: "Solo ver productos y stock.", can: ["Ver productos, lotes y existencias"] },
+  "inventory:view": { summary: "Ver productos y existencias. No puede modificar nada.", can: ["Abrir Inventario", "Ver productos, lotes, movimientos y alertas de stock bajo"] },
   "inventory:manage": {
-    summary: "Crear y editar productos, lotes y transferencias.",
-    can: ["Crear y editar productos", "Registrar lotes de entrada", "Transferir stock entre sucursales"],
+    summary: "Crear y editar productos, registrar entradas y mover stock.",
+    can: ["Crear, editar y eliminar productos y categorías", "Registrar lotes y movimientos de stock", "Transferir stock entre sucursales"],
   },
-  "services:view": { summary: "Solo ver los servicios y precios.", can: ["Ver el listado de servicios y sus precios"] },
-  "services:manage": { summary: "Crear y editar servicios.", can: ["Crear, editar y desactivar servicios", "Administrar categorías de servicios"] },
-  "catalog:view": { summary: "Solo ver el catálogo de diseños.", can: ["Ver los diseños del catálogo"] },
-  "catalog:manage": { summary: "Crear y editar el catálogo.", can: ["Subir, editar y borrar diseños", "Administrar la prueba virtual (try-on)"] },
-  "forms:view": { summary: "Solo ver cuestionarios.", can: ["Ver los cuestionarios y sus respuestas"] },
-  "forms:manage": { summary: "Crear y editar cuestionarios.", can: ["Crear, editar y borrar cuestionarios"] },
-  "tracking:view": { summary: "Solo ver el seguimiento.", can: ["Ver el seguimiento de clientas y reservas"] },
+  "services:view": { summary: "Ver los servicios, sus precios y categorías.", can: ["Abrir Catálogo y Categorías de servicios", "Abrir Control de servicios (turnos)"] },
+  "services:manage": {
+    summary: "Crear, editar y eliminar servicios.",
+    can: ["Crear, editar y eliminar servicios y sus fotos"],
+    note: "Las categorías de servicios piden además “Gestionar Citas”.",
+  },
+  "catalog:view": {
+    summary: "Ver los estilos, tipos de ojo y opciones del probador. No puede modificarlos.",
+    can: ["Abrir Estilos y efectos, Grosores, Colores, Largos, Técnicas y Tipos de ojo"],
+  },
+  "catalog:manage": {
+    summary: "Crear, editar, publicar y borrar estilos y opciones del probador virtual.",
+    can: ["Editar y publicar estilos de pestañas", "Crear y ordenar grosores, colores, largos y técnicas", "Editar tipos de ojo y recomendaciones"],
+  },
+  "forms:view": { summary: "Ver los cuestionarios de las clientas.", can: ["Abrir Cuestionarios y ver sus preguntas"] },
+  "forms:manage": { summary: "Crear, editar y eliminar cuestionarios.", can: ["Crear, editar y eliminar cuestionarios"] },
+  "tracking:view": { summary: "Ver el seguimiento de las clientas (antes y después de cada trabajo).", can: ["Ver los seguimientos de cada clienta", "Usar las comparaciones y recomendaciones de la IA"] },
   "tracking:manage": {
-    summary: "Gestionar el seguimiento y las reservas del marketplace.",
-    can: ["Actualizar el seguimiento de clientas", "Gestionar reservas hechas desde la app"],
+    summary: "Registrar, editar y borrar seguimientos de clientas.",
+    can: ["Crear y editar seguimientos", "Borrar seguimientos"],
   },
-  "branches:view": { summary: "Solo ver las sucursales.", can: ["Ver el listado de sucursales"] },
-  "branches:manage": { summary: "Crear y editar sucursales.", can: ["Crear, editar y desactivar sucursales"] },
-  "ai:view": { summary: "Usar el asistente IA para consultar.", can: ["Abrir el asistente IA y hacer consultas"] },
-  "ai:manage": { summary: "Configurar el asistente IA.", can: ["Cambiar la configuración del asistente IA"] },
-  "dashboard:view": { summary: "Ver el panel general de ingresos y reportes.", can: ["Ver el Dashboard con ingresos y estadísticas", "Exportar reportes"] },
-  "audit:view": { summary: "Ver quién hizo qué en el sistema.", can: ["Ver el registro de ediciones, eliminaciones y cancelaciones"] },
-  "commissions:pay": { summary: "Confirmar el pago de comisiones.", can: ["Confirmar un lote de comisiones a operarias"] },
-  "commissions:void": { summary: "Anular un pago de comisión.", can: ["Anular un pago de comisión ya registrado"] },
-  "reminders:send": { summary: "Enviar un recordatorio a una clienta.", can: ["Enviar avisos manuales a su app desde Próximas citas"] },
-  "broadcasts:send": { summary: "Enviar comunicados a muchas clientas.", can: ["Enviar promociones o avisos a un grupo o a todas las clientas"] },
-  "settings:view": { summary: "Entrar a Configuración.", can: ["Ver y ajustar la configuración general (cupón de cumpleaños, etc.)"] },
-  "users:manage": { summary: "Administrar el personal y sus permisos.", can: ["Crear y editar usuarios", "Crear roles y asignar permisos"] },
+  "branches:view": {
+    summary: "Ver la lista de sucursales para poder elegirla en la agenda, las ventas y los reportes.",
+    can: ["Elegir sucursal en pantallas que lo piden"],
+    note: "No abre ninguna pantalla por sí solo. Para entrar a Sucursales se necesita “Gestionar Sucursales”.",
+  },
+  "branches:manage": {
+    summary: "Entrar a Sucursales y crearlas, editarlas o eliminarlas.",
+    can: ["Abrir la pantalla Sucursales", "Crear, editar y eliminar sucursales", "Configurar sus integraciones"],
+  },
+  "ai:view": { summary: "Usar el asistente de IA para hacer consultas.", can: ["Abrir Configuración de IA y conversar con el asistente"] },
+  "ai:manage": { summary: "Cambiar la configuración del asistente de IA.", can: ["Modificar los ajustes del asistente"] },
+  "dashboard:view": { summary: "Ver el resumen general del negocio: ingresos, gráficas y reportes.", can: ["Abrir Visión general", "Ver ingresos, distribución de servicios e inventario", "Descargar reportes"] },
+  "audit:view": { summary: "Ver quién hizo qué: ediciones, eliminaciones y cancelaciones.", can: ["Abrir Auditoría y ver el registro de actividad"] },
+  "commissions:pay": { summary: "Marcar como pagadas las comisiones de las operarias.", can: ["Confirmar un lote de comisiones"] },
+  "commissions:void": { summary: "Anular un pago de comisión ya registrado.", can: ["Anular un pago de comisión"] },
+  "reminders:send": { summary: "Enviar un aviso manual a una clienta (recordatorio de cita o retoque).", can: ["Enviar recordatorios desde Notificaciones y Agenda"] },
+  "broadcasts:send": { summary: "Enviar comunicados o promociones a muchas clientas a la vez.", can: ["Crear y enviar comunicados", "Ver el historial de comunicados"] },
+  "settings:view": {
+    summary: "Entrar a Ajustes (identidad y preferencias del sistema).",
+    can: ["Abrir Ajustes"],
+    note: "El cupón de cumpleaños y el logo solo los pueden cambiar Admin y SuperAdmin, sin importar este permiso.",
+  },
+  "users:manage": { summary: "Administrar al personal: crear usuarios, roles y asignar permisos.", can: ["Abrir Usuarios", "Crear y editar usuarios", "Crear roles y elegir sus permisos"] },
 };
 
 export function moduleInfo(moduleKey: string): ModuleInfo {

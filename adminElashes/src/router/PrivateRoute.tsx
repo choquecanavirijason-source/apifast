@@ -56,6 +56,10 @@ const PrivateRoute = () => {
     "/admin/salons/caja": ["payments:view", "payments:manage"] as IPermission[],
     "/admin/products": ["inventory:view", "inventory:manage"] as IPermission[],
     "/admin/ai": ["ai:view", "ai:manage"] as IPermission[],
+    // Estaban fuera de la tabla: cualquiera con sesión entraba escribiendo la URL.
+    "/admin/audit-log": ["audit:view"] as IPermission[],
+    "/admin/notificaciones": ["clients:view", "clients:manage"] as IPermission[],
+    "/admin/cierre-de-caja": ["payments:view", "payments:manage"] as IPermission[],
   };
 
   if (!hasToken || !isAuthenticated) {

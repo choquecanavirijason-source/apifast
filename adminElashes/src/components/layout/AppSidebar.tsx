@@ -128,7 +128,6 @@ export default function AppSidebar({
    * Permisos resueltos para el usuario:
    * 1) user.permissions
    * 2) user.role.permissions
-   * 3) Fallback por rol
    */
   const permissionNamesFromUser = useMemo(() => {
     if (!user) return [];
@@ -151,76 +150,8 @@ export default function AppSidebar({
       for (const p of rolePerms) perms.push(normalizePerm(p?.name) ?? "");
     }
 
-    // c) fallback por rol
-    const roleName = (displayRole || "").toLowerCase();
-
-    if (roleName === "superadmin" || roleName === "admin") {
-      perms.push(
-        "dashboard:view",
-        "ai:view",
-        "ai:manage",
-        "settings:view",
-        "users:manage",
-        "branches:manage",
-        "branches:view",
-        "audit:view",
-        "inventory:view",
-        "inventory:manage",
-        "catalog:view",
-        "catalog:manage",
-        "services:view",
-        "services:manage",
-        "clients:view",
-        "clients:manage",
-        "appointments:view",
-        "appointments:manage",
-        "payments:view",
-        "payments:manage",
-        "forms:view",
-        "forms:manage",
-        "tracking:view",
-        "tracking:manage"
-      );
-    }
-
-    if (perms.length === 0) {
-      if (roleName === "operaria") {
-        perms.push(
-          "clients:view",
-          "clients:manage",
-          "tracking:view",
-          "tracking:manage",
-          "forms:view",
-          "catalog:view",
-          "services:view",
-          "services:manage",
-          "appointments:view",
-          "appointments:manage",
-          "payments:view",
-          "branches:view"
-        );
-      } else if (roleName === "secretaria") {
-        perms.push(
-          "clients:view",
-          "clients:manage",
-          "tracking:view",
-          "forms:view",
-          "payments:view",
-          "payments:manage",
-          "services:view",
-          "services:manage",
-          "appointments:view",
-          "appointments:manage",
-          "inventory:view",
-          "users:manage"
-        );
-      } else if (roleName === "encargadaalmacen" || roleName === "encargada_almacen") {
-        perms.push("inventory:view", "inventory:manage", "catalog:view");
-      }
-    }
-
     return uniq(perms);
-  }, [user, displayRole]);
+  }, [user]);
 
   const hasMenuPermission = (rule?: PermissionRule) => {
     if (!rule) return true;
@@ -309,7 +240,7 @@ export default function AppSidebar({
             name: "Tickets",
             path: "/admin/tickets",
             icon: <Ticket size={15} />,
-            permission: ["payments:view", "payments:manage", "appointments:view", "appointments:manage"],
+            permission: ["appointments:view", "appointments:manage"],
           },
           {
             name: "Control de servicios",
@@ -365,19 +296,19 @@ export default function AppSidebar({
         name: "Equipo",
         icon: <UserCheck size={19} />,
         path: "/admin/professionals",
-        permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
+        permission: ["payments:view", "payments:manage"],
         subItems: [
           {
             name: "Seguimiento por operaria",
             path: "/admin/professionals/tickets",
             icon: <Clock size={15} />,
-            permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
+            permission: ["payments:view", "payments:manage"],
           },
           {
             name: "Comisiones",
             path: "/admin/professionals/history",
             icon: <Percent size={15} />,
-            permission: ["appointments:view", "appointments:manage", "payments:view", "payments:manage"],
+            permission: ["payments:view", "payments:manage"],
           },
         ],
       },
@@ -466,7 +397,6 @@ export default function AppSidebar({
         path: "/admin/salons",
         permission: [
           "branches:manage",
-          "branches:view",
           "users:manage",
           "audit:view",
           "settings:view",
@@ -479,7 +409,7 @@ export default function AppSidebar({
             path: "/admin/salons",
             exact: true,
             icon: <Building2 size={15} />,
-            permission: ["branches:manage", "branches:view"],
+            permission: "branches:manage",
           },
           {
             name: "Usuarios",
@@ -524,7 +454,7 @@ export default function AppSidebar({
         const visibleSubItems = item.subItems.filter(
           (subItem) => hasMenuPermission(subItem.permission) && isPathAllowedForRole(restrictedRole, subItem.path),
         );
-        if (!visibleSubItems.length && (restrictedRole || !hasMenuPermission(item.permission))) return null;
+        if (!visibleSubItems.length) return null;
 
         return { ...item, subItems: visibleSubItems };
       })

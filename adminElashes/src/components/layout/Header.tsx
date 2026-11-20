@@ -279,14 +279,12 @@ export default function Header() {
   const canManageAppointments =
     isAdmin() ||
     hasPermissionByName("appointments:view") ||
-    hasPermissionByName("appointments:manage") ||
-    ["operaria", "secretaria"].includes(normalizedRole);
+    hasPermissionByName("appointments:manage");
 
   const canManagePayments =
     isAdmin() ||
     hasPermissionByName("payments:view") ||
-    hasPermissionByName("payments:manage") ||
-    normalizedRole === "secretaria";
+    hasPermissionByName("payments:manage");
 
   const canOpenTracking =
     isAdmin() ||

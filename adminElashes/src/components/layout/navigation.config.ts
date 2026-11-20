@@ -103,12 +103,7 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: "Servicios activos y cobros",
         path: "/admin/tickets",
         icon: Ticket,
-        permission: [
-          "payments:view",
-          "payments:manage",
-          "appointments:view",
-          "appointments:manage",
-        ],
+        permission: ["appointments:view", "appointments:manage"],
       },
       {
         label: "Clientes",
@@ -175,36 +170,21 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
     label: "Equipo",
     section: "Operación",
     icon: UserCheck,
-    permission: [
-      "appointments:view",
-      "appointments:manage",
-      "payments:view",
-      "payments:manage",
-    ],
+    permission: ["payments:view", "payments:manage"],
     children: [
       {
         label: "Seguimiento por operaria",
         description: "Servicios y desempeño",
         path: "/admin/professionals/tickets",
         icon: Clock,
-        permission: [
-          "appointments:view",
-          "appointments:manage",
-          "payments:view",
-          "payments:manage",
-        ],
+        permission: ["payments:view", "payments:manage"],
       },
       {
         label: "Comisiones",
         description: "Historial y liquidaciones",
         path: "/admin/professionals/history",
         icon: Percent,
-        permission: [
-          "appointments:view",
-          "appointments:manage",
-          "payments:view",
-          "payments:manage",
-        ],
+        permission: ["payments:view", "payments:manage"],
       },
     ],
   },
@@ -303,7 +283,6 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
     icon: ShieldCheck,
     permission: [
       "branches:manage",
-      "branches:view",
       "users:manage",
       "audit:view",
       "settings:view",
@@ -317,7 +296,7 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         path: "/admin/salons",
         exact: true,
         icon: Building2,
-        permission: ["branches:manage", "branches:view"],
+        permission: "branches:manage",
       },
       {
         label: "Usuarios",
@@ -362,23 +341,12 @@ export const isRouteActive = (
 
 /** Grupos del menú filtrados por los permisos del usuario actual. */
 export function useNavigationGroups() {
+  // Solo cuentan los permisos que el rol/usuario realmente tiene guardados: antes aquí se
+  // sumaban permisos "de fábrica" según el NOMBRE del rol (Operaria, Secretaria...) aunque
+  // el administrador los hubiera quitado, y el menú mostraba pantallas de más.
   const { user, hasPermissionByName, isAdmin, hasRole } = useAuth();
   // Roles acotados (Cajera) solo ven las opciones de sus rutas permitidas.
   const restrictedRole = getRestrictedRole(hasRole);
-  const roleName = useMemo(() => {
-    const roleValue = (user as { role?: unknown; roles?: unknown[] } | null)?.role;
-    if (typeof roleValue === "string") return roleValue.toLowerCase();
-    if (roleValue && typeof roleValue === "object" && "name" in roleValue) {
-      return String((roleValue as { name?: unknown }).name ?? "").toLowerCase();
-    }
-    const firstRole = (user as { roles?: unknown[] } | null)?.roles?.[0];
-    if (typeof firstRole === "string") return firstRole.toLowerCase();
-    if (firstRole && typeof firstRole === "object" && "name" in firstRole) {
-      return String((firstRole as { name?: unknown }).name ?? "").toLowerCase();
-    }
-    return "";
-  }, [user]);
-
   const permissionNames = useMemo(() => {
     const names: string[] = [];
     const directPermissions = (user as { permissions?: unknown[] } | null)?.permissions;
@@ -403,65 +371,8 @@ export function useNavigationGroups() {
       );
     }
 
-    if (["admin", "superadmin"].includes(roleName.replace(/\s+/g, ""))) {
-      names.push(
-        "dashboard:view",
-        "appointments:view",
-        "appointments:manage",
-        "clients:view",
-        "clients:manage",
-        "payments:view",
-        "payments:manage",
-        "services:view",
-        "services:manage",
-        "inventory:view",
-        "inventory:manage",
-        "catalog:view",
-        "catalog:manage",
-        "forms:view",
-        "forms:manage",
-        "branches:view",
-        "branches:manage",
-        "users:manage",
-        "audit:view",
-        "settings:view",
-        "ai:view",
-        "ai:manage",
-      );
-    } else if (roleName === "operaria") {
-      names.push(
-        "clients:view",
-        "clients:manage",
-        "services:view",
-        "services:manage",
-        "appointments:view",
-        "appointments:manage",
-        "catalog:view",
-        "forms:view",
-        "tracking:view",
-        "tracking:manage",
-        "payments:view",
-        "branches:view",
-      );
-    } else if (roleName === "secretaria") {
-      names.push(
-        "clients:view",
-        "clients:manage",
-        "payments:view",
-        "payments:manage",
-        "services:view",
-        "services:manage",
-        "appointments:view",
-        "appointments:manage",
-        "inventory:view",
-        "users:manage",
-      );
-    } else if (["encargadaalmacen", "encargada_almacen"].includes(roleName)) {
-      names.push("inventory:view", "inventory:manage", "catalog:view");
-    }
-
     return Array.from(new Set(names.filter(Boolean)));
-  }, [roleName, user]);
+  }, [user]);
 
   const hasPermission = (rule?: PermissionRule) => {
     if (!rule || isAdmin()) return true;
@@ -476,7 +387,7 @@ export function useNavigationGroups() {
     const children = group.children?.filter(
       (child) => hasPermission(child.permission) && isPathAllowedForRole(restrictedRole, child.path),
     );
-    if (group.children && !children?.length && (restrictedRole || !hasPermission(group.permission))) return [];
+    if (group.children && !children?.length) return [];
     if (!group.children && (!hasPermission(group.permission) || !isPathAllowedForRole(restrictedRole, group.path))) return [];
     return [{ ...group, children }];
   });

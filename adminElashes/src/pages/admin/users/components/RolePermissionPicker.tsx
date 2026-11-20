@@ -103,6 +103,7 @@ export default function RolePermissionPicker({ permissions, selectedIds, onChang
                           <span className="min-w-0 flex-1">
                             <span className="block text-xs font-semibold text-slate-800">{translatePermission(p.name)}</span>
                             <span className="block text-xs text-slate-500">{detail?.summary ?? "Permiso del sistema."}</span>
+                            {detail?.note && <span className="mt-0.5 block text-[11px] text-amber-700">⚠ {detail.note}</span>}
                           </span>
                         </label>
                         {detail && (
