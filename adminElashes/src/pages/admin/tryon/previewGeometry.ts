@@ -89,26 +89,28 @@ export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelec
         const t = i / (count - 1), x = (.5 - t) * 3, anchor = root(x);
         const length = lengthAt(profile, t, i) * scale * (.9 + .2 * random());
         const angle = (.5 - t) * profile.fan - profile.sweep * smooth((t - .35) / .65) + (random() - .5) * 6;
-        const jitter = (random() - .5) * .064;
+        const jitter = (random() - .5) * .03;
         const fan = p?.fibers_per_group != null ? ((p.single_every > 0 && i % p.single_every === 0) ? 1 : p.fibers_per_group) : base === 0 ? 1 : base === 1 ? 3 : base === 2 ? 6 : i % 2 === 0 ? 1 : 3;
         for (let f = 0; f < fan; f++) {
             fibers++;
             const spread = fan === 1 ? 0 : (f / (fan - 1) - .5) * (p?.spread ?? (base === 2 ? profile.mega_fan_spread : profile.fan_spread));
-            const len = length * (1 - .06 * Math.abs(spread) / 8);
+            // Lagrimal: arranca corto y fino y crece hacia afuera, como la app.
+            const inner = smooth(t / .16);
+            const len = length * (1 - .06 * Math.abs(spread) / 8) * (.45 + .55 * inner);
             // Separación en altura (técnica): dos niveles alternados, como la app.
             const split = p?.layer_split ?? 0;
             const lift = (fan > 1 && split > 0 ? (f % 2 === 0 ? split / 2 : -split / 2) : 0) * Math.PI / 180;
             const cosL = Math.cos(lift), sinL = Math.sin(lift);
             const prof = lift > 0 ? upperCurl : curl;
             // Intensidad del relleno: fibras un poco más marcadas, como la app.
-            const width = FIBER_WIDTH_AT_015 * diameter / .15 * profile.width_multiplier * (1 + .2 * ((profile.fill ?? 1) - 1)) * widthCap;
+            const width = FIBER_WIDTH_AT_015 * diameter / .15 * profile.width_multiplier * (1 + .2 * ((profile.fill ?? 1) - 1)) * (.55 + .45 * inner) * widthCap;
             // Leve variación de tono por fibra, para que se distingan entre sí.
             const tone = .82 + .36 * random();
             for (const crossed of [false, true]) {
                 const strip: Point[] = [];
                 for (let j = 0; j <= SAMPLES; j++) {
                     const s = j / SAMPLES, theta = (angle + spread * openAt(s)) * Math.PI / 180;
-                    const cx = x + Math.sin(theta) * len * (s ** 1.12 + .18 * s * s) + jitter * len * Math.sin(Math.PI * s);
+                    const cx = x + Math.sin(theta) * len * 1.18 * s + jitter * len * Math.sin(Math.PI * s);
                     // Fibra en su plano (sube, se dobla hacia atrás) y luego proyectada hacia adelante.
                     // Plano de la fibra (y sube, z hacia adelante), nivel y proyección como la app.
                     const y0 = Math.cos(theta) * len * prof.up[j], z0 = -len * prof.back[j];
