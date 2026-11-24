@@ -39,6 +39,7 @@ import {
   PanelLeftOpen,
   X,
   Droplet,
+  Spline,
 } from "lucide-react";
 
 type PermissionRule = string | string[];
@@ -362,6 +363,12 @@ export default function AppSidebar({
             name: "Colores",
             path: "/tryon/colors",
             icon: <Droplet size={15} />,
+            permission: ["catalog:view", "catalog:manage"],
+          },
+          {
+            name: "Curvaturas",
+            path: "/tryon/curls",
+            icon: <Spline size={15} />,
             permission: ["catalog:view", "catalog:manage"],
           },
           {

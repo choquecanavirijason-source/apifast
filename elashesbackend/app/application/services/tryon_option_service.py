@@ -5,9 +5,12 @@ from sqlalchemy.exc import IntegrityError
 from app.domain.entities.tryon_style import TryOnOption, TryOnOptionVersion, TryOnStyle
 from app.presentation.schemas.tryon import OptionDraft
 
-KINDS=("length","technique","thickness","color")
-FIELDS={"length":"allowed_lengths","technique":"allowed_techniques","thickness":"allowed_thicknesses","color":"allowed_colors"}
-LABELS={"length":"largo","technique":"técnica","thickness":"grosor","color":"color"}
+KINDS=("length","technique","thickness","color","curl")
+FIELDS={"length":"allowed_lengths","technique":"allowed_techniques","thickness":"allowed_thicknesses","color":"allowed_colors","curl":"allowed_curls"}
+LABELS={"length":"largo","technique":"técnica","thickness":"grosor","color":"color","curl":"curvatura"}
+# Curvaturas iniciales: las de las bandejas del salón como punto de partida
+# (el salón crea las suyas). (nombre, grados, posición del doblez, nitidez).
+DEFAULT_CURLS=(("Recta",0,.5,0),("Curva J",25,.6,.2),("Curva B",35,.55,.2),("Curva C",50,.5,.25),("Curva CC",62,.5,.3),("Curva D",72,.45,.3),("Curva DD",85,.45,.35),("Curva L",60,.3,.9),("Curva LC",72,.3,.7))
 # Paleta inicial. El negro (0) es el aspecto aprobado de todos los estilos.
 DEFAULT_COLORS=(("Negro","#111111"),("Café oscuro","#3B2416"),("Café","#6B4226"),("Azul noche","#1F2A4A"),("Borgoña","#5A1A2B"))
 
@@ -19,11 +22,14 @@ def validate(kind,option):
     if kind=="technique" and (p.base_technique is None or p.scale is not None or p.diameter is not None): raise HTTPException(422,"La técnica necesita una distribución base")
     if kind=="color" and (p.color is None or p.scale is not None or p.diameter is not None or p.base_technique is not None): raise HTTPException(422,"El color necesita un valor hexadecimal, por ejemplo #3B2416")
     if kind!="color" and p.color is not None: raise HTTPException(422,"El color corresponde al catálogo de colores")
+    curl_fields=(p.curl_deg,p.bend_position,p.bend_sharpness)
+    if kind=="curl" and (any(v is None for v in curl_fields) or p.scale is not None or p.diameter is not None or p.base_technique is not None): raise HTTPException(422,"La curvatura necesita grados, posición y nitidez del doblez")
+    if kind!="curl" and any(v is not None for v in curl_fields): raise HTTPException(422,"La forma del doblez corresponde al catálogo de curvaturas")
     if kind!="length" and p.map_offset_mm is not None: raise HTTPException(422,"El ajuste del mapeo corresponde a los largos")
-    if kind!="technique" and (p.fibers_per_group is not None or p.spread is not None or p.density!=1 or p.single_every): raise HTTPException(422,"Los grupos de fibras corresponden a técnicas")
+    if kind!="technique" and (p.fibers_per_group is not None or p.spread is not None or p.density!=1 or p.single_every or p.layer_split): raise HTTPException(422,"Los grupos de fibras corresponden a técnicas")
 
 def initialize_options(db):
-    defaults={"length":[("Corto",{"scale":.78}),("Medio",{"scale":1}),("Largo",{"scale":1.23})],"thickness":[(f"{n:.2f} mm",{"diameter":n}) for n in (.05,.07,.10,.15)],"technique":[(n,{"base_technique":i}) for i,n in enumerate(("Clásica","Volumen","Megavolumen","Híbrida"))],"color":[(n,{"color":c}) for n,c in DEFAULT_COLORS]}
+    defaults={"length":[("Corto",{"scale":.78}),("Medio",{"scale":1}),("Largo",{"scale":1.23})],"thickness":[(f"{n:.2f} mm",{"diameter":n}) for n in (.05,.07,.10,.15)],"technique":[(n,{"base_technique":i}) for i,n in enumerate(("Clásica","Volumen","Megavolumen","Híbrida"))],"color":[(n,{"color":c}) for n,c in DEFAULT_COLORS],"curl":[(n,{"curl_deg":d,"bend_position":bp,"bend_sharpness":bs}) for n,d,bp,bs in DEFAULT_CURLS]}
     for kind,items in defaults.items():
         for i,(name,params) in enumerate(items):
             key=f"{kind}:{i}"
@@ -100,7 +106,12 @@ def publish(db,kind,id,expected):
     if not option.is_active:
         remaining={r.published["id"] for r in rows if r.kind==kind and r.key!=row.key and r.published and r.published["is_active"]}
         field=FIELDS[kind]
-        if not remaining or any(s.published and s.published["is_active"] and not set(s.published.get(field,[0]))&remaining for s in styles): raise HTTPException(422,"Asigna otra opción a los estilos que dependen de esta antes de desactivarla")
+        # Sin curvaturas habilitadas (lista vacía) un estilo no depende de ninguna.
+        empty_ok=kind=="curl"
+        def depends(s):
+            chosen=set(s.published.get(field,[] if empty_ok else [0]))
+            return bool(chosen) and not chosen&remaining
+        if (not remaining and not empty_ok) or any(s.published and s.published["is_active"] and depends(s) for s in styles): raise HTTPException(422,"Asigna otra opción a los estilos que dependen de esta antes de desactivarla")
     if row.published and row.published["revision"]==row.revision: return response(row)
     row.published={**option.model_dump(mode="json"),"revision":row.revision}
     db.add(TryOnOptionVersion(option_key=row.key,revision=row.revision,snapshot=row.published));db.commit();db.refresh(row)

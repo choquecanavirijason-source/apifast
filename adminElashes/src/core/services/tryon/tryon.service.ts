@@ -30,11 +30,15 @@ export interface StyleDraft {
     allowed_thicknesses: number[];
     /** Colores de pestaña disponibles. Los estilos anteriores no lo traen: solo negro (0). */
     allowed_colors?: number[];
+    /** Curvaturas habilitadas. Vacía o ausente: el estilo usa su propia curva. */
+    allowed_curls?: number[];
     defaults: {
         length: number;
         technique: number;
         thickness: number;
         color?: number;
+        /** `null`/ausente: curva propia del estilo. */
+        curl?: number | null;
     };
     eye_types: string[];
     /** Mapeo para la técnica (mm por zona, largo Medio). `null`: lo calcula la app. */
@@ -78,7 +82,7 @@ export function tryOnError(error: unknown): string {
         }) => e.msg ?? 'Revisa los campos').join('. ');
     return 'No se pudo completar la operación. Inténtalo de nuevo.';
 }
-export type OptionKind = 'length' | 'technique' | 'thickness' | 'color';
+export type OptionKind = 'length' | 'technique' | 'thickness' | 'color' | 'curl';
 export interface OptionParameters {
     scale: number | null;
     diameter: number | null;
@@ -87,10 +91,16 @@ export interface OptionParameters {
     single_every: number;
     density: number;
     spread: number | null;
+    /** Solo técnicas: separación en altura (grados) entre las fibras del grupo, en dos niveles. */
+    layer_split?: number;
     /** Solo en el catálogo de colores: `#RRGGBB`. */
     color?: string | null;
     /** Solo largos: mm que se desplaza el mapeo del estilo. */
     map_offset_mm?: number | null;
+    /** Solo curvaturas: grados del doblez, posición (0 base … 1 punta) y nitidez (0 gradual … 1 quiebre). */
+    curl_deg?: number | null;
+    bend_position?: number | null;
+    bend_sharpness?: number | null;
 }
 export interface SalonOption {
     id: number;
@@ -107,7 +117,7 @@ export interface OptionRow {
     revision: number;
     published_revision: number | null;
 }
-export type OptionGroups = Record<'length' | 'technique' | 'thickness', OptionRow[]> & { color?: OptionRow[] };
+export type OptionGroups = Record<'length' | 'technique' | 'thickness', OptionRow[]> & { color?: OptionRow[]; curl?: OptionRow[] };
 export const TryOnOptionsService = {
     list: async (kind: OptionKind) => (await api.get<OptionRow[]>(`/catalogs/tryon/options/${kind}`)).data,
     create: async (kind: OptionKind, option: SalonOption) => (await api.post<OptionRow>(`/catalogs/tryon/options/${kind}`, option)).data,
@@ -115,7 +125,7 @@ export const TryOnOptionsService = {
     /** Orden de las opciones: se aplica al instante, sin crear versión. */
     reorder: async (kind: OptionKind, ids: number[]) => (await api.post<OptionRow[]>(`/catalogs/tryon/options/${kind}/reorder`, { ids })).data,
     publish: async (kind: OptionKind, id: number, revision: number) => (await api.post<OptionRow>(`/catalogs/tryon/options/${kind}/${id}/publish`, { expected_revision: revision })).data,
-    all: async (): Promise<OptionGroups> => { const [length, technique, thickness, color] = await Promise.all(['length', 'technique', 'thickness', 'color'].map(k => TryOnOptionsService.list(k as OptionKind))); return { length, technique, thickness, color }; }
+    all: async (): Promise<OptionGroups> => { const [length, technique, thickness, color, curl] = await Promise.all(['length', 'technique', 'thickness', 'color', 'curl'].map(k => TryOnOptionsService.list(k as OptionKind))); return { length, technique, thickness, color, curl }; }
 };
 
 

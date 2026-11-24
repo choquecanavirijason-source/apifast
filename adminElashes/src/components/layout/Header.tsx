@@ -93,6 +93,7 @@ const APP_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "section-tryon-techniques", label: "Técnicas del probador", href: "/tryon/techniques" },
   { id: "section-tryon-thicknesses", label: "Grosores del probador", href: "/tryon/thicknesses" },
   { id: "section-tryon-colors", label: "Colores de pestaña del probador", href: "/tryon/colors" },
+  { id: "section-tryon-curls", label: "Curvaturas del probador", href: "/tryon/curls" },
   { id: "section-eye-recommendations", label: "Tipos de ojo y recomendaciones", href: "/eye-types" },
   { id: "section-tryon", label: "Estilos y efectos", href: "/designs" },
   { id: "section-dashboard", label: "Dashboard", href: "/" },

@@ -45,19 +45,22 @@ function NumberField({ label, value, min, max, step = 1, onChange, onHelp }: {
     return <label htmlFor={id} className={fieldLabel}>{label}<input id={id} type="number" className={`${fieldInput} mt-1.5 tabular-nums`} min={min} max={max} step={step} value={value} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n))
         onChange(Math.max(min, Math.min(max, step === 1 ? Math.round(n) : n))); }}/></label>;
 }
-/** Estilos guardados antes del catálogo de colores: solo negro (0). */
+/** Estilos guardados antes del catálogo de colores: solo negro (0); antes
+ * de las curvaturas: sin curvaturas (usan su propia curva). */
 function withColors(style: StyleDraft): StyleDraft {
-    return { ...style, allowed_colors: style.allowed_colors ?? [0], defaults: { ...style.defaults, color: style.defaults.color ?? 0 } };
+    const curls = style.allowed_curls ?? [];
+    return { ...style, allowed_colors: style.allowed_colors ?? [0], allowed_curls: curls, defaults: { ...style.defaults, color: style.defaults.color ?? 0, curl: curls.length ? (style.defaults.curl ?? curls[0]) : null } };
 }
 const allowedColors = (style: StyleDraft) => style.allowed_colors ?? [0];
+const allowedCurls = (style: StyleDraft) => style.allowed_curls ?? [];
 export default function TryOnCatalogPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [eyeNames, setEyeNames] = useState<string[][]>(eyeCategories.map(category => [category.code, category.name]));
     const [helpTopic, setHelpTopic] = useState<StyleHelpKey | null>(null);
     const [mapTutorial, setMapTutorial] = useState(false);
-    const [optionGroups, setOptionGroups] = useState<OptionGroups>({ length: [], technique: [], thickness: [], color: [] });
+    const [optionGroups, setOptionGroups] = useState<OptionGroups>({ length: [], technique: [], thickness: [], color: [], curl: [] });
     const optionNames = (kind: keyof OptionGroups, fallback: string[]) => Object.assign([...fallback], Object.fromEntries((optionGroups[kind] ?? []).map(r => [r.option.id, (r.published ?? r.option).name])));
-    const lengths = optionNames('length', originalLengths), techniques = optionNames('technique', baseTechniques), thicknesses = optionNames('thickness', originalThicknesses), colors = optionNames('color', ['Negro']);
+    const lengths = optionNames('length', originalLengths), techniques = optionNames('technique', baseTechniques), thicknesses = optionNames('thickness', originalThicknesses), colors = optionNames('color', ['Negro']), curls = optionNames('curl', []);
     /** Color publicado (o del borrador) de cada opción, para las muestras. */
     const colorHex = (id: number) => { const row = optionGroups.color?.find(r => (r.published ?? r.option).id === id); return (row?.published ?? row?.option)?.parameters.color ?? '#111111'; };
     const activeOptions = (kind: keyof OptionGroups) => (optionGroups[kind] ?? []).flatMap(r => r.published?.is_active ? [r.published] : []);
@@ -65,11 +68,11 @@ export default function TryOnCatalogPage() {
     const [deleting, setDeleting] = useState<StyleRow | null>(null);
     const [rows, setRows] = useState<StyleRow[]>([]), [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
     const [opened, setOpened] = useState(false), [record, setRecord] = useState<StyleRow | null>(null), [draft, setDraft] = useState<StyleDraft | null>(null), [tab, setTab] = useState<'general' | 'shape' | 'finish' | 'options'>('general');
-    const [versions, setVersions] = useState<StyleVersion[]>([]), [showHistory, setShowHistory] = useState(false), [previewSelection, setPreviewSelection] = useState({ length: 1, technique: 0, thickness: 3, color: 0 });
+    const [versions, setVersions] = useState<StyleVersion[]>([]), [showHistory, setShowHistory] = useState(false), [previewSelection, setPreviewSelection] = useState<{ length: number; technique: number; thickness: number; color: number; curl: number | null }>({ length: 1, technique: 0, thickness: 3, color: 0, curl: null });
     useEffect(() => {
         if (draft)
-            setPreviewSelection(p => ({ length: draft.allowed_lengths.includes(p.length) ? p.length : draft.allowed_lengths[0], technique: draft.allowed_techniques.includes(p.technique) ? p.technique : draft.allowed_techniques[0], thickness: draft.allowed_thicknesses.includes(p.thickness) ? p.thickness : draft.allowed_thicknesses[0], color: allowedColors(draft).includes(p.color) ? p.color : allowedColors(draft)[0] }));
-    }, [draft?.allowed_lengths, draft?.allowed_techniques, draft?.allowed_thicknesses, draft?.allowed_colors]);
+            setPreviewSelection(p => ({ length: draft.allowed_lengths.includes(p.length) ? p.length : draft.allowed_lengths[0], technique: draft.allowed_techniques.includes(p.technique) ? p.technique : draft.allowed_techniques[0], thickness: draft.allowed_thicknesses.includes(p.thickness) ? p.thickness : draft.allowed_thicknesses[0], color: allowedColors(draft).includes(p.color) ? p.color : allowedColors(draft)[0], curl: allowedCurls(draft).length ? (p.curl !== null && allowedCurls(draft).includes(p.curl) ? p.curl : (draft.defaults.curl ?? allowedCurls(draft)[0])) : null }));
+    }, [draft?.allowed_lengths, draft?.allowed_techniques, draft?.allowed_thicknesses, draft?.allowed_colors, draft?.allowed_curls]);
     const [pendingConfirmation, setPendingConfirmation] = useState<'close' | number | null>(null);
     // Los estilos guardados antes del catálogo de colores se comparan ya completados
     // con «solo negro»: abrirlos no debe marcarlos como modificados.
@@ -117,9 +120,14 @@ export default function TryOnCatalogPage() {
             if (!next.includes(updated.defaults[kind] ?? -1))
                 updated.defaults[kind] = next[0];
         }
+        // Curvaturas: la lista vacía es válida (curva propia del estilo).
+        const curlChoices = activeOptions('curl').map(o => o.id);
+        const curlsAllowed = allowedCurls(updated).filter(id => curlChoices.includes(id));
+        updated.allowed_curls = curlsAllowed;
+        updated.defaults.curl = curlsAllowed.length ? (curlsAllowed.includes(updated.defaults.curl ?? -1) ? updated.defaults.curl : curlsAllowed[0]) : null;
         return updated;
     }
-    function open(row: StyleRow) { const normalized = availableSelection(row.style); setRecord(row); setDraft(normalized); setPreviewSelection({ ...normalized.defaults, color: normalized.defaults.color ?? 0 }); setOpened(true); setTab('general'); setShowHistory(false); }
+    function open(row: StyleRow) { const normalized = availableSelection(row.style); setRecord(row); setDraft(normalized); setPreviewSelection({ ...normalized.defaults, color: normalized.defaults.color ?? 0, curl: normalized.defaults.curl ?? null }); setOpened(true); setTab('general'); setShowHistory(false); }
     useEffect(() => {
         const key = searchParams.get('style');
         if (loading || error || !key) return;
@@ -152,7 +160,7 @@ export default function TryOnCatalogPage() {
         style.is_active = true;
         setRecord(null);
         setDraft(style);
-        setPreviewSelection({ ...style.defaults, color: style.defaults.color ?? 0 });
+        setPreviewSelection({ ...style.defaults, color: style.defaults.color ?? 0, curl: style.defaults.curl ?? null });
         setOpened(true);
         setTab('general');
         setShowHistory(false);
@@ -267,6 +275,14 @@ export default function TryOnCatalogPage() {
             setBusy(false);
         }
     }
+    function toggleCurl(value: number) {
+        if (!draft)
+            return;
+        const previous = allowedCurls(draft);
+        const next = previous.includes(value) ? previous.filter(i => i !== value) : [...previous, value].sort((a, b) => a - b);
+        const current = draft.defaults.curl ?? null;
+        change({ allowed_curls: next, defaults: { ...draft.defaults, curl: next.length ? (current !== null && next.includes(current) ? current : next[0]) : null } });
+    }
     function toggleOption(field: 'allowed_lengths' | 'allowed_techniques' | 'allowed_thicknesses' | 'allowed_colors', value: number) {
         if (!draft)
             return;
@@ -308,13 +324,14 @@ export default function TryOnCatalogPage() {
       <EditorSection title="Curvatura y abanico" description="Define cómo se curvan las fibras y hacia dónde se abren. Usa el ícono de ayuda para ver una demostración."><div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3"><NumberField onHelp={() => setHelpTopic('curl')} label="Curvatura" value={profile.curl} min={0} max={1.2} step={.02} onChange={v => shape({ curl: v })}/><NumberField onHelp={() => setHelpTopic('fan')} label="Apertura del abanico" value={profile.fan} min={0} max={35} onChange={v => shape({ fan: v })}/><NumberField onHelp={() => setHelpTopic('sweep')} label="Barrido hacia la sien" value={profile.sweep} min={-40} max={40} onChange={v => shape({ sweep: v })}/><NumberField onHelp={() => setHelpTopic('spike_every')} label="Pico cada N grupos (0: sin picos)" value={profile.spike_every} min={0} max={16} onChange={v => shape({ spike_every: v, spike_offset: v ? Math.min(profile.spike_offset, v - 1) : 0 })}/><NumberField onHelp={() => setHelpTopic('spike_multiplier')} label="Altura relativa del pico" value={profile.spike_multiplier} min={.5} max={2.5} step={.05} onChange={v => shape({ spike_multiplier: v })}/><NumberField onHelp={() => setHelpTopic('width_multiplier')} label="Presencia de las fibras" value={profile.width_multiplier} min={.4} max={1.8} step={.05} onChange={v => shape({ width_multiplier: v })}/><NumberField onHelp={() => setHelpTopic('fan_spread')} label="Apertura en volumen" value={profile.fan_spread} min={0} max={24} onChange={v => { shape({ fan_spread: v }); previewBase([1, 3]); }}/><NumberField onHelp={() => setHelpTopic('mega_fan_spread')} label="Apertura en megavolumen" value={profile.mega_fan_spread} min={0} max={24} onChange={v => { shape({ mega_fan_spread: v }); previewBase([2]); }}/></div></EditorSection>
      </>}
      {tab === 'options' && <EditorSection title="Combinaciones disponibles" description="Elige qué largos, técnicas, grosores y colores podrá probar la clienta con este estilo, y cuál aparece al abrirlo."><div className="divide-y divide-[#edebe9]">{([['allowed_lengths', 'length', 'Largo', lengths], ['allowed_techniques', 'technique', 'Técnica', techniques], ['allowed_thicknesses', 'thickness', 'Grosor', thicknesses]] as const).map(([field, setting, label, options]) => <div key={field} className="grid gap-4 py-4 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_220px]"><div><h4 className="mb-2.5 text-sm font-semibold text-[#323130]">{label}</h4><div className="flex flex-wrap gap-2">{activeOptions(setting).map(({ name, id: i }) => <OptionChip key={i} label={name} checked={draft[field].includes(i)} onChange={() => toggleOption(field, i)}/>)}</div></div><label className={fieldLabel}>Selección inicial<select className={`${fieldInput} mt-1.5 normal-case tracking-normal`} value={draft.defaults[setting]} onChange={e => change({ defaults: { ...draft.defaults, [setting]: Number(e.target.value) } })}>{draft[field].map(i => <option key={i} value={i}>{options[i]}</option>)}</select></label></div>)}
-      <div className="grid gap-4 pt-4 md:grid-cols-[minmax(0,1fr)_220px]"><div><h4 className="mb-1 text-sm font-semibold text-[#323130]">Color</h4><p className="mb-2.5 text-xs text-[#605e5c]">Negro conserva el aspecto aprobado. Crea más colores en <Link className="font-medium text-[#094732] underline-offset-2 hover:underline" to="/tryon/colors">Gestionar colores</Link>.</p><div className="flex flex-wrap gap-2">{activeOptions('color').map(({ name, id: i, parameters }) => <ColorChip key={i} label={name} color={parameters.color ?? '#111111'} checked={allowedColors(draft).includes(i)} onChange={() => toggleOption('allowed_colors', i)}/>)}</div></div><label className={fieldLabel}>Selección inicial<select className={`${fieldInput} mt-1.5 normal-case tracking-normal`} value={draft.defaults.color ?? 0} onChange={e => change({ defaults: { ...draft.defaults, color: Number(e.target.value) } })}>{allowedColors(draft).map(i => <option key={i} value={i}>{colors[i] ?? 'Negro'}</option>)}</select></label></div></div></EditorSection>}
+      <div className="grid gap-4 pt-4 md:grid-cols-[minmax(0,1fr)_220px]"><div><h4 className="mb-1 text-sm font-semibold text-[#323130]">Color</h4><p className="mb-2.5 text-xs text-[#605e5c]">Negro conserva el aspecto aprobado. Crea más colores en <Link className="font-medium text-[#094732] underline-offset-2 hover:underline" to="/tryon/colors">Gestionar colores</Link>.</p><div className="flex flex-wrap gap-2">{activeOptions('color').map(({ name, id: i, parameters }) => <ColorChip key={i} label={name} color={parameters.color ?? '#111111'} checked={allowedColors(draft).includes(i)} onChange={() => toggleOption('allowed_colors', i)}/>)}</div></div><label className={fieldLabel}>Selección inicial<select className={`${fieldInput} mt-1.5 normal-case tracking-normal`} value={draft.defaults.color ?? 0} onChange={e => change({ defaults: { ...draft.defaults, color: Number(e.target.value) } })}>{allowedColors(draft).map(i => <option key={i} value={i}>{colors[i] ?? 'Negro'}</option>)}</select></label></div>
+      <div className="grid gap-4 pt-4 md:grid-cols-[minmax(0,1fr)_220px]"><div><h4 className="mb-1 text-sm font-semibold text-[#323130]">Curvatura</h4><p className="mb-2.5 text-xs text-[#605e5c]">Sin ninguna marcada, el estilo usa su propia curva y el probador no ofrece curvaturas. Crea más en <Link className="font-medium text-[#094732] underline-offset-2 hover:underline" to="/tryon/curls">Gestionar curvaturas</Link>.</p><div className="flex flex-wrap gap-2">{activeOptions('curl').map(({ name, id: i }) => <OptionChip key={i} label={name} checked={allowedCurls(draft).includes(i)} onChange={() => toggleCurl(i)}/>)}</div></div><label className={fieldLabel}>Selección inicial<select className={`${fieldInput} mt-1.5 normal-case tracking-normal`} disabled={!allowedCurls(draft).length} value={draft.defaults.curl ?? ''} onChange={e => change({ defaults: { ...draft.defaults, curl: Number(e.target.value) } })}>{allowedCurls(draft).length ? allowedCurls(draft).map(i => <option key={i} value={i}>{curls[i] ?? `Curvatura ${i}`}</option>) : <option value="">Curva del estilo</option>}</select></label></div></div></EditorSection>}
     </fieldset>
     {showHistory && <EditorSection className="mt-5" title="Versiones publicadas" icon={<History size={15}/>} description="Recuperar una versión la deja como borrador para que la revises antes de publicar."><div className="divide-y divide-[#edebe9]">{versions.length === 0 ? <p className="text-sm text-[#605e5c]">Todavía no se ha publicado este estilo.</p> : versions.map(v => <div className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm" key={v.revision}><span className="font-semibold text-[#323130]">Versión {v.revision} · <span className="text-xs font-normal text-[#605e5c]">{new Date(v.published_at).toLocaleString()}</span></span>{canManage && <button type="button" className={`${footerButton.ghost} !py-1.5 text-[#094732]`} disabled={busy} onClick={() => void restore(v.revision)}><RotateCcw size={14}/>Recuperar como borrador</button>}</div>)}</div></EditorSection>}
     
     <div className="mt-5"><div className="rounded-sm border border-[#c6ddd1] bg-[#eef6f1] px-4 py-3"><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-[#094732]"><UploadCloud size={14}/>Publicación</p><p className="mt-1.5 text-xs leading-relaxed text-[#2f5a48]">Guardar conserva un borrador. Publicar actualiza la colección de la app al volver a abrir el probador. Las versiones publicadas quedan en el historial.</p></div></div>
     </div>
-    <aside className="min-w-0 xl:overflow-y-auto xl:overscroll-contain xl:py-5 xl:pr-1"><EditorSection title="Vista previa 3D" icon={<Box size={15}/>} bodyClassName="p-4"><Lash3DPreview profile={profile} selection={previewSelection} options={optionGroups}/><div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#edebe9] pt-3">{([['length', 'Largo', lengths, draft.allowed_lengths], ['technique', 'Técnica', techniques, draft.allowed_techniques], ['thickness', 'Grosor', thicknesses, draft.allowed_thicknesses], ['color', 'Color', colors, allowedColors(draft)]] as const).map(([key, label, names, allowed]) => <label className={`${fieldLabel} grid gap-1`} key={key}>{label}<select className={`${fieldInput} !py-1 normal-case tracking-normal`} value={allowed.includes(previewSelection[key]) ? previewSelection[key] : allowed[0]} onChange={e => setPreviewSelection(p => ({ ...p, [key]: Number(e.target.value) }))}>{allowed.map(i => <option key={i} value={i}>{names[i]}</option>)}</select></label>)}</div><p className="mt-2 text-[11px] leading-snug text-[#605e5c]">Párpado de ejemplo; el encaje real se ve en la cámara del probador.</p></EditorSection>
+    <aside className="min-w-0 xl:overflow-y-auto xl:overscroll-contain xl:py-5 xl:pr-1"><EditorSection title="Vista previa 3D" icon={<Box size={15}/>} bodyClassName="p-4"><Lash3DPreview profile={profile} selection={previewSelection} options={optionGroups}/><div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#edebe9] pt-3">{([['length', 'Largo', lengths, draft.allowed_lengths], ['technique', 'Técnica', techniques, draft.allowed_techniques], ['thickness', 'Grosor', thicknesses, draft.allowed_thicknesses], ['color', 'Color', colors, allowedColors(draft)]] as const).map(([key, label, names, allowed]) => <label className={`${fieldLabel} grid gap-1`} key={key}>{label}<select className={`${fieldInput} !py-1 normal-case tracking-normal`} value={allowed.includes(previewSelection[key]) ? previewSelection[key] : allowed[0]} onChange={e => setPreviewSelection(p => ({ ...p, [key]: Number(e.target.value) }))}>{allowed.map(i => <option key={i} value={i}>{names[i]}</option>)}</select></label>)}<label className={`${fieldLabel} col-span-2 grid gap-1`}>Curvatura<select className={`${fieldInput} !py-1 normal-case tracking-normal`} disabled={!allowedCurls(draft).length} value={previewSelection.curl ?? ''} onChange={e => setPreviewSelection(p => ({ ...p, curl: Number(e.target.value) }))}>{allowedCurls(draft).length ? allowedCurls(draft).map(i => <option key={i} value={i}>{curls[i] ?? `Curvatura ${i}`}</option>) : <option value="">Curva propia del estilo</option>}</select></label></div><p className="mt-2 text-[11px] leading-snug text-[#605e5c]">Párpado de ejemplo; el encaje real se ve en la cámara del probador.</p></EditorSection>
 </aside>
    </div>}
   </TryOnModal>

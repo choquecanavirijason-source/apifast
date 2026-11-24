@@ -31,6 +31,7 @@ import {
   Users,
   Wand2,
   Droplet,
+  Spline,
 } from "lucide-react";
 import useAuth from "@/core/hooks/useAuth";
 import { getRestrictedRole, isPathAllowedForRole } from "@/router/roleScope";
@@ -245,6 +246,13 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: "Colores de pestaña",
         path: "/tryon/colors",
         icon: Droplet,
+        permission: ["catalog:view", "catalog:manage"],
+      },
+      {
+        label: "Curvaturas",
+        description: "Formas de curva de la fibra",
+        path: "/tryon/curls",
+        icon: Spline,
         permission: ["catalog:view", "catalog:manage"],
       },
       {

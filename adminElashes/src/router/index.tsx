@@ -178,6 +178,7 @@ export default function AppRouter() {
             <Route path="tryon/techniques" element={<TryOnOptionsPage kind="technique" />} />
             <Route path="tryon/thicknesses" element={<TryOnOptionsPage kind="thickness" />} />
             <Route path="tryon/colors" element={<TryOnOptionsPage kind="color" />} />
+            <Route path="tryon/curls" element={<TryOnOptionsPage kind="curl" />} />
             <Route path="eye-types" element={<EyeRecommendations />} />
             <Route path="eye-types/legacy" element={<EyeTypes />} />
             <Route path="designs" element={<TryOnCatalogPage />} />

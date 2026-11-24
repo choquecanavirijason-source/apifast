@@ -13,7 +13,9 @@ export function resolvePreviewSettings(profile: RenderProfile, length: number, t
     const d = options?.thickness.find(r => r.option.id === thickness)?.published?.parameters;
     const p = options?.technique.find(r => r.option.id === technique)?.published?.parameters;
     const base = p?.base_technique ?? technique;
-    const count = p?.fibers_per_group != null || (p?.density ?? 1) !== 1 ? Math.max(8, Math.min(120, Math.floor(240 / (p?.fibers_per_group ?? [1, 3, 6, 3][base])), Math.round(profile.roots[base] * (p?.density ?? 1)))) : profile.roots[base];
+    // Igual que la app (CatEyeRecipe.roots): densidad x1.6, tope 360 fibras por ojo.
+    const maxFan = p?.fibers_per_group ?? [1, 3, 6, 3][base];
+    const count = Math.max(8, Math.min(180, Math.floor(360 / maxFan), Math.round(profile.roots[base] * (p?.density ?? 1) * 1.6)));
     const scale = l?.scale ?? [.78, 1, 1.23][length], diameter = d?.diameter ?? [.05, .07, .10, .15][thickness];
     return { p, base, count, scale, diameter };
 }

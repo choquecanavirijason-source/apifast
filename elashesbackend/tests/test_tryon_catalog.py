@@ -181,6 +181,12 @@ class TryOnCatalogTests(unittest.TestCase):
         opts.save(self.db,"technique",0,OptionDraft.model_validate(edited),1)
         opts.initialize_options(self.db)
         self.assertEqual(opts.get(self.db,"technique",0).draft["name"],"Clásica del salón")
+        # Separación en altura (pestañas en Y de dos niveles): solo técnicas, 0–40°.
+        created=opts.create(self.db,"technique",OptionDraft(name="Y de dos niveles",parameters={"base_technique":1,"fibers_per_group":2,"layer_split":30}))
+        self.assertEqual(created["option"]["parameters"]["layer_split"],30)
+        self.assertEqual(opts.get(self.db,"technique",0).draft["parameters"].get("layer_split",0),0)
+        with self.assertRaises(ValidationError):OptionDraft(name="Inválida",parameters={"base_technique":1,"layer_split":41})
+        with self.assertRaises(HTTPException):opts.create(self.db,"length",OptionDraft(name="Largo con niveles",parameters={"scale":1,"layer_split":10}))
 
     def test_lash_map_is_optional_validated_and_published_to_the_app(self):
         from app.application.services import tryon_option_service as opts
@@ -266,6 +272,51 @@ class TryOnCatalogTests(unittest.TestCase):
         with self.assertRaises(ValidationError):TryOnSelection.model_validate(saved)
         old=TryOnSelection(style_key="cateye",style_name="Cat Eye",revision=1,builtin_style="cateye",render_mode="original",selection={"length":1,"technique":0,"thickness":3})
         self.assertEqual(old.selection.color,0);self.assertIsNone(old.resolved_options)
+
+    def test_lash_curls_are_optional_and_keep_the_style_curve_by_default(self):
+        from app.application.services import tryon_option_service as opts
+        from app.presentation.schemas.tryon import OptionDraft,TryOnSelection
+        manifest=service.manifest(self.db)
+        curls=manifest["options"]["curl"]
+        self.assertEqual([o["name"] for o in curls][:4],["Recta","Curva J","Curva B","Curva C"])
+        self.assertEqual(curls[0]["parameters"]["curl_deg"],0)
+        # Los estilos existentes conservan su propia curva: sin curvaturas.
+        for style in manifest["styles"]:
+            self.assertEqual(style["allowed_curls"],[]);self.assertIsNone(style["defaults"]["curl"])
+        # Un estilo publicado antes de las curvaturas (sin los campos) se lee igual.
+        row=service.get_style(self.db,"cateye");legacy=deepcopy(row.published);legacy.pop("allowed_curls",None);legacy["defaults"].pop("curl",None)
+        row.published=legacy;self.db.commit()
+        visible=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="cateye")
+        self.assertEqual((visible["allowed_curls"],visible["defaults"]["curl"]),([],None))
+        # Validación: rangos, los tres parámetros juntos y sin cruzar categorías.
+        for params in ({"curl_deg":151,"bend_position":.5,"bend_sharpness":0},{"curl_deg":40,"bend_position":.95,"bend_sharpness":0},{"curl_deg":40,"bend_position":.5,"bend_sharpness":1.2}):
+            with self.assertRaises(ValidationError):OptionDraft(name="Inválida",parameters=params)
+        with self.assertRaises(HTTPException):opts.create(self.db,"curl",OptionDraft(name="Sin nitidez",parameters={"curl_deg":40,"bend_position":.5}))
+        with self.assertRaises(HTTPException):opts.create(self.db,"thickness",OptionDraft(name="Grosor curvo",parameters={"diameter":.1,"curl_deg":40,"bend_position":.5,"bend_sharpness":0}))
+        # Una curva nueva (p. ej. una "ultracurva") se publica antes de asignarla.
+        created=opts.create(self.db,"curl",OptionDraft(name="Ultracurva",parameters={"curl_deg":110,"bend_position":.4,"bend_sharpness":.4}));id=created["option"]["id"]
+        style=self.custom().model_dump();style["allowed_curls"]=[3,id];style["defaults"]["curl"]=id
+        service.create_style(self.db,StyleDraft.model_validate(style))
+        with self.assertRaises(HTTPException):service.publish(self.db,"new-fashion",1)
+        self.db.rollback();opts.publish(self.db,"curl",id,1);service.publish(self.db,"new-fashion",1)
+        published=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="new-fashion")
+        self.assertEqual((published["allowed_curls"],published["defaults"]["curl"]),([3,id],id))
+        # La curva inicial debe estar habilitada; sin curvas no hay curva inicial.
+        bad=deepcopy(style);bad["defaults"]["curl"]=5
+        with self.assertRaises(ValidationError):StyleDraft.model_validate(bad)
+        bad=deepcopy(style);bad["allowed_curls"]=[];bad["defaults"]["curl"]=3
+        with self.assertRaises(ValidationError):StyleDraft.model_validate(bad)
+        # Desactivar una curva que ningún estilo usa no choca con los estilos sin curvas.
+        unused=deepcopy(opts.get(self.db,"curl",0).published);unused.pop("revision");unused["is_active"]=False
+        opts.save(self.db,"curl",0,OptionDraft.model_validate(unused),1);opts.publish(self.db,"curl",0,2)
+        # La receta guarda la curva elegida; las recetas viejas siguen siendo válidas.
+        resolved={k:opts.get(self.db,k,i).published for k,i in (("length",1),("technique",0),("thickness",3),("curl",id))}
+        saved=TryOnSelection(style_key="new-fashion",style_name="Nuevo estilo",revision=1,engine_version=2,profile=style["profile"],render_mode="procedural",selection={"length":1,"technique":0,"thickness":3,"curl":id},resolved_options=resolved).model_dump(mode="json")
+        self.assertEqual(saved["resolved_options"]["curl"]["parameters"]["curl_deg"],110)
+        saved["selection"]["curl"]=3
+        with self.assertRaises(ValidationError):TryOnSelection.model_validate(saved)
+        old=TryOnSelection(style_key="cateye",style_name="Cat Eye",revision=1,builtin_style="cateye",render_mode="original",selection={"length":1,"technique":0,"thickness":3})
+        self.assertIsNone(old.selection.curl)
 
     def test_defaults_are_exact_originals_and_bootstrap_is_idempotent(self):
         service.initialize_defaults(self.db)

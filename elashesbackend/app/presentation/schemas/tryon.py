@@ -42,6 +42,8 @@ class SelectionDefaults(StrictModel):
     # Color de la pestaña. Las recetas y estilos anteriores no lo tienen:
     # se leen como 0 (negro), el aspecto aprobado de siempre.
     color: int = Field(default=0, ge=0, le=4095)
+    # Curvatura. None = la curva propia del estilo (sin curvaturas habilitadas).
+    curl: int | None = Field(default=None, ge=0, le=4095)
 
 class StyleDraft(StrictModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,63}$")
@@ -56,6 +58,8 @@ class StyleDraft(StrictModel):
     allowed_techniques: list[int] = Field(default_factory=lambda: [0,1,2,3], min_length=1, max_length=64)
     allowed_thicknesses: list[int] = Field(default_factory=lambda: [0,1,2,3], min_length=1, max_length=64)
     allowed_colors: list[int] = Field(default_factory=lambda: [0], min_length=1, max_length=64)
+    # Vacía = el estilo usa su propia curva y el probador no ofrece curvaturas.
+    allowed_curls: list[int] = Field(default_factory=list, max_length=64)
     defaults: SelectionDefaults = Field(default_factory=SelectionDefaults)
     eye_types: list[Literal["ALMOND", "ROUND", "ELONGATED", "UPTURNED", "DOWNTURNED"]] = Field(default_factory=list, max_length=5)
     # Mapeo para la técnica: largo en mm por zona, del lagrimal al extremo,
@@ -93,6 +97,13 @@ class StyleDraft(StrictModel):
         for allowed, maximum, chosen in [(self.allowed_lengths,4095,self.defaults.length),(self.allowed_techniques,4095,self.defaults.technique),(self.allowed_thicknesses,4095,self.defaults.thickness),(self.allowed_colors,4095,self.defaults.color)]:
             if len(set(allowed)) != len(allowed) or any(type(i) is not int or i < 0 or i > maximum for i in allowed) or chosen not in allowed:
                 raise ValueError("Las opciones deben ser únicas y contener la selección predeterminada")
+        curls = self.allowed_curls
+        if len(set(curls)) != len(curls) or any(type(i) is not int or i < 0 or i > 4095 for i in curls):
+            raise ValueError("Las curvaturas deben ser únicas")
+        if curls and self.defaults.curl not in curls:
+            raise ValueError("Elige la curvatura inicial entre las habilitadas")
+        if not curls and self.defaults.curl is not None:
+            raise ValueError("Sin curvaturas habilitadas el estilo usa su propia curva")
         if len(set(self.eye_types)) != len(self.eye_types): raise ValueError("Tipo de ojo repetido")
         return self
 
@@ -153,11 +164,13 @@ class TryOnSelection(StrictModel):
                 if getattr(self.resolved_options,kind).id!=getattr(self.selection,kind): raise ValueError("La selección no coincide con sus parámetros guardados")
             if self.resolved_options.color is not None and self.resolved_options.color.id!=self.selection.color:
                 raise ValueError("La selección no coincide con sus parámetros guardados")
+            if self.resolved_options.curl is not None and self.resolved_options.curl.id!=self.selection.curl:
+                raise ValueError("La selección no coincide con sus parámetros guardados")
         elif self.selection.length>2 or self.selection.technique>3 or self.selection.thickness>3:
             raise ValueError("Las opciones nuevas necesitan una copia de sus parámetros")
         return self
 
-OptionKind = Literal["length", "technique", "thickness", "color"]
+OptionKind = Literal["length", "technique", "thickness", "color", "curl"]
 class OptionParameters(StrictModel):
     scale: float | None = Field(default=None, ge=.4, le=1.8)
     diameter: float | None = Field(default=None, ge=.03, le=.25)
@@ -166,10 +179,19 @@ class OptionParameters(StrictModel):
     single_every: int = Field(default=0, ge=0, le=8)
     density: float = Field(default=1, ge=.25, le=1.5)
     spread: float | None = Field(default=None, ge=0, le=24)
+    # Solo técnicas: separación EN ALTURA entre las fibras de un grupo (grados).
+    # Las fibras se alternan en dos niveles (una más levantada, otra más baja),
+    # como las pestañas en Y vistas de costado. 0 = todas al mismo nivel.
+    layer_split: float = Field(default=0, ge=0, le=40)
     # Solo para el catálogo de colores: un único color de pestaña.
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     # Solo largos: cuántos mm se desplaza el mapeo del estilo con este largo.
     map_offset_mm: int | None = Field(default=None, ge=-10, le=10)
+    # Solo curvaturas: cuánto se dobla la fibra (grados), dónde se concentra
+    # el doblez (0 base … 1 punta) y qué tan marcado es (0 gradual … 1 quiebre).
+    curl_deg: float | None = Field(default=None, ge=0, le=150)
+    bend_position: float | None = Field(default=None, ge=.1, le=.9)
+    bend_sharpness: float | None = Field(default=None, ge=0, le=1)
 
 class OptionDraft(StrictModel):
     id: int = Field(default=0, ge=0, le=4095)
@@ -195,11 +217,15 @@ class ResolvedOptions(StrictModel):
     thickness: PublishedOption
     # Opcional: las recetas guardadas antes del catálogo de colores no lo traen.
     color: PublishedOption | None = None
+    # Opcional: sin curvatura elegida se usó la curva propia del estilo.
+    curl: PublishedOption | None = None
     @model_validator(mode="after")
     def correct_categories(self):
         if self.length.parameters.scale is None or self.thickness.parameters.diameter is None or self.technique.parameters.base_technique is None:
             raise ValueError("Faltan los parámetros de la combinación")
         if self.color is not None and self.color.parameters.color is None:
+            raise ValueError("Faltan los parámetros de la combinación")
+        if self.curl is not None and self.curl.parameters.curl_deg is None:
             raise ValueError("Faltan los parámetros de la combinación")
         return self
 TryOnSelection.model_rebuild()

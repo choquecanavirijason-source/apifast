@@ -113,9 +113,15 @@ def manifest(db):
         if source: style["map_profile"]=source["length_profile"]
         # Estilos publicados antes del catálogo de colores: solo negro.
         style.setdefault("allowed_colors",[0]); style["defaults"].setdefault("color",0)
+        # Estilos anteriores a las curvaturas: usan su propia curva.
+        style.setdefault("allowed_curls",[]); style["defaults"].setdefault("curl",None)
         for kind,field in options.FIELDS.items():
             ids={o["id"] for o in catalog_options[kind]}
             style[field]=[i for i in style[field] if i in ids]
+            if kind=="curl":
+                # Lista vacía = curva del estilo; no se rellena con otra curva.
+                if style["defaults"]["curl"] not in style[field]: style["defaults"]["curl"]=style[field][0] if style[field] else None
+                continue
             if not style[field] and not style["is_active"] and catalog_options[kind]: style[field]=[catalog_options[kind][0]["id"]]
             if style["defaults"][kind] not in style[field]: style["defaults"][kind]=style[field][0] if style[field] else 0
     from app.application.services.tryon_eye_service import list_categories
