@@ -10,7 +10,7 @@ try {
  const options={length:[],technique:[],thickness:[]};let combinations=0;
  for(const profile of Object.values(data.templates))for(let length=0;length<3;length++)for(let technique=0;technique<4;technique++)for(let thickness=0;thickness<4;thickness++) {
   const mesh=buildPreviewMesh(profile,{length,technique,thickness},options);
-  assert(mesh.fibers<=360);assert.equal(mesh.vertices.length,mesh.fibers*120*7);
+  assert(mesh.fibers<=360);assert.equal(mesh.vertices.length,mesh.fibers*120*8);
   assert(mesh.vertices.every(Number.isFinite));assert(mesh.guide.every(Number.isFinite));assert(mesh.radius>0);combinations++;
  }
  const profile=data.templates.cateye,selection={length:1,technique:0,thickness:3};
@@ -20,7 +20,7 @@ try {
  const mesh=buildPreviewMesh(profile,{length:9,technique:9,thickness:9},custom);assert(mesh.fibers<=360);assert(mesh.vertices.every(Number.isFinite));
  assert.throws(()=>buildPreviewMesh({...profile,curl:NaN},selection,options));
  const {styleHelpTopics,helpProfile,helpValue}=require(path.join(temp,'styleHelpTopics.js'));
- const source=JSON.stringify(profile);assert.equal(styleHelpTopics.length,12);
+ const source=JSON.stringify(profile);assert.equal(styleHelpTopics.length,13);
  for(const topic of styleHelpTopics){const a=helpProfile(profile,topic.key,topic.low),b=helpProfile(profile,topic.key,topic.high);const selection={length:1,technique:topic.technique,thickness:3};assert.notDeepEqual(buildPreviewMesh(a,selection,options).vertices,buildPreviewMesh(b,selection,options).vertices,topic.key);assert.equal(helpValue(a,topic.key),topic.low);assert.equal(JSON.stringify(profile),source);}
  const {tutorialFrame,tutorialDuration}=require(path.join(temp,'styleTutorialTimeline.js'));
  for(const topic of styleHelpTopics){
@@ -41,7 +41,7 @@ try {
    assert.equal(JSON.stringify(parameters),untouched);
  }
  console.log('PASS: length/thickness/technique live meshes and 8 animated option lessons, immutable parameters.');
- console.log('PASS: 12 animated tutorials, three views, bounded values and stable end frame.');
- console.log('PASS: 12 tutorial comparisons change the demo mesh and leave the original profile untouched.');
+ console.log('PASS: 13 animated tutorials, three views, bounded values and stable end frame.');
+ console.log('PASS: 13 tutorial comparisons change the demo mesh and leave the original profile untouched.');
  console.log(`PASS: ${combinations} combinations, 3D depth, open/closed, deterministic geometry, dynamic options, bounded fibers.`);
 }finally{const relative=path.relative(path.resolve(os.tmpdir()),path.resolve(temp));assert(!path.isAbsolute(relative)&&!relative.startsWith('..')&&relative.startsWith('elashes-preview-geometry-'));fs.rmSync(temp,{recursive:true,force:true});}

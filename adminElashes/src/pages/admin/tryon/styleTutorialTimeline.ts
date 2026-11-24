@@ -24,6 +24,8 @@ export function tutorialCaptions(topic: VisualTutorialTopic) {
         return ['Un pico cada 2 grupos', 'Un pico cada 8 grupos'];
     if (topic.key === 'spike_multiplier')
         return ['Picos más cortos', 'Picos más largos'];
+    if (topic.key === 'fill')
+        return ['Más ligero', 'Más tupido'];
     if (topic.key === 'width_multiplier')
         return ['Fibras más finas', 'Fibras más anchas'];
     if (topic.key.endsWith('fan_spread'))

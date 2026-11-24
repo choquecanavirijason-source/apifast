@@ -26,7 +26,8 @@ def validate(kind,option):
     if kind=="curl" and (any(v is None for v in curl_fields) or p.scale is not None or p.diameter is not None or p.base_technique is not None): raise HTTPException(422,"La curvatura necesita grados, posición y nitidez del doblez")
     if kind!="curl" and any(v is not None for v in curl_fields): raise HTTPException(422,"La forma del doblez corresponde al catálogo de curvaturas")
     if kind!="length" and p.map_offset_mm is not None: raise HTTPException(422,"El ajuste del mapeo corresponde a los largos")
-    if kind!="technique" and (p.fibers_per_group is not None or p.spread is not None or p.density!=1 or p.single_every or p.layer_split): raise HTTPException(422,"Los grupos de fibras corresponden a técnicas")
+    if kind!="technique" and (p.fibers_per_group is not None or p.spread is not None or p.density!=1 or p.single_every or p.layer_split or p.stem or p.tip_merge or p.layer_curl): raise HTTPException(422,"Los grupos de fibras corresponden a técnicas")
+    if kind!="color" and p.gloss: raise HTTPException(422,"El brillo corresponde al catálogo de colores")
 
 def initialize_options(db):
     defaults={"length":[("Corto",{"scale":.78}),("Medio",{"scale":1}),("Largo",{"scale":1.23})],"thickness":[(f"{n:.2f} mm",{"diameter":n}) for n in (.05,.07,.10,.15)],"technique":[(n,{"base_technique":i}) for i,n in enumerate(("Clásica","Volumen","Megavolumen","Híbrida"))],"color":[(n,{"color":c}) for n,c in DEFAULT_COLORS],"curl":[(n,{"curl_deg":d,"bend_position":bp,"bend_sharpness":bs}) for n,d,bp,bs in DEFAULT_CURLS]}

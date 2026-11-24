@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { RenderProfile, OptionGroups } from '@/core/services/tryon/tryon.service';
-import { buildPreviewMesh } from './previewGeometry';
+import { VERTEX_FLOATS, buildPreviewMesh } from './previewGeometry';
 import type { PreviewSelection } from './previewGeometry';
 import { profileSvg } from './profilePreview';
 export type PreviewCamera = {
@@ -14,13 +14,24 @@ export type PreviewCamera = {
 type Orbit = PreviewCamera;
 const initial: Orbit = { yaw: -.18, pitch: .25, zoom: 1 };
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-const vertexSource = `attribute vec3 position;attribute vec3 normal;attribute float shade;
-uniform float yaw;uniform float pitch;uniform float zoom;uniform float aspect;uniform float guideMode;uniform vec3 center;uniform float radius;uniform vec3 tint;uniform float tintMode;
-varying vec3 color;
+/** Ancho máximo de una fibra en pantalla (px CSS): como un pelo, igual que en
+ * el teléfono, sin importar el tamaño del visor ni el zoom. */
+const HAIR_PX = 1.8;
+/** Radio típico del modelo para convertir px a unidades (el real ronda 1.7–1.9). */
+const RADIUS_ESTIMATE = 1.75;
+// Luz difusa + un brillo suave de fibra ("sheen", como el motor del teléfono)
+// y opacidad por vértice para las puntas translúcidas. Sin comentarios dentro
+// del GLSL: algunos navegadores rechazan caracteres no ASCII en el shader.
+const vertexSource = `attribute vec3 position;attribute vec3 normal;attribute float shade;attribute float alpha;
+uniform float yaw;uniform float pitch;uniform float zoom;uniform float aspect;uniform float guideMode;uniform vec3 center;uniform float radius;uniform vec3 tint;uniform float tintMode;uniform float gloss;
+varying vec3 color;varying float opacity;
 vec3 rotate(vec3 p){float a=cos(yaw),b=sin(yaw),c=cos(pitch),d=sin(pitch);vec3 q=vec3(a*p.x+b*p.z,p.y,-b*p.x+a*p.z);return vec3(q.x,c*q.y-d*q.z,d*q.y+c*q.z);}
 void main(){vec3 p=rotate(position-center);gl_Position=vec4(p.x/(radius*max(1.0,aspect))*zoom,p.y/(radius*max(1.0,1.0/aspect))*zoom,-p.z/radius*.7,1.0);
-float light=.65+.35*abs(dot(normalize(rotate(normal)),normalize(vec3(.3,.7,1.0))));vec3 fiber=mix(vec3(shade*light),tint*light*(.75+2.0*shade),tintMode);color=mix(fiber,vec3(.055,.42,.28),guideMode);}`;
-const fragmentSource = `precision mediump float;varying vec3 color;void main(){gl_FragColor=vec4(color,1.0);}`;
+vec3 n=normalize(rotate(normal));float diffuse=abs(dot(n,normalize(vec3(.3,.7,1.0))));
+float light=.55+.45*diffuse;
+float sheen=pow(abs(dot(n,normalize(vec3(-.2,.55,1.0)))),mix(24.0,70.0,gloss))*(.22+.75*gloss);
+vec3 fiber=mix(vec3(shade*light+sheen),tint*light*(.75+2.0*shade)+sheen,tintMode);color=mix(fiber,vec3(.055,.42,.28),guideMode);opacity=mix(alpha,1.0,guideMode);}`;
+const fragmentSource = `precision mediump float;varying vec3 color;varying float opacity;void main(){gl_FragColor=vec4(color,opacity);}`;
 interface Renderer {
     draw: (orbit: Orbit) => void;
     setMesh: (mesh: ReturnType<typeof buildPreviewMesh>) => void;
@@ -60,8 +71,12 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
         gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS))
             throw new Error('No se pudo preparar la vista 3D');
-        const attributes = { position: gl.getAttribLocation(program, 'position'), normal: gl.getAttribLocation(program, 'normal'), shade: gl.getAttribLocation(program, 'shade') };
-        const uniforms = Object.fromEntries(['yaw', 'pitch', 'zoom', 'aspect', 'guideMode', 'center', 'radius', 'tint', 'tintMode'].map(k => [k, gl.getUniformLocation(program!, k)]));
+        const attributes = { position: gl.getAttribLocation(program, 'position'), normal: gl.getAttribLocation(program, 'normal'), shade: gl.getAttribLocation(program, 'shade'), alpha: gl.getAttribLocation(program, 'alpha') };
+        // Puntas translúcidas sin ordenar fibras: alpha-to-coverage sobre el
+        // antialiasing del canvas (si el navegador no da MSAA, quedan opacas).
+        const coverage = (gl.getContextAttributes()?.antialias ?? false) && (gl.getParameter(gl.SAMPLES) as number) > 1;
+        const STRIDE = VERTEX_FLOATS * 4;
+        const uniforms = Object.fromEntries(['yaw', 'pitch', 'zoom', 'aspect', 'guideMode', 'center', 'radius', 'tint', 'tintMode', 'gloss'].map(k => [k, gl.getUniformLocation(program!, k)]));
         const upload = (data: Float32Array) => {
             const b = gl.createBuffer();
             if (!b)
@@ -98,15 +113,27 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
                 // Color de pestaña: tiñe la fibra conservando su luz; sin tinte = negro aprobado.
                 gl.uniform3fv(uniforms.tint, mesh.tint ?? [0, 0, 0]);
                 gl.uniform1f(uniforms.tintMode, mesh.tint ? 1 : 0);
+                // Acabado del color: 0 mate (como siempre) … 1 brillo marcado.
+                gl.uniform1f(uniforms.gloss, mesh.gloss ?? 0);
                 gl.bindBuffer(gl.ARRAY_BUFFER, fibers);
                 gl.enableVertexAttribArray(attributes.position);
-                gl.vertexAttribPointer(attributes.position, 3, gl.FLOAT, false, 28, 0);
+                gl.vertexAttribPointer(attributes.position, 3, gl.FLOAT, false, STRIDE, 0);
                 gl.enableVertexAttribArray(attributes.normal);
-                gl.vertexAttribPointer(attributes.normal, 3, gl.FLOAT, false, 28, 12);
+                gl.vertexAttribPointer(attributes.normal, 3, gl.FLOAT, false, STRIDE, 12);
                 gl.enableVertexAttribArray(attributes.shade);
-                gl.vertexAttribPointer(attributes.shade, 1, gl.FLOAT, false, 28, 24);
+                gl.vertexAttribPointer(attributes.shade, 1, gl.FLOAT, false, STRIDE, 24);
+                if (attributes.alpha >= 0) {
+                    gl.enableVertexAttribArray(attributes.alpha);
+                    gl.vertexAttribPointer(attributes.alpha, 1, gl.FLOAT, false, STRIDE, 28);
+                }
                 gl.uniform1f(uniforms.guideMode, 0);
-                gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 7);
+                if (coverage) gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+                gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / VERTEX_FLOATS);
+                if (coverage) gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+                if (attributes.alpha >= 0) {
+                    gl.disableVertexAttribArray(attributes.alpha);
+                    gl.vertexAttrib1f(attributes.alpha, 1);
+                }
                 gl.bindBuffer(gl.ARRAY_BUFFER, guide);
                 gl.vertexAttribPointer(attributes.position, 3, gl.FLOAT, false, 12, 0);
                 gl.disableVertexAttribArray(attributes.normal);
@@ -141,7 +168,15 @@ export default function Lash3DPreview({ profile, selection, options, initialView
     const [expanded, setExpanded] = useState(false);
     const container = useRef<HTMLDivElement>(null), expandButton = useRef<HTMLButtonElement>(null), wasExpanded = useRef(false);
     const [orbit, setOrbit] = useState(defaultOrbit), [closed, setClosed] = useState(false), [unavailable, setUnavailable] = useState(false);
-    const mesh = useMemo(() => buildPreviewMesh(profile, selection, options, closed), [profile, selection, options, closed]);
+    // Tamaño del visor en px CSS (lo actualiza el ResizeObserver de abajo).
+    const [size, setSize] = useState({ w: 0, h: 0 });
+    // Unidades del modelo que ocupan HAIR_PX en pantalla con el zoom actual
+    // (misma proyección que el shader), cuantizadas para no regenerar la malla
+    // por cada píxel. Diferido: el zoom con la rueda no se traba.
+    const zoomNow = (camera ?? orbit).zoom;
+    const rawCap = size.w > 0 && size.h > 0 ? HAIR_PX * (2 * RADIUS_ESTIMATE * Math.max(1, size.w / size.h)) / (zoomNow * size.w) : undefined;
+    const widthCap = useDeferredValue(rawCap === undefined ? undefined : Math.round(rawCap * 40000) / 40000);
+    const mesh = useMemo(() => buildPreviewMesh(profile, selection, options, closed, widthCap, true), [profile, selection, options, closed, widthCap]);
     const meshRef = useRef(mesh);
     useEffect(() => {
         const node = canvas.current;
@@ -164,7 +199,7 @@ export default function Lash3DPreview({ profile, selection, options, initialView
         node.addEventListener('webglcontextlost', lost);
         node.addEventListener('webglcontextrestored', restored);
         init();
-        const resize = new ResizeObserver(() => renderer.current?.draw(orbitRef.current));
+        const resize = new ResizeObserver(() => { setSize({ w: node.clientWidth, h: node.clientHeight }); renderer.current?.draw(orbitRef.current); });
         resize.observe(node);
         return () => {
             resize.disconnect();

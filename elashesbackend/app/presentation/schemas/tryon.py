@@ -21,6 +21,8 @@ class RenderProfile(StrictModel):
     fan_spread: float = Field(default=10, ge=0, le=24)
     mega_fan_spread: float = Field(default=16, ge=0, le=24)
     width_multiplier: float = Field(default=1, ge=.4, le=1.8)
+    # Intensidad del relleno: 1 normal … 2 más grupos y fibras más marcadas.
+    fill: float = Field(default=1, ge=.5, le=2)
 
     @model_validator(mode="after")
     def geometry_limits(self):
@@ -44,6 +46,8 @@ class SelectionDefaults(StrictModel):
     color: int = Field(default=0, ge=0, le=4095)
     # Curvatura. None = la curva propia del estilo (sin curvaturas habilitadas).
     curl: int | None = Field(default=None, ge=0, le=4095)
+    # Intensidad elegida en el probador: 0 suave, 1 normal, 2 intenso.
+    fill: int | None = Field(default=None, ge=0, le=2)
 
 class StyleDraft(StrictModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,63}$")
@@ -183,8 +187,19 @@ class OptionParameters(StrictModel):
     # Las fibras se alternan en dos niveles (una más levantada, otra más baja),
     # como las pestañas en Y vistas de costado. 0 = todas al mismo nivel.
     layer_split: float = Field(default=0, ge=0, le=40)
+    # Solo técnicas: tramo del largo (0 … 0.6) en que las fibras del grupo van
+    # juntas antes de abrirse (abanico con "tallo", como la brasileña).
+    stem: float = Field(default=0, ge=0, le=.6)
+    # Solo técnicas: cuánto se vuelven a juntar las puntas del grupo (0 abanico
+    # abierto … 1 picos unidos, efecto laminado / húmedo).
+    tip_merge: float = Field(default=0, ge=0, le=1)
+    # Solo técnicas con separación en altura: grados de curva extra para el
+    # nivel de arriba (negativo = más recta que el de abajo). Curvas combinadas.
+    layer_curl: float = Field(default=0, ge=-40, le=40)
     # Solo para el catálogo de colores: un único color de pestaña.
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    # Solo colores: brillo del material (0 mate … 1 brillante).
+    gloss: float = Field(default=0, ge=0, le=1)
     # Solo largos: cuántos mm se desplaza el mapeo del estilo con este largo.
     map_offset_mm: int | None = Field(default=None, ge=-10, le=10)
     # Solo curvaturas: cuánto se dobla la fibra (grados), dónde se concentra

@@ -187,6 +187,16 @@ class TryOnCatalogTests(unittest.TestCase):
         self.assertEqual(opts.get(self.db,"technique",0).draft["parameters"].get("layer_split",0),0)
         with self.assertRaises(ValidationError):OptionDraft(name="Inválida",parameters={"base_technique":1,"layer_split":41})
         with self.assertRaises(HTTPException):opts.create(self.db,"length",OptionDraft(name="Largo con niveles",parameters={"scale":1,"layer_split":10}))
+        # Forma del grupo (tallo, puntas unidas, curva por nivel): solo técnicas.
+        shaped=opts.create(self.db,"technique",OptionDraft(name="Brasileña",parameters={"base_technique":1,"fibers_per_group":3,"stem":.3,"tip_merge":.5,"layer_curl":-15}))
+        self.assertEqual((shaped["option"]["parameters"]["stem"],shaped["option"]["parameters"]["tip_merge"],shaped["option"]["parameters"]["layer_curl"]),(.3,.5,-15))
+        with self.assertRaises(ValidationError):OptionDraft(name="Inválida",parameters={"base_technique":1,"stem":.7})
+        with self.assertRaises(HTTPException):opts.create(self.db,"curl",OptionDraft(name="Curva con tallo",parameters={"curl_deg":40,"bend_position":.5,"bend_sharpness":.2,"stem":.2}))
+        # Brillo del material: solo colores.
+        glossy=opts.create(self.db,"color",OptionDraft(name="Negro brillante",parameters={"color":"#050505","gloss":.8}))
+        self.assertEqual(glossy["option"]["parameters"]["gloss"],.8)
+        with self.assertRaises(HTTPException):opts.create(self.db,"thickness",OptionDraft(name="Grosor brillante",parameters={"diameter":.12,"gloss":.5}))
+        with self.assertRaises(ValidationError):OptionDraft(name="Inválido",parameters={"color":"#050505","gloss":1.2})
 
     def test_lash_map_is_optional_validated_and_published_to_the_app(self):
         from app.application.services import tryon_option_service as opts
@@ -362,9 +372,14 @@ class TryOnCatalogTests(unittest.TestCase):
                 self.assertEqual(error.exception.status_code,422)
             else: service.publish(self.db,key,2)
     def test_geometry_validation_rejects_heavy_and_inverted_profiles(self):
-        for mutate in [lambda p:p.update(roots=[72,48,41,56]),lambda p:p["length_profile"].reverse(),lambda p:p.update(curl=float("nan")),lambda p:p.update(spike_every=2,spike_offset=3)]:
+        for mutate in [lambda p:p.update(roots=[72,48,41,56]),lambda p:p["length_profile"].reverse(),lambda p:p.update(curl=float("nan")),lambda p:p.update(spike_every=2,spike_offset=3),lambda p:p.update(fill=2.5)]:
             profile=deepcopy(self.defaults["templates"]["cateye"]);mutate(profile)
             with self.assertRaises(ValidationError): RenderProfile.model_validate(profile)
+    def test_fill_intensity_defaults_to_normal(self):
+        profile=deepcopy(self.defaults["templates"]["cateye"]);profile.pop("fill",None)
+        self.assertEqual(RenderProfile.model_validate(profile).fill,1)
+        profile["fill"]=1.6
+        self.assertEqual(RenderProfile.model_validate(profile).fill,1.6)
     def test_custom_style_requires_profile_and_available_default(self):
         payload=self.custom().model_dump();payload["profile"]=None
         with self.assertRaises(ValidationError): StyleDraft.model_validate(payload)

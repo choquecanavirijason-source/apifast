@@ -15,6 +15,8 @@ export interface RenderProfile {
     fan_spread: number;
     mega_fan_spread: number;
     width_multiplier: number;
+    /** Intensidad del relleno (1 normal … 2 más tupido y marcado). Opcional: perfiles antiguos. */
+    fill?: number;
 }
 export interface StyleDraft {
     key: string;
@@ -93,8 +95,16 @@ export interface OptionParameters {
     spread: number | null;
     /** Solo técnicas: separación en altura (grados) entre las fibras del grupo, en dos niveles. */
     layer_split?: number;
+    /** Solo técnicas: tramo (0 … 0.6) en que las fibras del grupo van juntas antes de abrirse. */
+    stem?: number;
+    /** Solo técnicas: cuánto se vuelven a unir las puntas (0 abierto … 1 picos, laminado). */
+    tip_merge?: number;
+    /** Solo técnicas con separación en altura: grados de curva extra del nivel de arriba. */
+    layer_curl?: number;
     /** Solo en el catálogo de colores: `#RRGGBB`. */
     color?: string | null;
+    /** Solo colores: brillo del material (0 mate … 1 brillante). */
+    gloss?: number;
     /** Solo largos: mm que se desplaza el mapeo del estilo. */
     map_offset_mm?: number | null;
     /** Solo curvaturas: grados del doblez, posición (0 base … 1 punta) y nitidez (0 gradual … 1 quiebre). */
