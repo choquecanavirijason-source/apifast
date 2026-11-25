@@ -59,7 +59,7 @@ export default function TryOnCatalogPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [eyeNames, setEyeNames] = useState<string[][]>(eyeCategories.map(category => [category.code, category.name]));
     const [helpTopic, setHelpTopic] = useState<StyleHelpKey | null>(null);
-    const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem('tryon.styles.view') === 'cards' ? 'cards' : 'list'; } catch { return 'list'; } });
+    const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem('tryon.styles.view') === 'list' ? 'list' : 'cards'; } catch { return 'cards'; } });
     const setView = (v: 'list' | 'cards') => { setViewState(v); try { localStorage.setItem('tryon.styles.view', v); } catch { /* sin almacenamiento */ } };
     const [mapTutorial, setMapTutorial] = useState(false);
     const [shapeTutorial, setShapeTutorial] = useState<number | null>(null);

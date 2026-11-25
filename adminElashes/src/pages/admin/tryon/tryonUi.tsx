@@ -207,9 +207,9 @@ export function ChoiceGroup({ title, hint, summary, selector, actions, defaultOp
     </section>;
 }
 
-/** Selector Lista / Tarjetas con la preferencia recordada en el navegador. */
+/** Selector Lista / Tarjetas con la preferencia recordada en el navegador; sin preferencia, tarjetas. */
 export function useViewMode(storageKey: string) {
-    const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem(storageKey) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; } });
+    const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem(storageKey) === 'list' ? 'list' : 'cards'; } catch { return 'cards'; } });
     const setView = (v: 'list' | 'cards') => { setViewState(v); try { localStorage.setItem(storageKey, v); } catch { /* sin almacenamiento */ } };
     return [view, setView] as const;
 }
