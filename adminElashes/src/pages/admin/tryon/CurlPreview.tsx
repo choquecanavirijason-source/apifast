@@ -94,7 +94,9 @@ export function CurlHelpDialog({ helpKey, shape, onClose, onNavigate }: {
     // Va y vuelve entre el valor bajo y el alto.
     const t = (1 - Math.cos(phase * 2 * Math.PI)) / 2;
     const value = topic.low + (topic.high - topic.low) * t;
-    const animated = { ...shape, [helpKey]: value };
+    // Posición y nitidez no se notan en una fibra recta: la demo usa al menos 60°.
+    const base = helpKey === 'curl_deg' ? shape : { ...shape, curl_deg: Math.max(shape.curl_deg, 60) };
+    const animated = { ...base, [helpKey]: value };
     const index = curlHelpKeys.indexOf(helpKey);
     const go = (step: number) => onNavigate(curlHelpKeys[(index + step + curlHelpKeys.length) % curlHelpKeys.length]);
     return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={topic.title} onClick={onClose}>
@@ -106,7 +108,7 @@ export function CurlHelpDialog({ helpKey, shape, onClose, onNavigate }: {
             <div className="grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1fr)_220px]">
                 <div>
                     {reduceMotion
-                        ? <div className="grid grid-cols-2 gap-2">{[topic.low, topic.high].map(v => <div key={v}><CurlPreview shape={{ ...shape, [helpKey]: v }}/><p className="mt-1 text-center text-xs tabular-nums text-[#605e5c]">{topic.format(v)}</p></div>)}</div>
+                        ? <div className="grid grid-cols-2 gap-2">{[topic.low, topic.high].map(v => <div key={v}><CurlPreview shape={{ ...base, [helpKey]: v }}/><p className="mt-1 text-center text-xs tabular-nums text-[#605e5c]">{topic.format(v)}</p></div>)}</div>
                         : <><CurlPreview shape={animated}/><div className="mt-2 flex items-center gap-3"><button type="button" className="rounded-sm border border-[#094732] px-3 py-1 text-xs font-semibold text-[#094732] hover:bg-[#eef6f1]" onClick={() => setPlaying(p => !p)}>{playing ? 'Pausar' : 'Reproducir'}</button><span className="text-sm font-semibold tabular-nums text-[#323130]">{topic.format(value)}</span></div></>}
                 </div>
                 <div className="space-y-3 text-sm">
@@ -126,46 +128,47 @@ export function CurlHelpDialog({ helpKey, shape, onClose, onNavigate }: {
 }
 
 /**
- * Vista lateral grande para el editor: perfil de un ojo (globo, iris al
- * frente y párpado superior) con las fibras naciendo en el borde del
- * párpado, en tres largos. El tamaño se ajusta para que ninguna fibra se
- * salga del recuadro, sea recta o muy curva.
+ * Vista lateral para el editor y los tutoriales: un manojo de fibras finas que
+ * nacen del mismo punto, con la misma escala siempre (la que cabe la curva más
+ * pronunciada), de modo que solo cambia la curvatura. El punto dorado marca
+ * dónde se dobla la fibra.
  */
+const referenceShapes: CurlShape[] = [...curlPresets.map(c => c.shape), { curl_deg: 150, bend_position: .15, bend_sharpness: 1 }, { curl_deg: 150, bend_position: .85, bend_sharpness: 0 }];
+const referenceExtent = (() => {
+    const all = referenceShapes.flatMap(sh => curlPath(sh, 40));
+    return { x: Math.max(...all.map(q => q[0])), y: Math.max(...all.map(q => q[1])) };
+})();
 export default function CurlPreview({ shape }: { shape: CurlShape }) {
-    const W = 340, H = 240;
-    // Ojo de perfil mirando a la derecha (hacia la cámara).
-    const eye = { x: 92, y: 158, r: 50 };
-    const rad = (deg: number) => deg * Math.PI / 180;
-    const onEye = (deg: number, r = eye.r) => [eye.x + r * Math.cos(rad(deg)), eye.y + r * Math.sin(rad(deg))] as const;
-    // Borde del párpado (donde nacen las pestañas): arriba y al frente del ojo.
-    const [rx, ry] = onEye(-38);
-    const [bx, by] = onEye(-160, eye.r + 4);
-    const [tx, ty] = onEye(-90, eye.r + 16);
-    const [fx, fy] = onEye(-38, eye.r + 6);
-    const lid = `M${bx.toFixed(1)} ${by.toFixed(1)} Q ${tx.toFixed(1)} ${(ty - 10).toFixed(1)} ${fx.toFixed(1)} ${fy.toFixed(1)} L ${rx.toFixed(1)} ${ry.toFixed(1)} A ${eye.r} ${eye.r} 0 0 0 ${onEye(-160)[0].toFixed(1)} ${onEye(-160)[1].toFixed(1)} Z`;
-    // Escala que deja la fibra más larga dentro del recuadro (margen 12 px).
-    const path = curlPath(shape);
-    const maxX = Math.max(...path.map(p => p[0])), maxY = Math.max(...path.map(p => p[1]));
-    const minX = Math.min(...path.map(p => p[0]));
-    const scale = Math.min(150, (W - 12 - rx) / Math.max(maxX, 1e-6), (ry - 12) / Math.max(maxY, 1e-6), minX < 0 ? (rx - 12) / -minX : Infinity);
-    const fibers = [1, .8, .6].map((len, i) => ({ len, opacity: 1 - i * .3 }));
+    const W = 340, H = 240, deg = Math.PI / 180;
+    const scale = Math.min(250 / referenceExtent.x, 150 / referenceExtent.y);
+    const rx = (W - scale * referenceExtent.x) / 2, ry = (H + scale * referenceExtent.y) / 2 - 6;
+    const unit = curlPath(shape, 48);
+    const bundle = [{ f: 1, r: -1.6 }, { f: .95, r: -.6 }, { f: .89, r: .5 }, { f: .83, r: 1.6 }, { f: .77, r: 2.7 }, { f: .71, r: 3.8 }];
+    const place = (f: number, r: number) => { const c = Math.cos(r * deg), sn = Math.sin(r * deg); return unit.map(([x, y]) => [rx + scale * f * (x * c - y * sn), ry - scale * f * (x * sn + y * c)] as const); };
+    const fiber = ({ f, r }: { f: number; r: number }, i: number) => {
+        const line = place(f, r), m = line.length;
+        const edge = (sign: number) => line.map(([x, y], j) => {
+            const q0 = line[Math.max(0, j - 1)], q1 = line[Math.min(m - 1, j + 1)], dx = q1[0] - q0[0], dy = q1[1] - q0[1], d = Math.hypot(dx, dy) || 1, w = 3.4 * Math.pow(1 - j / (m - 1), 1.1) + .1;
+            return `${(x + sign * (-dy / d) * w / 2).toFixed(1)} ${(y + sign * (dx / d) * w / 2).toFixed(1)}`;
+        });
+        return <path key={i} fill="url(#curlPreviewFiber)" opacity={.95 - i * .06} d={`M${[...edge(1), ...edge(-1).reverse()].join('L')}Z`}/>;
+    };
+    const main = place(1, -1.6), bend = main[Math.round(Math.max(0, Math.min(1, shape.bend_position)) * (main.length - 1))];
     return <div className="rounded-sm border border-[#edebe9] bg-white p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-[#094732]">Vista lateral del ojo</p>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Ojo de perfil con una pestaña de curvatura ${Math.round(shape.curl_deg)} grados`}>
-            {/* Globo ocular con el iris al frente. */}
-            <circle cx={eye.x} cy={eye.y} r={eye.r} fill="#ffffff" stroke="#d6cfc8" strokeWidth={2}/>
-            <path d={`M${onEye(-28)[0]} ${onEye(-28)[1]} A ${eye.r * .55} ${eye.r * .55} 0 0 1 ${onEye(28)[0]} ${onEye(28)[1]}`} fill="#7a5233" stroke="#5a3a22" strokeWidth={1.5}/>
-            {/* Párpado superior: la piel cubre la parte de arriba del ojo. */}
-            <path d={lid} fill="#e2b99a" stroke="#c8987a" strokeWidth={1.5} strokeLinejoin="round"/>
-            {/* Pestañas desde el borde del párpado. */}
-            {fibers.map(({ len, opacity }) =>
-                <path key={len} d={toSvg(path, scale * len, rx, ry)} fill="none" stroke="#1b1b1b" strokeOpacity={opacity} strokeWidth={len === 1 ? 3 : 2} strokeLinecap="round"/>)}
-            <circle cx={rx} cy={ry} r={3} fill="#9F8351"/>
-            {/* Etiquetas. */}
-            <text x={tx - 46} y={ty - 12} fontSize={11} fill="#8a6a50">Párpado</text>
-            <text x={eye.x - 22} y={eye.y + eye.r + 18} fontSize={11} fill="#8a8886">Ojo</text>
-            <text x={W - 8} y={H - 10} textAnchor="end" fontSize={11} fill="#8a8886">hacia la cámara →</text>
-        </svg>
-        <p className="mt-1 text-[11px] leading-snug text-[#605e5c]">El punto dorado es donde nace la pestaña. La fibra sale hacia adelante y se dobla hacia arriba, igual que en el probador.</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-[#094732]">Vista lateral de la fibra</p>
+        <div className="overflow-hidden rounded-sm bg-gradient-to-br from-[#fdf8f1] to-[#f1e4d5]">
+            <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`Fibra de perfil con curvatura ${Math.round(shape.curl_deg)} grados`}>
+                <defs>
+                    <linearGradient id="curlPreviewFiber" gradientUnits="userSpaceOnUse" x1={rx} y1="0" x2={rx + 250} y2="0"><stop offset="0" stopColor="#2b211b"/><stop offset=".7" stopColor="#4a3c33"/><stop offset="1" stopColor="#7a6a5e"/></linearGradient>
+                    <filter id="curlPreviewBlur" x="-20%" y="-300%" width="140%" height="700%"><feGaussianBlur stdDeviation="5"/></filter>
+                </defs>
+                <ellipse cx={rx + 120} cy={ry + 6} rx="135" ry="6" fill="#6b4a32" opacity=".22" filter="url(#curlPreviewBlur)"/>
+                {bundle.map(fiber)}
+                <circle cx={bend[0]} cy={bend[1]} r="7" fill="#9F8351" opacity=".2"/>
+                <circle cx={bend[0]} cy={bend[1]} r="3.2" fill="#9F8351" stroke="#fff" strokeWidth="1.2"/>
+                <text x={W - 14} y={H - 14} textAnchor="end" fontSize="22" fontWeight="600" fill="#9F8351">{Math.round(shape.curl_deg)}°</text>
+            </svg>
+        </div>
+        <p className="mt-2 text-[11px] leading-snug text-[#605e5c]">Todas las fibras nacen del mismo punto y se dibujan a la misma escala, así solo cambia la curvatura. El punto dorado marca dónde se dobla.</p>
     </div>;
 }

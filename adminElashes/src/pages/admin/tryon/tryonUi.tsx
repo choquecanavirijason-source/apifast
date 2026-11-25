@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { Link } from 'react-router';
+import { Cpu, Droplet, LayoutGrid, List, MoveDiagonal, Palette, Spline, WandSparkles, X } from 'lucide-react';
 
 /**
  * Piezas visuales compartidas por los modales del catálogo de pestañas
@@ -185,4 +186,68 @@ export function OptionChip({ checked, onChange, label }: { checked: boolean; onC
         </span>
         {label}
     </label>;
+}
+
+/** Grupo plegable de opciones: resumen y acciones en la cabecera, chips al abrir. */
+export function ChoiceGroup({ title, hint, summary, selector, actions, defaultOpen = false, children }: { title: string; hint?: ReactNode; summary: string; selector?: ReactNode; actions?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+    const [open, setOpen] = useState(defaultOpen);
+    return <section className="rounded-sm border border-[#e1dfdd] bg-white">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732]" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+                <svg viewBox="0 0 12 12" className={`h-3 w-3 shrink-0 text-[#094732] transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden="true"><path d="M4 2.5 8 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span className="min-w-0"><span className="block text-sm font-semibold text-[#323130]">{title}</span><span className="block truncate text-xs text-[#605e5c]">{summary}</span></span>
+            </button>
+            {selector}
+        </div>
+        {open && <div className="border-t border-[#edebe9] bg-[#faf9f8] px-4 py-4">
+            {hint && <p className="mb-3 text-xs text-[#605e5c]">{hint}</p>}
+            <div className="flex flex-wrap gap-2.5">{children}</div>
+            {actions && <div className="mt-3 flex gap-4 text-xs font-medium text-[#094732]">{actions}</div>}
+        </div>}
+    </section>;
+}
+
+/** Selector Lista / Tarjetas con la preferencia recordada en el navegador. */
+export function useViewMode(storageKey: string) {
+    const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem(storageKey) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; } });
+    const setView = (v: 'list' | 'cards') => { setViewState(v); try { localStorage.setItem(storageKey, v); } catch { /* sin almacenamiento */ } };
+    return [view, setView] as const;
+}
+export function ViewToggle({ view, onChange }: { view: 'list' | 'cards'; onChange: (v: 'list' | 'cards') => void }) {
+    const items = [['list', 'Lista', <List size={14} key="l"/>], ['cards', 'Tarjetas', <LayoutGrid size={14} key="c"/>]] as const;
+    return <div className="ml-auto inline-flex overflow-hidden rounded-sm border border-[#d6dfd9] bg-white" role="group" aria-label="Vista">{items.map(([k, label, icon]) => <button key={k} type="button" aria-pressed={view === k} className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732] ${k === 'cards' ? 'border-l border-[#d6dfd9]' : ''} ${view === k ? 'bg-[#094732] text-white' : 'text-[#094732] hover:bg-[#eaf4ef]'}`} onClick={() => onChange(k)}>{icon}{label}</button>)}</div>;
+}
+
+/** Campo incompleto: borde rojo (se aplica con `!` para ganarle al borde normal). */
+export const fieldInvalid = '!border-red-500 !ring-2 !ring-red-200';
+/** Mensaje bajo un campo incompleto. */
+export function FieldError({ children }: { children: ReactNode }) {
+    return <span role="alert" className="mt-1 block text-[11px] font-medium text-red-600">{children}</span>;
+}
+/** Lleva la vista al primer campo marcado como incompleto (`data-invalid="true"`). */
+export function focusFirstInvalid() {
+    window.setTimeout(() => {
+        const el = document.querySelector<HTMLElement>('[data-invalid="true"]');
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el?.focus?.({ preventScroll: true });
+    }, 60);
+}
+
+export type PestanasSection = 'styles' | 'length' | 'technique' | 'thickness' | 'color' | 'curl';
+const sections: { key: PestanasSection; label: string; to: string; icon: ReactNode }[] = [
+    { key: 'styles', label: 'Estilos y efectos', to: '/designs', icon: <Palette size={15}/> },
+    { key: 'thickness', label: 'Grosores', to: '/tryon/thicknesses', icon: <WandSparkles size={15}/> },
+    { key: 'color', label: 'Colores', to: '/tryon/colors', icon: <Droplet size={15}/> },
+    { key: 'curl', label: 'Curvaturas', to: '/tryon/curls', icon: <Spline size={15}/> },
+    { key: 'length', label: 'Largos', to: '/tryon/lengths', icon: <MoveDiagonal size={15}/> },
+    { key: 'technique', label: 'Técnicas', to: '/tryon/techniques', icon: <Cpu size={15}/> },
+];
+/** Barra para pasar de un apartado de Pestañas a otro; a la derecha admite controles propios de la página. */
+export function PestanasNav({ active, right }: { active: PestanasSection; right?: ReactNode }) {
+    return <nav aria-label="Apartados de Pestañas" className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-[#e1dfdd] bg-white p-1 shadow-sm">
+            {sections.map(sec => <Link key={sec.key} to={sec.to} aria-current={sec.key === active ? 'page' : undefined} className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732] ${sec.key === active ? 'bg-[#094732] text-white' : 'text-[#605e5c] hover:bg-[#eef6f1] hover:text-[#094732]'}`}>{sec.icon}{sec.label}</Link>)}
+        </div>
+        {right && <div className="ml-auto flex flex-wrap items-center gap-3">{right}</div>}
+    </nav>;
 }

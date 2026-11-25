@@ -49,12 +49,12 @@ def get(db,kind,id):
 
 def list_options(db,kind):
     if kind not in KINDS: raise HTTPException(404,"El catálogo no existe")
-    return [response(r) for r in sorted(db.query(TryOnOption).filter_by(kind=kind).all(),key=lambda r:(r.draft["sort_order"],r.draft["id"]))]
+    return [response(r) for r in sorted((r for r in db.query(TryOnOption).filter_by(kind=kind).all() if not is_deleted(r)),key=lambda r:(r.draft["sort_order"],r.draft["id"]))]
 
 def create(db,kind,option):
     validate(kind,option)
     rows=db.query(TryOnOption).filter_by(kind=kind).all()
-    if len(rows)>=64: raise HTTPException(422,"Máximo 64 opciones por catálogo")
+    if len([r for r in rows if not is_deleted(r)])>=64: raise HTTPException(422,"Máximo 64 opciones por catálogo")
     id=max((r.draft["id"] for r in rows),default=-1)+1
     draft={**option.model_dump(mode="json"),"id":id}
     row=TryOnOption(key=f"{kind}:{id}",kind=kind,draft=draft,revision=1)
@@ -73,11 +73,42 @@ def save(db,kind,id,option,expected):
         db.rollback(); raise HTTPException(409,"La opción cambió; actualiza antes de guardar")
     db.commit();db.expire_all();return response(get(db,kind,id))
 
+def is_deleted(row): return bool(row.draft.get("deleted"))
+
+def remove(db,kind,id,expected):
+    """Elimina una opción. Si nunca se publicó se borra del todo; si ya se publicó se da de baja (se oculta y deja de ofrecerse) y su identificador no se reutiliza, para no confundir el historial."""
+    row=get(db,kind,id)
+    if is_deleted(row): raise HTTPException(404,"La opción no existe")
+    if row.revision!=expected: raise HTTPException(409,"La opción cambió; actualiza antes de eliminarla")
+    field=FIELDS[kind]; styles=db.query(TryOnStyle).all()
+    # Se quita de los estilos que la ofrecen, salvo que alguno se quede sin ninguna opción de este tipo.
+    for style in styles:
+        for data in (style.draft,style.published):
+            if data and id in (data.get(field) or []) and not [x for x in data[field] if x!=id] and kind!="curl":
+                raise HTTPException(409,f"El estilo «{(style.draft or {}).get('name',style.key)}» solo ofrece esta opción: asígnale otra antes de eliminarla")
+    for style in styles:
+        for attr in ("draft","published"):
+            data=getattr(style,attr)
+            if not data: continue
+            kept=[x for x in (data.get(field) or []) if x!=id]; changes={}
+            if id in (data.get(field) or []): changes[field]=kept
+            defaults=data.get("defaults") or {}
+            if defaults.get(kind)==id: changes["defaults"]={**defaults,kind:(kept[0] if kept else None)}
+            if changes: setattr(style,attr,{**data,**changes})
+    if not row.published:
+        db.delete(row); db.commit(); return
+    others={r.published["id"] for r in db.query(TryOnOption).filter_by(kind=kind).all() if r.key!=row.key and not is_deleted(r) and r.published and r.published["is_active"]}
+    if row.published["is_active"] and not others and kind!="curl": raise HTTPException(422,"Es la única opción activa de este catálogo; crea y publica otra antes de eliminarla")
+    row.draft={**row.draft,"is_active":False,"deleted":True}
+    row.published={**row.published,"is_active":False}
+    row.revision+=1
+    db.commit()
+
 def reorder(db,kind,ids):
     """Orden de un catálogo de opciones (arrastrar en el admin): borrador y
     publicado a la vez, sin crear versión. Hay que mandar TODAS las opciones."""
     if kind not in KINDS: raise HTTPException(404,"El catálogo no existe")
-    rows={r.draft["id"]:r for r in db.query(TryOnOption).filter_by(kind=kind).all()}
+    rows={r.draft["id"]:r for r in db.query(TryOnOption).filter_by(kind=kind).all() if not is_deleted(r)}
     if len(ids)!=len(set(ids)) or set(ids)!=set(rows):
         raise HTTPException(409,"La lista de opciones cambió; actualiza e intenta otra vez")
     for order,id in enumerate(ids):
@@ -95,6 +126,32 @@ def validate_style(db,style):
     for kind,field in FIELDS.items():
         available={o["id"] for o in options[kind]}
         if not set(getattr(style,field))<=available: raise HTTPException(422,"Publica primero las opciones seleccionadas de "+LABELS[kind])
+
+def enable_in_styles(styles,kind,id):
+    """Agrega la opción a las opciones permitidas de cada estilo (borrador y publicado) y devuelve cuántos estilos cambiaron.
+    Las curvaturas solo se agregan a los estilos que ya ofrecen alguna: con la lista vacía el estilo usa su propia curva y así se respeta."""
+    field=FIELDS[kind]; changed=0
+    for style in styles:
+        touched=False
+        for attr in ("draft","published"):
+            data=getattr(style,attr)
+            if not data: continue
+            current=data.get(field)
+            if current is None: current=[0] if kind=="color" else []
+            if kind=="curl" and not current: continue
+            if id in current: continue
+            setattr(style,attr,{**data,field:sorted([*current,id])}); touched=True
+        changed+=touched
+    return changed
+
+def enable_everywhere(db,kind,id):
+    """Activa una opción ya publicada en todos los estilos."""
+    styles=db.query(TryOnStyle).order_by(TryOnStyle.key).with_for_update().all()
+    row=get(db,kind,id)
+    if is_deleted(row) or not row.published or not row.published["is_active"]: raise HTTPException(409,"Publica la opción (y déjala disponible) antes de activarla en los estilos")
+    changed=enable_in_styles(styles,kind,id)
+    db.commit()
+    return {"styles":changed}
 
 def publish(db,kind,id,expected):
     # Same lock order as style publication to serialize availability checks.
@@ -114,6 +171,10 @@ def publish(db,kind,id,expected):
             return bool(chosen) and not chosen&remaining
         if (not remaining and not empty_ok) or any(s.published and s.published["is_active"] and depends(s) for s in styles): raise HTTPException(422,"Asigna otra opción a los estilos que dependen de esta antes de desactivarla")
     if row.published and row.published["revision"]==row.revision: return response(row)
+    first=row.published is None
     row.published={**option.model_dump(mode="json"),"revision":row.revision}
-    db.add(TryOnOptionVersion(option_key=row.key,revision=row.revision,snapshot=row.published));db.commit();db.refresh(row)
+    db.add(TryOnOptionVersion(option_key=row.key,revision=row.revision,snapshot=row.published))
+    # Opción nueva y disponible: queda activa en todos los estilos, sin tener que marcarla uno por uno.
+    if first and option.is_active: enable_in_styles(styles,kind,id)
+    db.commit();db.refresh(row)
     return response(row)

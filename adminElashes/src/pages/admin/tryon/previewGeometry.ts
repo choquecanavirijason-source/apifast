@@ -52,9 +52,12 @@ const hairTaper = (s: number) => s <= .6 ? 1 : .04 + .96 * (1 - smooth((s - .6) 
  * como en el teléfono. Escala todas las fibras por igual: los grosores
  * conservan su diferencia. Sin valor, el ancho del modelo.
  * [naturalLashes]: dibuja también las pestañas naturales debajo (visor web).
+ * [sample]: en vez de la tira completa, solo esta cantidad de grupos (acercamiento
+ * a la estructura de una técnica); mismo largo y grosor, sin pestañas naturales.
  */
-export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelection, options: OptionGroups, closed = false, maxFiberWidth?: number, naturalLashes = false) {
-    const { p, base, count, scale, diameter } = resolvePreviewSettings(profile, selection.length, selection.technique, selection.thickness, options);
+export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelection, options: OptionGroups, closed = false, maxFiberWidth?: number, naturalLashes = false, sample?: number) {
+    const { p, base, count: fullCount, scale, diameter } = resolvePreviewSettings(profile, selection.length, selection.technique, selection.thickness, options);
+    const count = sample != null ? Math.max(2, Math.round(sample)) : fullCount;
     const vertices: number[] = [], guide: number[] = [];
     // Curvatura como en la app: la fibra nace inclinada BASE_PROJECTION_DEG hacia
     // adelante (+Z) y se dobla hacia el párpado según la curva elegida.
@@ -86,10 +89,12 @@ export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelec
     function random() { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }
     let fibers = 0;
     for (let i = 0; i < count; i++) {
-        const t = i / (count - 1), x = (.5 - t) * 3, anchor = root(x);
-        const length = lengthAt(profile, t, i) * scale * (.9 + .2 * random());
-        const angle = (.5 - t) * profile.fan - profile.sweep * smooth((t - .35) / .65) + (random() - .5) * 6;
-        const jitter = (random() - .5) * .03;
+        // Muestra: grupos de la zona media (largo pleno), poco separados, para ver la estructura.
+        const t = sample != null ? .41 + .15 * (i / (count - 1)) : i / (count - 1), x = (.5 - t) * 3, anchor = root(x);
+        // Muestra de una técnica: todos los grupos idénticos (mismo largo, sin ángulo ni variación al azar), para que solo se compare la estructura.
+        const length = sample != null ? lengthAt(profile, .5, -1) * scale * (random(), 1) : lengthAt(profile, t, i) * scale * (.9 + .2 * random());
+        const angle = sample != null ? (random(), random(), 0) : (.5 - t) * profile.fan - profile.sweep * smooth((t - .35) / .65) + (random() - .5) * 6;
+        const jitter = sample != null ? (random(), 0) : (random() - .5) * .03;
         const fan = p?.fibers_per_group != null ? ((p.single_every > 0 && i % p.single_every === 0) ? 1 : p.fibers_per_group) : base === 0 ? 1 : base === 1 ? 3 : base === 2 ? 6 : i % 2 === 0 ? 1 : 3;
         for (let f = 0; f < fan; f++) {
             fibers++;
@@ -171,7 +176,7 @@ export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelec
         }
     }
     for (let i = 0; i <= 96; i++)
-        guide.push(...root(-1.5 + 3 * i / 96));
+        guide.push(...root(sample != null ? -.3 + .7 * i / 96 : -1.5 + 3 * i / 96));
     if (fibers > 360 || !vertices.every(Number.isFinite))
         throw new Error('Perfil fuera de los límites de la vista previa');
     const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
@@ -181,7 +186,7 @@ export function buildPreviewMesh(profile: RenderProfile, selection: PreviewSelec
             max[k] = Math.max(max[k], vertices[i + k]);
         }
     const center = min.map((n, k) => (n + max[k]) / 2);
-    let radius = 1.5;
+    let radius = sample != null ? .4 : 1.5;
     for (let i = 0; i < vertices.length; i += VERTEX_FLOATS)
         radius = Math.max(radius, Math.hypot(vertices[i] - center[0], vertices[i + 1] - center[1], vertices[i + 2] - center[2]));
     return { vertices: new Float32Array(vertices), guide: new Float32Array(guide), fibers, center, radius: radius * 1.12, tint: lashTint(selection, options), gloss: lashGloss(selection, options) };

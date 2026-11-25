@@ -135,6 +135,10 @@ export const TryOnOptionsService = {
     /** Orden de las opciones: se aplica al instante, sin crear versión. */
     reorder: async (kind: OptionKind, ids: number[]) => (await api.post<OptionRow[]>(`/catalogs/tryon/options/${kind}/reorder`, { ids })).data,
     publish: async (kind: OptionKind, id: number, revision: number) => (await api.post<OptionRow>(`/catalogs/tryon/options/${kind}/${id}/publish`, { expected_revision: revision })).data,
+    /** Activa una opción ya publicada en todos los estilos; devuelve en cuántos cambió algo. */
+    enableEverywhere: async (kind: OptionKind, id: number) => (await api.post<{ styles: number }>(`/catalogs/tryon/options/${kind}/${id}/enable-everywhere`)).data,
+    /** Solo opciones que nunca se publicaron; las publicadas se desactivan. */
+    deleteDraft: async (kind: OptionKind, id: number, revision: number) => { await api.delete(`/catalogs/tryon/options/${kind}/${id}`, { params: { expected_revision: revision } }); },
     all: async (): Promise<OptionGroups> => { const [length, technique, thickness, color, curl] = await Promise.all(['length', 'technique', 'thickness', 'color', 'curl'].map(k => TryOnOptionsService.list(k as OptionKind))); return { length, technique, thickness, color, curl }; }
 };
 

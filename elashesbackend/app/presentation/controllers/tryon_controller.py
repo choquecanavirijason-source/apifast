@@ -50,6 +50,12 @@ def option_reorder(kind:OptionKind,payload:OptionOrder,db:Session=Depends(get_db
 def option_save(kind:OptionKind,id:int,payload:OptionUpdate,db:Session=Depends(get_db),user=manage): return option_service.save(db,kind,id,payload.option,payload.expected_revision)
 @router.post("/options/{kind}/{id}/publish")
 def option_publish(kind:OptionKind,id:int,payload:RevisionRequest,db:Session=Depends(get_db),user=manage): return option_service.publish(db,kind,id,payload.expected_revision)
+@router.post("/options/{kind}/{id}/enable-everywhere")
+def option_enable_everywhere(kind:OptionKind,id:int,db:Session=Depends(get_db),user=manage): return option_service.enable_everywhere(db,kind,id)
+@router.delete("/options/{kind}/{id}",status_code=204)
+def option_delete(kind:OptionKind,id:int,expected_revision:int=Query(ge=1),db:Session=Depends(get_db),user=manage):
+    option_service.remove(db,kind,id,expected_revision)
+    return Response(status_code=204)
 
 
 from app.application.services import tryon_eye_service as eye_service

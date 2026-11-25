@@ -1,5 +1,6 @@
 import type { OptionKind, OptionParameters, OptionGroups, RenderProfile, SalonOption } from '@/core/services/tryon/tryon.service';
 import type { TutorialDemo, VisualTutorialTopic } from './tutorialTypes';
+import { mmFromScale } from './LengthPreview';
 const clamp = (n: number | null | undefined, min: number, max: number, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 export const optionDefaults: OptionParameters = { scale: null, diameter: null, base_technique: null, fibers_per_group: null, single_every: 0, density: 1, spread: null };
 export function safeOptionParameters(kind: OptionKind, p: OptionParameters): OptionParameters {
@@ -20,7 +21,7 @@ export function optionPreviewDemo(profile: RenderProfile, kind: OptionKind, para
 export type OptionHelpKey = 'scale' | 'diameter' | 'base_technique' | 'original' | 'fibers_per_group' | 'single_every' | 'density' | 'spread' | 'layer_split' | 'stem' | 'tip_merge' | 'layer_curl';
 const basic = { technique: 0, view: 'front' as const };
 export const optionHelpTopics: Record<OptionHelpKey, VisualTutorialTopic> = {
-    scale: { ...basic, key: 'option_scale', title: 'Largo de las pestañas', description: 'Multiplica el largo del estilo sin cambiar su forma ni su raíz.', less: 'Más corto.', more: 'Más largo.', tip: '1 conserva el largo del estilo. 1.4 lo representa un 40% más largo; es una escala visual.', min: .4, max: 1.8, step: .01, low: .65, high: 1.5, captions: ['Más cortas', 'Más largas'] },
+    scale: { ...basic, key: 'option_scale', title: 'Largo de las pestañas', description: 'Cambia cuánto miden las pestañas, en milímetros, sin cambiar la forma del estilo ni su raíz.', less: 'Más corto.', more: 'Más largo.', tip: 'El ejemplo va de unos 8 mm a unos 18 mm. Medio equivale a 12 mm. Las fibras crecen desde la misma raíz y el estilo conserva su forma; el largo real final lo define el mapeo de la técnica.', min: .4, max: 1.8, step: .01, low: .65, high: 1.5, captions: ['Más cortas', 'Más largas'], formatValue: v => `${mmFromScale(v)} mm` },
     diameter: { ...basic, key: 'option_diameter', title: 'Grosor de las fibras', description: 'Cambia el ancho visual de cada fibra usando el diámetro nominal.', less: 'Más fino.', more: 'Más grueso.', tip: 'No añade fibras ni aumenta su largo. Es una simulación visual del diámetro, no una medición del resultado real.', min: .03, max: .25, step: .005, low: .05, high: .15, captions: ['Fibras más finas', 'Fibras más gruesas'], formatValue: v => `${v.toFixed(3)} mm` },
     base_technique: { ...basic, key: 'option_base', title: 'Distribución base', description: 'Elige el patrón de grupos del estilo sobre el que se construye la técnica.', less: 'Clásica.', more: 'Megavolumen.', tip: 'El ejemplo recorre Clásica, Volumen y Megavolumen con su distribución original.', min: 0, max: 3, step: 1, low: 0, high: 2, captions: ['Fibras individuales', 'Grupos con más fibras'], formatValue: v => ['Clásica', 'Volumen', 'Megavolumen', 'Híbrida'][v] },
     original: { ...basic, key: 'option_original', title: 'Distribución original del estilo', description: 'Permite conservar los grupos y la apertura definidos por el estilo o personalizarlos en esta técnica.', less: 'Personalizada.', more: 'Original.', tip: 'La demostración compara una distribución personalizada de seis fibras por grupo con la distribución original de la base elegida.', min: 0, max: 1, step: 1, low: 0, high: 1, captions: ['Distribución personalizada', 'Distribución original del estilo'], formatValue: v => v ? 'Original' : 'Personalizada' },
@@ -53,5 +54,7 @@ export function optionHelpDemo(profile: RenderProfile, kind: OptionKind, source:
         else
             parameters = { ...parameters, [key]: value };
     }
-    return optionPreviewDemo(profile, kind, parameters, styleName);
+    const demo = optionPreviewDemo(profile, kind, parameters, styleName);
+    // Las técnicas se explican con unos pocos grupos; la densidad es la excepción, porque trata de cuántos grupos caben en la tira.
+    return (kind === 'technique' && key !== 'density') || kind === 'thickness' ? { ...demo, note: `Ejemplo sobre ${styleName}: se muestran solo unos grupos para ver mejor la fibra.` } : demo;
 }

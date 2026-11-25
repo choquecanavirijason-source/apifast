@@ -171,6 +171,61 @@ class TryOnCatalogTests(unittest.TestCase):
         visible=next(s for s in service.manifest(self.db)["styles"] if s["key"]=="cateye")
         self.assertEqual(visible["allowed_lengths"],[0]);self.assertEqual(visible["defaults"]["length"],0)
 
+    def test_new_option_is_enabled_in_every_style(self):
+        from app.application.services import tryon_option_service as opts
+        from app.presentation.schemas.tryon import OptionDraft
+        styles=self.db.query(TryOnStyle).all()
+        # Un estilo sin curvaturas conserva su propia curva.
+        bare=styles[0]; draft=deepcopy(bare.draft); draft["allowed_curls"]=[]; bare.draft=draft
+        if bare.published: pub=deepcopy(bare.published); pub["allowed_curls"]=[]; bare.published=pub
+        self.db.commit()
+        length=opts.create(self.db,"length",OptionDraft(name="Extra",parameters={"scale":1.4}))
+        opts.publish(self.db,"length",length["option"]["id"],length["revision"])
+        curl=opts.create(self.db,"curl",OptionDraft(name="Nueva curva",parameters={"curl_deg":45,"bend_position":.5,"bend_sharpness":.2}))
+        opts.publish(self.db,"curl",curl["option"]["id"],curl["revision"])
+        self.db.expire_all()
+        for style in self.db.query(TryOnStyle).all():
+            self.assertIn(length["option"]["id"],style.draft["allowed_lengths"])
+            if style.published: self.assertIn(length["option"]["id"],style.published["allowed_lengths"])
+        self.assertEqual(self.db.get(TryOnStyle,bare.key).draft["allowed_curls"],[])
+        # Un borrador sin publicar no se agrega a nada.
+        pending=opts.create(self.db,"length",OptionDraft(name="Pendiente",parameters={"scale":1.1}))
+        self.assertTrue(all(pending["option"]["id"] not in s.draft["allowed_lengths"] for s in self.db.query(TryOnStyle).all()))
+
+    def test_remove_option(self):
+        from app.application.services import tryon_option_service as opts
+        from app.presentation.schemas.tryon import OptionDraft
+        # Sin publicar: se borra del todo.
+        mistake=opts.create(self.db,"length",OptionDraft(name="Por error",parameters={"scale":1.4}))
+        opts.remove(self.db,"length",mistake["option"]["id"],mistake["revision"])
+        with self.assertRaises(HTTPException):opts.get(self.db,"length",mistake["option"]["id"])
+        # Con revisión desactualizada, no.
+        again=opts.create(self.db,"length",OptionDraft(name="Otra",parameters={"scale":1.2}))
+        with self.assertRaises(HTTPException) as stale:opts.remove(self.db,"length",again["option"]["id"],again["revision"]+5)
+        self.assertEqual(stale.exception.status_code,409)
+        # Publicada: se da de baja, desaparece de la lista y del manifiesto, y su id no se reutiliza.
+        published=opts.publish(self.db,"length",again["option"]["id"],again["revision"])
+        gone_id=again["option"]["id"]
+        opts.remove(self.db,"length",gone_id,published["revision"])
+        self.assertNotIn(gone_id,[r["option"]["id"] for r in opts.list_options(self.db,"length")])
+        self.assertNotIn(gone_id,[o["id"] for o in service.manifest(self.db)["options"]["length"]])
+        reused=opts.create(self.db,"length",OptionDraft(name="Nueva",parameters={"scale":1.3}))
+        self.assertGreater(reused["option"]["id"],gone_id)
+        # Usada por los estilos: al borrarla se quita de todos y su selección inicial pasa a otra.
+        used=opts.create(self.db,"length",OptionDraft(name="En uso",parameters={"scale":1.1}))
+        row=self.db.query(TryOnStyle).first()
+        draft=deepcopy(row.draft);draft["allowed_lengths"]=sorted({*draft["allowed_lengths"],used["option"]["id"]});draft["defaults"]={**draft["defaults"],"length":used["option"]["id"]};row.draft=draft;self.db.commit()
+        opts.remove(self.db,"length",used["option"]["id"],used["revision"])
+        self.db.expire_all()
+        after=self.db.get(TryOnStyle,row.key).draft
+        self.assertNotIn(used["option"]["id"],after["allowed_lengths"]);self.assertIn(after["defaults"]["length"],after["allowed_lengths"])
+        # Un estilo que solo ofrece esa opción bloquea la baja.
+        only=opts.create(self.db,"length",OptionDraft(name="Única",parameters={"scale":1.05}))
+        row=self.db.query(TryOnStyle).first()
+        draft=deepcopy(row.draft);draft["allowed_lengths"]=[only["option"]["id"]];row.draft=draft;self.db.commit()
+        with self.assertRaises(HTTPException) as lone:opts.remove(self.db,"length",only["option"]["id"],only["revision"])
+        self.assertEqual(lone.exception.status_code,409)
+
     def test_numeric_option_limits_and_categories(self):
         from app.application.services import tryon_option_service as opts
         from app.presentation.schemas.tryon import OptionDraft

@@ -17,8 +17,12 @@ const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 /** Ancho máximo de una fibra en pantalla (px CSS): como un pelo, igual que en
  * el teléfono, sin importar el tamaño del visor ni el zoom. */
 const HAIR_PX = 1.8;
+/** En los tutoriales con pocos grupos las fibras se dibujan más gruesas, para que se note el cambio. */
+const SAMPLE_TUTORIAL_HAIR = 2.4;
 /** Radio típico del modelo para convertir px a unidades (el real ronda 1.7–1.9). */
 const RADIUS_ESTIMATE = 1.75;
+/** Radio típico del modelo en modo muestra (pocos grupos). */
+export const SAMPLE_RADIUS_ESTIMATE = .85;
 // Luz difusa + un brillo suave de fibra ("sheen", como el motor del teléfono)
 // y opacidad por vértice para las puntas translúcidas. Sin comentarios dentro
 // del GLSL: algunos navegadores rechazan caracteres no ASCII en el shader.
@@ -94,7 +98,7 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
                 gl.bindBuffer(gl.ARRAY_BUFFER, guide);
                 gl.bufferData(gl.ARRAY_BUFFER, next.guide, gl.DYNAMIC_DRAW);
             }, draw: (orbit) => {
-                const ratio = Math.min(window.devicePixelRatio || 1, 2), width = Math.max(1, Math.round(canvas.clientWidth * ratio)), height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+                const attached = canvas.clientWidth > 0 && canvas.clientHeight > 0, ratio = attached ? Math.min(window.devicePixelRatio || 1, 2) : 1, width = Math.max(1, Math.round((attached ? canvas.clientWidth : canvas.width) * ratio)), height = Math.max(1, Math.round((attached ? canvas.clientHeight : canvas.height) * ratio));
                 if (canvas.width !== width || canvas.height !== height) {
                     canvas.width = width;
                     canvas.height = height;
@@ -151,7 +155,40 @@ function makeRenderer(canvas: HTMLCanvasElement, mesh: ReturnType<typeof buildPr
         throw e;
     }
 }
-export default function Lash3DPreview({ profile, selection, options, initialView, canExpand = true, cinematic = false, camera }: {
+/**
+ * Miniatura 3D fuera de pantalla con el mismo motor del visor (ángulo de tres
+ * cuartos, encuadre automático). Devuelve un PNG con fondo transparente o
+ * `null` si WebGL no está disponible.
+ */
+export function renderPreviewThumbnail(profile: RenderProfile, selection: PreviewSelection, options: OptionGroups, view: PreviewCamera = { yaw: -.32, pitch: .3, zoom: 1.12 }, w = 480, h = 320, sample?: number): string | null {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    let renderer: Renderer | null = null;
+    try {
+        const cssW = w / 2, cssH = h / 2;
+        const cap = Math.round(HAIR_PX * (2 * (sample != null ? SAMPLE_RADIUS_ESTIMATE : RADIUS_ESTIMATE) * Math.max(1, cssW / cssH)) / (view.zoom * cssW) * 40000) / 40000;
+        renderer = makeRenderer(canvas, buildPreviewMesh(profile, selection, options, false, cap, sample == null, sample));
+        renderer.draw(view);
+        return canvas.toDataURL('image/png');
+    }
+    catch {
+        return null;
+    }
+    finally {
+        renderer?.dispose();
+        canvas.getContext('webgl')?.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+}
+export default function Lash3DPreview({ profile, selection, options, initialView, canExpand = true, cinematic = false, camera, initialOrbit, onViewChange, aspect, sample }: {
+    /** Solo esta cantidad de grupos, en acercamiento (estructura de una técnica). */
+    sample?: number;
+    /** Vista con la que arranca el visor. */
+    initialOrbit?: PreviewCamera;
+    /** Se llama cada vez que cambia el ángulo o el zoom. */
+    onViewChange?: (view: PreviewCamera) => void;
+    /** Proporción fija del lienzo (p. ej. `3 / 2`) en lugar de la altura por defecto. */
+    aspect?: string;
     cinematic?: boolean;
     camera?: PreviewCamera;
     initialView?: 'front' | 'profile';
@@ -160,7 +197,7 @@ export default function Lash3DPreview({ profile, selection, options, initialView
     selection: PreviewSelection;
     options: OptionGroups;
 }) {
-    const defaultOrbit = useMemo(() => initialView === 'profile' ? { yaw: 1.15, pitch: .12, zoom: 1 } : initialView === 'front' ? { yaw: 0, pitch: 0, zoom: 1 } : initial, [initialView]);
+    const defaultOrbit = useMemo(() => initialOrbit ?? (initialView === 'profile' ? { yaw: 1.15, pitch: .12, zoom: 1 } : initialView === 'front' ? { yaw: 0, pitch: 0, zoom: 1 } : initial), [initialOrbit, initialView]);
     const canvas = useRef<HTMLCanvasElement>(null), renderer = useRef<Renderer | null>(null), orbitRef = useRef(defaultOrbit), pointers = useRef(new Map<number, {
         x: number;
         y: number;
@@ -174,9 +211,12 @@ export default function Lash3DPreview({ profile, selection, options, initialView
     // (misma proyección que el shader), cuantizadas para no regenerar la malla
     // por cada píxel. Diferido: el zoom con la rueda no se traba.
     const zoomNow = (camera ?? orbit).zoom;
-    const rawCap = size.w > 0 && size.h > 0 ? HAIR_PX * (2 * RADIUS_ESTIMATE * Math.max(1, size.w / size.h)) / (zoomNow * size.w) : undefined;
+    const rawCap = size.w > 0 && size.h > 0 ? HAIR_PX * (sample != null && cinematic ? SAMPLE_TUTORIAL_HAIR : 1) * (2 * (sample != null ? SAMPLE_RADIUS_ESTIMATE : RADIUS_ESTIMATE) * Math.max(1, size.w / size.h)) / (zoomNow * size.w) : undefined;
     const widthCap = useDeferredValue(rawCap === undefined ? undefined : Math.round(rawCap * 40000) / 40000);
-    const mesh = useMemo(() => buildPreviewMesh(profile, selection, options, closed, widthCap, true), [profile, selection, options, closed, widthCap]);
+    const mesh = useMemo(() => buildPreviewMesh(profile, selection, options, closed, widthCap, sample == null, sample), [profile, selection, options, closed, widthCap, sample]);
+    const viewCallback = useRef(onViewChange);
+    viewCallback.current = onViewChange;
+    useEffect(() => { viewCallback.current?.(orbit); }, [orbit]);
     const meshRef = useRef(mesh);
     useEffect(() => {
         const node = canvas.current;
@@ -286,7 +326,7 @@ export default function Lash3DPreview({ profile, selection, options, initialView
     const content = <div ref={container} role={expanded ? 'dialog' : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? 'Vista ampliada de la pestaña' : undefined} onKeyDown={expandedKeys} onClick={e => e.stopPropagation()} className={expanded ? 'w-full max-w-[1400px] max-h-[94dvh] overflow-y-auto rounded-sm border border-[#edebe9] bg-white p-4 space-y-3' : 'space-y-3'}>
   {!cinematic && <div className="flex flex-wrap items-center justify-between gap-2"><span className="inline-flex items-center gap-1.5 rounded-sm border border-[#e3d6bd] bg-[#faf6ee] px-2 py-1 text-[11px] font-semibold text-[#7a6338]"><span className="h-1.5 w-1.5 rounded-full bg-[#9F8351]" aria-hidden="true"/>{mesh.fibers} fibras</span><div className="flex flex-wrap gap-1">{canExpand && <button ref={expandButton} type="button" className={`${button} inline-flex items-center gap-1`} aria-label={expanded ? "Reducir vista 3D" : "Ampliar vista 3D"} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>} {expanded ? "Reducir" : "Ampliar"}</button>}{[false, true].map(value => <button type="button" key={String(value)} aria-pressed={closed === value} className={`${button} ${closed === value ? '!border-[#094732] !bg-[#094732] !text-white' : ''}`} onClick={() => setClosed(value)}>{value ? 'Cerrado' : 'Abierto'}</button>)}</div></div>}
   <div className="relative overflow-hidden rounded-sm border border-[#e1dfdd] bg-[#f6f4ef]" style={{ backgroundImage: 'radial-gradient(circle at 50% 38%, #ffffff 0%, #f7f5f0 55%, #ece8df 100%)' }}>
-   <canvas ref={canvas} className={`${cinematic ? 'h-[min(48dvh,480px)]' : expanded ? 'h-[min(65dvh,720px)]' : 'h-[280px]'} w-full touch-none ${cinematic ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732] ${unavailable ? 'invisible' : ''}`} aria-label={cinematic ? "Demostración 3D del ajuste" : "Pestaña 3D interactiva: arrastra para girar, rueda para acercar"} tabIndex={cinematic ? -1 : 0} onKeyDown={cinematic ? undefined : keyboard} onPointerDown={e => {
+   <canvas ref={canvas} style={aspect && !expanded && !cinematic ? { aspectRatio: aspect } : undefined} className={`${cinematic ? 'h-[min(48dvh,480px)]' : expanded ? 'h-[min(65dvh,720px)]' : aspect ? 'h-auto' : 'h-[280px]'} w-full touch-none ${cinematic ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#094732] ${unavailable ? 'invisible' : ''}`} aria-label={cinematic ? "Demostración 3D del ajuste" : "Pestaña 3D interactiva: arrastra para girar, rueda para acercar"} tabIndex={cinematic ? -1 : 0} onKeyDown={cinematic ? undefined : keyboard} onPointerDown={e => {
             if (cinematic)
                 return;
             pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });

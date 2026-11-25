@@ -6,7 +6,9 @@ import Lash3DPreview from './Lash3DPreview';
 import { tutorialDuration, tutorialFrame, tutorialCaptions } from './styleTutorialTimeline';
 import type { VisualTutorialTopic, TutorialDemo } from './tutorialTypes';
 const timestamp = (n: number) => `0:${Math.floor(n).toString().padStart(2, '0')}`;
-export default function VisualTutorialDialog({ topic, currentValue, renderDemo, onClose, onPrevious, onNext, stepLabel }: {
+export default function VisualTutorialDialog({ topic, currentValue, renderDemo, onClose, onPrevious, onNext, stepLabel, sample }: {
+    /** Mostrar solo esta cantidad de grupos (estructura de una técnica) en vez de la tira completa. */
+    sample?: number;
     topic: VisualTutorialTopic;
     currentValue: number;
     renderDemo: (value: number) => TutorialDemo;
@@ -97,7 +99,7 @@ export default function VisualTutorialDialog({ topic, currentValue, renderDemo, 
    <header className="flex shrink-0 items-start justify-between gap-3 border-b-2 border-[#9F8351] bg-[#094732] px-5 py-3.5 text-white"><div><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d8c7a4]">Tutorial visual{stepLabel ? ` · ${stepLabel}` : ''}</p><h2 id={id} className="mt-1 text-lg font-semibold leading-tight">{topic.title}</h2></div><button ref={close} type="button" className="shrink-0 rounded-sm p-1.5 text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d8c7a4]" aria-label="Cerrar ayuda" onClick={onClose}><X size={18}/></button></header>
    <div className="min-h-0 overflow-y-auto p-3 sm:p-5">
     <div className="relative overflow-hidden rounded-sm border border-[#dce5df]">
-     <Lash3DPreview profile={demo.profile} selection={demo.selection} options={demo.options} cinematic camera={frame.camera} canExpand={false}/>
+     <Lash3DPreview profile={demo.profile} selection={demo.selection} options={demo.options} cinematic camera={sample != null ? { ...frame.camera, zoom: 1.9 } : frame.camera} canExpand={false} sample={sample}/>
      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap justify-between gap-2 p-3"><span className="rounded-sm border border-white/80 bg-white/90 px-3 py-1 text-xs font-medium text-[#094732]">{frame.view}</span><span className="rounded-sm border border-white/80 bg-white/90 px-3 py-1 text-xs text-[#323130]">Valor: <output aria-label="Valor mostrado">{formatValue(frame.value)}</output></span></div>
      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 via-white/85 to-transparent px-4 pb-4 pt-9 text-center"><p className="text-base font-semibold text-[#094732] sm:text-xl">{caption}</p></div>
     </div>

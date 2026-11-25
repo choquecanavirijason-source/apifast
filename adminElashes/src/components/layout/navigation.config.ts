@@ -236,7 +236,7 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
       },
       {
         label: "Grosores",
-        description: "Diámetros de las fibras",
+        description: "Qué tan gruesa es cada fibra (mm)",
         path: "/tryon/thicknesses",
         icon: Wand2,
         permission: ["catalog:view", "catalog:manage"],
@@ -250,21 +250,21 @@ const NAVIGATION_GROUPS: NavigationGroup[] = [
       },
       {
         label: "Curvaturas",
-        description: "Formas de curva de la fibra",
+        description: "Cómo se curva la fibra: J, C, D…",
         path: "/tryon/curls",
         icon: Spline,
         permission: ["catalog:view", "catalog:manage"],
       },
       {
         label: "Largos",
-        description: "Escalas disponibles",
+        description: "Cuánto miden las pestañas (mm)",
         path: "/tryon/lengths",
         icon: Maximize2,
         permission: ["catalog:view", "catalog:manage"],
       },
       {
         label: "Técnicas",
-        description: "Clásica, volumen y nuevas técnicas",
+        description: "Cómo se arma cada grupo de fibras",
         path: "/tryon/techniques",
         icon: Cpu,
         permission: ["catalog:view", "catalog:manage"],
