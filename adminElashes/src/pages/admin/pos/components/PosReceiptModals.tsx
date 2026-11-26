@@ -81,10 +81,14 @@ function ReceiptTicketBody({
   format: "a4" | "thermal";
   toDateAndTimeInputValues: (iso: string) => { date: string; time: string; without_time: boolean };
 }) {
+  // En papel termico todo va mas junto: menos espacios y letra mas chica para gastar poco papel.
+  const thermal = format === "thermal";
+  const sep = thermal ? "my-1.5" : "my-3";
+  const rowGap = thermal ? "mb-0" : "mb-1";
   return (
     <>
-    <div className="mb-4 text-center">
-    <p className={`${format === "thermal" ? "text-sm" : "text-lg"} font-bold uppercase tracking-widest`}>
+    <div className={`${thermal ? "mb-1" : "mb-4"} text-center`}>
+    <p className={`${thermal ? "text-sm" : "text-lg"} font-bold uppercase tracking-widest`}>
       Comprobante
     </p>
     <p className="mt-0.5 text-xs text-slate-400">
@@ -101,37 +105,37 @@ function ReceiptTicketBody({
     </p>
     </div>
 
-    <div className="my-3 border-t border-dashed border-slate-300" />
+    <div className={`${sep} border-t border-dashed border-slate-300`} />
 
-    <div className="mb-1 flex justify-between text-xs">
+    <div className={`${rowGap} flex justify-between text-xs`}>
     <span className="text-slate-500">Código venta</span>
     <span className="font-bold text-emerald-600">{sale.sale_code}</span>
   </div>
-  <div className="mb-1 flex justify-between text-xs">
+  <div className={`${rowGap} flex justify-between text-xs`}>
     <span className="text-slate-500">Cliente</span>
     <span className="font-semibold">{sale.client?.name} {sale.client?.last_name}</span>
   </div>
-  <div className="mb-1 flex justify-between text-xs">
+  <div className={`${rowGap} flex justify-between text-xs`}>
     <span className="text-slate-500">Método de pago</span>
     <span className="font-semibold">{PAYMENT_METHOD_LABELS[sale.payment_method] ?? sale.payment_method}</span>
     </div>
     {sale.payment_method === "cash" && sale.payments[0]?.cash_received != null && (
       <>
-        <div className="mb-1 flex justify-between text-xs">
+        <div className={`${rowGap} flex justify-between text-xs`}>
           <span className="text-slate-500">Recibido</span>
           <span className="font-semibold">Bs {sale.payments[0].cash_received!.toFixed(2)}</span>
         </div>
-        <div className="mb-1 flex justify-between text-xs">
+        <div className={`${rowGap} flex justify-between text-xs`}>
           <span className="text-slate-500">Vuelto</span>
           <span className="font-bold text-emerald-600">Bs {(sale.payments[0].cash_change ?? 0).toFixed(2)}</span>
         </div>
       </>
     )}
 
-    <div className="my-3 border-t border-dashed border-slate-300" />
+    <div className={`${sep} border-t border-dashed border-slate-300`} />
 
-    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Servicios</p>
-    <div className="space-y-2">
+    <p className={`${thermal ? "mb-0.5" : "mb-2"} text-[10px] font-bold uppercase tracking-widest text-slate-400`}>Servicios</p>
+    <div className={thermal ? "space-y-1" : "space-y-2"}>
       {sale.appointments.length === 0 ? (
         <p className="text-center text-xs text-slate-400">Sin tickets asociados.</p>
       ) : (
@@ -150,12 +154,11 @@ function ReceiptTicketBody({
               </p>
               <p className="text-[10px] text-slate-400">
                 {appointment.professional?.username ? `Operaria: ${appointment.professional.username}` : "Operaria: Sin asignar"}
-                {" · "}
-                {getTicketStatusLabel(appointment.status)}
+                {thermal ? "" : ` · ${getTicketStatusLabel(appointment.status)}`}
               </p>
             </div>
             <span className="mt-0.5 flex flex-none items-center gap-1 text-[11px] text-slate-400">
-              <Clock className="h-3 w-3" />
+              {thermal ? null : <Clock className="h-3 w-3" />}
               {displayTime}
             </span>
             </div>
@@ -166,9 +169,9 @@ function ReceiptTicketBody({
 
     {sale.product_lines.length > 0 && (
       <>
-        <div className="my-3 border-t border-dashed border-slate-300" />
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Productos</p>
-        <div className="space-y-2">
+        <div className={`${sep} border-t border-dashed border-slate-300`} />
+        <p className={`${thermal ? "mb-0.5" : "mb-2"} text-[10px] font-bold uppercase tracking-widest text-slate-400`}>Productos</p>
+        <div className={thermal ? "space-y-1" : "space-y-2"}>
           {sale.product_lines.map((line) => (
             <div key={line.id} className="flex items-start justify-between gap-2">
               <div>
@@ -182,7 +185,7 @@ function ReceiptTicketBody({
       </>
     )}
 
-    <div className="my-3 border-t border-dashed border-slate-300" />
+    <div className={`${sep} border-t border-dashed border-slate-300`} />
 
     {Number(sale.discount_value) > 0 && (
       <div className="mb-2 space-y-0.5 text-xs text-slate-600">
@@ -202,12 +205,12 @@ function ReceiptTicketBody({
 
     <div className="flex items-center justify-between">
     <span className="text-sm font-bold text-slate-700">TOTAL</span>
-    <span className="text-xl font-black text-slate-900">Bs {sale.total.toFixed(2)}</span>
+    <span className={`${thermal ? "text-base" : "text-xl"} font-black text-slate-900`}>Bs {sale.total.toFixed(2)}</span>
     </div>
 
-    <div className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center">
+    <div className={`${thermal ? "mt-2 pt-1.5" : "mt-4 pt-3"} border-t border-dashed border-slate-300 text-center`}>
       <p className="text-[11px] text-slate-400">¡Gracias por su compra!</p>
-      <p className="mt-2 text-[10px] leading-snug text-slate-500">{HYGIENE_NOTICE}</p>
+      <p className={`${thermal ? "mt-1 text-[9px]" : "mt-2 text-[10px]"} leading-snug text-slate-500`}>{HYGIENE_NOTICE}</p>
     </div>
     </>
   );
@@ -422,7 +425,7 @@ export default function PosReceiptModals({
             @media print {
               @page {
                 size: ${printFormat === "thermal" ? "80mm auto" : "A4 portrait"};
-                margin: ${printFormat === "thermal" ? "4mm" : "12mm"};
+                margin: ${printFormat === "thermal" ? "2mm" : "12mm"};
               }
 
               html, body {
@@ -508,7 +511,7 @@ export default function PosReceiptModals({
 
                 <div
                   id="print-ticket-card"
-                  className={`font-mono text-slate-800 ${printFormat === "thermal" ? "px-4 py-4 text-xs" : "px-8 py-7 text-sm"}`}
+                  className={`font-mono text-slate-800 ${printFormat === "thermal" ? "px-2 py-2 text-xs" : "px-8 py-7 text-sm"}`}
                 >
                   <ReceiptTicketBody sale={receiptSale} format={printFormat} toDateAndTimeInputValues={toDateAndTimeInputValues} />
                 </div>

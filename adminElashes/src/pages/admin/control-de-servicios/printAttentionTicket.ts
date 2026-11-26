@@ -84,11 +84,14 @@ export function buildAttentionTicketHtml(tickets: TicketItem[], printedAt: Date 
         .join("")
     : `<div class="muted">Sin servicios registrados</div>`;
 
+  // Datos secundarios de la clienta en una sola linea (ahorra papel).
+  const clientLine = [phone, age != null ? `${age} años` : null, eyeType].filter(Boolean).join(" · ");
+
   const schedule =
     start && end
-      ? `${formatDate(start)} · ${formatTime(start)} – ${formatTime(end)}`
+      ? `${formatTime(start)} – ${formatTime(end)}`
       : start
-        ? `${formatDate(start)} · ${formatTime(start)}`
+        ? formatTime(start)
         : null;
 
   return `<!doctype html>
@@ -100,32 +103,31 @@ export function buildAttentionTicketHtml(tickets: TicketItem[], printedAt: Date 
   @page { size: 80mm auto; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body { width: 72mm; margin: 0 auto; padding: 4mm 0; font-family: "Courier New", ui-monospace, monospace; font-size: 12px; color: #000; }
+  body { width: 72mm; margin: 0 auto; padding: 2mm 0 1mm; font-family: "Courier New", ui-monospace, monospace; font-size: 11px; line-height: 1.2; color: #000; }
   .center { text-align: center; }
-  .brand { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
-  .title { font-size: 13px; font-weight: 700; margin-top: 2px; }
-  .code { font-size: 16px; font-weight: 700; margin: 6px 0 2px; }
-  .sep { border-top: 1px dashed #000; margin: 6px 0; }
-  .alert { border: 2px solid #000; padding: 4px 5px; margin: 6px 0; }
-  .alert .t { font-weight: 700; font-size: 13px; text-align: center; letter-spacing: 1px; }
-  .alert .b { font-weight: 700; font-size: 13px; margin-top: 2px; word-break: break-word; }
-  .h { font-weight: 700; text-transform: uppercase; font-size: 11px; margin-bottom: 3px; }
-  .row { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+  .brand { font-size: 14px; font-weight: 700; letter-spacing: 1px; line-height: 1.1; }
+  .code { font-size: 13px; font-weight: 700; margin: 1px 0 0; }
+  .sep { border-top: 1px dashed #000; margin: 3px 0; }
+  .alert { border: 2px solid #000; padding: 2px 4px; margin: 3px 0; }
+  .alert .t { font-weight: 700; font-size: 12px; text-align: center; letter-spacing: 1px; }
+  .alert .b { font-weight: 700; font-size: 12px; word-break: break-word; }
+  .h { font-weight: 700; text-transform: uppercase; font-size: 10px; margin-bottom: 1px; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
   .row .k { flex: 0 0 auto; }
   .row .v { text-align: right; font-weight: 700; word-break: break-word; }
-  .svc { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+  .name { font-weight: 700; font-size: 12px; word-break: break-word; }
+  .svc { display: flex; justify-content: space-between; gap: 6px; }
   .svc span:first-child { word-break: break-word; }
-  .total { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; margin-top: 3px; }
-  .muted { color: #444; font-size: 11px; }
-  .foot { margin-top: 8px; font-size: 11px; }
+  .total { display: flex; justify-content: space-between; font-weight: 700; font-size: 12px; margin-top: 1px; }
+  .muted { color: #333; font-size: 10px; }
+  .foot { margin-top: 2px; font-size: 10px; }
 </style>
 </head>
 <body>
   <div class="center">
     <div class="brand">E-LASHES</div>
-    <div class="title">TICKET DE ATENCIÓN</div>
     <div class="code">${escapeHtml(codes)}</div>
-    ${branch ? `<div class="muted">${escapeHtml(branch)}</div>` : ""}
+    <div class="muted">Ticket de atención${branch ? ` · ${escapeHtml(branch)}` : ""}</div>
   </div>
   <div class="sep"></div>
 
@@ -137,24 +139,17 @@ export function buildAttentionTicketHtml(tickets: TicketItem[], printedAt: Date 
         : `<div class="muted center">Alergias: sin confirmar</div>`
   }
 
-  <div class="h">Clienta</div>
-  ${row("Nombre", clientName)}
-  ${row("Teléfono", phone)}
-  ${row("Edad", age != null ? `${age} años` : null)}
-  ${row("Tipo de ojo", eyeType)}
+  <div class="name">${escapeHtml(clientName)}</div>
+  ${clientLine ? `<div class="muted">${escapeHtml(clientLine)}</div>` : ""}
   <div class="sep"></div>
 
-  <div class="h">Atención solicitada</div>
   ${serviceRows}
   ${priced.length ? `<div class="total"><span>TOTAL</span><span>${money(total)}</span></div>` : ""}
   <div class="sep"></div>
 
-  <div class="h">Detalle</div>
   ${row("Operaria", professionals.join(", "))}
   ${row("Horario", schedule)}
-  ${row("Impreso", `${formatDate(printedAt)} ${formatTime(printedAt)}`)}
-  <div class="sep"></div>
-  <div class="center foot">¡Gracias por tu visita!</div>
+  <div class="center foot">¡Gracias! · ${escapeHtml(formatDate(printedAt))} ${escapeHtml(formatTime(printedAt))}</div>
 </body>
 </html>`;
 }
