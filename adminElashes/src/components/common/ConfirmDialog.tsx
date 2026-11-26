@@ -41,6 +41,7 @@ export const ConfirmDialog = ({
         <div className="mt-2 mb-5 text-sm text-brand-tertiary-soft leading-relaxed">{message}</div>
         <div className="flex justify-end gap-2">
           <button
+            type="button"
             className="px-4 py-2 rounded-lg border border-brand-secondary/40 bg-[var(--ui-surface)] text-[var(--ui-text)] text-sm font-medium hover:bg-brand-secondary/10 transition"
             onClick={onCancel}
             disabled={isProcessing}
@@ -48,6 +49,7 @@ export const ConfirmDialog = ({
             {cancelLabel}
           </button>
           <button
+            type="button"
             className={
               variant === "danger"
                 ? "px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium transition"

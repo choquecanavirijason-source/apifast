@@ -326,7 +326,10 @@ export default function SalesHistoryTable({
         label: "Cancelar venta",
         icon: <XCircle className="w-4 h-4" />,
         onClick: onCancelSale,
-        show: (sale) => sale.status !== "cancelled",
+        // No se cancela una venta con tickets ya en servicio o finalizados (regla del cliente).
+        show: (sale) =>
+          sale.status !== "cancelled" &&
+          !(sale.appointments ?? []).some((a) => ["in_service", "completed"].includes(a.status)),
       },
       {
         label: "Eliminar",

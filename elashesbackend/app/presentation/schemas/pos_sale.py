@@ -30,6 +30,19 @@ class PosSaleItemCreate(BaseModel):
     branch_id: Optional[int] = Field(default=None, ge=1)
 
 
+class PosSaleComboCreate(BaseModel):
+    """Combo vendido: sus servicios componentes ya vienen en `items`; el servidor valida que estén
+    todos y descuenta la diferencia entre la suma de sus precios y el precio del combo."""
+    combo_id: int = Field(..., ge=1)
+    quantity: int = Field(default=1, ge=1, le=20)
+
+
+class PosSaleCancel(BaseModel):
+    """Cancelar una venta completa: motivo obligatorio y, si ya estaba cobrada, si se devuelve el dinero."""
+    reason: str = Field(..., min_length=1, max_length=500)
+    refund: Optional[bool] = None
+
+
 class PosSaleProductItemCreate(BaseModel):
     product_id: int = Field(..., ge=1)
     quantity: float = Field(..., gt=0)
@@ -53,6 +66,7 @@ class PosSaleCreate(BaseModel):
     # create_sale valida que items o product_items traiga al menos uno.
     items: List[PosSaleItemCreate] = Field(default_factory=list)
     product_items: List[PosSaleProductItemCreate] = Field(default_factory=list)
+    combos: List[PosSaleComboCreate] = Field(default_factory=list)
     link_appointment_id: Optional[int] = Field(
         default=None,
         ge=1,

@@ -34,6 +34,8 @@ export interface PosSaleCreatePayload {
   items: PosSaleItemPayload[];
   /** Productos de inventario vendidos en la misma venta (sin cita/operaria). */
   product_items?: PosSaleProductItemPayload[];
+  /** Combos vendidos: sus servicios ya van en `items`; el servidor valida y descuenta la diferencia. */
+  combos?: { combo_id: number; quantity: number }[];
   /** Cobra una reserva existente sin duplicar la cita. */
   link_appointment_id?: number;
   /** Solo cobro POS: no crea citas en agenda (horarios en items son ignorados). */
@@ -160,6 +162,7 @@ function normalizeCreatePayload(payload: PosSaleCreatePayload): Record<string, u
       product_id: item.product_id,
       quantity: item.quantity,
     })),
+    ...(payload.combos?.length ? { combos: payload.combos } : {}),
   };
 }
 
@@ -225,9 +228,13 @@ export const PosSaleService = {
     }
   },
 
-  async cancel(id: number): Promise<PosSaleItem> {
+  /** Cancela la venta entera. El motivo es obligatorio; `refund` indica si se devuelve el dinero ya cobrado. */
+  async cancel(id: number, decision: { reason: string; refund?: boolean }): Promise<PosSaleItem> {
     try {
-      const response = await api.post<PosSaleItem>(`/pos-sales/${id}/cancel`);
+      const response = await api.post<PosSaleItem>(`/pos-sales/${id}/cancel`, {
+        reason: decision.reason,
+        ...(decision.refund !== undefined ? { refund: decision.refund } : {}),
+      });
       return response.data;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, "No se pudo cancelar la venta."));

@@ -89,6 +89,39 @@ export default function ResumenCaja({
             <Line label="Total vendido" value={money(detail.income_by_method.total)} strong />
           </div>
           <QueSeVendio detail={detail} />
+
+          {(detail.cancellations?.length ?? 0) > 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 sm:col-span-2">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Cancelaciones del turno</p>
+              <p className="mb-2 text-[11px] text-slate-500">
+                Lo <b>devuelto</b> ya salió de la caja ({money(detail.refunds_total ?? 0)} en total). Lo <b>no devuelto</b> se queda en la caja
+                y sigue contando como cobrado.
+              </p>
+              <ul className="divide-y divide-slate-100">
+                {detail.cancellations!.map((c) => (
+                  <li key={c.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 py-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-800">
+                        {c.scope === "sale" ? `Venta ${c.sale_code ?? ""}` : `Ticket ${c.ticket_code ?? ""}`}
+                        <span className="ml-2 font-normal text-slate-400">
+                          {c.created_at ? new Date(c.created_at + (c.created_at.endsWith("Z") ? "" : "Z")).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }) : ""}
+                          {c.user_name ? ` · ${c.user_name}` : ""}
+                        </span>
+                      </p>
+                      <p className="text-slate-600">{c.reason}</p>
+                    </div>
+                    {c.amount > 0 ? (
+                      <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-semibold tabular-nums ${c.refunded ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+                        {c.refunded ? "Devuelto" : "No devuelto"} · {money(c.amount)}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-500">Sin cobro</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

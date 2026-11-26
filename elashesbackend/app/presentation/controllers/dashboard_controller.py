@@ -232,18 +232,32 @@ def get_dashboard_overview(
     services_count = db.query(func.count(Service.id)).scalar() or 0
     products_active_count = db.query(func.count(Product.id)).filter(Product.status.is_(True)).scalar() or 0
 
+    # Stock bajo = el stock de un producto EN UNA sucursal esta en o bajo su minimo (el propio de esa sucursal,
+    # o el general del producto). Sin minimo definido se usa el umbral de la consulta.
+    from app.domain.entities.inventory import ProductBranchMin
+
     stock_query = (
         db.query(
             Product.id.label("product_id"),
+            Batch.branch_id.label("branch_id"),
+            Product.min_stock.label("min_stock"),
             func.coalesce(func.sum(Batch.current_quantity), 0).label("total_stock"),
         )
         .join(Batch, Batch.product_id == Product.id)
-        .group_by(Product.id)
+        .filter(Product.status.is_(True))
+        .group_by(Product.id, Batch.branch_id, Product.min_stock)
     )
     if branch_id is not None:
         stock_query = stock_query.filter(Batch.branch_id == branch_id)
     stock_rows = stock_query.all()
-    low_stock_items = sum(1 for row in stock_rows if float(row.total_stock or 0) <= low_stock_threshold)
+    branch_mins = {(m.product_id, m.branch_id): float(m.min_stock) for m in db.query(ProductBranchMin).all()}
+
+    def _is_low(row) -> bool:
+        own = branch_mins.get((row.product_id, row.branch_id))
+        limit = own if own is not None else (float(row.min_stock) if row.min_stock else low_stock_threshold)
+        return float(row.total_stock or 0) <= limit
+
+    low_stock_items = sum(1 for row in stock_rows if _is_low(row))
 
     branch_name = None
     if branch_id is not None:

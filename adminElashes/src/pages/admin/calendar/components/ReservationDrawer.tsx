@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { ChevronLeft, Layers, Plus, Search, ShoppingCart, SplitSquareHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/common/ui";
 import {
@@ -46,6 +46,23 @@ export default function ReservationDrawer({
   openingHoursToday,
 }: ReservationDrawerProps) {
   const [cartLines, setCartLines] = useState<ResCartLine[]>([]);
+  // Con varios servicios: un solo ticket con todos ("group") o un ticket por servicio ("individual").
+  // Campo que falta: se resalta en rojo, se lleva a la vista (en su paso) y se explica debajo.
+  const [invalid, setInvalid] = useState<"client" | "duration" | "services" | null>(null);
+  const flagField = (field: "client" | "duration" | "services", targetStep: "servicios" | "cliente", id: string) => {
+    setInvalid(field);
+    setStep(targetStep);
+    window.setTimeout(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus({ preventScroll: true });
+    }, 60);
+  };
+  const [step, setStep] = useState<"servicios" | "cliente">("servicios");
+  useEffect(() => {
+    if (isOpen) setStep("servicios");
+  }, [isOpen]);
+  const [ticketMode, setTicketMode] = useState<"group" | "individual">("group");
   const [serviceQuery, setServiceQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [clientSearch, setClientSearch] = useState("");
@@ -182,6 +199,7 @@ export default function ReservationDrawer({
         const list = await AgendaService.listClientsForSelect({
           search: search?.trim() || undefined,
           limit: 50,
+          generic_branch_id: branchId,
         });
         setFilteredClients(list);
       } catch {
@@ -259,10 +277,17 @@ export default function ReservationDrawer({
     }
   }, [selectedDate]);
 
+  const groupTicket = ticketMode === "group" && consecutiveSlots.length > 1;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter en el paso Servicios avanza al paso Clienta; solo se confirma desde el último paso.
+    if (step === "servicios") {
+      setStep("cliente");
+      return;
+    }
     if (!selectedClient) {
-      toast.warning("Selecciona una clienta.");
+      flagField("client", "cliente", "res-client");
       return;
     }
     if (!branchId) {
@@ -285,7 +310,7 @@ export default function ReservationDrawer({
         const start = new Date(`${selectedDate}T${startTime || "09:00"}:00`);
         const end = new Date(start.getTime() + Math.max(15, durationMinutes) * 60 * 1000);
         if (end <= start) {
-          toast.warning("Revisa la duración.");
+          flagField("duration", "cliente", "res-duration");
           return;
         }
         await AgendaService.createAppointment({
@@ -296,7 +321,7 @@ export default function ReservationDrawer({
         toast.success("Reserva registrada (1 ticket).");
       } else {
         if (consecutiveSlots.length === 0) {
-          toast.warning("Agrega al menos un servicio.");
+          flagField("services", "servicios", "res-services");
           return;
         }
 
@@ -305,17 +330,27 @@ export default function ReservationDrawer({
           branch_id: branchId,
           professional_id,
           advance_payment_amount: 0,
-          items: consecutiveSlots.map((slot) => ({
-            service_id: slot.line.service_id,
-            professional_id,
-            start_time: formatLocalDateTime(slot.slotStart),
-            end_time: formatLocalDateTime(slot.slotEnd),
-          })),
+          items: groupTicket
+            ? [{
+                service_id: consecutiveSlots[0].line.service_id,
+                service_ids: consecutiveSlots.map((slot) => Number(slot.line.service_id)),
+                professional_id,
+                start_time: formatLocalDateTime(consecutiveSlots[0].slotStart),
+                end_time: formatLocalDateTime(consecutiveSlots[consecutiveSlots.length - 1].slotEnd),
+              }]
+            : consecutiveSlots.map((slot) => ({
+                service_id: slot.line.service_id,
+                professional_id,
+                start_time: formatLocalDateTime(slot.slotStart),
+                end_time: formatLocalDateTime(slot.slotEnd),
+              })),
         });
 
         const ticketCount = sale.appointments?.length ?? consecutiveSlots.length;
         toast.success(
-          `Reserva unificada ${sale.sale_code}: ${ticketCount} ticket${ticketCount !== 1 ? "s" : ""} (misma venta, horarios en fila).`
+          groupTicket
+            ? `Reserva ${sale.sale_code}: 1 ticket con ${consecutiveSlots.length} servicios.`
+            : `Reserva ${sale.sale_code}: ${ticketCount} ticket${ticketCount !== 1 ? "s" : ""} (misma venta, horarios en fila).`
         );
       }
 
@@ -498,18 +533,67 @@ export default function ReservationDrawer({
 
           {/* ── Columna derecha: ticket(s), clienta y datos de la reserva ── */}
           <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center border-b border-slate-200 bg-slate-50">
+            {([
+              ["servicios", "Servicios", cartCount > 0],
+              ["cliente", "Clienta y horario", Boolean(selectedClient)],
+            ] as const).map(([key, label, done], i) => {
+              const active = step === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStep(key)}
+                  className={`flex flex-1 items-center justify-center gap-1.5 border-r py-2.5 text-[11px] font-semibold transition-colors last:border-r-0 border-slate-200 ${
+                    active ? "bg-white" : "hover:bg-white/60"
+                  } ${done ? "text-[#107c10]" : active ? "text-[#094732]" : "text-slate-500"}`}
+                >
+                  <span
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                      done ? "bg-[#107c10] text-white" : active ? "bg-[#094732] text-white" : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    {done ? "✓" : i + 1}
+                  </span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="space-y-4 px-4 py-4">
-              {cartCount === 0 ? (
+              {step === "servicios" && (cartCount === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm italic text-slate-400">
                   Opcional: elegí servicios a la izquierda o definí la duración manualmente abajo.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {cartCount > 0 ? (
-                    <p className="text-[11px] text-slate-500">
-                      Una sola venta/reserva: cada servicio es un ticket con su hora; todos quedan bajo el mismo código de venta.
-                    </p>
+                  {cartCount > 1 ? (
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold text-slate-700">Modo de ticket</p>
+                      <div className="flex overflow-hidden rounded-lg border border-slate-200">
+                        {([
+                          ["group", "Junto", "Un solo ticket con todos los servicios", Layers],
+                          ["individual", "Separados", "Un ticket por servicio, cada uno con su hora", SplitSquareHorizontal],
+                        ] as const).map(([mode, label, hint, Icon]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            title={hint}
+                            onClick={() => setTicketMode(mode)}
+                            className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors ${ticketMode === mode ? "bg-[#094732] text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"}`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-500">
+                        {groupTicket
+                          ? "Un solo ticket con todos los servicios, uno detrás de otro."
+                          : "Un ticket por servicio, cada uno con su hora; todos bajo el mismo código de venta."}
+                      </p>
+                    </div>
                   ) : null}
                   {consecutiveSlots.map((slot, index) => {
                     const { line, serviceName, timeLabel, durationMinutes: slotMins } = slot;
@@ -519,7 +603,7 @@ export default function ReservationDrawer({
                         className="rounded-xl border border-slate-200 bg-white p-2"
                       >
                         <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] font-semibold text-[#094732]">
-                          <span>Ticket {index + 1}</span>
+                          <span>{groupTicket ? `Servicio ${index + 1}` : `Ticket ${index + 1}`}</span>
                           <span className="font-mono normal-case text-slate-600">{timeLabel}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -551,9 +635,10 @@ export default function ReservationDrawer({
                     );
                   })}
                 </div>
-              )}
+              ))}
 
-              <div className="border-t border-slate-100 pt-4">
+              {step === "cliente" && (<>
+              <div className="pt-1">
                 <p className="text-sm font-semibold text-slate-800">Datos de la reserva</p>
                 <p className="text-xs text-slate-500">
                   Fecha: <span className="font-medium text-slate-700">{dateLabel}</span>
@@ -571,8 +656,11 @@ export default function ReservationDrawer({
                   <div className="relative min-w-0 flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
+                      id="res-client"
+                      aria-invalid={invalid === "client" && !selectedClient}
                       value={selectedClient ? `${selectedClient.nombre} ${selectedClient.apellido}`.trim() : clientSearch}
                       onChange={(event) => {
+                        setInvalid(null);
                         setSelectedClient(null);
                         setClientSearch(event.target.value);
                         setIsClientMenuOpen(true);
@@ -585,7 +673,7 @@ export default function ReservationDrawer({
                       placeholder={
                         !branchId ? "Selecciona sucursal arriba" : "Nombre, apellido o teléfono…"
                       }
-                      className={`${agendaFieldClass} pl-9`}
+                      className={`${agendaFieldClass} pl-9 ${invalid === "client" && !selectedClient ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
                       disabled={Boolean(selectedClient) || !branchId}
                     />
                     {!selectedClient && isClientMenuOpen && branchId ? (
@@ -609,6 +697,7 @@ export default function ReservationDrawer({
                                   key={client.id}
                                   type="button"
                                   onClick={() => {
+                                    setInvalid(null);
                                     setSelectedClient(client);
                                     setClientSearch("");
                                     setIsClientMenuOpen(false);
@@ -634,6 +723,9 @@ export default function ReservationDrawer({
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
+                {invalid === "client" && !selectedClient ? (
+                  <p className="text-[11px] font-medium text-rose-600">Elige la clienta de la reserva para continuar.</p>
+                ) : null}
                 {selectedClient ? (
                   <button
                     type="button"
@@ -676,15 +768,18 @@ export default function ReservationDrawer({
                     min={15}
                     step={5}
                     value={durationMinutes}
-                    onChange={(ev) => setDurationMinutes(Number(ev.target.value))}
+                    onChange={(ev) => { setInvalid(null); setDurationMinutes(Number(ev.target.value)); }}
                     disabled={cartCount > 0}
                     title={
                       cartCount > 0
                         ? "Con servicios en la lista, la duración total se calcula por ticket"
                         : undefined
                     }
-                    className={agendaFieldClass}
+                    className={`${agendaFieldClass} ${invalid === "duration" ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
                   />
+                  {invalid === "duration" ? (
+                    <p className="text-[11px] font-medium text-rose-600">Revisa la duración: mínimo 15 minutos.</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -710,20 +805,38 @@ export default function ReservationDrawer({
                 </select>
               </div>
 
+              </>)}
             </div>
           </div>
 
-          <div data-tour="agenda-res-confirm" className="shrink-0 border-t border-slate-100 bg-white px-4 py-4">
-            <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
-              <span className="text-xs font-semibold text-[#094732]">Solo reserva en agenda</span>
-              <p className="mt-0.5 text-[11px] text-slate-500">No se registra monto ni pago aquí.</p>
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Guardando…" : "Confirmar reserva"}
-            </Button>
-            <Button type="button" variant="secondary" className="mt-2 w-full" onClick={onClose} disabled={isSubmitting}>
-              Cancelar
-            </Button>
+          <div data-tour="agenda-res-confirm" className="shrink-0 border-t border-slate-100 bg-white px-4 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+            {step === "servicios" ? (
+              <Button type="button" className="w-full" onClick={() => setStep("cliente")}>
+                Siguiente: Clienta y horario
+              </Button>
+            ) : (
+              <>
+                <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
+                  <span className="text-xs font-semibold text-[#094732]">Solo reserva en agenda</span>
+                  <p className="mt-0.5 text-[11px] text-slate-500">No se registra monto ni pago aquí.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0"
+                    onClick={() => setStep("servicios")}
+                    disabled={isSubmitting}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Atrás
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                    {isSubmitting ? "Guardando…" : "Confirmar reserva"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
           </div>
         </form>

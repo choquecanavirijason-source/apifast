@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "react-toastify";
-import { Building2, CalendarDays, DoorOpen, HelpCircle, Lock, Package, ShoppingCart, Wrench } from "lucide-react";
+import { Building2, CalendarDays, DoorOpen, HelpCircle, Lock, Package, PlayCircle, ShoppingCart, Wrench } from "lucide-react";
 import { setSelectedBranchId } from "../../../core/utils/branch";
 import Layout from "../../../components/common/layout";
 import GenericModal from "../../../components/common/modal/GenericModal";
@@ -19,6 +19,8 @@ import PosSaleStepTwo from "./components/PosSaleStepTwo";
 import PosReceiptModals from "./components/PosReceiptModals";
 import TodayTicketsSummary from "./components/TodayTicketsSummary";
 import PosTutorialModal, { getPosTutorialStorageKey } from "./components/PosTutorialModal";
+import PosVideoTutorialDialog from "./components/PosVideoTutorialDialog";
+import CancelReasonDialog from "../../../components/common/CancelReasonDialog";
 import { ROWS_PER_PAGE_OPTIONS } from "./pos.constants";
 import { usePosPage } from "./usePosPage";
 import type { PosContext } from "./pos.context";
@@ -60,6 +62,8 @@ export type PosPageProps = {
   onPendingPaymentCountChange?: (count: number) => void;
   cartDrawerSignal?: number;
   onRequestSwitchToPos?: () => void;
+  /** Al terminar una venta con servicios, lleva a Control de servicios (el hub cambia de pestaña). */
+  onSaleSentToQueue?: () => void;
   /** No mostrar el tour automático de bienvenida — para embebidos secundarios
    * (ej. "venta rápida" dentro del Calendario) donde no tiene sentido un
    * onboarding de "primer contacto". El hub de Caja POS (Caja y seguimiento)
@@ -68,11 +72,12 @@ export type PosPageProps = {
   hideTutorial?: boolean;
 };
 
-export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false, operationalContext }: PosPageProps) {
-  const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, operationalContext });
+export default function PosPage({ embedded = false, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, hideTutorial = false, operationalContext, onSaleSentToQueue }: PosPageProps) {
+  const pos = usePosPage({ embedded, initialDate, section, onCartCountChange, onPendingPaymentCountChange, cartDrawerSignal, operationalContext, onSaleSentToQueue });
   const [historyView, setHistoryView] = useState<"servicios" | "productos">("servicios");
   const [catalogView, setCatalogView] = useState<"servicios" | "productos">("servicios");
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showVideoTutorial, setShowVideoTutorial] = useState(false);
   const [tourDrawerStep, setTourDrawerStep] = useState<"servicios" | "cliente" | "pago" | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
@@ -288,6 +293,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowVideoTutorial(true)}
+              title="Ver video tutorial de una venta"
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-surface)] px-3 text-xs font-medium text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+            >
+              <PlayCircle className="h-3.5 w-3.5" />
+              Video
+            </button>
             <button
               type="button"
               onClick={() => setShowTutorial(true)}
@@ -680,7 +694,7 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
 
         <PosReceiptModals
           receiptSale={pos.receiptSale}
-          onCloseReceipt={() => pos.setReceiptSale(null)}
+          onCloseReceipt={pos.closeReceipt}
           receiptTicketEdits={pos.receiptTicketEdits}
           professionals={pos.professionals}
           onUpdateReceiptTicketEdit={pos.updateReceiptTicketEdit}
@@ -692,7 +706,6 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           onPrint={() => window.print()}
           printFormat={pos.printFormat}
           setPrintFormat={pos.setPrintFormat}
-          qrRef={pos.qrRef}
           availabilityPreviewLineId={pos.availabilityPreviewLineId}
           availabilityPreviewDate={pos.availabilityPreviewDate}
           saleBaseDate={pos.saleBaseDate}
@@ -715,16 +728,15 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           onClose={pos.handleStartFlowCancel}
           onConfirmed={(ticket, allergies) => void pos.handleStartFlowAllergiesConfirmed(ticket, allergies)}
         />
-        <ConfirmDialog
-          isOpen={!!pos.confirmCancelSale}
+        <CancelReasonDialog
+          open={!!pos.confirmCancelSale}
           title="Cancelar venta"
-          message={`¿Cancelar la venta ${pos.confirmCancelSale?.sale_code}? Esto cancelará también sus tickets y pagos.`}
-          confirmText="Cancelar venta"
-          cancelText="No, volver"
-          variant="danger"
-          onConfirm={() => void pos.executeCancelSale()}
-          onCancel={() => pos.setConfirmCancelSale(null)}
+          subject={pos.confirmCancelSale ? `${pos.confirmCancelSale.sale_code} · se cancelan también sus tickets` : ""}
+          amountPaid={pos.confirmCancelSale?.status === "paid" ? Number(pos.confirmCancelSale.total ?? 0) : 0}
+          confirmLabel="Cancelar venta"
           isProcessing={pos.isProcessingConfirm}
+          onCancel={() => pos.setConfirmCancelSale(null)}
+          onConfirm={(decision) => void pos.executeCancelSale(decision)}
         />
 
         <ConfirmDialog
@@ -791,6 +803,8 @@ export default function PosPage({ embedded = false, initialDate, section, onCart
           }}
           onDecrementSelection={pos.removeLastCartLineForService}
         />
+
+        {showVideoTutorial && <PosVideoTutorialDialog onClose={() => setShowVideoTutorial(false)} />}
 
         {showTutorial && (
           <PosTutorialModal

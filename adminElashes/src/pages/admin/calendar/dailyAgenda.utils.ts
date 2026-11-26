@@ -105,8 +105,10 @@ export function groupTicketsByHourAndStation(
 }
 
 /** Etiqueta con el estado de la reserva, para leerlo sin depender solo del color. */
-export function statusBadgeLabel(status?: string | null): string | null {
+export function statusBadgeLabel(status?: string | null, arrived = false): string | null {
   const s = (status ?? "").toLowerCase();
+  // Reserva cuya clienta ya llegó: está en la cola de Control de servicios.
+  if (arrived && (s === "pending" || s === "pendiente" || s === "confirmed" || s === "confirmado")) return "En espera";
   if (s === "completed" || s === "finalizado" || s === "atendido") return "✓ Finalizada";
   if (s === "cancelled" || s === "cancelado") return "Cancelada";
   if (s === "in_service" || s === "siendo_atendido" || s === "en_servicio") return "En servicio";

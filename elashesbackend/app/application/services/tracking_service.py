@@ -121,14 +121,10 @@ def _validate_tracking_relations(
             )
 
 
-def resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
-    """El servicio principal de la cita (single service_id, o el primero de la
-    lista si la cita tiene varios servicios). None si la cita no existe o no
-    tiene ningún servicio."""
+def _load_appointment(db: Session, appointment_id: Optional[int]) -> Optional[Appointment]:
     if not appointment_id:
         return None
-
-    appointment = (
+    return (
         db.query(Appointment)
         .options(
             joinedload(Appointment.service).joinedload(Service.category),
@@ -139,15 +135,49 @@ def resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Serv
         .filter(Appointment.id == appointment_id)
         .first()
     )
+
+
+def appointment_all_services(appointment: Appointment) -> list[Service]:
+    """Todos los servicios de la cita: el principal (service_id) más los del ticket grupal, sin repetir."""
+    services = [item for item in appointment.services if item is not None]
+    if appointment.service and all(item.id != appointment.service.id for item in services):
+        services.insert(0, appointment.service)
+    return services
+
+
+def _service_followup_days(service: Service) -> tuple[Optional[int], Optional[int]]:
+    """(días de mantenimiento, días de retiro) de un servicio. Solo cuentan si la categoría tiene
+    el check activado y el servicio tiene los días cargados."""
+    category = service.category
+    if not category:
+        return None, None
+    maintenance = service.maintenance_days if category.has_maintenance and service.maintenance_days is not None else None
+    removal = service.removal_days if category.has_removal and service.removal_days is not None else None
+    return maintenance, removal
+
+
+def primary_followup_service(appointment: Appointment) -> Optional[Service]:
+    """El servicio que manda el seguimiento de una cita.
+
+    Con varios servicios (ticket grupal o promoción), el primero puede no tener retoque ni retiro
+    (ej. Lifting + Extensiones): se toma el primero QUE SÍ lo tenga. Si ninguno lo tiene, el
+    servicio principal de siempre (el de service_id, o el primero de la lista)."""
+    services = appointment_all_services(appointment)
+    for service in services:
+        if any(_service_followup_days(service)):
+            return service
+    if appointment.service:
+        return appointment.service
+    return services[0] if services else None
+
+
+def resolve_service(db: Session, appointment_id: Optional[int]) -> Optional[Service]:
+    """El servicio de la cita que decide su seguimiento (ver primary_followup_service).
+    None si la cita no existe o no tiene ningún servicio."""
+    appointment = _load_appointment(db, appointment_id)
     if not appointment:
         return None
-
-    service = appointment.service
-    if not service:
-        services = appointment.services
-        service = services[0] if services else None
-
-    return service
+    return primary_followup_service(appointment)
 
 
 ATTENDED_STATUSES = ("completed", "finalizado", "atendido", "done")
@@ -171,10 +201,7 @@ def followup_kinds(service: Optional[Service]) -> set[str]:
 
 def appointment_primary_service(appointment: Appointment) -> Optional[Service]:
     """Igual que resolve_service, sobre una cita ya cargada."""
-    if appointment.service:
-        return appointment.service
-    services = appointment.services
-    return services[0] if services else None
+    return primary_followup_service(appointment)
 
 
 def sync_appointment_followup(
@@ -226,26 +253,28 @@ def _resolve_next_dates(
     appointment_id: Optional[int],
     base_date: datetime,
 ) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Fechas de mantenimiento/retiro. Los días concretos viven en el
-    Service (pueden variar entre servicios de la misma categoría, ej.
-    "Extensiones Clásicas" vs "Volumen 5D"), pero solo cuentan si la
-    categoría de ese servicio tiene has_maintenance/has_removal activado —
-    solo algunas categorías lo necesitan (ej. Extensiones sí, Lifting no)."""
-    service = resolve_service(db, appointment_id)
-    category = service.category if service else None
-    if not service or not category:
+    """Fechas de mantenimiento/retiro. Los días concretos viven en el Service (pueden variar entre
+    servicios de la misma categoría, ej. "Extensiones Clásicas" vs "Volumen 5D"), pero solo cuentan si la
+    categoría de ese servicio tiene has_maintenance/has_removal activado.
+
+    Con varios servicios en la misma atención (ticket grupal, promoción) se guarda UN solo seguimiento
+    con la fecha MÁS PRÓXIMA de cada tipo entre todos ellos: así no se pierde el retoque de un servicio
+    por no ser el primero de la lista."""
+    appointment = _load_appointment(db, appointment_id)
+    if not appointment:
         return None, None
 
-    next_maintenance_date = (
-        base_date + timedelta(days=service.maintenance_days)
-        if category.has_maintenance and service.maintenance_days is not None
-        else None
-    )
-    next_removal_date = (
-        base_date + timedelta(days=service.removal_days)
-        if category.has_removal and service.removal_days is not None
-        else None
-    )
+    maintenance_days: list[int] = []
+    removal_days: list[int] = []
+    for service in appointment_all_services(appointment):
+        maintenance, removal = _service_followup_days(service)
+        if maintenance is not None:
+            maintenance_days.append(maintenance)
+        if removal is not None:
+            removal_days.append(removal)
+
+    next_maintenance_date = base_date + timedelta(days=min(maintenance_days)) if maintenance_days else None
+    next_removal_date = base_date + timedelta(days=min(removal_days)) if removal_days else None
     return next_maintenance_date, next_removal_date
 
 

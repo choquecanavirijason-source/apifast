@@ -3,6 +3,7 @@ import { CalendarDays, Clock, Scissors, User, X } from "lucide-react";
 import { toast } from "react-toastify";
 import GenericModal from "../../../../components/common/modal/GenericModal";
 import { Button } from "../../../../components/common/ui";
+import { ConfirmDialog } from "../../../../components/common/ConfirmDialog";
 import {
   AgendaService,
   type ProfessionalForSelect,
@@ -18,6 +19,10 @@ type EditReservationModalProps = {
   onSaved: (updated: TicketItem) => void;
   /** Texto del botón de guardar (p. ej. cuando guardar también pasa la reserva a servicio). */
   saveLabel?: string;
+  /** Se abrió para asignar la operaria (p. ej. al pasar a servicio sin operaria): se resalta ese campo. */
+  needsOperaria?: boolean;
+  /** Cuántos otros tickets pendientes de la misma venta y clienta se pueden unir a este. */
+  mergeableCount?: number;
   branchId: number | null;
   services: ServiceOption[];
   professionals: ProfessionalForSelect[];
@@ -40,6 +45,8 @@ export default function EditReservationModal({
   onClose,
   onSaved,
   saveLabel,
+  needsOperaria = false,
+  mergeableCount = 0,
   branchId,
   services,
   professionals,
@@ -50,6 +57,23 @@ export default function EditReservationModal({
   const [professionalId, setProfessionalId] = useState("");
   const [serviceIds, setServiceIds] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmSplit, setConfirmSplit] = useState(false);
+  const [confirmMerge, setConfirmMerge] = useState(false);
+  // Campo que falta o está mal: se resalta en rojo, se lleva a la vista y se explica debajo.
+  const [invalid, setInvalid] = useState<"operaria" | "services" | "time" | null>(null);
+  const flag = (field: "operaria" | "services" | "time", id: string) => {
+    setInvalid(field);
+    window.setTimeout(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus({ preventScroll: true });
+    }, 30);
+  };
+  useEffect(() => {
+    if (ticket && needsOperaria && !ticket.professional_id) flag("operaria", "edit-res-operaria");
+    else setInvalid(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket?.id, needsOperaria]);
 
   useEffect(() => {
     if (!ticket) return;
@@ -82,14 +106,47 @@ export default function EditReservationModal({
 
   if (!ticket) return null;
 
+  const canSplit =
+    ticket != null &&
+    (ticket.service_ids?.length ?? 0) > 1 &&
+    ["pending", "confirmed", "waiting"].includes(ticket.status);
+  const handleSplit = async () => {
+    if (!ticket) return;
+    setIsSaving(true);
+    try {
+      const parts = await AgendaService.splitAppointment(ticket.id);
+      toast.success(`Separado en ${parts.length} tickets, uno por servicio.`);
+      onSaved(parts[0]);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "No se pudo separar el ticket."));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const canMerge = ticket != null && mergeableCount > 0 && ["pending", "confirmed", "waiting"].includes(ticket.status);
+  const handleMerge = async () => {
+    if (!ticket) return;
+    setIsSaving(true);
+    try {
+      const merged = await AgendaService.mergeAppointment(ticket.id);
+      toast.success(`Unidos en un solo ticket con ${merged.service_ids?.length ?? 0} servicios.`);
+      onSaved(merged);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "No se pudo unir los tickets."));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (toMinutes(endTime) - toMinutes(startTime) < 15) {
-      toast.warning("La hora de fin debe ser al menos 15 minutos después del inicio.");
+      flag("time", "edit-res-end");
       return;
     }
     if (serviceIds.length === 0) {
-      toast.warning("La reserva debe tener al menos un servicio.");
+      flag("services", "edit-res-services");
       return;
     }
     const [year, month, day] = date.split("-").map(Number);
@@ -129,6 +186,32 @@ export default function EditReservationModal({
       onSubmit={handleSubmit}
       footer={
         <>
+          {canSplit && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmSplit(true)}
+              disabled={isSaving}
+              className="mr-auto"
+              title="Un ticket por servicio, uno detrás de otro, con la misma venta"
+            >
+              Separar en {ticket?.service_ids?.length} tickets
+            </Button>
+          )}
+          {canMerge && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmMerge(true)}
+              disabled={isSaving}
+              className={canSplit ? "" : "mr-auto"}
+              title="Junta en este ticket los demás tickets pendientes de la misma venta"
+            >
+              Unir {mergeableCount + 1} tickets
+            </Button>
+          )}
           <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={isSaving}>
             Cancelar
           </Button>
@@ -188,7 +271,16 @@ export default function EditReservationModal({
             <span className={labelClass}>
               <Clock className="h-3.5 w-3.5" /> Fin {durationLabel ? <span className="font-normal">· {durationLabel}</span> : null}
             </span>
-            <input type="time" required step={900} value={endTime} onChange={(e) => setEndTime(e.target.value)} className={fieldClass} />
+            <input
+              id="edit-res-end"
+              type="time"
+              required
+              step={900}
+              value={endTime}
+              onChange={(e) => { setEndTime(e.target.value); setInvalid(null); }}
+              className={`${fieldClass} ${invalid === "time" ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
+            />
+            {invalid === "time" && <span className="mt-1 block text-[11px] font-medium text-rose-600">La hora de fin debe ser al menos 15 minutos después del inicio.</span>}
           </label>
         </div>
 
@@ -196,7 +288,13 @@ export default function EditReservationModal({
           <span className={labelClass}>
             <User className="h-3.5 w-3.5" /> Operaria
           </span>
-          <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={fieldClass}>
+          <select
+            id="edit-res-operaria"
+            value={professionalId}
+            onChange={(e) => { setProfessionalId(e.target.value); setInvalid(null); }}
+            aria-invalid={invalid === "operaria" && !professionalId}
+            className={`${fieldClass} ${invalid === "operaria" && !professionalId ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
+          >
             <option value="">Sin asignar</option>
             {branchProfessionals.map((p) => (
               <option key={p.id} value={p.id}>
@@ -204,9 +302,12 @@ export default function EditReservationModal({
               </option>
             ))}
           </select>
+          {invalid === "operaria" && !professionalId && (
+            <span className="mt-1 block text-[11px] font-medium text-rose-600">Elige la operaria que atenderá para continuar.</span>
+          )}
         </label>
 
-        <div>
+        <div id="edit-res-services" tabIndex={-1} className={invalid === "services" && serviceIds.length === 0 ? "rounded-lg ring-2 ring-rose-200 outline-none" : "outline-none"}>
           <span className={labelClass}>
             <Scissors className="h-3.5 w-3.5" /> Servicios
           </span>
@@ -235,9 +336,9 @@ export default function EditReservationModal({
             value=""
             onChange={(e) => {
               const id = Number(e.target.value);
-              if (id) setServiceIds((prev) => [...prev, id]);
+              if (id) { setServiceIds((prev) => [...prev, id]); setInvalid(null); }
             }}
-            className={`${fieldClass} mt-2`}
+            className={`${fieldClass} mt-2 ${invalid === "services" && serviceIds.length === 0 ? "!border-rose-500 !ring-2 !ring-rose-200" : ""}`}
           >
             <option value="">+ Agregar servicio…</option>
             {availableServices.map((s) => (
@@ -248,6 +349,43 @@ export default function EditReservationModal({
           </select>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={confirmMerge}
+        title="Unir tickets"
+        message={
+          <p>
+            Se juntan en este ticket los servicios de los otros <strong>{mergeableCount}</strong> ticket(s) de la misma
+            venta, uno detrás de otro. Los otros tickets se eliminan; el monto de la venta no cambia.
+          </p>
+        }
+        confirmText="Sí, unir"
+        cancelText="No"
+        isProcessing={isSaving}
+        onConfirm={() => {
+          setConfirmMerge(false);
+          void handleMerge();
+        }}
+        onCancel={() => setConfirmMerge(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmSplit}
+        title="Separar en tickets"
+        message={
+          <p>
+            Se crea un ticket por cada servicio ({ticket?.service_ids?.length}), uno detrás de otro desde las{" "}
+            <strong>{startTime}</strong>. El monto de la venta no cambia.
+          </p>
+        }
+        confirmText="Sí, separar"
+        cancelText="No"
+        isProcessing={isSaving}
+        onConfirm={() => {
+          setConfirmSplit(false);
+          void handleSplit();
+        }}
+        onCancel={() => setConfirmSplit(false)}
+      />
     </GenericModal>
   );
 }

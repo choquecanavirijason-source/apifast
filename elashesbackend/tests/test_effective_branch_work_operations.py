@@ -191,7 +191,7 @@ def test_sales_by_id_reject_foreign_branch_before_writes(work):
     work.db.add(sale)
     work.db.commit()
     for method, suffix, body in [("get", "", None), ("patch", "", {"notes": "changed"}),
-                                 ("post", "/cancel", None), ("delete", "", None),
+                                 ("post", "/cancel", {"reason": "Motivo de prueba", "refund": True}), ("delete", "", None),
                                  ("get", "/receipt/pdf", None)]:
         response = work.api.request(method, f"/pos-sales/{sale.id}{suffix}", json=body)
         assert response.status_code == 403, response.text

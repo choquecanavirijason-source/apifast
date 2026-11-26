@@ -39,7 +39,7 @@ def later_appointment(scenario,headers,tracking_id,with_tracking=False):
         cid,bid=original.client_id,original.branch_id
     service=api.post('/agenda/services',headers=headers,json={
         'name':'Retiro de extensiones FICTICIO','category_id':1,'duration_minutes':30,'price':50,
-        'maintenance_days':None,'removal_days':None}).json()
+        'maintenance_days':None,'removal_days':None,'commission_rate':0.4}).json()
     start=(datetime.now(LA_PAZ)-timedelta(days=1)).replace(hour=11,minute=0,second=0,microsecond=0)
     appointment=api.post('/agenda/appointments',headers=headers,json={
         'client_id':cid,'branch_id':bid,'service_id':service['id'],

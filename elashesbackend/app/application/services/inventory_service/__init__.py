@@ -38,6 +38,7 @@ from .products import (
     list_products,
     update_product,
 )
+from .min_stock import branch_min_map, branch_stock, min_stock_for, set_branch_min
 from .stock import get_stock_summary
 from .transfers import transfer_stock_between_branches
 
@@ -68,6 +69,10 @@ __all__ = [
     "sale_stock_tag",
     # stock
     "get_stock_summary",
+    "branch_min_map",
+    "branch_stock",
+    "min_stock_for",
+    "set_branch_min",
     # transfers
     "transfer_stock_between_branches",
 ]

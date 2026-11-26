@@ -26,7 +26,7 @@ def test_final_future_appointment_is_not_a_reservation(scenario,status):
     with factory() as db:
         appointment=db.query(Appointment).filter_by(client_id=2,status='confirmed').one()
         aid=appointment.id
-    response=api.put(f'/agenda/appointments/{aid}',headers=h,json={'status':status})
+    response=api.put(f'/agenda/appointments/{aid}',headers=h,json={'status':status,'cancel_reason':'Motivo de prueba'} if status=='cancelled' else {'status':status})
     assert response.status_code==200,response.text
     row=next(r for r in rows(api,h) if r['seguimiento_id']==ids[1])
     assert row['reserva_retiro_estado']=='sin_reserva' and row['proxima_cita'] is None

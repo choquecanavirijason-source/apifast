@@ -1,17 +1,27 @@
 /**
- * QueueTvDisplay — Pantalla TV de cola de atención.
+ * QueueTvDisplay — Pantalla TV de cola de atención (sala de espera).
  *
- * Diseñado para mostrarse en una TV o monitor de sala de espera.
- * Muestra el turno actual, el próximo y la cola simplificada.
- * - Ticket grupal  → todos los servicios en una sola card, tiempo total correcto.
- * - Ticket suelto  → cada ticket por separado.
+ * Pensada para verse desde lejos y para aguantar varios servicios a la vez:
+ *  - EN SERVICIO: cuadrícula de tarjetas iguales que se acomoda según cuántas haya
+ *    (1, 2, 4, 6 u 8 por pantalla; si hay más, rota de página sola).
+ *  - EN ESPERA: columna ordenada a la derecha con el SIGUIENTE destacado.
+ *  - Nada se sale de la pantalla: todo se ajusta al alto y ancho disponibles.
+ * Un ticket grupal (varios servicios) es una sola tarjeta con todos sus servicios.
  */
-import { useEffect, useState } from "react";
-import { Scissors, User, Clock, X, Tv2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Clock, Maximize2, Minimize2, Scissors, Tv2, User, X } from "lucide-react";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
 import { HYGIENE_NOTICE } from "../../../../core/constants/hygieneNotice";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+const BRAND = "#094732";
+const GOLD = "#9F8351";
+/** Tarjetas por página en "En servicio" (cuadrícula de 4 columnas x 2 filas como máximo). */
+const PAGE_SIZE = 8;
+const PAGE_SECONDS = 10;
+/** Filas visibles en "En espera" (el resto se resume en "+N más"). */
+const WAITING_VISIBLE = 7;
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -19,13 +29,16 @@ function fmtTime(iso: string) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function durationLabel(startIso: string, endIso: string) {
-  const mins = Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000);
+function minutesBetween(startIso: string, endIso: string) {
+  return Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000);
+}
+
+function durationLabel(mins: number) {
   if (mins <= 0) return "";
   if (mins < 60) return `${mins} min`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+  return m > 0 ? `${h} h ${m} min` : `${h} h`;
 }
 
 function serviceNames(ticket: TicketItem): string[] {
@@ -34,176 +47,253 @@ function serviceNames(ticket: TicketItem): string[] {
   return ["Sin servicio"];
 }
 
-function isGrouped(ticket: TicketItem): boolean {
-  return (ticket.service_names?.length ?? 0) > 1 ||
-    (ticket.service_ids?.length ?? 0) > 1;
+/** "Cliente Mostrador — Sucursal Norte" → "Cliente Mostrador" (la sucursal ya va en el título). */
+function clientLabel(ticket: TicketItem) {
+  return (ticket.client_name ?? "Cliente").split(" — ")[0].trim() || "Cliente";
 }
 
-// ── Sub-componentes ────────────────────────────────────────────────────────────
+const ticketCode = (t: TicketItem) => t.ticket_code ?? `#${t.id}`;
 
-function ActiveTicketPanel({ ticket }: { ticket: TicketItem | null }) {
-  const [tick, setTick] = useState(Date.now());
+/** Un reloj compartido para todo el tablero (una sola actualización por segundo). */
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const i = setInterval(() => setTick(Date.now()), 1000);
+    const i = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(i);
+  }, [intervalMs]);
+  return now;
+}
+
+/**
+ * Pantalla completa real (oculta el navegador). Intenta entrar al abrir el tablero; si el navegador no lo
+ * permite, queda el botón. Al salir con Esc el tablero sigue visible y el botón vuelve a "Pantalla completa".
+ */
+function useFullscreen(target: React.RefObject<HTMLElement | null>) {
+  const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
+
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
 
-  const elapsedLabel = ticket
-    ? (() => {
-        const sec = Math.floor((tick - new Date(ticket.start_time).getTime()) / 1000);
-        if (sec < 0) return "";
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        return `${m}:${String(s).padStart(2, "0")} transcurrido`;
-      })()
-    : "";
+  const enter = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) await (target.current ?? document.documentElement).requestFullscreen();
+    } catch {
+      /* el navegador lo bloqueó (sin gesto del usuario): queda el botón */
+    }
+  }, [target]);
 
-  if (!ticket) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 p-8 text-center">
-        <Tv2 className="mb-3 h-12 w-12 text-blue-300" />
-        <p className="text-xl font-semibold text-blue-400">Sin atención activa</p>
-        <p className="mt-1 text-sm text-blue-300">Esperando inicio de turno…</p>
-      </div>
-    );
-  }
+  const exit = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      /* ya no estaba en pantalla completa */
+    }
+  }, []);
 
-  const svcs = serviceNames(ticket);
-  const grouped = isGrouped(ticket);
-  const dur = durationLabel(ticket.start_time, ticket.end_time);
+  return { isFullscreen, enter, exit, toggle: () => void (document.fullscreenElement ? exit() : enter()) };
+}
 
+/** Etiquetas de servicios. Los tamaños son relativos a la tarjeta (cqw), no a la pantalla. */
+function ServiceChips({ names, max }: { names: string[]; max: number }) {
+  const shown = names.slice(0, max);
+  const extra = names.length - shown.length;
+  const chip = "gap-[1.6cqw] px-[3cqw] py-[1.4cqw] text-[length:clamp(0.75rem,4.5cqw,1.3rem)]";
   return (
-    <div className="flex flex-1 flex-col gap-4 rounded-2xl border-2 border-blue-500 bg-white p-6 shadow-lg">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <span className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
-          En atención
+    <div className="flex min-w-0 flex-wrap gap-[1.5cqw]">
+      {shown.map((s, i) => (
+        <span key={i} className={`inline-flex min-w-0 max-w-full items-center rounded-lg bg-[#eaf4ef] font-semibold text-[#094732] ${chip}`}>
+          <Scissors className="h-[1em] w-[1em] shrink-0 opacity-70" />
+          <span className="truncate">{s}</span>
         </span>
-        {grouped && (
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-            Ticket grupal · {svcs.length} servicios
-          </span>
-        )}
+      ))}
+      {extra > 0 && (
+        <span className={`inline-flex items-center rounded-lg bg-slate-100 font-bold text-slate-500 ${chip}`}>+{extra} más</span>
+      )}
+    </div>
+  );
+}
+
+// ── En servicio ───────────────────────────────────────────────────────────────
+
+function InServiceCard({ ticket, now, compact }: { ticket: TicketItem; now: number; compact: boolean }) {
+  const names = serviceNames(ticket);
+  const totalMin = Math.max(1, minutesBetween(ticket.start_time, ticket.end_time));
+  const elapsedMin = Math.max(0, Math.floor((now - new Date(ticket.start_time).getTime()) / 60_000));
+  const pct = Math.min(100, Math.round((elapsedMin / totalMin) * 100));
+  const over = elapsedMin > totalMin;
+  const operator = ticket.professional_name ?? "Sin operaria";
+  const range = `${fmtTime(ticket.start_time)} – ${fmtTime(ticket.end_time)}`;
+
+  // Todo el contenido escala con el ANCHO DE LA PROPIA TARJETA (cqw): con 1, 4 u 8 tarjetas
+  // el código del ticket no se parte y nada queda cortado.
+  return (
+    <article className="@container flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#dce5df] bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-[3cqw] px-[4.5cqw] py-[2.6cqw] text-white" style={{ background: BRAND }}>
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-[length:clamp(0.95rem,6.1cqw,2.4rem)] font-black tracking-tight">
+          {ticketCode(ticket)}
+        </span>
+        <span className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:clamp(0.8rem,3.8cqw,1.2rem)] font-semibold tabular-nums text-white/85 @md:flex">
+          <Clock className="h-[1em] w-[1em]" />
+          {range}
+        </span>
       </div>
 
-      {/* Código de ticket */}
-      <p className="font-mono text-4xl font-black tracking-tight text-blue-700">
-        {ticket.ticket_code ?? `#${ticket.id}`}
-      </p>
+      <div className="flex min-h-0 flex-1 flex-col gap-[3cqw] overflow-hidden p-[4.5cqw]">
+        <p className="truncate text-[length:clamp(1.15rem,8.2cqw,2.8rem)] font-extrabold leading-tight text-slate-800">{clientLabel(ticket)}</p>
 
-      {/* Cliente */}
-      <p className="text-2xl font-bold text-slate-800">{ticket.client_name}</p>
-
-      {/* Servicios */}
-      <div className="flex flex-wrap gap-2">
-        {svcs.map((s, i) => (
+        <div className="flex items-center gap-[3cqw]">
           <span
-            key={i}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700"
+            className="flex shrink-0 items-center justify-center rounded-full text-white"
+            style={{ background: GOLD, width: "clamp(1.9rem,11cqw,3.2rem)", height: "clamp(1.9rem,11cqw,3.2rem)" }}
           >
-            <Scissors className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-            {s}
+            <User className="h-[55%] w-[55%]" />
           </span>
-        ))}
-      </div>
+          <div className="min-w-0">
+            <p className="text-[length:clamp(0.62rem,3.2cqw,0.9rem)] font-bold uppercase leading-none tracking-widest text-slate-400">Te atiende</p>
+            <p className="truncate text-[length:clamp(1rem,6.9cqw,2rem)] font-bold capitalize leading-tight text-slate-700">{operator}</p>
+          </div>
+        </div>
 
-      {/* Footer: operaria + tiempo */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-        <div className="flex items-center gap-2 text-slate-500">
-          <User className="h-4 w-4" />
-          <span className="text-sm font-semibold">{ticket.professional_name ?? "Sin operaria"}</span>
+        <ServiceChips names={names} max={compact ? 2 : 4} />
+
+        <div className="mt-auto space-y-[1.6cqw]">
+          <div className="h-[clamp(0.45rem,2.4cqw,0.8rem)] overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full transition-[width] duration-1000"
+              style={{ width: `${pct}%`, background: over ? "#d97706" : BRAND }}
+            />
+          </div>
+          <p className={`flex items-center justify-between gap-2 whitespace-nowrap text-[length:clamp(0.7rem,4cqw,1.15rem)] font-semibold tabular-nums ${over ? "text-amber-600" : "text-slate-500"}`}>
+            <span className="truncate">{range} · {elapsedMin} de {durationLabel(totalMin)}</span>
+            {over && <span className="shrink-0">Tiempo extra</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-2 text-blue-600">
-          <Clock className="h-4 w-4" />
-          <span className="text-sm font-semibold tabular-nums">
-            {fmtTime(ticket.start_time)} – {fmtTime(ticket.end_time)}
-            {dur ? ` (${dur})` : ""}
-          </span>
-        </div>
-        {elapsedLabel && (
-          <span className="text-[11px] tabular-nums text-slate-400">{elapsedLabel}</span>
-        )}
       </div>
-    </div>
+    </article>
   );
 }
 
-function NextTicketPanel({ ticket, queueCount }: { ticket: TicketItem | null; queueCount: number }) {
-  if (!ticket) {
+function InServiceBoard({ tickets, now }: { tickets: TicketItem[]; now: number }) {
+  const pages = Math.max(1, Math.ceil(tickets.length / PAGE_SIZE));
+  const [page, setPage] = useState(0);
+
+  // Con más de 8 en servicio, rota de página sola.
+  useEffect(() => {
+    if (pages <= 1) { setPage(0); return; }
+    const i = setInterval(() => setPage((p) => (p + 1) % pages), PAGE_SECONDS * 1000);
+    return () => clearInterval(i);
+  }, [pages]);
+
+  const safePage = Math.min(page, pages - 1);
+  const visible = tickets.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const n = visible.length;
+
+  if (tickets.length === 0) {
     return (
-      <div className="flex w-64 shrink-0 flex-col items-center justify-center rounded-2xl border border-dashed border-orange-200 bg-orange-50 p-5 text-center">
-        <p className="text-sm font-semibold text-orange-400">Cola vacía</p>
+      <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#c9dbd2] bg-white/60 p-8 text-center">
+        <Tv2 className="mb-3 h-14 w-14 text-[#9bb8aa]" />
+        <p className="text-[clamp(1.2rem,2vw,2rem)] font-bold text-[#6b8f7e]">Sin atenciones en curso</p>
+        <p className="mt-1 text-[clamp(0.85rem,1.1vw,1.1rem)] text-[#9bb8aa]">Pronto te llamamos.</p>
       </div>
     );
   }
 
-  const svcs = serviceNames(ticket);
-  const grouped = isGrouped(ticket);
+  // Columnas según cuántas tarjetas hay: se reparten el ancho y el alto por igual.
+  const cols = n <= 1 ? "grid-cols-1" : n <= 4 ? "grid-cols-2" : n <= 6 ? "grid-cols-3" : "grid-cols-4";
+  const rows = n <= 2 ? "grid-rows-1" : n <= 6 ? (n <= 4 ? "grid-rows-2" : "grid-rows-2") : "grid-rows-2";
 
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-3 rounded-2xl border border-orange-300 bg-white p-5 shadow">
-      <span className="rounded-full bg-orange-500 px-3 py-0.5 text-center text-[10px] font-bold uppercase tracking-widest text-white">
-        Próximo
-      </span>
-      <p className="font-mono text-2xl font-black text-orange-600">
-        {ticket.ticket_code ?? `#${ticket.id}`}
-      </p>
-      <p className="text-base font-bold text-slate-700">{ticket.client_name}</p>
-      <div className="flex flex-wrap gap-1">
-        {svcs.map((s, i) => (
-          <span key={i} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-            {s}
-          </span>
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className={`grid min-h-0 flex-1 gap-4 ${cols} ${rows} ${n === 1 ? "mx-auto w-full max-w-4xl" : ""}`}>
+        {visible.map((t) => (
+          <InServiceCard key={t.id} ticket={t} now={now} compact={n > 4} />
         ))}
       </div>
-      {grouped && (
-        <span className="text-[10px] font-semibold text-indigo-500">
-          Ticket grupal · {svcs.length} servicios
-        </span>
-      )}
-      <div className="mt-auto flex items-center gap-1.5 text-[11px] text-slate-400">
-        <Clock className="h-3.5 w-3.5" />
-        {fmtTime(ticket.start_time)} · {durationLabel(ticket.start_time, ticket.end_time)}
-      </div>
-      {queueCount > 1 && (
-        <p className="text-center text-[10px] font-semibold text-slate-400">
-          +{queueCount - 1} en espera
-        </p>
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+          {Array.from({ length: pages }, (_, i) => (
+            <span key={i} className={`h-2 rounded-full transition-all ${i === safePage ? "w-6 bg-[#094732]" : "w-2 bg-slate-300"}`} />
+          ))}
+          <span className="ml-2">Página {safePage + 1} de {pages}</span>
+        </div>
       )}
     </div>
   );
 }
 
-function QueueRow({ ticket, index }: { ticket: TicketItem; index: number }) {
-  const svcs = serviceNames(ticket);
-  const grouped = isGrouped(ticket);
+// ── En espera ─────────────────────────────────────────────────────────────────
+
+function WaitingRow({ ticket, position }: { ticket: TicketItem; position: number }) {
+  const first = position === 1;
+  const names = serviceNames(ticket);
+  const mins = minutesBetween(ticket.start_time, ticket.end_time);
+
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-2.5 shadow-sm">
-      <span className="w-5 shrink-0 text-center text-xs font-bold text-slate-400">{index + 1}</span>
-      <p className="font-mono text-sm font-bold text-slate-700">
-        {ticket.ticket_code ?? `#${ticket.id}`}
-      </p>
-      <p className="flex-1 truncate text-sm font-semibold text-slate-600">{ticket.client_name}</p>
-      <div className="hidden flex-wrap gap-1 sm:flex">
-        {svcs.slice(0, 2).map((s, i) => (
-          <span key={i} className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-            {s}
-          </span>
-        ))}
-        {svcs.length > 2 && (
-          <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-            +{svcs.length - 2}
-          </span>
-        )}
-      </div>
-      {grouped && (
-        <span className="shrink-0 text-[10px] font-semibold text-indigo-400">Grupal</span>
-      )}
-      <span className="shrink-0 text-[10px] tabular-nums text-slate-400">
-        {fmtTime(ticket.start_time)}
-        {durationLabel(ticket.start_time, ticket.end_time) ? ` · ${durationLabel(ticket.start_time, ticket.end_time)}` : ""}
+    <li
+      className={`flex items-center gap-3 rounded-xl border bg-white px-4 ${
+        first ? "border-2 py-4 shadow-md" : "border-slate-200 py-2.5 shadow-sm"
+      }`}
+      style={first ? { borderColor: GOLD } : undefined}
+    >
+      <span
+        className={`flex shrink-0 items-center justify-center rounded-full font-black tabular-nums ${
+          first ? "h-[clamp(2.2rem,3vw,3rem)] w-[clamp(2.2rem,3vw,3rem)] text-[clamp(1.1rem,1.6vw,1.6rem)] text-white" : "h-8 w-8 bg-slate-100 text-sm text-slate-500"
+        }`}
+        style={first ? { background: GOLD } : undefined}
+      >
+        {position}
       </span>
-    </div>
+      <div className="min-w-0 flex-1">
+        {first && (
+          <p className="text-[clamp(0.65rem,0.8vw,0.8rem)] font-extrabold uppercase tracking-widest" style={{ color: GOLD }}>
+            Siguiente
+          </p>
+        )}
+        <p className={`truncate font-bold text-slate-800 ${first ? "text-[clamp(1.1rem,1.7vw,1.7rem)]" : "text-[clamp(0.9rem,1.2vw,1.2rem)]"}`}>
+          {clientLabel(ticket)}
+        </p>
+        <p className={`truncate text-slate-500 ${first ? "text-[clamp(0.8rem,1vw,1rem)]" : "text-[clamp(0.7rem,0.85vw,0.9rem)]"}`}>
+          <span className="font-mono font-bold text-slate-600">{ticketCode(ticket)}</span> · {names.join(" + ")}
+        </p>
+      </div>
+      <div className="shrink-0 text-right tabular-nums text-slate-400">
+        <p className={`font-semibold ${first ? "text-[clamp(0.9rem,1.2vw,1.2rem)] text-slate-600" : "text-[clamp(0.75rem,0.9vw,0.95rem)]"}`}>{fmtTime(ticket.start_time)}</p>
+        {mins > 0 && <p className="text-[clamp(0.65rem,0.8vw,0.8rem)]">{durationLabel(mins)}</p>}
+      </div>
+    </li>
+  );
+}
+
+function WaitingColumn({ tickets }: { tickets: TicketItem[] }) {
+  const visible = tickets.slice(0, WAITING_VISIBLE);
+  const hidden = tickets.length - visible.length;
+
+  return (
+    <aside className="flex h-full min-h-0 flex-col">
+      <h2 className="mb-3 flex items-center gap-2 text-[clamp(0.8rem,1vw,1rem)] font-extrabold uppercase tracking-widest text-slate-500">
+        En espera
+        <span className="rounded-full px-2.5 py-0.5 text-white" style={{ background: GOLD }}>{tickets.length}</span>
+      </h2>
+      {tickets.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-6 text-center">
+          <p className="text-[clamp(1rem,1.4vw,1.4rem)] font-bold text-slate-400">Nadie en espera</p>
+        </div>
+      ) : (
+        <ul className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
+          {visible.map((t, i) => (
+            <WaitingRow key={t.id} ticket={t} position={i + 1} />
+          ))}
+          {hidden > 0 && (
+            <li className="rounded-xl border border-dashed border-slate-300 bg-white/70 py-2 text-center text-[clamp(0.8rem,1vw,1rem)] font-bold text-slate-500">
+              +{hidden} más en espera
+            </li>
+          )}
+        </ul>
+      )}
+    </aside>
   );
 }
 
@@ -216,114 +306,108 @@ interface QueueTvDisplayProps {
   branchName?: string;
 }
 
-export default function QueueTvDisplay({
-  waitingTickets,
-  inServiceTickets,
-  onClose,
-  branchName,
-}: QueueTvDisplayProps) {
-  const [clockNow, setClockNow] = useState(new Date());
+export default function QueueTvDisplay({ waitingTickets, inServiceTickets, onClose, branchName }: QueueTvDisplayProps) {
+  const now = useNow();
+  const clock = useMemo(() => new Date(now), [now]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(rootRef);
+  const { enter: enterFullscreen, exit: exitFullscreen } = fullscreen;
+
+  // Al abrir el tablero entra solo a pantalla completa; al cerrarlo, sale.
   useEffect(() => {
-    const t = setInterval(() => setClockNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+    void enterFullscreen();
+    return () => { void exitFullscreen(); };
+  }, [enterFullscreen, exitFullscreen]);
 
-  const timeLabel = `${String(clockNow.getHours()).padStart(2, "0")}:${String(clockNow.getMinutes()).padStart(2, "0")}:${String(clockNow.getSeconds()).padStart(2, "0")}`;
-  const dateLabel = clockNow.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+  // En pantalla completa el cursor se oculta tras unos segundos sin moverlo (es una TV).
+  const [cursorHidden, setCursorHidden] = useState(false);
+  useEffect(() => {
+    if (!fullscreen.isFullscreen) { setCursorHidden(false); return; }
+    let timer = window.setTimeout(() => setCursorHidden(true), 3000);
+    const wake = () => {
+      setCursorHidden(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setCursorHidden(true), 3000);
+    };
+    window.addEventListener("mousemove", wake);
+    return () => { window.clearTimeout(timer); window.removeEventListener("mousemove", wake); };
+  }, [fullscreen.isFullscreen]);
 
-  const activeTicket = inServiceTickets[0] ?? null;
-  const nextTicket = waitingTickets[0] ?? null;
-  const queueRest = waitingTickets.slice(1);
+  const timeLabel = `${String(clock.getHours()).padStart(2, "0")}:${String(clock.getMinutes()).padStart(2, "0")}:${String(clock.getSeconds()).padStart(2, "0")}`;
+  const dateLabel = clock.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="fixed inset-0 z-100 flex flex-col bg-slate-50">
-      {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Tv2 className="h-5 w-5 text-blue-600" />
-          <div>
-            <p className="text-sm font-bold text-slate-800">
+    <div ref={rootRef} className={`fixed inset-0 z-100 flex flex-col bg-[#f3f2f1] ${cursorHidden ? "cursor-none" : ""}`}>
+      {/* Barra superior */}
+      <header className="flex items-center justify-between gap-4 px-6 py-3 text-white shadow-md" style={{ background: BRAND, borderBottom: `3px solid ${GOLD}` }}>
+        <div className="flex min-w-0 items-center gap-3">
+          <Tv2 className="h-7 w-7 shrink-0 text-[#d8c7a4]" />
+          <div className="min-w-0">
+            <p className="truncate text-[clamp(1.1rem,1.7vw,1.7rem)] font-extrabold leading-tight">
               Cola de atención{branchName ? ` · ${branchName}` : ""}
             </p>
-            <p className="text-[11px] capitalize text-slate-400">{dateLabel}</p>
+            <p className="text-[clamp(0.75rem,0.95vw,0.95rem)] capitalize text-white/70">{dateLabel}</p>
           </div>
         </div>
+
+        <div className="hidden items-center gap-3 md:flex">
+          <span className="rounded-xl bg-white/12 px-4 py-1.5 text-center">
+            <span className="block text-[clamp(1.3rem,2vw,2rem)] font-black leading-none tabular-nums">{inServiceTickets.length}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">En servicio</span>
+          </span>
+          <span className="rounded-xl bg-white/12 px-4 py-1.5 text-center">
+            <span className="block text-[clamp(1.3rem,2vw,2rem)] font-black leading-none tabular-nums text-[#d8c7a4]">{waitingTickets.length}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">En espera</span>
+          </span>
+        </div>
+
         <div className="flex items-center gap-4">
-          <p className="font-mono text-2xl font-black tabular-nums text-slate-700">{timeLabel}</p>
+          <p className="font-mono text-[clamp(1.4rem,2.4vw,2.4rem)] font-black tabular-nums">{timeLabel}</p>
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+            title={fullscreen.isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            aria-label={fullscreen.isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            {fullscreen.isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+          </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
             title="Cerrar pantalla TV"
+            aria-label="Cerrar pantalla TV"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main */}
-      <div className="flex flex-1 gap-4 overflow-hidden p-5">
-        {/* Panel izquierdo: activo + próximo */}
-        <div className="flex flex-col gap-4 flex-1 min-w-0">
-          {/* En atención */}
-          <ActiveTicketPanel ticket={activeTicket} />
-
-          {/* Próximo + cola */}
-          <div className="flex gap-4">
-            <NextTicketPanel ticket={nextTicket} queueCount={waitingTickets.length} />
-
-            {/* Resto de la cola */}
-            {queueRest.length > 0 && (
-              <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  En espera ({queueRest.length})
-                </p>
-                {queueRest.map((t, i) => (
-                  <QueueRow key={t.id} ticket={t} index={i + 1} />
-                ))}
-              </div>
-            )}
+      {/* Tablero: En servicio (grande) + En espera (columna) */}
+      <main
+        className={`grid min-h-0 flex-1 grid-cols-1 gap-5 p-5 ${
+          waitingTickets.length === 0
+            ? "lg:grid-cols-[minmax(0,1fr)_clamp(11rem,15vw,15rem)]"
+            : "lg:grid-cols-[minmax(0,1fr)_clamp(19rem,29vw,31rem)]"
+        }`}
+      >
+        <section className="flex min-h-0 flex-col">
+          <h2 className="mb-3 flex items-center gap-2 text-[clamp(0.8rem,1vw,1rem)] font-extrabold uppercase tracking-widest text-slate-500">
+            En servicio
+            <span className="rounded-full px-2.5 py-0.5 text-white" style={{ background: BRAND }}>{inServiceTickets.length}</span>
+          </h2>
+          <div className="min-h-0 flex-1">
+            <InServiceBoard tickets={inServiceTickets} now={now} />
           </div>
-        </div>
+        </section>
 
-        {/* Panel derecho: EN SERVICIO (si hay más de 1) */}
-        {inServiceTickets.length > 1 && (
-          <div className="flex w-56 shrink-0 flex-col gap-2 overflow-y-auto">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              En servicio ({inServiceTickets.length})
-            </p>
-            {inServiceTickets.map((t) => {
-              const svcs = serviceNames(t);
-              return (
-                <div key={t.id} className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-                  <p className="font-mono text-sm font-black text-blue-700">
-                    {t.ticket_code ?? `#${t.id}`}
-                  </p>
-                  <p className="truncate text-sm font-semibold text-slate-700">{t.client_name}</p>
-                  <p className="mt-1 text-[11px] text-slate-500">{svcs.join(" · ")}</p>
-                  <div className="mt-1.5 flex items-center gap-1 text-[10px] text-blue-500">
-                    <User className="h-3 w-3" />
-                    {t.professional_name ?? "—"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <WaitingColumn tickets={waitingTickets} />
+      </main>
 
       {/* Aviso para las clientas que esperan */}
-      <div className="border-t border-emerald-200 bg-emerald-50 px-6 py-3 text-center text-base font-semibold text-emerald-800">
+      <div className="border-t border-emerald-200 bg-emerald-50 px-6 py-2.5 text-center text-[clamp(0.85rem,1.2vw,1.2rem)] font-semibold text-emerald-800">
         {HYGIENE_NOTICE}
-      </div>
-
-      {/* Ticker inferior */}
-      <div className="border-t border-slate-200 bg-white px-6 py-2">
-        <p className="text-[11px] text-slate-400">
-          <span className="font-semibold text-blue-600">{inServiceTickets.length}</span> en servicio ·{" "}
-          <span className="font-semibold text-orange-500">{waitingTickets.length}</span> en espera ·
-          Actualización automática cada 15s
-        </p>
       </div>
     </div>
   );

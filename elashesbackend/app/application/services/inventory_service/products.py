@@ -154,6 +154,7 @@ def update_product(
     status_value: Optional[bool] = None,
     image_url: Optional[str] = None,
     min_stock: Optional[float] = None,
+    branch_id: Optional[int] = None,
 ) -> Product:
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -195,7 +196,13 @@ def update_product(
         product.image_url = image_url
 
     if min_stock is not None:
-        product.min_stock = min_stock
+        if branch_id is not None:
+            # Mínimo propio de la sucursal: el de las demás sucursales no se toca.
+            from .min_stock import set_branch_min
+
+            set_branch_min(db, product.id, branch_id, min_stock)
+        else:
+            product.min_stock = min_stock
 
     db.commit()
     db.refresh(product)

@@ -24,7 +24,8 @@ from app.domain.entities.tracking import (
     Question,
 )
 from app.domain.entities.lash_design_final import Tecnologia, DisenoFinal, DisenoGuardado
-from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment
+from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment, ServiceComboItem
+from app.domain.entities.ticket_cancellation import TicketCancellation  # noqa: F401
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale
 from app.domain.entities.cash_close import CashClose, CommissionReceipt

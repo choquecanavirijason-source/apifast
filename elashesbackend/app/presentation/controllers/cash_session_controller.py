@@ -351,6 +351,26 @@ def get_session_detail(
     products_sold = sorted(products_agg.values(), key=lambda r: -r["total"])
     services_sold = sorted(services_agg.values(), key=lambda r: -r["total"])
 
+    # Cancelaciones del turno: qué se canceló, por qué, quién y qué pasó con el dinero. Sirve para explicar
+    # el cuadre (lo devuelto sale de la caja; lo no devuelto sigue contando como cobrado).
+    from app.domain.entities.ticket_cancellation import TicketCancellation
+
+    cancellations = (
+        db.query(TicketCancellation)
+        .options(
+            joinedload(TicketCancellation.user),
+            joinedload(TicketCancellation.appointment),
+            joinedload(TicketCancellation.sale),
+        )
+        .filter(
+            TicketCancellation.branch_id == session.branch_id,
+            TicketCancellation.created_at >= session.opened_at,
+            TicketCancellation.created_at <= window_end,
+        )
+        .order_by(TicketCancellation.created_at.desc())
+        .all()
+    )
+
     cash_sales_live = by_method["cash"]
     cash_expenses_live = sum(e.amount for e in expenses)
     cash_commissions_live = cash_commissions_in_window(db, session.branch_id, session.opened_at, window_end)
@@ -396,4 +416,20 @@ def get_session_detail(
             }
             for e in expenses
         ],
+        "cancellations": [
+            {
+                "id": c.id,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "scope": c.scope,
+                "reason": c.reason,
+                "amount": c.amount,
+                "refunded": c.refunded,
+                "refund_method": c.refund_method,
+                "user_name": c.user.username if c.user else None,
+                "ticket_code": c.appointment.ticket_code if c.appointment else None,
+                "sale_code": c.sale.sale_code if c.sale else None,
+            }
+            for c in cancellations
+        ],
+        "refunds_total": round(sum(c.amount for c in cancellations if c.refunded), 2),
     }

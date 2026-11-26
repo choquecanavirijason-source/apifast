@@ -283,6 +283,7 @@ export default function PosTrackingHub() {
               onPendingPaymentCountChange={setPosPendingPayCount}
               cartDrawerSignal={cartDrawerSignal}
               onRequestSwitchToPos={() => go("pos")}
+              onSaleSentToQueue={() => go("queue")}
             />
           </div>
 

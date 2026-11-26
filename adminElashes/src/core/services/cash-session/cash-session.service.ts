@@ -57,6 +57,20 @@ export interface CashSessionDetail {
     description: string;
     created_at: string | null;
   }[];
+  /** Cancelaciones de la sesión: motivo, quién, monto y si se devolvió el dinero. */
+  cancellations?: {
+    id: number;
+    created_at: string | null;
+    scope: "ticket" | "sale";
+    reason: string;
+    amount: number;
+    refunded: boolean;
+    refund_method: string | null;
+    user_name: string | null;
+    ticket_code: string | null;
+    sale_code: string | null;
+  }[];
+  refunds_total?: number;
 }
 
 export const CashSessionService = {

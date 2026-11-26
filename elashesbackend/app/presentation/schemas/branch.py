@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -74,6 +75,8 @@ class BranchSummary(BaseModel):
     opening_hours: list[BranchDaySchedule] = Field(default_factory=list)
     user_ids: list[int] = Field(default_factory=list)
     qr_image_url: Optional[str] = None
+    qr_updated_at: Optional[datetime] = None
+    qr_updated_by_name: Optional[str] = None
     maps_url: Optional[str] = None
 
     @field_validator("opening_hours", mode="before")

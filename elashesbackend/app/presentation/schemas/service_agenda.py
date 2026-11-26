@@ -72,10 +72,15 @@ class ServiceBase(BaseModel):
     # Descuento promocional sobre `price` (0-100) — opcional, se aplica solo
     # mientras esté cargado.
     discount_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    # Combo: agrupa servicios del catálogo. `price` es el precio del combo y la duración
+    # se calcula sola como la suma de los componentes (lo que se mande se ignora).
+    is_combo: bool = False
 
 
 class ServiceCreate(ServiceBase):
     branch_ids: Optional[List[int]] = None
+    # Servicios que componen el combo (ids; un id puede repetirse). Obligatorio si is_combo.
+    component_service_ids: Optional[List[int]] = None
 
 
 class ServiceUpdate(BaseModel):
@@ -91,6 +96,7 @@ class ServiceUpdate(BaseModel):
     removal_days: Optional[int] = Field(default=None, ge=0)
     is_active: Optional[bool] = None
     discount_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    component_service_ids: Optional[List[int]] = None
 
 
 class ServiceResponse(BaseModel):
@@ -112,6 +118,8 @@ class ServiceResponse(BaseModel):
     is_active: bool = True
     discount_percent: Optional[float] = None
     effective_price: float
+    is_combo: bool = False
+    component_service_ids: List[int] = Field(default_factory=list)
 
 
 class ServiceImageUploadResponse(BaseModel):
@@ -152,6 +160,12 @@ class AppointmentUpdate(BaseModel):
     end_time: Optional[datetime] = None
     status: Optional[str] = None
     skip_availability_check: bool = False
+    # True: la clienta de la reserva llegó (pasa a Control de servicios). False: se deshace.
+    arrived: Optional[bool] = None
+    # Al cancelar (status = "cancelled"): el motivo es obligatorio y, si la venta ya estaba cobrada,
+    # también se indica si se devuelve el dinero a la clienta (refund).
+    cancel_reason: Optional[str] = Field(default=None, max_length=500)
+    refund: Optional[bool] = None
 
 
 class CallNextAppointment(BaseModel):
@@ -194,6 +208,9 @@ class AppointmentResponse(BaseModel):
     end_time: datetime
     status: str
     advance_payment_amount: float = 0.0
+    # "reserva" (va a la Agenda) o "mostrador" (venta directa: solo Control de servicios).
+    source: str = "reserva"
+    arrived_at: Optional[datetime] = None
 
     client: ClientSummary
     created_by: Optional[UserSummary] = None

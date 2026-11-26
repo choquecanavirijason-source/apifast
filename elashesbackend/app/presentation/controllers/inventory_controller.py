@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.audit import describe_changes, record_audit
-from app.core.dependencies import get_db, require_permission
+from app.core.dependencies import SUPER_ADMIN_ROLE, get_db, require_permission
 from app.core.media import save_catalog_image
 from app.domain.entities.user import User
 from app.presentation.schemas.base_response import MessageResponse
@@ -44,6 +44,7 @@ from app.application.services.inventory_service import (
     create_inventory_movement,
     get_stock_summary,
     transfer_stock_between_branches,
+    branch_min_map,
 )
 
 
@@ -51,6 +52,46 @@ router = APIRouter(
     prefix="/inventory",
     tags=["Inventario"],
 )
+
+_BRANCH_FREE_ROLES = (SUPER_ADMIN_ROLE, "Admin", "Secretaria")
+
+
+def _is_branch_free(user: User) -> bool:
+    return bool(user.role and user.role.name in _BRANCH_FREE_ROLES)
+
+
+def _scope_branch(requested: Optional[int], user: User) -> Optional[int]:
+    """Sucursal que el usuario puede consultar: SuperAdmin/Admin/Secretaria, la que pidan (o todas);
+    el resto, siempre la suya (pedir otra se ignora: no se filtra informacion de otras sucursales)."""
+    if _is_branch_free(user):
+        return requested
+    own = user.effective_branch_id
+    if own is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tu usuario no tiene una sucursal asignada.")
+    return own
+
+
+def _assert_branch_access(branch_id: Optional[int], user: User) -> None:
+    """Para escribir o leer algo de UNA sucursal concreta: el personal acotado solo la suya."""
+    if _is_branch_free(user):
+        return
+    if branch_id is None or user.effective_branch_id is None or branch_id != user.effective_branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No puedes manejar el inventario de otra sucursal.",
+        )
+
+
+def _products_for_branch(db: Session, products, branch_id: Optional[int]):
+    """Respuesta de productos con el stock minimo que aplica a la sucursal consultada."""
+    mins = branch_min_map(db, branch_id)
+    out = []
+    for product in products:
+        item = ProductResponse.model_validate(product)
+        if product.id in mins:
+            item = item.model_copy(update={"min_stock": mins[product.id], "min_stock_is_branch": True})
+        out.append(item)
+    return out
 
 
 # ==========================================
@@ -134,7 +175,8 @@ def get_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:view")),
 ):
-    return list_products(
+    branch_id = _scope_branch(branch_id, current_user)
+    products = list_products(
         db=db,
         skip=skip,
         limit=limit,
@@ -142,6 +184,7 @@ def get_products(
         active_only=active_only,
         branch_id=branch_id,
     )
+    return _products_for_branch(db, products, branch_id)
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
@@ -159,6 +202,9 @@ def create_new_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    # El personal acotado solo crea productos en su sucursal.
+    if not _is_branch_free(current_user):
+        payload.branch_id = _scope_branch(None, current_user)
     return create_product(
         db=db,
         sku=payload.sku,
@@ -182,6 +228,10 @@ def update_existing_product(
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
     existing = get_product_by_id(db=db, product_id=product_id)
+    # Con sucursal, el stock minimo es el de ESA sucursal; el personal acotado solo cambia el de la suya.
+    min_branch_id = None
+    if payload.min_stock is not None:
+        min_branch_id = payload.branch_id if _is_branch_free(current_user) else _scope_branch(None, current_user)
     old_values = {
         "name": existing.name, "price": existing.price, "cost": existing.cost,
         "min_stock": existing.min_stock, "status": existing.status,
@@ -197,6 +247,7 @@ def update_existing_product(
         status_value=payload.status,
         image_url=payload.image_url,
         min_stock=payload.min_stock,
+        branch_id=min_branch_id,
     )
     changes = describe_changes(old_values, result, {
         "name": "nombre", "price": "precio", "cost": "costo",
@@ -242,7 +293,7 @@ def get_batches(
         skip=skip,
         limit=limit,
         product_id=product_id,
-        branch_id=branch_id,
+        branch_id=_scope_branch(branch_id, current_user),
     )
 
 
@@ -252,7 +303,9 @@ def get_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:view")),
 ):
-    return get_batch_by_id(db=db, batch_id=batch_id)
+    batch = get_batch_by_id(db=db, batch_id=batch_id)
+    _assert_branch_access(batch.branch_id, current_user)
+    return batch
 
 
 @router.post("/batches", response_model=BatchResponse, status_code=status.HTTP_201_CREATED)
@@ -261,6 +314,7 @@ def create_new_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    _assert_branch_access(payload.branch_id, current_user)
     return create_batch(
         db=db,
         product_id=payload.product_id,
@@ -279,6 +333,7 @@ def update_existing_batch(
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
     existing = get_batch_by_id(db=db, batch_id=batch_id)
+    _assert_branch_access(existing.branch_id, current_user)
     old_values = {"cost_per_unit": existing.cost_per_unit, "sale_price_per_unit": existing.sale_price_per_unit}
     result = update_batch(
         db=db,
@@ -316,7 +371,7 @@ def get_movements(
         skip=skip,
         limit=limit,
         product_id=product_id,
-        branch_id=branch_id,
+        branch_id=_scope_branch(branch_id, current_user),
         movement_type=movement_type,
         date_from=date_from,
         date_to=date_to,
@@ -329,6 +384,11 @@ def create_new_movement(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    if not _is_branch_free(current_user):
+        movement_branch = payload.branch_id
+        if movement_branch is None and payload.batch_id is not None:
+            movement_branch = get_batch_by_id(db=db, batch_id=payload.batch_id).branch_id
+        _assert_branch_access(movement_branch, current_user)
     result = create_inventory_movement(
         db=db,
         product_id=payload.product_id,
@@ -358,7 +418,7 @@ def get_inventory_stock_summary(
 ):
     return get_stock_summary(
         db=db,
-        branch_id=branch_id,
+        branch_id=_scope_branch(branch_id, current_user),
         product_id=product_id,
     )
 
@@ -372,6 +432,8 @@ def create_stock_transfer(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("inventory:manage")),
 ):
+    # Solo se saca stock de la propia sucursal (el destino puede ser otra).
+    _assert_branch_access(payload.from_branch_id, current_user)
     result = transfer_stock_between_branches(
         db=db,
         product_id=payload.product_id,

@@ -10,6 +10,7 @@ from app.domain.entities.manual_reminder import ManualReminder
 from app.domain.entities.operator_bonus import OperatorBonus
 from app.domain.entities.reminder_email_sender import ReminderEmailSender
 from app.domain.entities.tracking import EyeType, Effect, Volume, LashDesign, Questionnaire, Question, Tracking
-from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment, BranchService, AppointmentService
+from app.domain.entities.service_agenda import ServiceCategory, Service, Appointment, BranchService, AppointmentService, ServiceComboItem
+from app.domain.entities.ticket_cancellation import TicketCancellation
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale

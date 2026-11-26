@@ -48,11 +48,27 @@ class Service(Base):
     # esté cargado, así no hay que ir cambiando el precio base a mano cada
     # vez que empieza/termina una promoción.
     discount_percent = Column(Float, nullable=True, default=None)
+    # Combo = servicio que agrupa otros servicios del catálogo (ver ServiceComboItem).
+    # Su `price` es el precio del combo y su `duration_minutes` la suma de los componentes.
+    # En el POS se expande en sus servicios reales (cada uno con su operaria y comisión)
+    # y el servidor descuenta la diferencia entre la suma de componentes y el precio del combo.
+    is_combo = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     category = relationship("ServiceCategory", back_populates="services")
     appointments = relationship("Appointment", back_populates="service")
     branch_services = relationship("BranchService", back_populates="service", cascade="all, delete-orphan")
     appointment_services = relationship("AppointmentService", back_populates="service", cascade="all, delete-orphan")
+    combo_items = relationship(
+        "ServiceComboItem",
+        foreign_keys="ServiceComboItem.combo_id",
+        back_populates="combo",
+        cascade="all, delete-orphan",
+        order_by="ServiceComboItem.position",
+    )
+
+    @property
+    def component_service_ids(self):
+        return [item.service_id for item in self.combo_items]
 
     @property
     def branch_ids(self):
@@ -66,6 +82,21 @@ class Service(Base):
         if self.discount_percent and self.discount_percent > 0:
             return round(self.price * (1 - self.discount_percent / 100), 2)
         return self.price
+
+
+class ServiceComboItem(Base):
+    """Un servicio componente de un combo. El mismo servicio puede repetirse en la lista
+    (ej. 2 sesiones), por eso no hay unique (combo_id, service_id)."""
+    __tablename__ = "service_combo_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    combo_id = Column(Integer, ForeignKey("services.id", ondelete="CASCADE"), nullable=False, index=True)
+    # RESTRICT: no se puede borrar un servicio mientras forme parte de un combo.
+    service_id = Column(Integer, ForeignKey("services.id", ondelete="RESTRICT"), nullable=False, index=True)
+    position = Column(Integer, nullable=False, default=0)
+
+    combo = relationship("Service", foreign_keys=[combo_id], back_populates="combo_items")
+    service = relationship("Service", foreign_keys=[service_id])
 
 
 class BranchService(Base):
@@ -118,6 +149,12 @@ class Appointment(Base):
         default=datetime.utcnow,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    # Origen del ticket: "reserva" (va a la Agenda) o "mostrador" (venta directa del POS, solo Control de
+    # servicios). Ver app/core/appointment_source.py.
+    source = Column(String(10), nullable=False, default="reserva", server_default=text("'reserva'"), index=True)
+    # Cuándo llegó la clienta de una reserva (UTC naive). Hasta que se pulsa «Llegó» en la Agenda, la reserva
+    # no aparece en Control de servicios.
+    arrived_at = Column(DateTime, nullable=True)
     # Comisión de la operaria pagada (Historial de tickets > Confirmar pago).
     # pagado_en: UTC naive. pagado_monto: comisión al momento de pagar (para
     # descontarla exacta al anular aunque luego cambien precios o tasas).

@@ -101,6 +101,11 @@ import app.infrastructure.database.migrations.add_allergies_to_appointments as m
 import app.infrastructure.database.migrations.add_birthday_coupon as m61
 import app.infrastructure.database.migrations.add_from_cash_to_commissions as m62
 import app.infrastructure.database.migrations.add_from_cash_to_bonuses as m63
+import app.infrastructure.database.migrations.add_qr_audit_to_branches as m64
+import app.infrastructure.database.migrations.add_service_combos as m65
+import app.infrastructure.database.migrations.add_combo_data_to_pos_sales as m66
+import app.infrastructure.database.migrations.add_source_to_appointments as m67
+import app.infrastructure.database.migrations.add_arrived_at_to_appointments as m68
 
 from app.presentation.controllers.notifications_controller import router as notifications_router
 from app.presentation.controllers.service_categories_controller import router as service_categories_router
@@ -208,6 +213,11 @@ async def lifespan(app: FastAPI):
         ("birthday_coupon", m61.upgrade),
         ("commissions_from_cash", m62.upgrade),
         ("bonuses_from_cash", m63.upgrade),
+        ("qr_audit_to_branches", m64.upgrade),
+        ("service_combos", m65.upgrade),
+        ("combo_data_to_pos_sales", m66.upgrade),
+        ("source_to_appointments", m67.upgrade),
+        ("arrived_at_to_appointments", m68.upgrade),
     ]
 
     for name, upgrade_fn in migrations:

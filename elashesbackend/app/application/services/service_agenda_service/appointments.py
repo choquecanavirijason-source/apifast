@@ -1,5 +1,5 @@
 """Casos de uso para Appointment (citas / tickets)."""
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -440,6 +440,7 @@ def create_appointment(
     advance_payment_amount: float = 0.0,
     *,
     skip_availability_check: bool = False,
+    source: str = "reserva",
 ) -> Appointment:
     _validate_appointment_relations(
         db=db,
@@ -476,6 +477,7 @@ def create_appointment(
         end_time=end_time,
         status=status_value,
         advance_payment_amount=max(0.0, float(advance_payment_amount)),
+        source=source,
     )
 
     db.add(appointment)
@@ -507,6 +509,132 @@ def create_appointment(
     return get_appointment_by_id(db, appointment.id)
 
 
+def split_appointment(db: Session, appointment_id: int, created_by_id: Optional[int] = None) -> List[Appointment]:
+    """Separa un ticket con varios servicios en un ticket por servicio (misma venta, misma clienta).
+
+    El primer servicio se queda en el ticket original; los demás pasan a tickets nuevos, uno detrás de otro
+    desde la hora de inicio. La venta no cambia de monto: los servicios son los mismos."""
+    appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
+    if appointment.status not in ("pending", "confirmed", "waiting"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo se puede separar un ticket que todavía no empezó (pendiente o en espera).",
+        )
+    links = sorted(appointment.appointment_services, key=lambda item: item.sort_order)
+    service_ids = [item.service_id for item in links]
+    if len(service_ids) < 2:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El ticket tiene un solo servicio.")
+
+    durations = {
+        s.id: max(15, int(s.duration_minutes or 60))
+        for s in db.query(Service).filter(Service.id.in_(service_ids)).all()
+    }
+    start = appointment.start_time
+    cursor = start + timedelta(minutes=durations.get(service_ids[0], 60))
+
+    # Los tickets nuevos primero (mismo estado, origen y operaria), después se acorta el original.
+    created: List[Appointment] = []
+    for sid in service_ids[1:]:
+        end = cursor + timedelta(minutes=durations.get(sid, 60))
+        new = create_appointment(
+            db=db,
+            client_id=appointment.client_id,
+            start_time=cursor,
+            end_time=end,
+            created_by_id=created_by_id,
+            professional_id=appointment.professional_id,
+            service_id=sid,
+            branch_id=appointment.branch_id,
+            sale_id=appointment.sale_id,
+            is_ia=appointment.is_ia,
+            status_value=appointment.status,
+            skip_availability_check=True,
+            source=appointment.source,
+        )
+        row = db.query(Appointment).filter(Appointment.id == new.id).first()
+        row.arrived_at = appointment.arrived_at
+        row.allergies = appointment.allergies
+        row.allergies_checked_at = appointment.allergies_checked_at
+        db.commit()
+        created.append(row)
+        cursor = end
+
+    appointment.end_time = start + timedelta(minutes=durations.get(service_ids[0], 60))
+    appointment.service_id = service_ids[0]
+    appointment.appointment_services = [AppointmentService(appointment_id=appointment.id, service_id=service_ids[0], sort_order=0)]
+    db.commit()
+    return [get_appointment_by_id(db, a.id) for a in [appointment, *created]]
+
+
+def merge_appointments(db: Session, appointment_id: int) -> Appointment:
+    """Une en este ticket los demás tickets pendientes de la MISMA venta y clienta (operación inversa a separar).
+
+    El ticket conserva su código y su operaria (o la del primer hermano que tenga). Los servicios se suman en
+    orden de hora, la duración es la suma y empieza a la hora más temprana. Los hermanos se eliminan sin
+    pasar por cancelación: la venta no cambia de monto. Solo tickets que no empezaron."""
+    appointment = get_appointment_by_id(db=db, appointment_id=appointment_id)
+    open_statuses = ("pending", "confirmed", "waiting")
+    if appointment.status not in open_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo se puede unir un ticket que todavía no empezó (pendiente o en espera).",
+        )
+    if appointment.sale_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El ticket no pertenece a una venta con otros tickets.")
+    siblings = (
+        db.query(Appointment)
+        .filter(
+            Appointment.sale_id == appointment.sale_id,
+            Appointment.client_id == appointment.client_id,
+            Appointment.id != appointment.id,
+            Appointment.status.in_(open_statuses),
+            Appointment.is_ia.is_(False),
+        )
+        .order_by(Appointment.start_time.asc(), Appointment.id.asc())
+        .all()
+    )
+    if not siblings:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay otros tickets pendientes de esta venta para unir.")
+
+    group = sorted([appointment, *siblings], key=lambda a: (a.start_time, a.id))
+    service_ids: List[int] = []
+    for item in group:
+        for link in sorted(item.appointment_services, key=lambda x: x.sort_order):
+            if link.service_id not in service_ids:
+                service_ids.append(link.service_id)
+    durations = {
+        s.id: max(15, int(s.duration_minutes or 60))
+        for s in db.query(Service).filter(Service.id.in_(service_ids)).all()
+    }
+    start = group[0].start_time
+    total = sum(durations.get(sid, 60) for sid in service_ids)
+
+    if appointment.professional_id is None:
+        appointment.professional_id = next((a.professional_id for a in siblings if a.professional_id), None)
+    arrivals = [a.arrived_at for a in group if a.arrived_at is not None]
+    appointment.arrived_at = min(arrivals) if arrivals else None
+    if any(a.source == "reserva" for a in group):
+        appointment.source = "reserva"
+    appointment.advance_payment_amount = sum(float(a.advance_payment_amount or 0) for a in group)
+
+    for sibling in siblings:
+        # Los registros que apuntaban al hermano pasan al ticket que se queda.
+        db.query(Tracking).filter(Tracking.appointment_id == sibling.id).update({"appointment_id": appointment.id})
+        db.query(Payment).filter(Payment.appointment_id == sibling.id).update({"appointment_id": appointment.id})
+        db.delete(sibling)
+    db.flush()
+
+    appointment.start_time = start
+    appointment.end_time = start + timedelta(minutes=total)
+    appointment.service_id = service_ids[0]
+    appointment.appointment_services = [
+        AppointmentService(appointment_id=appointment.id, service_id=sid, sort_order=index)
+        for index, sid in enumerate(service_ids)
+    ]
+    db.commit()
+    return get_appointment_by_id(db, appointment.id)
+
+
 def mark_rescheduled(appointment: Appointment, new_start_time: datetime) -> None:
     """Actualiza scheduled_at si start_time cambia de verdad. Llamar ANTES de
     asignar start_time. El panel reenvía la misma hora al cambiar solo el estado
@@ -532,6 +660,8 @@ def update_appointment(
     status_value: Optional[str] = None,
     *,
     skip_availability_check: bool = False,
+    cancellation: Optional[dict] = None,
+    arrived: Optional[bool] = None,
 ) -> Appointment:
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
 
@@ -540,6 +670,21 @@ def update_appointment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cita no encontrada",
         )
+
+    # Un ticket en servicio o finalizado ya no se puede cancelar (regla del cliente).
+    if status_value == "cancelled" and appointment.status != "cancelled":
+        from app.application.services.pos_sale_service import assert_ticket_cancellable
+
+        assert_ticket_cancellable(appointment)
+
+    # Un ticket finalizado se queda finalizado (no vuelve a «En servicio» ni a «En espera»).
+    if status_value is not None:
+        from app.application.services.pos_sale_service import assert_ticket_status_change_allowed
+
+        assert_ticket_status_change_allowed(appointment, status_value)
+
+    # Para registrar bien una cancelación: el total de la venta ANTES de recalcularla.
+    sale_total_before = float(appointment.sale.total or 0.0) if appointment.sale is not None else 0.0
 
     previous_status = appointment.status
     previous_service = resolve_service(db, appointment.id)
@@ -585,6 +730,14 @@ def update_appointment(
     appointment.branch_id = final_branch_id
     if is_ia is not None:
         appointment.is_ia = is_ia
+    # Un ticket que se programa para más adelante (ej. arrastrarlo a un hueco de la Agenda) pasa a ser reserva.
+    from app.core.appointment_source import (
+        IMMEDIATE_WINDOW_MINUTES, SOURCE_RESERVA, local_now, naive_clock,
+    )
+
+    if start_time is not None and naive_clock(final_start_time) > local_now() + timedelta(minutes=IMMEDIATE_WINDOW_MINUTES):
+        appointment.source = SOURCE_RESERVA
+        appointment.arrived_at = None
     mark_rescheduled(appointment, final_start_time)
     appointment.start_time = final_start_time
     appointment.end_time = final_end_time
@@ -661,6 +814,11 @@ def update_appointment(
     # Finalizar / cambiar servicio actualiza el seguimiento en la misma transacción.
     sync_appointment_followup(db, appointment, previous_status, previous_service_id)
 
+    if arrived is not None:
+        from datetime import datetime as _dt, timezone as _tz
+
+        appointment.arrived_at = _dt.now(_tz.utc).replace(tzinfo=None) if arrived else None
+
     db.commit()
     db.refresh(appointment)
 
@@ -673,6 +831,18 @@ def update_appointment(
         from app.presentation.schemas.pos_sale import PosSaleUpdate as _PosSaleUpdate
 
         _recompute_sale_totals(db=db, sale_id=appointment.sale_id, payload=_PosSaleUpdate())
+
+    if status_value == "cancelled" and previous_status != "cancelled" and cancellation is not None:
+        from app.application.services.pos_sale_service import finalize_ticket_cancellation
+
+        finalize_ticket_cancellation(
+            db=db,
+            appointment_id=appointment.id,
+            sale_total_before=sale_total_before,
+            user=cancellation.get("user"),
+            reason=cancellation["reason"],
+            refund=cancellation.get("refund"),
+        )
 
     return get_appointment_by_id(db, appointment.id)
 

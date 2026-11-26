@@ -14,6 +14,7 @@ from app.domain.entities.client import Client, CLIENT_STATUS_EN_ESPERA
 from app.domain.entities.inventory import Batch, Product
 from app.domain.entities.payment import Payment
 from app.domain.entities.pos_sale import PosSale, PosSaleProduct
+from app.domain.entities.ticket_cancellation import TicketCancellation
 from app.domain.entities.service_agenda import Appointment, Service
 from app.domain.entities.user import User
 from app.presentation.schemas.pos_sale import PosSaleCreate, PosSalePay, PosSaleUpdate
@@ -214,6 +215,108 @@ def list_sales(
     )
 
 
+def _join_notes(notes: Optional[str], extra: str) -> Optional[str]:
+    parts = [part for part in ((notes or "").strip(), extra) if part]
+    return " · ".join(parts)[:500] or None
+
+
+def _compute_combo_discount(db: Session, payload: PosSaleCreate, service_map: dict) -> tuple[float, str, list[dict]]:
+    """Descuento de combos de la venta + una nota legible para el comprobante.
+
+    Cada combo vendido debe traer TODOS sus servicios en `payload.items` (si el cajero quitó uno, el
+    combo ya no aplica y se rechaza). El descuento es la suma de los precios efectivos de los
+    componentes menos el precio efectivo del combo (nunca negativo)."""
+    if not payload.combos:
+        return 0.0, "", []
+    if payload.link_appointment_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Las promociones no se pueden aplicar al cobrar una reserva existente",
+        )
+
+    quantities: Counter = Counter()
+    for entry in payload.combos:
+        quantities[entry.combo_id] += entry.quantity
+
+    combos = db.query(Service).filter(Service.id.in_(set(quantities))).all()
+    combo_map = {combo.id: combo for combo in combos}
+
+    available: Counter = Counter()
+    for item in payload.items:
+        if item.service_ids:
+            available.update(item.service_ids)
+        elif item.service_id is not None:
+            available[item.service_id] += 1
+
+    required: Counter = Counter()
+    total_discount = 0.0
+    notes: list[str] = []
+    combo_lines: list[dict] = []
+    for combo_id, qty in quantities.items():
+        combo = combo_map.get(combo_id)
+        if combo is None or not combo.is_combo:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Una de las promociones no existe")
+        if not combo.is_active:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"La promoción '{combo.name}' no está activa")
+        component_ids = [item.service_id for item in combo.combo_items]
+        components = db.query(Service).filter(Service.id.in_(set(component_ids))).all()
+        by_id = {component.id: component for component in components}
+        inactive = [by_id[i].name for i in dict.fromkeys(component_ids) if i in by_id and not by_id[i].is_active]
+        if inactive:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"La promoción '{combo.name}' incluye servicios inactivos ({', '.join(inactive)})",
+            )
+        for component_id in component_ids:
+            required[component_id] += qty
+        components_total = sum(by_id[i].effective_price for i in component_ids if i in by_id)
+        discount_each = max(0.0, components_total - combo.effective_price)
+        discount = discount_each * qty
+        total_discount += discount
+        combo_lines.append({
+            "combo_id": combo.id,
+            "quantity": qty,
+            "component_ids": list(component_ids),
+            "discount_each": discount_each,
+        })
+        notes.append(f"Promoción {combo.name} x{qty} (-Bs {discount:.2f})")
+
+    for component_id, needed in required.items():
+        if available[component_id] < needed:
+            name = service_map[component_id].name if component_id in service_map else f"#{component_id}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"La promoción necesita '{name}' ({needed}) y la venta trae {available[component_id]}",
+            )
+    return float(total_discount), "; ".join(notes), combo_lines
+
+
+def _appointment_service_list(appointment: Appointment) -> list[Service]:
+    """Todos los servicios de una cita: los del ticket grupal (appointment_services) o, si no hay, el service_id."""
+    services = [item for item in appointment.services if item is not None]
+    if appointment.service and all(item.id != appointment.service.id for item in services):
+        services.insert(0, appointment.service)
+    return services
+
+
+def _combo_discount_from_data(combo_data: Optional[list], counts: Counter) -> float:
+    """Descuento de promociones que SIGUEN completas con los servicios que quedan activos.
+
+    Si se canceló un ticket de la promoción, esa unidad ya no tiene descuento; las demás sí."""
+    total = 0.0
+    remaining = Counter(counts)
+    for entry in combo_data or []:
+        need = Counter(entry.get("component_ids") or [])
+        if not need:
+            continue
+        units = min(remaining[sid] // n for sid, n in need.items())
+        applied = min(int(entry.get("quantity") or 0), units)
+        total += applied * float(entry.get("discount_each") or 0.0)
+        for sid, n in need.items():
+            remaining[sid] -= n * applied
+    return total
+
+
 def create_sale(
     db: Session,
     payload: PosSaleCreate,
@@ -328,6 +431,11 @@ def create_sale(
         elif item.service_id is not None:
             subtotal += service_map[item.service_id].effective_price
 
+    # Combos: el servidor valida que estén todos los servicios y descuenta la diferencia
+    # entre la suma de sus precios y el precio del combo (no se confía en el precio del cliente).
+    combo_discount, combo_note, combo_lines = _compute_combo_discount(db, payload, service_map)
+    subtotal -= combo_discount
+
     # Productos: validar existencia/estado + stock disponible en la sucursal
     # ANTES de tocar nada — si algo falla, la venta entera no se crea.
     product_map: dict[int, Product] = {}
@@ -419,7 +527,8 @@ def create_sale(
         total=total,
         payment_method=payment_method,
         status=sale_status,
-        notes=payload.notes,
+        notes=_join_notes(payload.notes, combo_note),
+        combo_data=combo_lines or None,
     )
     db.add(sale)
     db.flush()
@@ -451,6 +560,8 @@ def create_sale(
         pass
     else:
         appointment_status = "pending"
+        from app.core.appointment_source import source_for_start
+
         for item in payload.items:
             create_appointment(
                 db=db,
@@ -466,6 +577,8 @@ def create_sale(
                 end_time=item.end_time,
                 status_value=appointment_status,
                 skip_availability_check=True,
+                # Venta para atender ahora = mostrador (no va a la Agenda); reserva o programada = reserva.
+                source=source_for_start(item.start_time, reservation_only=payload.reservation_only),
             )
 
     if not payload.reservation_only:
@@ -541,10 +654,76 @@ def create_sale(
     return get_sale_by_id(db, sale.id)
 
 
+def _retained_amount(db: Session, sale_id: int) -> float:
+    """Dinero cobrado de lo que se canceló SIN devolver: sigue en caja, así que el pago no baja."""
+    return float(
+        db.query(func.coalesce(func.sum(TicketCancellation.amount), 0.0))
+        .filter(
+            TicketCancellation.sale_id == sale_id,
+            TicketCancellation.refunded.is_(False),
+            TicketCancellation.amount > 0,
+        )
+        .scalar()
+        or 0.0
+    )
+
+
+# Regla del cliente: un ticket que ya está en servicio o finalizado NO se puede cancelar.
+STARTED_TICKET_STATUSES = {"in_service", "completed", "finalizado", "atendido", "done"}
+TICKET_NOT_CANCELLABLE_MESSAGE = "Un ticket que ya está en servicio o finalizado no se puede cancelar."
+SALE_NOT_CANCELLABLE_MESSAGE = (
+    "No se puede cancelar la venta: tiene tickets que ya están en servicio o finalizados."
+)
+
+
+FINISHED_TICKET_STATUSES = {"completed", "finalizado", "atendido", "done"}
+FINISHED_TICKET_MOVE_MESSAGE = "Un ticket finalizado ya no se puede mover: la atención quedó cerrada."
+
+
+def assert_ticket_status_change_allowed(appointment: Appointment, new_status: Optional[str]) -> None:
+    """Regla del cliente: finalizado es definitivo. No vuelve a «En servicio» ni a «En espera»."""
+    if new_status is not None and new_status != appointment.status and appointment.status in FINISHED_TICKET_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=FINISHED_TICKET_MOVE_MESSAGE)
+
+
+def assert_ticket_cancellable(appointment: Appointment) -> None:
+    if appointment.status in STARTED_TICKET_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=TICKET_NOT_CANCELLABLE_MESSAGE)
+
+
+def assert_sale_cancellable(sale: PosSale) -> None:
+    if sale.status != "cancelled" and any(a.status in STARTED_TICKET_STATUSES for a in sale.appointments):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=SALE_NOT_CANCELLABLE_MESSAGE)
+
+
+def sale_money_collected(sale: Optional[PosSale]) -> float:
+    """Lo cobrado de una venta (0 si está reservada/sin cobrar o cancelada)."""
+    if sale is None or sale.status != "paid":
+        return 0.0
+    return float(sum(p.amount or 0.0 for p in sale.payments if p.status == "paid"))
+
+
+def validate_cancellation_input(reason: Optional[str], refund: Optional[bool], money_collected: float) -> str:
+    """Motivo obligatorio y, si hay dinero cobrado, la decisión sobre devolverlo. Devuelve el motivo limpio."""
+    clean = (reason or "").strip()
+    if len(clean) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Escribe el motivo de la cancelación (mínimo 5 caracteres).",
+        )
+    if money_collected > 0 and refund is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Indica si se devuelve el dinero a la clienta.",
+        )
+    return clean
+
+
 def update_sale(
     db: Session,
     sale_id: int,
     payload: PosSaleUpdate,
+    keep_payments: bool = False,
 ) -> PosSale:
     sale = get_sale_by_id(db=db, sale_id=sale_id)
 
@@ -586,8 +765,10 @@ def update_sale(
             birthday_coupon_service.release_for_sale(sale)
             for appointment in sale.appointments:
                 appointment.status = "cancelled"
-            for payment in sale.payments:
-                payment.status = "cancelled"
+            if not keep_payments:
+                # keep_payments = se cancela sin devolver el dinero: el cobro sigue contando en caja.
+                for payment in sale.payments:
+                    payment.status = "cancelled"
             if not was_already_cancelled and sale.product_lines:
                 restock_from_sale(db, sale.id, sale.sale_code, sale.created_at)
         elif payload.status == "paid":
@@ -597,17 +778,17 @@ def update_sale(
     # Recalcula desde BD para reflejar cambios reales de tickets/servicios
     # editados. Con descuento aplicado (mismo cálculo que effective_price) —
     # sumar Service.price a secas cobraría de más en servicios con promo.
-    effective_price_expr = Service.price * (1 - func.coalesce(Service.discount_percent, 0.0) / 100.0)
-    subtotal_db = (
-        db.query(func.coalesce(func.sum(effective_price_expr), 0.0))
-        .select_from(Appointment)
-        .outerjoin(Service, Appointment.service_id == Service.id)
-        .filter(
-            Appointment.sale_id == sale.id,
-            Appointment.status != "cancelled",
-        )
-        .scalar()
-    )
+    # Suma TODOS los servicios de cada ticket activo (un ticket grupal trae varios; antes solo se contaba
+    # el primero y el total bajaba al editar la venta) y descuenta las promociones que sigan completas.
+    subtotal_db = 0.0
+    service_counts: Counter = Counter()
+    for appointment in sale.appointments:
+        if appointment.status == "cancelled":
+            continue
+        for service in _appointment_service_list(appointment):
+            subtotal_db += service.effective_price
+            service_counts[service.id] += 1
+    subtotal_db -= _combo_discount_from_data(sale.combo_data, service_counts)
     products_subtotal_db = 0.0
     if sale.status != "cancelled":
         products_subtotal_db = (
@@ -625,9 +806,10 @@ def update_sale(
     sale.subtotal = subtotal
     sale.total = max(0.0, subtotal - discount_amount)
 
+    retained = _retained_amount(db, sale.id)
     for payment in sale.payments:
         if payment.status != "cancelled":
-            payment.amount = sale.total
+            payment.amount = sale.total + retained
 
     db.commit()
     return get_sale_by_id(db, sale_id)
@@ -636,8 +818,83 @@ def update_sale(
 def cancel_sale(
     db: Session,
     sale_id: int,
+    user: Optional[User] = None,
+    reason: Optional[str] = None,
+    refund: Optional[bool] = None,
 ) -> PosSale:
-    return update_sale(db=db, sale_id=sale_id, payload=PosSaleUpdate(status="cancelled"))
+    """Cancela la venta entera. Con `reason` queda registrada (quién, por qué y qué pasó con el dinero).
+
+    refund=True  -> se devuelve el dinero: los pagos se cancelan y salen del cuadre de caja.
+    refund=False -> no se devuelve: los pagos siguen cobrados y el cuadre los sigue contando."""
+    sale = get_sale_by_id(db=db, sale_id=sale_id)
+    assert_sale_cancellable(sale)
+    money = sale_money_collected(sale)
+    keep = money > 0 and refund is False
+    method = sale.payment_method
+    branch_id = sale.branch_id
+
+    result = update_sale(db=db, sale_id=sale_id, payload=PosSaleUpdate(status="cancelled"), keep_payments=keep)
+
+    if reason is not None:
+        db.add(TicketCancellation(
+            sale_id=sale_id,
+            branch_id=branch_id,
+            user_id=user.id if user else None,
+            scope="sale",
+            reason=reason,
+            amount=money,
+            refunded=bool(money > 0 and refund),
+            refund_method=method if money > 0 and refund else None,
+        ))
+        db.flush()
+        if keep:
+            for payment in result.payments:
+                if payment.status == "paid":
+                    payment.amount = money
+        db.commit()
+        result = get_sale_by_id(db, sale_id)
+    return result
+
+
+def finalize_ticket_cancellation(
+    db: Session,
+    appointment_id: int,
+    sale_total_before: float,
+    user: Optional[User],
+    reason: str,
+    refund: Optional[bool],
+) -> TicketCancellation:
+    """Registra la cancelación de UN ticket, ya recalculada la venta.
+
+    El monto es lo que bajó el total de la venta (incluye promociones y descuentos). Si no se devuelve el
+    dinero, el pago conserva ese monto para que el cuadre de caja lo siga contando."""
+    appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    sale = appointment.sale if appointment else None
+    collected = sale is not None and sale.status == "paid" and any(p.status == "paid" for p in sale.payments)
+    amount = max(0.0, float(sale_total_before) - float(sale.total or 0.0)) if collected and sale else 0.0
+    refunded = bool(refund) and amount > 0
+
+    record = TicketCancellation(
+        appointment_id=appointment_id,
+        sale_id=sale.id if sale else None,
+        branch_id=appointment.branch_id if appointment else None,
+        user_id=user.id if user else None,
+        scope="ticket",
+        reason=reason,
+        amount=amount,
+        refunded=refunded,
+        refund_method=sale.payment_method if refunded and sale else None,
+    )
+    db.add(record)
+    db.flush()
+    if sale and amount > 0 and not refunded:
+        retained = _retained_amount(db, sale.id)
+        for payment in sale.payments:
+            if payment.status != "cancelled":
+                payment.amount = float(sale.total or 0.0) + retained
+    db.commit()
+    db.refresh(record)
+    return record
 
 
 def delete_sale(

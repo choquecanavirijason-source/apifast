@@ -42,6 +42,10 @@ export default function SalonsPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [salonToDelete, setSalonToDelete] = useState<Salon | null>(null);
   const [form, setForm] = useState<SalonForm>(emptyForm);
+  // QR de pago: el archivo elegido se sube recién al guardar (con vista previa antes).
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrRemoved, setQrRemoved] = useState(false);
+  const [qrMeta, setQrMeta] = useState<{ updatedAt: string | null; updatedBy: string | null }>({ updatedAt: null, updatedBy: null });
   const [pageView, setPageView] = useState<PageView>("salons");
   const [integrationSalonId, setIntegrationSalonId] = useState<number | null>(null);
   const [sharedProfiles, setSharedProfiles] = useState<BranchIntegrationProfile[]>([]);
@@ -193,6 +197,9 @@ export default function SalonsPage() {
     setIsEditing(false);
     setSelectedId(null);
     setForm(emptyForm);
+    setQrFile(null);
+    setQrRemoved(false);
+    setQrMeta({ updatedAt: null, updatedBy: null });
     setIsModalOpen(true);
   };
 
@@ -208,6 +215,9 @@ export default function SalonsPage() {
       qr_image_url: salon.qr_image_url ?? "",
       maps_url: salon.maps_url ?? "",
     });
+    setQrFile(null);
+    setQrRemoved(false);
+    setQrMeta({ updatedAt: salon.qr_updated_at ?? null, updatedBy: salon.qr_updated_by_name ?? null });
     setIsModalOpen(true);
   };
 
@@ -216,6 +226,8 @@ export default function SalonsPage() {
     setIsEditing(false);
     setSelectedId(null);
     setForm(emptyForm);
+    setQrFile(null);
+    setQrRemoved(false);
   };
 
   const handleTextChange = (field: keyof SalonForm, value: string) => {
@@ -322,6 +334,7 @@ export default function SalonsPage() {
 
     setIsMutating(true);
     try {
+      let branchId: number | null = null;
       if (isEditing && selectedId !== null) {
         await BranchService.update(selectedId, {
           name: normalized.name,
@@ -329,21 +342,42 @@ export default function SalonsPage() {
           city: normalized.city || undefined,
           department: normalized.department || undefined,
           opening_hours: openingHoursPayload,
-          qr_image_url: normalized.qr_image_url.trim() || null,
           maps_url: normalized.maps_url.trim() || null,
         });
+        branchId = selectedId;
         toast.success("Sucursal actualizada correctamente.");
       } else {
-        await BranchService.create({
+        const created = await BranchService.create({
           name: normalized.name,
           address: normalized.address || undefined,
           city: normalized.city || undefined,
           department: normalized.department || undefined,
           opening_hours: openingHoursPayload,
-          qr_image_url: normalized.qr_image_url.trim() || null,
           maps_url: normalized.maps_url.trim() || null,
         });
+        branchId = created.id;
         toast.success("Sucursal creada correctamente.");
+      }
+
+      // El QR va aparte porque el backend lo valida y lo registra en Auditoría.
+      // Si falla, la sucursal ya quedó guardada: se avisa y se deja el modal abierto para reintentar.
+      if (branchId !== null && (qrFile || (qrRemoved && form.qr_image_url))) {
+        try {
+          const saved = qrFile ? await BranchService.uploadQr(branchId, qrFile) : await BranchService.removeQr(branchId);
+          toast.success(qrFile ? "QR de pago actualizado." : "QR de pago eliminado.");
+          setIsEditing(true);
+          setSelectedId(branchId);
+          setQrFile(null);
+          setQrRemoved(false);
+          setForm((prev) => ({ ...prev, qr_image_url: saved.qr_image_url ?? "" }));
+          setQrMeta({ updatedAt: saved.qr_updated_at ?? null, updatedBy: saved.qr_updated_by_name ?? null });
+        } catch (qrError) {
+          setIsEditing(true);
+          setSelectedId(branchId);
+          toast.error(getErrorMessage(qrError, "La sucursal se guardó, pero no se pudo actualizar el QR."));
+          await loadBranches();
+          return;
+        }
       }
 
       closeModal();
@@ -574,6 +608,12 @@ export default function SalonsPage() {
         onAddScheduleRange={handleAddScheduleRange}
         onRemoveScheduleRange={handleRemoveScheduleRange}
         onCountryChange={handleCountryChange}
+        qrFile={qrFile}
+        qrRemoved={qrRemoved}
+        qrUpdatedAt={qrMeta.updatedAt}
+        qrUpdatedByName={qrMeta.updatedBy}
+        onQrFileChange={setQrFile}
+        onQrRemovedChange={setQrRemoved}
         onSubmit={(event) => void saveSalon(event)}
         onClose={closeModal}
       />

@@ -126,8 +126,14 @@ def list_clients(
     limit: int = 20,
     search: Optional[str] = None,
     branch_id: Optional[int] = None,
+    generic_branch_id: Optional[int] = None,
 ):
     query = db.query(Client).options(joinedload(Client.eye_type), joinedload(Client.branch))
+
+    # Las clientas son de todas las sucursales, pero el «Cliente Mostrador» es de cada una: solo se ofrece el de
+    # la sucursal donde se opera.
+    if generic_branch_id is not None:
+        query = query.filter(or_(Client.ci.is_(None), Client.ci != GENERIC_CLIENT_CI, Client.branch_id == generic_branch_id))
 
     if branch_id is not None:
         query = query.filter(Client.branch_id == branch_id)

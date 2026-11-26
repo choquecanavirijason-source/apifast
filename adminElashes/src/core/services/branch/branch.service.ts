@@ -11,6 +11,9 @@ interface BackendBranch {
     ranges: Array<{ open_time: string; close_time: string }>;
   }> | null;
   maps_url?: string | null;
+  qr_image_url?: string | null;
+  qr_updated_at?: string | null;
+  qr_updated_by_name?: string | null;
 }
 
 interface MessageResponse {
@@ -26,7 +29,6 @@ export interface BranchPayload {
     day: string;
     ranges: Array<{ open_time: string; close_time: string }>;
   }>;
-  qr_image_url?: string | null;
   maps_url?: string | null;
 }
 
@@ -103,6 +105,21 @@ export const BranchService = {
 
   async remove(id: number) {
     const response = await api.delete<MessageResponse>(`/branches/${id}`);
+    return response.data;
+  },
+
+  /** Sube (o reemplaza) el QR de pago. El backend lo valida y lo registra en Auditoría. */
+  async uploadQr(id: number, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<BackendBranch>(`/branches/${id}/qr`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
+  async removeQr(id: number) {
+    const response = await api.delete<BackendBranch>(`/branches/${id}/qr`);
     return response.data;
   },
 

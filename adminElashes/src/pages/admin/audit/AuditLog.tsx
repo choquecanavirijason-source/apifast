@@ -45,6 +45,7 @@ const ENTITY_LABELS: Record<string, string> = {
   cash_session: "Caja",
   manual_reminder: "Recordatorio a clienta",
   commission_payment: "Pago de comisión",
+  branch_qr: "QR de pago de sucursal",
 };
 
 // ─── Modal: detalle de un movimiento ─────────────────────────────────────────

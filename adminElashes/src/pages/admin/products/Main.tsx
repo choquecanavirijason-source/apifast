@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Plus, Pencil, Trash2, Boxes, AlertTriangle, DollarSign, ArrowRightLeft } from "lucide-react";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../../store";
 import { fetchAllPages } from "../../../core/utils/fetchAllPages";
 import { NotificationsService } from "../../../core/services/notifications/notifications.service";
 import { useSearchParams } from "react-router-dom";
@@ -10,6 +12,8 @@ import Layout from "../../../components/common/layout.tsx";
 import FilterActionBar from "../../../components/common/FilterActionBar.tsx";
 import GenericModal from "../../../components/common/modal/GenericModal.tsx";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ForbiddenDialog } from "@/components/common/ForbiddenDialog";
+import { isForbiddenError } from "../../../core/utils/apiError";
 import { Button, InputField, SectionCard, SegmentedTabs, StatCard } from "../../../components/common/ui/index.ts";
 import { CategoryService, type CategoryItem } from "../../../core/services/category/category.service.ts";
 import { BranchService } from "../../../core/services/branch/branch.service.ts";
@@ -49,6 +53,11 @@ const emptyForm: ProductForm = {
 
 export default function Main() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const loggedUser = useSelector((state: RootState) => state.auth.user);
+  // SuperAdmin, Admin y Secretaria manejan todas las sucursales; el resto, solo la suya.
+  const canPickAnyBranch = ["SuperAdmin", "Admin", "Secretaria"].some(
+    (name) => loggedUser?.role === name || loggedUser?.roles?.includes(name)
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [newCategory, setNewCategory] = useState("");
@@ -179,6 +188,20 @@ export default function Main() {
 
     return "";
   }, [newCategory, categories]);
+
+  // Rechazo por permisos o por sucursal (403): se muestra una pantalla propia en vez de un aviso suelto.
+  const [forbidden, setForbidden] = useState<{ message: string; action: string } | null>(null);
+  // Solo en desarrollo: /admin/products?simular403=1 abre la pantalla para revisar su diseño.
+  useEffect(() => {
+    if (import.meta.env.DEV && searchParams.get("simular403")) {
+      setForbidden({ message: "No puedes manejar el inventario de otra sucursal.", action: "transferir stock" });
+    }
+  }, [searchParams]);
+  const reportFailure = (error: unknown, fallback: string, action: string) => {
+    const message = getErrorMessage(error, fallback);
+    if (isForbiddenError(error)) setForbidden({ message, action });
+    else toast.error(message);
+  };
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (typeof error === "object" && error !== null && "response" in error) {
@@ -398,7 +421,7 @@ export default function Main() {
       closeModal();
       await loadProducts();
     } catch (error) {
-      toast.error(getErrorMessage(error, "No se pudo guardar el producto."));
+      reportFailure(error, "No se pudo guardar el producto.", "guardar el producto");
     } finally {
       setIsMutating(false);
     }
@@ -420,7 +443,7 @@ export default function Main() {
       toast.success("Producto eliminado correctamente.");
       await loadProducts();
     } catch (error) {
-      toast.error(getErrorMessage(error, "No se pudo eliminar el producto."));
+      reportFailure(error, "No se pudo eliminar el producto.", "eliminar el producto");
     } finally {
       setIsMutating(false);
     }
@@ -468,9 +491,16 @@ export default function Main() {
     }
   };
 
+  // Sucursales que se ofrecen al registrar un lote: todas para quien las maneja todas; para el resto, solo la suya.
+  const ownBranchId = selectedInventoryBranchId ?? loggedUser?.branch_id ?? null;
+  const branchChoices = canPickAnyBranch ? branches : branches.filter((b) => b.id === ownBranchId);
+
   const openBatchModal = (product: Product) => {
     setBatchProduct(product);
-    setBatchBranchId(branches[0]?.id ? String(branches[0].id) : "");
+    // La sucursal en la que se esta trabajando; si no hay una elegida (Todas), la primera disponible.
+    const preferred = selectedInventoryBranchId ?? loggedUser?.branch_id ?? null;
+    const fallback = branchChoices[0]?.id ?? null;
+    setBatchBranchId(String(branchChoices.some((b) => b.id === preferred) ? preferred : fallback ?? ""));
     setBatchQuantity("1");
     setBatchCostPerUnit(String(product.cost || 0));
     setBatchSalePrice(String(product.price || 0));
@@ -530,7 +560,7 @@ export default function Main() {
       closeTransferModal();
       await loadProducts();
     } catch (error) {
-      toast.error(getErrorMessage(error, "No se pudo realizar la transferencia."));
+      reportFailure(error, "No se pudo realizar la transferencia.", "transferir stock");
     } finally {
       setIsTransferring(false);
     }
@@ -575,7 +605,7 @@ export default function Main() {
       closeBatchModal();
       await loadProducts();
     } catch (error) {
-      toast.error(getErrorMessage(error, "No se pudo registrar el lote."));
+      reportFailure(error, "No se pudo registrar el lote.", "registrar un lote");
     } finally {
       setIsMutating(false);
     }
@@ -893,16 +923,22 @@ export default function Main() {
             <select
               value={batchBranchId}
               onChange={(event) => setBatchBranchId(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
+              disabled={branchChoices.length <= 1}
+              className="w-full rounded-xl disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-600 border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-[#094732] focus:ring-2 focus:ring-[#094732]/20"
               required
             >
               <option value="">Seleccionar sucursal</option>
-              {branches.map((branch) => (
+              {branchChoices.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name}
                 </option>
               ))}
             </select>
+            {!canPickAnyBranch ? (
+              <p className="text-xs text-slate-500">El lote se registra en tu sucursal.</p>
+            ) : selectedInventoryBranchId ? (
+              <p className="text-xs text-slate-500">Sucursal activa preseleccionada; puedes elegir otra.</p>
+            ) : null}
           </div>
 
           <InputField
@@ -1027,6 +1063,8 @@ export default function Main() {
           </Button>
         </div>
       </GenericModal>
+
+      <ForbiddenDialog message={forbidden?.message ?? null} action={forbidden?.action} onClose={() => setForbidden(null)} />
 
       <ConfirmDialog
         isOpen={isDeleteConfirmOpen}

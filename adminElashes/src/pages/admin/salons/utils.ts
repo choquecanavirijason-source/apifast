@@ -8,6 +8,8 @@ export type Salon = {
   active: boolean;
   createdAt: string;
   qr_image_url?: string | null;
+  qr_updated_at?: string | null;
+  qr_updated_by_name?: string | null;
   maps_url?: string | null;
 };
 
@@ -39,6 +41,8 @@ export interface BackendBranch {
   department?: string | null;
   opening_hours?: SalonDayScheduleForm[] | string | null;
   qr_image_url?: string | null;
+  qr_updated_at?: string | null;
+  qr_updated_by_name?: string | null;
   maps_url?: string | null;
 }
 
@@ -123,6 +127,8 @@ export const mapBranchToSalon = (branch: BackendBranch): Salon => ({
   active: true,
   createdAt: "",
   qr_image_url: branch.qr_image_url ?? null,
+  qr_updated_at: branch.qr_updated_at ?? null,
+  qr_updated_by_name: branch.qr_updated_by_name ?? null,
   maps_url: branch.maps_url ?? null,
 });
 

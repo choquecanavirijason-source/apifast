@@ -25,6 +25,8 @@ type ServiceSelectorCardProps = {
   serviceMenuRef: React.RefObject<HTMLDivElement | null>;
   /** Cuántas veces está cada servicio en el carrito (key = String(service.id)) */
   cartCountByServiceId?: Record<string, number>;
+  /** Catálogo completo: para mostrar de qué servicios se compone cada combo. */
+  allServices?: ServiceOption[];
 };
 
 export default function ServiceSelectorCard({
@@ -48,6 +50,7 @@ export default function ServiceSelectorCard({
   serviceComboboxRef,
   serviceMenuRef,
   cartCountByServiceId = {},
+  allServices,
 }: ServiceSelectorCardProps) {
 
   return (
@@ -174,6 +177,11 @@ export default function ServiceSelectorCard({
                     onClick={() => onAddServiceToCart(service)}
                     className="relative h-52 w-full shrink-0 bg-[var(--ui-surface-muted)] focus:outline-none"
                   >
+                    {service.is_combo && (
+                      <span className="absolute left-2 top-2 z-10 rounded-full bg-[#9F8351] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+                        Promoción · {service.component_service_ids?.length ?? 0} servicios
+                      </span>
+                    )}
                     {service.image_url ? (
                       <img
                         src={service.image_url}
@@ -210,6 +218,11 @@ export default function ServiceSelectorCard({
                   <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                     <div className="min-w-0">
                       <p className="line-clamp-1 text-xs font-semibold text-[var(--ui-text)]">{service.name}</p>
+                      {service.is_combo && (
+                        <p className="line-clamp-1 text-[10px] text-[var(--ui-text-muted)]">
+                          {(service.component_service_ids ?? []).map((id) => allServices?.find((s) => s.id === id)?.name).filter(Boolean).join(" + ")}
+                        </p>
+                      )}
                       {service.discount_percent ? (
                         <p className="flex items-center gap-1 text-[11px] font-bold">
                           <span className="text-[var(--ui-text-muted)] line-through">Bs {service.price.toFixed(2)}</span>
@@ -218,7 +231,18 @@ export default function ServiceSelectorCard({
                       ) : (
                         <p className="text-[11px] font-bold text-[#094732]">Bs {service.price.toFixed(2)}</p>
                       )}
-                      {service.commission_rate != null && (
+                      {service.is_combo ? (
+                        // Una promoción se vende como sus servicios: cada uno paga SU comisión.
+                        <p className="line-clamp-1 text-[10px] text-[var(--ui-text-muted)]">
+                          Comisión por servicio:{" "}
+                          {(service.component_service_ids ?? [])
+                            .map((id) => {
+                              const rate = allServices?.find((s) => s.id === id)?.commission_rate;
+                              return rate != null ? `${Math.round(rate * 100)}%` : "operaria";
+                            })
+                            .join(" + ")}
+                        </p>
+                      ) : service.commission_rate != null && (
                         <p className="text-[10px] text-[var(--ui-text-muted)]">Comisión: {Math.round(service.commission_rate * 100)}%</p>
                       )}
                     </div>

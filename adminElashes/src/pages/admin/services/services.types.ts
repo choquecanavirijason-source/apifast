@@ -32,6 +32,12 @@ export interface ServiceItemFormState {
   removalDays: string;
   isActive: boolean;
   discountPercent: string;
+  isCombo: boolean;
+  componentIds: number[];
+  /** El usuario escribió la duración a mano: deja de sugerirse la suma de los servicios. */
+  durationEdited: boolean;
+  /** El usuario escribió el precio a mano: deja de sugerirse la suma de los servicios. */
+  priceEdited: boolean;
 }
 
 export const emptyServiceItemForm: ServiceItemFormState = {
@@ -46,4 +52,8 @@ export const emptyServiceItemForm: ServiceItemFormState = {
   removalDays: "",
   isActive: true,
   discountPercent: "",
+  isCombo: false,
+  componentIds: [],
+  durationEdited: false,
+  priceEdited: false,
 };

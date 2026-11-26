@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
 
@@ -30,6 +30,18 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     batches = relationship("Batch", back_populates="product", cascade="all, delete-orphan")
     movements = relationship("InventoryMovement", back_populates="product", cascade="all, delete-orphan")
+
+
+class ProductBranchMin(Base):
+    """Stock mínimo propio de un producto en una sucursal (si no existe, vale Product.min_stock)."""
+
+    __tablename__ = "product_branch_mins"
+    __table_args__ = (UniqueConstraint("product_id", "branch_id", name="uq_product_branch_min"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True)
+    min_stock = Column(Float, nullable=False)
 
 
 class Batch(Base):

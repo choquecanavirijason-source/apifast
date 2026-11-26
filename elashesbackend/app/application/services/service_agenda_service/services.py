@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.entities.branch import Branch
-from app.domain.entities.service_agenda import AppointmentService, BranchService, Service
+from app.domain.entities.service_agenda import AppointmentService, BranchService, Service, ServiceComboItem
 from app.domain.entities.user import Role, User
 
 from .appointments import _UNSET
@@ -161,6 +161,50 @@ def _sync_service_branches(db: Session, service: Service, branch_ids: Optional[L
             link.is_active = False
 
 
+def _validated_components(db: Session, component_ids: Optional[List[int]], combo_id: Optional[int] = None) -> List[Service]:
+    """Valida y devuelve los servicios componentes en el orden pedido (un id puede repetirse)."""
+    ids = [int(value) for value in (component_ids or [])]
+    if len(ids) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Una promoción necesita al menos 2 servicios",
+        )
+    if combo_id is not None and combo_id in ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Una promoción no puede incluirse a sí misma",
+        )
+    found = {s.id: s for s in db.query(Service).filter(Service.id.in_(set(ids))).all()}
+    missing = [i for i in set(ids) if i not in found]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uno o más servicios de la promoción no existen",
+        )
+    nested = [found[i].name for i in dict.fromkeys(ids) if found[i].is_combo]
+    if nested:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Una promoción no puede incluir otra promoción ({', '.join(nested)})",
+        )
+    return [found[i] for i in ids]
+
+
+def _set_combo_components(
+    db: Session, combo: Service, components: List[Service], duration_minutes: Optional[int] = None
+) -> None:
+    """Reemplaza los componentes de la promoción. La duración es la que se indique (editable en el
+    formulario, que la sugiere como suma de componentes); si no se indica, se usa esa suma."""
+    combo.combo_items = [
+        ServiceComboItem(service_id=component.id, position=index)
+        for index, component in enumerate(components)
+    ]
+    if duration_minutes is not None and duration_minutes > 0:
+        combo.duration_minutes = duration_minutes
+    else:
+        combo.duration_minutes = max(1, sum(int(component.duration_minutes or 0) for component in components))
+
+
 def create_service(
     db: Session,
     name: str,
@@ -174,6 +218,9 @@ def create_service(
     removal_days: Optional[int] = None,
     is_active: bool = True,
     discount_percent: Optional[float] = None,
+    is_combo: bool = False,
+    component_service_ids: Optional[List[int]] = None,
+    commission_rate: Optional[float] = None,
 ) -> Service:
     existing = db.query(Service).filter(Service.name == name.strip()).first()
     if existing:
@@ -182,7 +229,18 @@ def create_service(
             detail="Ya existe un servicio con ese nombre",
         )
 
-    if duration_minutes <= 0:
+    # La comisión es obligatoria en un servicio normal. Una promoción no la necesita: al
+    # venderla en el POS cada servicio incluido usa la suya.
+    if not is_combo and commission_rate is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La comisión del servicio es obligatoria (un porcentaje entre 0 y 100)",
+        )
+
+    components: List[Service] = []
+    if is_combo:
+        components = _validated_components(db, component_service_ids)
+    elif duration_minutes <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La duración debe ser mayor a 0",
@@ -207,8 +265,13 @@ def create_service(
         removal_days=removal_days,
         is_active=is_active,
         discount_percent=discount_percent,
+        is_combo=is_combo,
+        commission_rate=commission_rate,
     )
     db.add(service)
+    db.flush()
+    if is_combo:
+        _set_combo_components(db, service, components, duration_minutes)
     db.commit()
     db.refresh(service)
 
@@ -237,6 +300,9 @@ def update_service(
     removal_days=_UNSET,
     is_active: Optional[bool] = None,
     discount_percent: Optional[float] = None,
+    component_service_ids: Optional[List[int]] = None,
+    # _UNSET = no vino en el PUT (no tocar); None = intentó vaciarla.
+    commission_rate=_UNSET,
 ) -> Service:
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -267,7 +333,14 @@ def update_service(
     if category_id is not None:
         service.category_id = _resolve_service_category_id(db, category_id)
 
-    if duration_minutes is not None:
+    if service.is_combo:
+        if component_service_ids is not None:
+            _set_combo_components(
+                db, service, _validated_components(db, component_service_ids, combo_id=service.id), duration_minutes
+            )
+        elif duration_minutes is not None and duration_minutes > 0:
+            service.duration_minutes = duration_minutes
+    elif duration_minutes is not None:
         if duration_minutes <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -282,6 +355,14 @@ def update_service(
                 detail="El precio no puede ser negativo",
             )
         service.price = price
+
+    if commission_rate is not _UNSET:
+        if commission_rate is None and not service.is_combo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La comisión del servicio es obligatoria (un porcentaje entre 0 y 100)",
+            )
+        service.commission_rate = commission_rate
 
     if maintenance_days is not _UNSET:
         service.maintenance_days = maintenance_days

@@ -47,6 +47,7 @@ import {
   toDateAndTimeInputValues,
   formatHourMinute,
 } from "./pos.helpers";
+import { comboDiscountTotal, comboPayload, expandComboToLines } from "./pos.combos";
 
 export type BranchData = {
   id: number;
@@ -64,6 +65,8 @@ export type UsePosPageOptions = {
   onPendingPaymentCountChange?: (count: number) => void;
   cartDrawerSignal?: number;
   operationalContext?: PosContext;
+  /** Al terminar una venta con servicios (ticket en espera o atención iniciada): lleva a Control de servicios. */
+  onSaleSentToQueue?: () => void;
 };
 
 /** Venta con servicios ya terminados que todavía no se cobró (ni se canceló): es lo que cuenta el número naranja de Caja POS. */
@@ -78,6 +81,7 @@ export function usePosPage({
   onPendingPaymentCountChange,
   cartDrawerSignal,
   operationalContext,
+  onSaleSentToQueue,
 }: UsePosPageOptions) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -229,7 +233,7 @@ export function usePosPage({
     if (term.length < 2) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      AgendaService.listClientsForSelect({ search: term, limit: 50 })
+      AgendaService.listClientsForSelect({ search: term, limit: 50, generic_branch_id: activeBranchId ?? undefined })
         .then((found) => {
           if (cancelled || found.length === 0) return;
           setClients((prev) => {
@@ -303,9 +307,11 @@ export function usePosPage({
     () => productLines.reduce((s, l) => s + l.unit_price * l.quantity, 0),
     [productLines]
   );
+  // Combos completos: el precio del combo se aplica como descuento sobre la suma de sus servicios.
+  const comboDiscount = useMemo(() => comboDiscountTotal(cartLines, services), [cartLines, services]);
   const subtotal       = useMemo(
-    () => cartLines.reduce((s, l) => s + l.price, 0) + productsSubtotal,
-    [cartLines, productsSubtotal]
+    () => cartLines.reduce((s, l) => s + l.price, 0) - comboDiscount + productsSubtotal,
+    [cartLines, comboDiscount, productsSubtotal]
   );
   // El cupón NO se escribe en discountType/discountValue (esos se guardan en el borrador): un
   // borrador viejo no puede dejar un descuento sin cupón registrado. Aquí se calcula aparte.
@@ -603,7 +609,7 @@ export function usePosPage({
       const branchFilter = activeBranchId ?? undefined;
       const settled = await Promise.allSettled([
         // Clientas de TODAS las sucursales (p. ej. una registrada desde el marketplace en otra).
-        AgendaService.listClientsForSelect({ limit: 200 }),
+        AgendaService.listClientsForSelect({ limit: 200, generic_branch_id: branchFilter }),
         fetchAllPages((skip, limit) => AgendaService.listServices({ skip, limit, branch_id: branchFilter })),
         AgendaService.listServiceCategories(),
         fetchAllPages((skip, limit) => AgendaService.listProfessionalsForSelect({ skip, limit, role_name: "Operaria", branch_id: branchFilter })),
@@ -1059,18 +1065,41 @@ export function usePosPage({
 
   // ── Cart operations ───────────────────────────────────────────────────────
 
-  const addServiceToCart = (service: ServiceOption) =>
-    setCartLines((prev) => [...prev, { ...createDefaultLine(service), date: saleBaseDate, professional_id: "" }]);
+  const addServiceToCart = (service: ServiceOption) => {
+    const makeLine = (svc: ServiceOption): CartLine => ({ ...createDefaultLine(svc), date: saleBaseDate, professional_id: "" });
+    if (service.is_combo) {
+      // Un combo entra al carrito como sus servicios reales (cada uno con su operaria y comisión).
+      const lines = expandComboToLines(service, services, makeLine);
+      if (lines.length === 0) {
+        toast.warning(`La promoción "${service.name}" tiene servicios que ya no están disponibles. Revísala en Servicios.`);
+        return;
+      }
+      setCartLines((prev) => [...prev, ...lines]);
+      return;
+    }
+    setCartLines((prev) => [...prev, makeLine(service)]);
+  };
 
   const removeLastCartLineForService = (serviceId: string) => {
     setCartLines((prev) => {
-      const revIdx = [...prev].reverse().findIndex((l) => l.service_id === serviceId);
+      const target = services.find((s) => String(s.id) === serviceId);
+      if (target?.is_combo) {
+        // "−" en un combo quita el último combo agregado (todas sus líneas).
+        const lastGroup = [...prev].reverse().find((l) => l.combo_id === serviceId)?.combo_group;
+        return lastGroup ? prev.filter((l) => l.combo_group !== lastGroup) : prev;
+      }
+      const revIdx = [...prev].reverse().findIndex((l) => l.service_id === serviceId && !l.combo_group);
       if (revIdx === -1) return prev;
       return prev.filter((_, i) => i !== prev.length - 1 - revIdx);
     });
   };
 
-  const removeLine = (localId: string) => setCartLines((prev) => prev.filter((l) => l.localId !== localId));
+  // Quitar una línea de un combo quita el combo entero (si no, quedaría un combo incompleto sin precio).
+  const removeLine = (localId: string) =>
+    setCartLines((prev) => {
+      const group = prev.find((l) => l.localId === localId)?.combo_group;
+      return prev.filter((l) => (group ? l.combo_group !== group : l.localId !== localId));
+    });
 
   const updateLine = (localId: string, patch: Partial<CartLine>) => {
     setCartLines((prev) => prev.map((line) => {
@@ -1158,6 +1187,23 @@ export function usePosPage({
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
+  // Al terminar una venta con servicios, el flujo sigue en Control de servicios (ahí está el ticket). Para otra
+  // venta se vuelve a Caja POS. En el POS suelto (sin el hub) se navega al cerrar el comprobante, para no
+  // perderlo; embebido en otra pantalla (venta rápida del calendario) no se navega.
+  const goToQueueAfterReceiptRef = useRef(false);
+  const sendSaleToQueue = () => {
+    setIsCartOpen(false);
+    if (onSaleSentToQueue) { onSaleSentToQueue(); return; }
+    if (!embedded) goToQueueAfterReceiptRef.current = true;
+  };
+  const closeReceipt = () => {
+    setReceiptSale(null);
+    if (goToQueueAfterReceiptRef.current) {
+      goToQueueAfterReceiptRef.current = false;
+      navigate("/admin/services/queue");
+    }
+  };
+
   /** Pasa los tickets de la venta a "En servicio" y, si corresponde, pregunta si imprimir el ticket. */
   const beginServiceForFlow = async (sale: PosSaleItem, tickets: TicketItem[]) => {
     try {
@@ -1167,11 +1213,13 @@ export function usePosPage({
       toast.error(getApiErrorMessage(error, "La venta quedó cobrada, pero no se pudo iniciar la atención. Inícia desde Control de servicios."));
       setStartFlow(null);
       setReceiptSale(sale);
+      sendSaleToQueue();
       return;
     }
     // Sin pregunta de impresión: se imprime desde el botón "Imprimir" del comprobante.
     setStartFlow(null);
     setReceiptSale(sale);
+    sendSaleToQueue();
   };
 
   const handleStartFlowAllergiesConfirmedImpl = async (ticket: TicketItem, allergies: string | null) => {
@@ -1197,6 +1245,7 @@ export function usePosPage({
     if (!flow) return;
     toast.info("La venta quedó cobrada y el ticket en espera. Inicia la atención desde Control de servicios.");
     setReceiptSale(flow.sale);
+    sendSaleToQueue();
   };
 
   const handleImmediateCheckoutImpl = async (payLater: boolean, startService?: boolean) => {
@@ -1252,6 +1301,7 @@ export function usePosPage({
         // Con cupón el servidor fija el descuento: se manda sin descuento propio y con la marca.
         discount_type: couponApplied ? "amount" : discountType, discount_value: couponApplied ? 0 : numericDiscount,
         notes: notes.trim() || undefined, items,
+        ...(comboPayload(cartLines, services).length > 0 ? { combos: comboPayload(cartLines, services) } : {}),
         ...(couponApplied ? { apply_birthday_coupon: true } : {}),
         ...(payLater ? { reservation_only: true } : {}),
         ...(!payLater && mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
@@ -1262,7 +1312,9 @@ export function usePosPage({
       toast.success(`Venta completada. Tickets: ${sale.appointments.map((a) => a.ticket_code).filter(Boolean).join(", ")}`);
       if (startService) {
         resetSaleForm();
-        await loadContext();
+        // Recargar el POS (clientas, servicios, ventas, agenda, productos...) tarda: se hace en segundo plano
+        // y NO se espera, para que el ticket pase a "En servicio" enseguida y no se quede en espera de más.
+        void loadContext(true);
         // La venta ya está cobrada: si algo falla desde aquí NO se reintenta el cobro; el ticket
         // queda en espera y se inicia desde Control de servicios.
         let tickets: TicketItem[];
@@ -1271,6 +1323,7 @@ export function usePosPage({
         } catch {
           toast.warning("La venta quedó cobrada, pero no se pudo iniciar la atención. Inícia desde Control de servicios.");
           setReceiptSale(sale);
+          sendSaleToQueue();
           return;
         }
         if (tickets.some(needsAllergyConfirmation)) setStartFlow({ sale, tickets, step: "allergies" });
@@ -1278,6 +1331,8 @@ export function usePosPage({
         return;
       }
       setReceiptSale(sale); resetSaleForm();
+      // "Cobrar y poner en espera": el ticket ya está en la cola, el flujo sigue en Control de servicios.
+      if (!payLater && sale.appointments.length > 0) sendSaleToQueue();
       await loadContext();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Error al crear el turno."));
@@ -1374,6 +1429,7 @@ export function usePosPage({
         notes: notes.trim() || undefined,
         ...(couponApplied ? { apply_birthday_coupon: true } : {}),
         items: buildItems(),
+        ...(comboPayload(cartLines, services).length > 0 ? { combos: comboPayload(cartLines, services) } : {}),
         product_items: productLines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity })),
         ...(linkAppointmentId ? { link_appointment_id: linkAppointmentId } : {}),
         ...(mixedPayments.length > 0 ? { mixed_payments: mixedPayments } : {}),
@@ -1393,6 +1449,8 @@ export function usePosPage({
         : "Venta completada. Tickets creados en agenda."
       );
       setLinkAppointmentId(null); setReceiptSale(sale); resetSaleForm();
+      // Una venta con servicios deja tickets en la cola: se sigue en Control de servicios. Solo productos: se queda en Caja POS.
+      if (sale.appointments.length > 0 && sale.status !== "reserved") sendSaleToQueue();
       await loadContext();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : getApiErrorMessage(error, "Error en la venta."));
@@ -1569,14 +1627,18 @@ export function usePosPage({
 
   const handleCancelSaleFromHistory = (sale: PosSaleItem) => {
     if (sale.status === "cancelled") { toast.info("Esta venta ya esta cancelada."); return; }
+    if ((sale.appointments ?? []).some((a) => ["in_service", "completed"].includes(a.status))) {
+      toast.info("No se puede cancelar la venta: tiene tickets que ya están en servicio o finalizados.");
+      return;
+    }
     setConfirmCancelSale(sale);
   };
 
-  const executeCancelSaleImpl = async () => {
+  const executeCancelSaleImpl = async (decision: { reason: string; refund?: boolean }) => {
     if (!confirmCancelSale) return;
     setIsProcessingConfirm(true);
     try {
-      const cancelled = await PosSaleService.cancel(confirmCancelSale.id);
+      const cancelled = await PosSaleService.cancel(confirmCancelSale.id, decision);
       setSales((prev) => prev.map((s) => (s.id === cancelled.id ? cancelled : s)));
       if (receiptSale?.id === cancelled.id) setReceiptSale(cancelled);
       void loadContext(); toast.success("Venta cancelada correctamente."); setConfirmCancelSale(null);
@@ -1662,7 +1724,7 @@ export function usePosPage({
     handleImmediateCheckout, handleCheckout,
     updateReceiptTicketEdit, saveReceiptTicketEdits, handleOpenPrintPreview,
     handleRegisterClientSubmit, handleEditSaleFromHistory, handleCancelSaleFromHistory,
-    executeCancelSale, handleDeleteSaleFromHistory, executeDeleteSale, loadEyeTypes,
+    executeCancelSale, handleDeleteSaleFromHistory, executeDeleteSale, loadEyeTypes, closeReceipt,
     toDateAndTimeInputValues, formatHourMinute,
   };
 }

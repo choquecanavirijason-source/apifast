@@ -88,7 +88,16 @@ export default function PosSaleStepOne({
 
   const cartCountByServiceId = useMemo(() => {
     const counts: Record<string, number> = {};
+    const seenGroups = new Set<string>();
     for (const line of cartLines) {
+      if (line.combo_group) {
+        // Un combo vendido cuenta una sola vez sobre la tarjeta del combo (no sobre sus servicios).
+        if (seenGroups.has(line.combo_group)) continue;
+        seenGroups.add(line.combo_group);
+        const comboKey = String(line.combo_id);
+        counts[comboKey] = (counts[comboKey] ?? 0) + 1;
+        continue;
+      }
       const key = String(line.service_id);
       counts[key] = (counts[key] ?? 0) + 1;
     }
@@ -177,6 +186,7 @@ export default function PosSaleStepOne({
             serviceComboboxRef={serviceComboboxRef}
             serviceMenuRef={serviceMenuRef}
             cartCountByServiceId={cartCountByServiceId}
+            allServices={services}
           />
         ) : (
           <ProductSelectorCard

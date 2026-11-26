@@ -59,6 +59,8 @@ class ProductUpdate(BaseModel):
     status: Optional[bool] = None
     image_url: Optional[str] = Field(default=None, max_length=500)
     min_stock: Optional[float] = Field(default=None, ge=0)
+    # Con sucursal, min_stock se guarda como el mínimo PROPIO de esa sucursal (no cambia el general).
+    branch_id: Optional[int] = Field(default=None, ge=1)
 
 
 class ProductCategorySummary(BaseModel):
@@ -80,6 +82,8 @@ class ProductResponse(BaseModel):
     status: bool
     image_url: Optional[str] = None
     min_stock: Optional[float] = None
+    # True si min_stock es el mínimo propio de la sucursal consultada (y no el general del producto).
+    min_stock_is_branch: bool = False
     category: Optional[ProductCategorySummary] = None
 
 

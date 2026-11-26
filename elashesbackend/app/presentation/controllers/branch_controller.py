@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_permission
@@ -20,6 +20,9 @@ from app.application.services.branch_service import (
     create_branch,
     update_branch,
     delete_branch,
+    set_branch_qr,
+    clear_branch_qr,
+    QR_MAX_BYTES,
 )
 from app.application.services.branch_integration_service import (
     list_integration_profiles,
@@ -99,9 +102,30 @@ def update_existing_branch(
         department=payload.department,
         opening_hours=[item.model_dump() for item in payload.opening_hours] if payload.opening_hours is not None else None,
         user_ids=payload.user_ids,
-        qr_image_url=payload.qr_image_url,
         maps_url=payload.maps_url,
     )
+
+
+@router.post("/{branch_id}/qr", response_model=BranchResponse)
+async def upload_branch_qr(
+    branch_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    """Sube (o reemplaza) la imagen del QR de pago. Queda registrado en Auditoría."""
+    # Se lee un byte de más que el máximo para detectar el exceso sin cargar archivos enormes.
+    content = await file.read(QR_MAX_BYTES + 1)
+    return set_branch_qr(db=db, branch_id=branch_id, content=content, user=current_user)
+
+
+@router.delete("/{branch_id}/qr", response_model=BranchResponse)
+def delete_branch_qr(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("branches:manage")),
+):
+    return clear_branch_qr(db=db, branch_id=branch_id, user=current_user)
 
 
 @router.delete("/{branch_id}", response_model=MessageResponse)

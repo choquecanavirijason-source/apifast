@@ -7,9 +7,12 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit
 from app.core.dependencies import get_db, require_any_permission, require_permission, enforce_own_branch, SUPER_ADMIN_ROLE
 from app.domain.entities.user import User
-from app.presentation.schemas.pos_sale import PosSaleCreate, PosSalePay, PosSaleResponse, PosSaleUpdate
+from app.presentation.schemas.pos_sale import PosSaleCancel, PosSaleCreate, PosSalePay, PosSaleResponse, PosSaleUpdate
 from app.application.services.push_service import push_reservation_created
 from app.application.services.pos_sale_service import (
+    assert_sale_cancellable,
+    sale_money_collected,
+    validate_cancellation_input,
     cancel_sale,
     create_sale,
     generate_sale_receipt_pdf,
@@ -108,15 +111,27 @@ def pay_existing_sale(
 @router.post("/{sale_id}/cancel", response_model=PosSaleResponse)
 def cancel_existing_sale(
     sale_id: int,
+    payload: PosSaleCancel,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("appointments:manage")),
 ):
     sale = get_sale_by_id(db=db, sale_id=sale_id)
     enforce_own_branch(sale.branch_id, current_user, use_effective_branch=True)
-    result = cancel_sale(db=db, sale_id=sale_id)
+    assert_sale_cancellable(sale)  # primero la regla: con tickets en servicio/finalizados no se cancela
+    money = sale_money_collected(sale)
+    reason = validate_cancellation_input(payload.reason, payload.refund, money)
+    code = sale.sale_code
+    result = cancel_sale(db=db, sale_id=sale_id, user=current_user, reason=reason, refund=payload.refund)
+    money_note = ""
+    if money > 0:
+        money_note = (
+            f" · Dinero: devuelto a la clienta (Bs {money:.2f})"
+            if payload.refund
+            else f" · Dinero: NO devuelto, queda en caja (Bs {money:.2f})"
+        )
     record_audit(
         db, current_user, "cancel", "pos_sale", sale_id,
-        f"Canceló la venta #{sale_id}",
+        f"Canceló la venta {code}. Motivo: {reason}{money_note}",
         branch_id=getattr(result, "branch_id", None),
     )
     return result

@@ -1,7 +1,8 @@
 import type { FormEvent } from "react";
-import { MapPin, Plus, QrCode, Trash2 } from "lucide-react";
+import { MapPin, Plus, Trash2 } from "lucide-react";
 import GenericModal from "../../../components/common/modal/GenericModal";
 import { Button, InputField } from "../../../components/common/ui";
+import SalonQrField from "./SalonQrField";
 import type { SalonForm } from "./utils";
 
 type SalonFormErrors = Partial<Record<keyof SalonForm, string>>;
@@ -26,6 +27,12 @@ interface SalonsFormModalProps {
   onAddScheduleRange: (dayIndex: number) => void;
   onRemoveScheduleRange: (dayIndex: number, rangeIndex: number) => void;
   onCountryChange: (value: string) => void;
+  qrFile: File | null;
+  qrRemoved: boolean;
+  qrUpdatedAt?: string | null;
+  qrUpdatedByName?: string | null;
+  onQrFileChange: (file: File | null) => void;
+  onQrRemovedChange: (removed: boolean) => void;
 }
 
 export default function SalonsFormModal({
@@ -43,6 +50,12 @@ export default function SalonsFormModal({
   onAddScheduleRange,
   onRemoveScheduleRange,
   onCountryChange,
+  qrFile,
+  qrRemoved,
+  qrUpdatedAt,
+  qrUpdatedByName,
+  onQrFileChange,
+  onQrRemovedChange,
 }: SalonsFormModalProps) {
   const hasValidationErrors = Object.keys(errors).length > 0;
 
@@ -147,34 +160,17 @@ export default function SalonsFormModal({
           )}
         </div>
 
-        {/* QR de pago estático */}
-        <div className="md:col-span-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
-          <div className="mb-2 flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-[var(--ui-accent)]" />
-            <p className="text-sm font-semibold text-[var(--ui-text)]">QR de pago</p>
-          </div>
-          <p className="mb-2 text-xs text-[var(--ui-text-muted)]">
-            Pega la URL de la imagen QR del negocio (cuenta bancaria, Tigo Money, etc.). Se mostrará en el POS cuando el cliente pague con QR.
-          </p>
-          <input
-            type="url"
-            value={form.qr_image_url}
-            onChange={(event) => onTextChange("qr_image_url", event.target.value)}
-            placeholder="https://... (URL de la imagen QR)"
-            className="w-full rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 py-2 text-sm text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/35"
-          />
-          {form.qr_image_url && (
-            <div className="mt-2 flex items-center gap-3">
-              <img
-                src={form.qr_image_url}
-                alt="Preview QR"
-                className="h-24 w-24 rounded-lg border border-[var(--ui-border)] object-contain bg-white p-1"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-              <p className="text-xs text-[var(--ui-text-muted)]">Vista previa del QR</p>
-            </div>
-          )}
-        </div>
+        {/* QR de pago: se sube como imagen, con vista previa antes de guardar */}
+        <SalonQrField
+          currentUrl={form.qr_image_url}
+          file={qrFile}
+          removed={qrRemoved}
+          updatedAt={qrUpdatedAt}
+          updatedByName={qrUpdatedByName}
+          disabled={isSubmitting}
+          onFileChange={onQrFileChange}
+          onRemovedChange={onQrRemovedChange}
+        />
 
         <div className="order-last md:col-span-2 mt-2 flex items-center justify-end gap-2 border-t border-[var(--ui-border)] pt-3">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

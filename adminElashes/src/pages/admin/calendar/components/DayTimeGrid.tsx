@@ -484,9 +484,9 @@ export default function DayTimeGrid({
         <div className="pointer-events-none flex min-w-0 flex-col leading-tight">
           <div className="flex min-w-0 items-baseline gap-1">
             <span className="truncate text-[12px] font-semibold">{firstName}</span>
-            {statusBadgeLabel(ticket.status) && (
+            {statusBadgeLabel(ticket.status, Boolean(ticket.arrived_at)) && (
               <span className="shrink-0 rounded bg-white/80 px-1 text-[10px] font-semibold leading-4">
-                {statusBadgeLabel(ticket.status)}
+                {statusBadgeLabel(ticket.status, Boolean(ticket.arrived_at))}
               </span>
             )}
             {height < 40 && !isWeek && (

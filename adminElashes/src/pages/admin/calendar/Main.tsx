@@ -13,6 +13,7 @@ import { STATUS_LABELS } from "./calendar.constants";
 import { toIsoDate } from "./dailyAgenda.utils";
 import PendingTicketsPanel from "./components/PendingTicketsPanel";
 import CalendarControlsBar from "./components/CalendarControlsBar";
+import CancelReasonDialog, { type CancelDecision } from "../../../components/common/CancelReasonDialog";
 
 export type CalendarPageProps = { embedded?: boolean };
 
@@ -68,6 +69,8 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   const [isUpdatingTicketId, setIsUpdatingTicketId] = useState<number | null>(null);
   const [isPendingDrawerOpen, setIsPendingDrawerOpen] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null);
+  // Cancelar un ticket pide motivo (y qué pasa con el dinero si ya se cobró).
+  const [cancelTicketTarget, setCancelTicketTarget] = useState<TicketItem | null>(null);
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -291,7 +294,7 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
   };
 
   const updateTicket = useCallback(
-    async (ticketId: number, payload: { date?: string; time?: string; professional_id?: number | null; status?: string }) => {
+    async (ticketId: number, payload: { date?: string; time?: string; professional_id?: number | null; status?: string; cancel_reason?: string; refund?: boolean }) => {
       const ticket = tickets.find((item) => item.id === ticketId);
       if (!ticket) return;
       const baseStart = parseTicketDate(ticket.start_time);
@@ -313,6 +316,8 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
           end_time: toLocalDateTimeValue(nextEnd),
           professional_id: payload.professional_id,
           status: payload.status,
+          ...(payload.cancel_reason !== undefined ? { cancel_reason: payload.cancel_reason } : {}),
+          ...(payload.refund !== undefined ? { refund: payload.refund } : {}),
         });
         await loadTickets();
         toast.success("Ticket actualizado.");
@@ -722,8 +727,24 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
                   <button
                     key={status}
                     type="button"
-                    disabled={isUpdatingTicketId === selectedTicket.id}
+                    disabled={
+                      isUpdatingTicketId === selectedTicket.id ||
+                      (status === "cancelled" && ["in_service", "completed"].includes(selectedTicket.status)) ||
+                      (selectedTicket.status === "completed" && status !== "completed")
+                    }
+                    title={
+                      selectedTicket.status === "completed" && status !== "completed"
+                        ? "Un ticket finalizado ya no se puede mover"
+                        : status === "cancelled" && ["in_service", "completed"].includes(selectedTicket.status)
+                          ? "Un ticket en servicio o finalizado ya no se puede cancelar"
+                          : undefined
+                    }
                     onClick={() => {
+                      if (status === "cancelled") {
+                        if (selectedTicket.status !== "cancelled") setCancelTicketTarget(selectedTicket);
+                        setSelectedTicket(null);
+                        return;
+                      }
                       void updateTicket(selectedTicket.id, { status });
                       setSelectedTicket(null);
                     }}
@@ -739,6 +760,31 @@ export default function CalendarPage({ embedded = false }: CalendarPageProps) {
           </div>
         )}
       </GenericModal>
+
+      <CancelReasonDialog
+        open={cancelTicketTarget !== null}
+        title="Cancelar ticket"
+        subject={cancelTicketTarget ? `${cancelTicketTarget.ticket_code ?? `#${cancelTicketTarget.id}`} · ${(cancelTicketTarget.client_name ?? "Cliente").split(" — ")[0]}` : ""}
+        amountPaid={
+          cancelTicketTarget && cancelTicketTarget.sale_status === "paid"
+            ? (cancelTicketTarget.service_prices?.length ? cancelTicketTarget.service_prices : [cancelTicketTarget.service_price ?? 0])
+                .reduce((sum: number, p: number | null | undefined) => sum + (typeof p === "number" ? p : 0), 0)
+            : 0
+        }
+        confirmLabel="Cancelar ticket"
+        isProcessing={isUpdatingTicketId === cancelTicketTarget?.id}
+        onCancel={() => setCancelTicketTarget(null)}
+        onConfirm={async (decision: CancelDecision) => {
+          const target = cancelTicketTarget;
+          if (!target) return;
+          await updateTicket(target.id, {
+            status: "cancelled",
+            cancel_reason: decision.reason,
+            ...(decision.refund !== undefined ? { refund: decision.refund } : {}),
+          });
+          setCancelTicketTarget(null);
+        }}
+      />
 
       <GenericModal
         isOpen={quickSaleOpen}

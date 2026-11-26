@@ -147,13 +147,15 @@ def test_rescheduling_updates_single_pending_row(scenario):
 def test_cancellation_removes_pending_and_marks_finished_as_cancelled(scenario):
     api, _, h, ids = _setup(scenario)
     aid = _book(api, h, ids["client"], ids["maint"])
-    _put(api, h, aid, status="cancelled")
+    _put(api, h, aid, status="cancelled", cancel_reason="Motivo de prueba")
     assert _rows(api, h, "mantenimiento", ids["client"]) == []
+    # Regla nueva: un ticket finalizado ya no se puede cancelar (409) y su seguimiento queda como estaba.
     aid2 = _book(api, h, ids["client"], ids["maint"], days=-1)
     _put(api, h, aid2, status="completed")
-    _put(api, h, aid2, status="cancelled")
+    r = api.put(f"/agenda/appointments/{aid2}", headers=h, json={"status": "cancelled", "cancel_reason": "Motivo de prueba"})
+    assert r.status_code == 409 and "no se puede cancelar" in r.json()["detail"]
     [row] = _rows(api, h, "mantenimiento", ids["client"])
-    assert row["estado_seguimiento"] == "cancelado" and row["recordatorio_permitido"] is False
+    assert row["estado_seguimiento"] != "cancelado"
 
 
 def test_service_change_updates_lists_and_recomputes_dates(scenario):

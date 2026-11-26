@@ -1,8 +1,7 @@
-﻿import { useMemo, useState, type RefObject } from "react";
+﻿import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clock, FileDown, Printer, ReceiptText } from "lucide-react";
 import { generateReceiptPdf } from "../utils/generateReceiptPdf";
-import { QRCodeCanvas } from "qrcode.react";
 
 import GenericModal from "../../../../components/common/modal/GenericModal";
 import { SegmentedTabs } from "../../../../components/common/ui";
@@ -18,6 +17,13 @@ const TICKET_STATUS_LABELS: Record<string, string> = {
   in_service: "En atención",
   completed: "Finalizado",
   cancelled: "Cancelado",
+};
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: "Efectivo",
+  card: "Tarjeta",
+  transfer: "Transferencia",
+  qr: "QR",
+  mixed: "Mixto",
 };
 const getTicketStatusLabel = (status: string) => TICKET_STATUS_LABELS[status] ?? status;
 
@@ -35,7 +41,6 @@ type PosReceiptModalsProps = {
   onPrint: () => void;
   printFormat: "a4" | "thermal";
   setPrintFormat: (value: "a4" | "thermal") => void;
-  qrRef: RefObject<HTMLDivElement | null>;
   availabilityPreviewLineId: string | null;
   availabilityPreviewDate: string;
   saleBaseDate: string;
@@ -63,6 +68,151 @@ type PosReceiptModalsProps = {
   toDateAndTimeInputValues: (iso: string) => { date: string; time: string; without_time: boolean };
 };
 
+/**
+ * Cuerpo del comprobante. Es el MISMO para la vista previa del modal y para la impresión
+ * (térmica o A4), así lo que se ve en pantalla es exactamente lo que sale impreso.
+ */
+function ReceiptTicketBody({
+  sale,
+  format,
+  toDateAndTimeInputValues,
+}: {
+  sale: PosSaleItem;
+  format: "a4" | "thermal";
+  toDateAndTimeInputValues: (iso: string) => { date: string; time: string; without_time: boolean };
+}) {
+  return (
+    <>
+    <div className="mb-4 text-center">
+    <p className={`${format === "thermal" ? "text-sm" : "text-lg"} font-bold uppercase tracking-widest`}>
+      Comprobante
+    </p>
+    <p className="mt-0.5 text-xs text-slate-400">
+      {new Date(sale.created_at).toLocaleDateString("es-BO", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })}
+      {" · "}
+      {new Date(sale.created_at).toLocaleTimeString("es-BO", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}
+    </p>
+    </div>
+
+    <div className="my-3 border-t border-dashed border-slate-300" />
+
+    <div className="mb-1 flex justify-between text-xs">
+    <span className="text-slate-500">Código venta</span>
+    <span className="font-bold text-emerald-600">{sale.sale_code}</span>
+  </div>
+  <div className="mb-1 flex justify-between text-xs">
+    <span className="text-slate-500">Cliente</span>
+    <span className="font-semibold">{sale.client?.name} {sale.client?.last_name}</span>
+  </div>
+  <div className="mb-1 flex justify-between text-xs">
+    <span className="text-slate-500">Método de pago</span>
+    <span className="font-semibold">{PAYMENT_METHOD_LABELS[sale.payment_method] ?? sale.payment_method}</span>
+    </div>
+    {sale.payment_method === "cash" && sale.payments[0]?.cash_received != null && (
+      <>
+        <div className="mb-1 flex justify-between text-xs">
+          <span className="text-slate-500">Recibido</span>
+          <span className="font-semibold">Bs {sale.payments[0].cash_received!.toFixed(2)}</span>
+        </div>
+        <div className="mb-1 flex justify-between text-xs">
+          <span className="text-slate-500">Vuelto</span>
+          <span className="font-bold text-emerald-600">Bs {(sale.payments[0].cash_change ?? 0).toFixed(2)}</span>
+        </div>
+      </>
+    )}
+
+    <div className="my-3 border-t border-dashed border-slate-300" />
+
+    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Servicios</p>
+    <div className="space-y-2">
+      {sale.appointments.length === 0 ? (
+        <p className="text-center text-xs text-slate-400">Sin tickets asociados.</p>
+      ) : (
+        sale.appointments.map((appointment) => {
+        const fallback = toDateAndTimeInputValues(appointment.start_time);
+        const displayTime = fallback.without_time ? "Sin hora" : fallback.time;
+
+          return (
+            <div key={appointment.id} className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold text-slate-800">{appointment.ticket_code ?? `#${appointment.id}`}</p>
+              <p className="text-[11px] text-slate-500">
+                {(appointment.services ?? []).length > 0
+                  ? (appointment.services ?? []).map((service: any) => service.name).join(", ")
+                  : appointment.service?.name ?? "Servicio"}
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {appointment.professional?.username ? `Operaria: ${appointment.professional.username}` : "Operaria: Sin asignar"}
+                {" · "}
+                {getTicketStatusLabel(appointment.status)}
+              </p>
+            </div>
+            <span className="mt-0.5 flex flex-none items-center gap-1 text-[11px] text-slate-400">
+              <Clock className="h-3 w-3" />
+              {displayTime}
+            </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+
+    {sale.product_lines.length > 0 && (
+      <>
+        <div className="my-3 border-t border-dashed border-slate-300" />
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Productos</p>
+        <div className="space-y-2">
+          {sale.product_lines.map((line) => (
+            <div key={line.id} className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-slate-800">{line.product?.name ?? `Producto #${line.product_id}`}</p>
+                <p className="text-[11px] text-slate-500">Bs {line.unit_price.toFixed(2)} c/u x{line.quantity}</p>
+              </div>
+              <span className="text-xs font-semibold text-slate-700">Bs {line.subtotal.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    <div className="my-3 border-t border-dashed border-slate-300" />
+
+    {Number(sale.discount_value) > 0 && (
+      <div className="mb-2 space-y-0.5 text-xs text-slate-600">
+        <div className="flex items-center justify-between">
+          <span>Subtotal</span>
+          <span>Bs {sale.subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>
+            Descuento{sale.coupon_label ? ` · ${sale.coupon_label}` : ""}
+            {sale.discount_type === "percent" ? ` (${sale.discount_value}%)` : ""}
+          </span>
+          <span>−Bs {Math.max(0, sale.subtotal - sale.total).toFixed(2)}</span>
+        </div>
+      </div>
+    )}
+
+    <div className="flex items-center justify-between">
+    <span className="text-sm font-bold text-slate-700">TOTAL</span>
+    <span className="text-xl font-black text-slate-900">Bs {sale.total.toFixed(2)}</span>
+    </div>
+
+    <div className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center">
+      <p className="text-[11px] text-slate-400">¡Gracias por su compra!</p>
+      <p className="mt-2 text-[10px] leading-snug text-slate-500">{HYGIENE_NOTICE}</p>
+    </div>
+    </>
+  );
+}
+
 export default function PosReceiptModals({
   receiptSale,
   onCloseReceipt,
@@ -77,7 +227,6 @@ export default function PosReceiptModals({
   onPrint,
   printFormat,
   setPrintFormat,
-  qrRef,
   availabilityPreviewLineId,
   availabilityPreviewDate,
   saleBaseDate,
@@ -181,117 +330,11 @@ export default function PosReceiptModals({
         title="Comprobante de Pago"
       >
         {receiptSale && (
-          <div className="space-y-5 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                <ReceiptText className="h-7 w-7" />
-              </div>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">Bs {receiptSale.total.toFixed(2)}</h2>
-              <p className="text-sm text-slate-500">
-                Venta <span className="font-mono font-semibold text-slate-700">{receiptSale.sale_code}</span> completada
-              </p>
+          <div className="space-y-4">
+            {/* Vista previa: el comprobante tal cual saldrá impreso */}
+            <div className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white px-5 py-5 text-left font-mono text-xs text-slate-800 shadow-md">
+              <ReceiptTicketBody sale={receiptSale} format="thermal" toDateAndTimeInputValues={toDateAndTimeInputValues} />
             </div>
-
-            {receiptSale.payment_method === "cash" && receiptSale.payments[0]?.cash_received != null && (
-              <div className="flex items-center justify-center gap-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <div className="text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700/70">Recibido</p>
-                  <p className="text-lg font-bold text-emerald-800">Bs {receiptSale.payments[0].cash_received!.toFixed(2)}</p>
-                </div>
-                <div className="h-8 w-px bg-emerald-200" />
-                <div className="text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700/70">Vuelto</p>
-                  <p className="text-lg font-bold text-emerald-800">Bs {(receiptSale.payments[0].cash_change ?? 0).toFixed(2)}</p>
-                </div>
-              </div>
-            )}
-
-            {receiptSale.payment_method === "qr" && (
-              <div ref={qrRef} className="inline-block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <QRCodeCanvas value={receiptSale.sale_code} size={180} />
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-left">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Tickets generados</h3>
-              <div className="space-y-2">
-                {receiptSale.appointments.length === 0 ? (
-                  <p className="text-sm text-slate-400">Sin tickets asociados.</p>
-                ) : (
-                  receiptSale.appointments.map((appointment) => {
-                    const dateInfo = toDateAndTimeInputValues(appointment.start_time);
-                    const professionalName =
-                      appointment.professional?.username ??
-                      "Sin operaria";
-                    const statusLabel = getTicketStatusLabel(appointment.status);
-                    return (
-                      <div key={appointment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {appointment.ticket_code ?? `#${appointment.id}`}
-                              <span className="ml-2 text-xs font-normal text-slate-400">
-                                {statusLabel}
-                              </span>
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-slate-500">
-                              {(appointment.services ?? []).length > 0
-                                ? (appointment.services ?? []).map((service: any) => service.name).join(" · ")
-                                : appointment.service?.name ?? "Servicio"}
-                            </p>
-                          </div>
-                          <span className="flex flex-none items-center gap-1 text-[11px] text-slate-400">
-                            <Clock className="h-3 w-3" />
-                            {new Date(appointment.start_time).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Fecha</p>
-                            <p className="text-xs font-semibold text-[#323130]">{dateInfo.date || "Sin fecha"}</p>
-                          </div>
-
-                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Hora</p>
-                            <p className="text-xs font-semibold text-[#323130]">
-                              {dateInfo.without_time ? "Sin hora" : dateInfo.time || "Sin hora"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Operaria</p>
-                            <p className="text-xs font-semibold text-[#323130]">{professionalName}</p>
-                          </div>
-
-                          <div className="rounded-sm border border-[#edebe9] bg-white p-2">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[#605e5c]">Estado</p>
-                            <p className="text-xs font-semibold text-[#323130]">{statusLabel}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {receiptSale.product_lines.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-left">
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Productos vendidos</h3>
-                <div className="space-y-2">
-                  {receiptSale.product_lines.map((line) => (
-                    <div key={line.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{line.product?.name ?? `Producto #${line.product_id}`}</p>
-                        <p className="text-[11px] text-slate-500">Bs {line.unit_price.toFixed(2)} c/u x{line.quantity}</p>
-                      </div>
-                      <span className="text-sm font-bold text-slate-700">Bs {line.subtotal.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {pdfStatus === "done" && (
               <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5">
@@ -467,138 +510,7 @@ export default function PosReceiptModals({
                   id="print-ticket-card"
                   className={`font-mono text-slate-800 ${printFormat === "thermal" ? "px-4 py-4 text-xs" : "px-8 py-7 text-sm"}`}
                 >
-                  <div className="mb-4 text-center">
-                  <p className={`${printFormat === "thermal" ? "text-sm" : "text-lg"} font-bold uppercase tracking-widest`}>
-                    Comprobante
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-400">
-                    {new Date(receiptSale.created_at).toLocaleDateString("es-BO", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                    {" · "}
-                    {new Date(receiptSale.created_at).toLocaleTimeString("es-BO", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                  </div>
-
-                  <div className="my-3 border-t border-dashed border-slate-300" />
-
-                  <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-slate-500">Código venta</span>
-                  <span className="font-bold text-emerald-600">{receiptSale.sale_code}</span>
-                </div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-slate-500">Cliente</span>
-                  <span className="font-semibold">{receiptSale.client?.name} {receiptSale.client?.last_name}</span>
-                </div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-slate-500">Método de pago</span>
-                  <span className="font-semibold capitalize">{receiptSale.payment_method}</span>
-                  </div>
-                  {receiptSale.payment_method === "cash" && receiptSale.payments[0]?.cash_received != null && (
-                    <>
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span className="text-slate-500">Recibido</span>
-                        <span className="font-semibold">Bs {receiptSale.payments[0].cash_received!.toFixed(2)}</span>
-                      </div>
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span className="text-slate-500">Vuelto</span>
-                        <span className="font-bold text-emerald-600">Bs {(receiptSale.payments[0].cash_change ?? 0).toFixed(2)}</span>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="my-3 border-t border-dashed border-slate-300" />
-
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Servicios</p>
-                  <div className="space-y-2">
-                    {receiptSale.appointments.length === 0 ? (
-                      <p className="text-center text-xs text-slate-400">Sin tickets asociados.</p>
-                    ) : (
-                      receiptSale.appointments.map((appointment) => {
-                      const fallback = toDateAndTimeInputValues(appointment.start_time);
-                      const displayTime = fallback.without_time ? "Sin hora" : fallback.time;
-
-                        return (
-                          <div key={appointment.id} className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-xs font-bold text-slate-800">{appointment.ticket_code ?? `#${appointment.id}`}</p>
-                            <p className="text-[11px] text-slate-500">
-                              {(appointment.services ?? []).length > 0
-                                ? (appointment.services ?? []).map((service: any) => service.name).join(", ")
-                                : appointment.service?.name ?? "Servicio"}
-                            </p>
-                            <p className="text-[10px] text-slate-400">
-                              {appointment.professional?.username ? `Operaria: ${appointment.professional.username}` : "Operaria: Sin asignar"}
-                              {" · "}
-                              {getTicketStatusLabel(appointment.status)}
-                            </p>
-                          </div>
-                          <span className="mt-0.5 flex flex-none items-center gap-1 text-[11px] text-slate-400">
-                            <Clock className="h-3 w-3" />
-                            {displayTime}
-                          </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {receiptSale.product_lines.length > 0 && (
-                    <>
-                      <div className="my-3 border-t border-dashed border-slate-300" />
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Productos</p>
-                      <div className="space-y-2">
-                        {receiptSale.product_lines.map((line) => (
-                          <div key={line.id} className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-xs font-bold text-slate-800">{line.product?.name ?? `Producto #${line.product_id}`}</p>
-                              <p className="text-[11px] text-slate-500">Bs {line.unit_price.toFixed(2)} c/u x{line.quantity}</p>
-                            </div>
-                            <span className="text-xs font-semibold text-slate-700">Bs {line.subtotal.toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="my-3 border-t border-dashed border-slate-300" />
-
-                  {Number(receiptSale.discount_value) > 0 && (
-                    <div className="mb-2 space-y-0.5 text-xs text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span>Subtotal</span>
-                        <span>Bs {receiptSale.subtotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>
-                          Descuento{receiptSale.coupon_label ? ` · ${receiptSale.coupon_label}` : ""}
-                          {receiptSale.discount_type === "percent" ? ` (${receiptSale.discount_value}%)` : ""}
-                        </span>
-                        <span>−Bs {Math.max(0, receiptSale.subtotal - receiptSale.total).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-slate-700">TOTAL</span>
-                  <span className="text-xl font-black text-slate-900">Bs {receiptSale.total.toFixed(2)}</span>
-                  </div>
-
-                  {receiptSale.payment_method === "qr" && (
-                    <div ref={qrRef} className="mt-4 flex justify-center">
-                      <QRCodeCanvas value={receiptSale.sale_code} size={100} />
-                    </div>
-                  )}
-
-                  <div className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center">
-                    <p className="text-[11px] text-slate-400">¡Gracias por su compra!</p>
-                    <p className="mt-2 text-[10px] leading-snug text-slate-500">{HYGIENE_NOTICE}</p>
-                  </div>
+                  <ReceiptTicketBody sale={receiptSale} format={printFormat} toDateAndTimeInputValues={toDateAndTimeInputValues} />
                 </div>
 
                 <div className="no-print flex gap-2 px-5 pb-5">

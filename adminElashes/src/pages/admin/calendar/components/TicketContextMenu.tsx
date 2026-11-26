@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CheckCircle2, PencilLine, PlayCircle, Wallet } from "lucide-react";
+import { CheckCircle2, DoorOpen, PencilLine, PlayCircle, Wallet } from "lucide-react";
 import type { TicketItem } from "../../../../core/services/agenda/agenda.service";
 
-export type TicketContextAction = "start-service" | "finish" | "to-sale" | "edit";
+export type TicketContextAction = "arrived" | "start-service" | "finish" | "to-sale" | "edit";
 
 type TicketContextMenuProps = {
   ticket: TicketItem;
@@ -52,7 +52,17 @@ export default function TicketContextMenu({ ticket, x, y, onAction, onClose }: T
   const inService = status === "in_service";
   const closed = ["completed", "cancelled", "finalizado", "cancelado"].includes(status);
 
+  const waiting = ["pending", "waiting", "confirmed"].includes(status);
+  const needsArrival = ticket.source !== "mostrador" && waiting && !ticket.arrived_at;
+
   const items: Array<{ action: TicketContextAction; label: string; hint?: string; icon: typeof PlayCircle; disabled?: boolean }> = [
+    {
+      action: "arrived",
+      label: ticket.arrived_at ? "Ya está en Control de servicios" : "Llegó: enviar a Control de servicios",
+      hint: needsArrival ? "La clienta ya está aquí: entra a «En espera»" : ticket.arrived_at ? undefined : "Solo reservas pendientes",
+      icon: DoorOpen,
+      disabled: !needsArrival,
+    },
     {
       action: "start-service",
       label: "Pasar a En servicio",

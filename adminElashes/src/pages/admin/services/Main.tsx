@@ -23,6 +23,8 @@ import { getApiErrorMessage } from "../../../core/utils/apiError";
 import DeleteServiceModal from "./components/DeleteServiceModal";
 import ServiceCard from "./components/ServiceCard";
 import ServiceFormModal from "./components/ServiceFormModal";
+import ComboComponentsField, { comboTotals } from "./components/ComboComponentsField";
+import ServiceImageField from "./components/ServiceImageField";
 import ServicesTopStats from "./components/ServicesTopStats";
 import ServicesToolbar from "./components/ServicesToolbar";
 import OptionsGuide, { SERVICE_GUIDE } from "./components/OptionsGuide";
@@ -361,16 +363,22 @@ export default function ServicesPage() {
     setServiceForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const comboMinutes = () => comboTotals(services, serviceForm.componentIds).minutes;
+
   const getServiceFormValidationError = () => {
     if (!serviceForm.name.trim()) return "Debes ingresar el nombre del servicio.";
     if (!serviceForm.categoryId.trim()) return "Debes seleccionar una categoria.";
 
+    if (serviceForm.isCombo && serviceForm.componentIds.length < 2) return "Una promoción necesita al menos 2 servicios.";
     const duration = Number(serviceForm.durationMinutes);
     if (!Number.isFinite(duration) || duration <= 0) return "La duracion debe ser mayor a 0.";
 
     const price = Number(serviceForm.price);
     if (!Number.isFinite(price) || price < 0) return "El precio no puede ser negativo.";
 
+    // Obligatoria en un servicio normal (0 es válido). La promoción no la necesita: al venderla,
+    // cada servicio incluido usa la suya.
+    if (!serviceForm.isCombo && !serviceForm.commissionRate.trim()) return "La comisión es obligatoria. Escribe el porcentaje (puede ser 0).";
     if (serviceForm.commissionRate.trim()) {
       const rate = Number(serviceForm.commissionRate);
       if (!Number.isFinite(rate) || rate < 0 || rate > 100) return "La comisión debe ser un porcentaje entre 0 y 100.";
@@ -403,6 +411,10 @@ export default function ServicesPage() {
       removalDays: service.removal_days != null ? String(service.removal_days) : "",
       isActive: service.is_active !== false,
       discountPercent: service.discount_percent != null ? String(service.discount_percent) : "",
+      isCombo: service.is_combo === true,
+      componentIds: service.component_service_ids ?? [],
+      durationEdited: true,
+      priceEdited: true,
     });
     setIsEditServiceModalOpen(true);
   };
@@ -442,7 +454,8 @@ export default function ServicesPage() {
       toast.error(validationError);
       return;
     }
-    const withoutCommission = !serviceForm.commissionRate.trim();
+    // En una promoción vendida en el POS cada servicio usa su propia comisión: no se pregunta por la de la promoción.
+    const withoutCommission = !serviceForm.isCombo && !serviceForm.commissionRate.trim();
     const hadCommission = isEditServiceModalOpen && selectedService?.commission_rate != null;
     if (withoutCommission && (!isEditServiceModalOpen || hadCommission)) {
       setIsNoCommissionAlertOpen(true);
@@ -467,10 +480,12 @@ export default function ServicesPage() {
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
-        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
-        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
+        maintenance_days: !serviceForm.isCombo && serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: !serviceForm.isCombo && serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
         is_active: serviceForm.isActive,
         discount_percent: serviceForm.discountPercent.trim() ? Number(serviceForm.discountPercent) : null,
+        is_combo: serviceForm.isCombo,
+        component_service_ids: serviceForm.isCombo ? serviceForm.componentIds : undefined,
       });
       setServices((prev) => [created, ...prev]);
       toast.success("Servicio creado correctamente.");
@@ -501,9 +516,10 @@ export default function ServicesPage() {
         duration_minutes: Number(serviceForm.durationMinutes),
         price: Number(serviceForm.price),
         commission_rate: serviceForm.commissionRate.trim() ? Number(serviceForm.commissionRate) / 100 : null,
-        maintenance_days: serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
-        removal_days: serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
+        maintenance_days: !serviceForm.isCombo && serviceForm.maintenanceDays.trim() ? Number(serviceForm.maintenanceDays) : null,
+        removal_days: !serviceForm.isCombo && serviceForm.removalDays.trim() ? Number(serviceForm.removalDays) : null,
         is_active: serviceForm.isActive,
+        component_service_ids: serviceForm.isCombo ? serviceForm.componentIds : undefined,
         // 0 (no null) para que el backend distinga "sin cambios" de "borrar la promo":
         // update_service solo limpia el descuento cuando llega un número (0 = sin descuento).
         discount_percent: serviceForm.discountPercent.trim() ? Number(serviceForm.discountPercent) : 0,
@@ -753,6 +769,11 @@ export default function ServicesPage() {
                           Bs {Number(service.price ?? 0).toFixed(2)}
                         </span>
                       )}
+                      {service.is_combo ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">
+                          Promoción · {service.component_service_ids?.length ?? 0} servicios
+                        </span>
+                      ) : null}
                       {service.is_active === false ? (
                         <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-600">
                           Inactivo
@@ -872,6 +893,31 @@ export default function ServicesPage() {
       >
         <div className="space-y-4">
           <OptionsGuide items={SERVICE_GUIDE} />
+          {isEditServiceModalOpen ? (
+            serviceForm.isCombo ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+                Este servicio es una <b>promoción</b>: agrupa varios servicios del catálogo.
+              </p>
+            ) : null
+          ) : (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={serviceForm.isCombo}
+              onClick={() => handleServiceFormChange("isCombo", !serviceForm.isCombo)}
+              className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
+                serviceForm.isCombo ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+              }`}
+            >
+              <span>
+                <span className="block text-sm font-medium text-slate-700">Es una promoción</span>
+                <span className="block text-xs text-slate-500">Agrupa varios servicios (ej. Lifting + Pestañas) con un precio especial.</span>
+              </span>
+              <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${serviceForm.isCombo ? "bg-emerald-600" : "bg-slate-300"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${serviceForm.isCombo ? "translate-x-4" : "translate-x-0.5"}`} />
+              </span>
+            </button>
+          )}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Nombre *</label>
             <input
@@ -904,15 +950,39 @@ export default function ServicesPage() {
                 type="number"
                 min={1}
                 value={serviceForm.durationMinutes}
-                onChange={(event) => handleServiceFormChange("durationMinutes", event.target.value)}
+                onChange={(event) => setServiceForm((prev) => ({ ...prev, durationMinutes: event.target.value, durationEdited: true }))}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
               />
+              {serviceForm.isCombo && comboMinutes() > 0 ? (
+                <p className="text-[10px] text-slate-400">Suma de los servicios: {comboMinutes()} min (se sugiere sola hasta que la cambies)</p>
+              ) : null}
             </div>
           </div>
+
+          {serviceForm.isCombo ? (
+            <ComboComponentsField
+              services={services}
+              selectedIds={serviceForm.componentIds}
+              onChange={(ids) => setServiceForm((prev) => ({
+                ...prev,
+                componentIds: ids,
+                durationMinutes: prev.durationEdited ? prev.durationMinutes : String(comboTotals(services, ids).minutes || ""),
+                price: prev.priceEdited ? prev.price : (comboTotals(services, ids).price > 0 ? comboTotals(services, ids).price.toFixed(2) : ""),
+              }))}
+              comboPrice={serviceForm.price}
+              excludeId={selectedService?.id}
+            />
+          ) : null}
 
           {/* Siempre visibles: los días solo se usan si la categoría tiene el
               check correspondiente (tracking_service), así que se avisa
               cuando está apagado en vez de esconder el campo. */}
+          {serviceForm.isCombo ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <b className="text-slate-700">Retoque y retiro:</b> la promoción no tiene los suyos. Al venderla, cada servicio
+              incluido usa sus propios días de retoque y retiro (según la configuración de su categoría).
+            </p>
+          ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Retoque / mantenimiento (días)</label>
@@ -952,6 +1022,8 @@ export default function ServicesPage() {
             </div>
           </div>
 
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Precio *</label>
@@ -960,12 +1032,17 @@ export default function ServicesPage() {
                 min={0}
                 step="0.01"
                 value={serviceForm.price}
-                onChange={(event) => handleServiceFormChange("price", event.target.value)}
+                onChange={(event) => setServiceForm((prev) => ({ ...prev, price: event.target.value, priceEdited: true }))}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
               />
+              {serviceForm.isCombo && comboTotals(services, serviceForm.componentIds).price > 0 ? (
+                <p className="text-[10px] text-slate-400">
+                  Suma de los servicios: Bs {comboTotals(services, serviceForm.componentIds).price.toFixed(2)} (se sugiere sola hasta que la cambies)
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700" htmlFor="service-commission-input">Comisión (%)</label>
+              <label className="text-sm font-medium text-slate-700" htmlFor="service-commission-input">Comisión (%) {serviceForm.isCombo ? "" : "*"}</label>
               <input
                 id="service-commission-input"
                 type="number"
@@ -973,11 +1050,16 @@ export default function ServicesPage() {
                 max={100}
                 step="1"
                 placeholder="Ej: 40"
+                required={!serviceForm.isCombo}
                 value={serviceForm.commissionRate}
                 onChange={(event) => handleServiceFormChange("commissionRate", event.target.value)}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
               />
-              <p className="text-[10px] text-slate-400">Deja vacío para usar la tasa de la operaria</p>
+              <p className="text-[10px] text-slate-400">
+                {serviceForm.isCombo
+                  ? "Aplica si la promoción se reserva en la agenda. En el POS cada servicio usa su comisión."
+                  : "Obligatoria: porcentaje del precio que gana la operaria (puede ser 0)"}
+              </p>
             </div>
           </div>
 
@@ -1040,29 +1122,12 @@ export default function ServicesPage() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Imagen del servicio</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => void handleServiceImageSelected(event.target.files?.[0] ?? null)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-            />
-            {isUploadingServiceImage ? <p className="text-xs text-slate-500">Subiendo imagen...</p> : null}
-            {serviceForm.imageUrl ? (
-              <div className="mt-2 flex items-center gap-3">
-                <img
-                  src={serviceForm.imageUrl}
-                  alt="Preview"
-                  className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                />
-                <Button type="button" variant="secondary" onClick={() => handleServiceFormChange("imageUrl", "")}
-                >
-                  Quitar imagen
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          <ServiceImageField
+            imageUrl={serviceForm.imageUrl}
+            isUploading={isUploadingServiceImage}
+            onSelect={handleServiceImageSelected}
+            onRemove={() => handleServiceFormChange("imageUrl", "")}
+          />
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="secondary" onClick={handleCloseServiceModal}>

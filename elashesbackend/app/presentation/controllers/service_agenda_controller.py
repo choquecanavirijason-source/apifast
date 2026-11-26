@@ -175,6 +175,9 @@ def create_new_service(
         removal_days=payload.removal_days,
         is_active=payload.is_active,
         discount_percent=payload.discount_percent,
+        is_combo=payload.is_combo,
+        component_service_ids=payload.component_service_ids,
+        commission_rate=payload.commission_rate,
     )
 
 
@@ -189,6 +192,7 @@ def update_existing_service(
     old_values = {
         "name": existing.name, "price": existing.price,
         "discount_percent": existing.discount_percent, "is_active": existing.is_active,
+        "commission_rate": existing.commission_rate,
     }
     # Ausente del body != enviado en null (vaciar los días) — ver _UNSET.
     sent = payload.model_dump(exclude_unset=True)
@@ -206,9 +210,11 @@ def update_existing_service(
         removal_days=sent.get("removal_days", _UNSET),
         is_active=payload.is_active,
         discount_percent=payload.discount_percent,
+        component_service_ids=payload.component_service_ids,
+        commission_rate=sent.get("commission_rate", _UNSET),
     )
     changes = describe_changes(old_values, result, {
-        "name": "nombre", "price": "precio",
+        "name": "nombre", "price": "precio", "commission_rate": "comisión",
         "discount_percent": "descuento %", "is_active": "activo",
     })
     record_audit(
@@ -243,16 +249,28 @@ def get_clients_for_select(
     limit: int = Query(default=100, ge=1, le=200),
     search: Optional[str] = Query(default=None),
     branch_id: Optional[int] = Query(default=None, ge=1),
+    generic_branch_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_any_permission("appointments:view", "payments:view", "clients:view")
     ),
 ):
-    clients = list_clients_service(db=db, skip=skip, limit=limit, search=search, branch_id=branch_id)
+    clients = list_clients_service(
+        db=db, skip=skip, limit=limit, search=search, branch_id=branch_id, generic_branch_id=generic_branch_id
+    )
     return [
         {"id": c.id, "nombre": c.name, "apellido": c.last_name, "phone": c.phone, "status": c.status, "age": c.age}
         for c in clients
     ]
+
+
+def _naive_clock(value: datetime) -> datetime:
+    """Hora del ticket sin zona horaria, conservando el reloj tal cual está guardado.
+
+    En Postgres las columnas de hora traen zona (aware); en SQLite no. Los tickets se guardan con la hora local
+    de La Paz, así que lo que importa son los dígitos del reloj: se descarta la zona y se compara con la hora
+    local. Sin esto, comparar con un datetime sin zona lanza "can't compare offset-naive and offset-aware"."""
+    return value.replace(tzinfo=None) if value.tzinfo is not None else value
 
 
 @router.get("/professionals-for-select")
@@ -320,8 +338,14 @@ def get_professionals_for_select(
     pending_count: dict[int, int] = defaultdict(int)
     busy_until: dict[int, datetime] = {}
 
+    # Una reserva para dentro de varias horas NO cuenta como turno de la operaria ahora: solo cuentan las que
+    # están en servicio o a menos de 30 min de su hora (igual que el tablero de Control de servicios).
+    upcoming_cutoff = (now_utc - timedelta(hours=4)) + timedelta(minutes=30)  # hora local de La Paz
+
     for appt in active_appts:
         pid = appt.professional_id
+        if appt.status != "in_service" and appt.start_time and _naive_clock(appt.start_time) > upcoming_cutoff:
+            continue
         pending_count[pid] += 1
         if appt.end_time and (pid not in busy_until or appt.end_time > busy_until[pid]):
             busy_until[pid] = appt.end_time
@@ -644,6 +668,40 @@ def void_appointment_commission(
     return get_appointment_by_id(db, appointment_id)
 
 
+@router.post("/appointments/{appointment_id}/split", response_model=List[AppointmentResponse])
+async def split_ticket(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    """Separa un ticket con varios servicios en un ticket por servicio (misma venta)."""
+    from app.application.services.service_agenda_service.appointments import split_appointment
+
+    appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
+    enforce_own_branch(appointment.branch_id, current_user, use_effective_branch=True)
+    result = await run_in_threadpool(split_appointment, db=db, appointment_id=appointment_id, created_by_id=current_user.id)
+    if appointment.branch_id:
+        await ws_manager.broadcast(appointment.branch_id, {"event": "ticket_updated", "ticket_id": appointment_id, "status": appointment.status})
+    return result
+
+
+@router.post("/appointments/{appointment_id}/merge", response_model=AppointmentResponse)
+async def merge_ticket(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("appointments:manage")),
+):
+    """Une en este ticket los demás tickets pendientes de la misma venta (inverso a separar)."""
+    from app.application.services.service_agenda_service.appointments import merge_appointments
+
+    appointment = await run_in_threadpool(get_appointment_by_id, db=db, appointment_id=appointment_id)
+    enforce_own_branch(appointment.branch_id, current_user, use_effective_branch=True)
+    result = await run_in_threadpool(merge_appointments, db=db, appointment_id=appointment_id)
+    if appointment.branch_id:
+        await ws_manager.broadcast(appointment.branch_id, {"event": "ticket_updated", "ticket_id": appointment_id, "status": result.status})
+    return result
+
+
 @router.put("/appointments/{appointment_id}/allergies", response_model=AppointmentResponse)
 async def confirm_ticket_allergies(
     appointment_id: int,
@@ -683,6 +741,21 @@ async def update_existing_appointment(
     professional_id = (
         payload.professional_id if "professional_id" in payload.model_fields_set else _UNSET
     )
+
+    # Cancelar exige motivo y, si ya se cobró, decidir si se devuelve el dinero.
+    cancellation = None
+    if payload.status == "cancelled" and appointment.status != "cancelled":
+        from app.application.services.pos_sale_service import (
+            assert_ticket_cancellable,
+            sale_money_collected,
+            validate_cancellation_input,
+        )
+
+        assert_ticket_cancellable(appointment)  # primero la regla: en servicio/finalizado no se cancela
+        money = sale_money_collected(appointment.sale)
+        reason = validate_cancellation_input(payload.cancel_reason, payload.refund, money)
+        cancellation = {"user": current_user, "reason": reason, "refund": payload.refund}
+
     result = await run_in_threadpool(
         update_appointment,
         db=db,
@@ -697,6 +770,8 @@ async def update_existing_appointment(
         end_time=payload.end_time,
         status_value=payload.status,
         skip_availability_check=payload.skip_availability_check,
+        cancellation=cancellation,
+        arrived=payload.arrived,
     )
     if result.branch_id:
         await ws_manager.broadcast(result.branch_id, {
@@ -705,7 +780,28 @@ async def update_existing_appointment(
             "status": result.status,
             "professional_id": result.professional_id,
         })
-    if payload.status == "cancelled":
+    if cancellation is not None:
+        from app.domain.entities.ticket_cancellation import TicketCancellation
+
+        record = (
+            db.query(TicketCancellation)
+            .filter(TicketCancellation.appointment_id == appointment_id)
+            .order_by(TicketCancellation.id.desc())
+            .first()
+        )
+        money_note = ""
+        if record and record.amount > 0:
+            money_note = (
+                f" · Dinero: devuelto a la clienta (Bs {record.amount:.2f})"
+                if record.refunded
+                else f" · Dinero: NO devuelto, queda en caja (Bs {record.amount:.2f})"
+            )
+        record_audit(
+            db, current_user, "cancel", "appointment", appointment_id,
+            f"Canceló el ticket {result.ticket_code or f'#{appointment_id}'}. Motivo: {cancellation['reason']}{money_note}",
+            branch_id=result.branch_id,
+        )
+    elif payload.status == "cancelled":
         record_audit(
             db, current_user, "cancel", "appointment", appointment_id,
             f"Canceló la cita/ticket #{appointment_id}",

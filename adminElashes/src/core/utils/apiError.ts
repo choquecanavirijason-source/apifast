@@ -13,6 +13,11 @@ function translatePermissionDetail(detail: string): string {
   return `Se requiere el permiso: ${translated}`;
 }
 
+/** El servidor rechazo la accion por permisos o por sucursal (403). */
+export function isForbiddenError(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 403;
+}
+
 /**
  * Mensaje legible desde respuestas FastAPI (detail string, objeto o lista de validación).
  */

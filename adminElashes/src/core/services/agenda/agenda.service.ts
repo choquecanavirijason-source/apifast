@@ -28,6 +28,10 @@ export interface ServiceOption {
   discount_percent?: number | null;
   /** Precio final ya con el descuento aplicado — lo que hay que cobrar (calculado por el backend). */
   effective_price?: number;
+  /** Combo = agrupa otros servicios; en el POS se expande en ellos. `price` es el precio del combo. */
+  is_combo?: boolean;
+  /** Servicios que lo componen, en orden (un id puede repetirse). Vacío si no es combo. */
+  component_service_ids?: number[];
 }
 
 export interface ServiceCreatePayload {
@@ -43,6 +47,8 @@ export interface ServiceCreatePayload {
   removal_days?: number | null;
   is_active?: boolean;
   discount_percent?: number | null;
+  is_combo?: boolean;
+  component_service_ids?: number[] | null;
 }
 
 export interface ServiceUpdatePayload {
@@ -58,6 +64,7 @@ export interface ServiceUpdatePayload {
   removal_days?: number | null;
   is_active?: boolean | null;
   discount_percent?: number | null;
+  component_service_ids?: number[] | null;
 }
 
 export interface ServiceImageUploadResponse {
@@ -149,6 +156,8 @@ export interface AppointmentCreatePayload {
 
 export interface ReservationSaleItemPayload {
   service_id: number;
+  /** Un solo ticket con varios servicios (modo «Junto»). */
+  service_ids?: number[];
   professional_id?: number | null;
   start_time: string;
   end_time: string;
@@ -183,6 +192,11 @@ export interface AppointmentUpdatePayload {
   end_time?: string;
   status?: string;
   skip_availability_check?: boolean;
+  /** Al cancelar: motivo obligatorio y, si ya se cobró, si se devuelve el dinero. */
+  cancel_reason?: string;
+  refund?: boolean;
+  /** true: la clienta de la reserva llegó (pasa a Control de servicios). */
+  arrived?: boolean;
 }
 
 export const MANUAL_REMINDER_MAX_LENGTH = 200;
@@ -271,6 +285,10 @@ export interface TicketItem {
   sale_id?: number | null;
   /** Estado real de esa venta: "paid", "reserved", "cancelled"... */
   sale_status?: string | null;
+  /** Origen: "reserva" (va a la Agenda) o "mostrador" (venta directa del POS: solo Control de servicios). */
+  source?: "reserva" | "mostrador";
+  /** Cuándo llegó la clienta de una reserva (ISO). Sin esto, la reserva no aparece en Control de servicios. */
+  arrived_at?: string | null;
   /** Alergias de ESTA atención: las del ticket si la clienta es de mostrador, si no las de su ficha. */
   allergies?: string | null;
   /** Ya se le confirmaron las alergias (aunque no tenga). Si no, se pregunta al iniciar. */
@@ -315,6 +333,8 @@ interface BackendAppointment {
   status: string;
   sale_id?: number | null;
   sale_status?: string | null;
+  source?: "reserva" | "mostrador";
+  arrived_at?: string | null;
   ticket_allergies?: string | null;
   ticket_allergies_confirmed?: boolean;
   client?: {
@@ -390,6 +410,8 @@ const mapToTicket = (a: BackendAppointment): TicketItem => {
   status: a.status,
   sale_id: a.sale_id ?? null,
   sale_status: a.sale_status ?? null,
+  source: a.source === "mostrador" ? "mostrador" : "reserva",
+  arrived_at: a.arrived_at ?? null,
   allergies: a.ticket_allergies ?? null,
   allergies_confirmed: a.ticket_allergies_confirmed ?? false,
   branch_id: a.branch?.id ?? null,
@@ -483,6 +505,8 @@ export const AgendaService = {
     limit?: number;
     search?: string;
     branch_id?: number;
+    /** Sucursal donde se opera: del «Cliente Mostrador» solo se ofrece el de esta. */
+    generic_branch_id?: number;
   }): Promise<ClientForSelect[]> {
     const response = await api.get<ClientForSelect[]>("/agenda/clients-for-select", {
       params: {
@@ -490,6 +514,7 @@ export const AgendaService = {
         limit: params?.limit ?? 100,
         search: params?.search,
         branch_id: params?.branch_id,
+        generic_branch_id: params?.generic_branch_id,
       },
     });
     return response.data;
@@ -602,7 +627,7 @@ export const AgendaService = {
         ? { advance_payment_amount: payload.advance_payment_amount }
         : {}),
       items: payload.items.map((item) => ({
-        service_id: item.service_id,
+        ...(item.service_ids?.length ? { service_ids: item.service_ids } : { service_id: item.service_id }),
         professional_id: item.professional_id ?? payload.professional_id ?? null,
         start_time: item.start_time,
         end_time: item.end_time,
@@ -644,6 +669,18 @@ export const AgendaService = {
     return mapToTicket(response.data);
   },
 
+  /** Separa un ticket con varios servicios en un ticket por servicio (misma venta). */
+  async splitAppointment(id: number): Promise<TicketItem[]> {
+    const response = await api.post<BackendAppointment[]>(`/agenda/appointments/${id}/split`);
+    return response.data.map(mapToTicket);
+  },
+
+  /** Une en este ticket los demás tickets pendientes de la misma venta (inverso a separar). */
+  async mergeAppointment(id: number): Promise<TicketItem> {
+    const response = await api.post<BackendAppointment>(`/agenda/appointments/${id}/merge`);
+    return mapToTicket(response.data);
+  },
+
   async updateAppointment(id: number, payload: AppointmentUpdatePayload): Promise<TicketItem> {
     const body = {
       ...(payload.client_id != null && { client_id: payload.client_id }),
@@ -657,6 +694,9 @@ export const AgendaService = {
       ...(payload.end_time && { end_time: payload.end_time }),
       ...(payload.status && { status: payload.status }),
       ...(payload.skip_availability_check && { skip_availability_check: true }),
+      ...(payload.cancel_reason !== undefined && { cancel_reason: payload.cancel_reason }),
+      ...(payload.refund !== undefined && { refund: payload.refund }),
+      ...(payload.arrived !== undefined && { arrived: payload.arrived }),
     };
     const response = await api.put<BackendAppointment>(`/agenda/appointments/${id}`, body);
     return mapToTicket(response.data);

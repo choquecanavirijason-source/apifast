@@ -44,6 +44,9 @@ import DraggableTicketCard from "./components/DraggableTicketCard";
 import DroppableColumn from "./components/DroppableColumn";
 import TicketDragOverlay from "./components/TicketDragOverlay";
 import QueueTvDisplay from "./components/QueueTvDisplay";
+import OperariaFilterSelect from "./components/OperariaFilterSelect";
+import CancelReasonDialog, { type CancelDecision } from "../../../components/common/CancelReasonDialog";
+import { isAwaitingArrival } from "./control.selectors";
 import OperariaStatusPanel from "./components/OperariaStatusPanel";
 import QueueTutorialModal, { getQueueTutorialStorageKey } from "./components/QueueTutorialModal";
 import { useOperariaStatuses } from "./queue/useOperariaStatuses";
@@ -181,7 +184,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
         end_date: SHOW_ALL_DATES_FOR_TESTING ? undefined : (filterDate || today),
       });
       if (requestId !== loadTicketsRequestIdRef.current || (operationalContext && branchRef.current !== activeBranchId)) return;
-      setTickets(data);
+      // Una reserva no entra al tablero hasta que, desde la Agenda, se marca que la clienta llegó.
+      setTickets(data.filter((t) => !isAwaitingArrival(t)));
       setLastRefresh(new Date());
       setCountdown(REFRESH_INTERVAL);
     } catch (error) {
@@ -270,6 +274,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     let cancelled = false;
     AgendaService.listProfessionalsForSelect({
       limit: 200,
+      // Solo operarias: administración y caja no atienden servicios (igual que en el POS).
+      role_name: "Operaria",
       ...(activeBranchId ? { branch_id: activeBranchId } : {}),
     })
       .then((data) => { if (!operationalContext || !cancelled) setProfessionals(data); })
@@ -285,7 +291,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   useEffect(() => {
     let cancelled = false;
     // Clientas de TODAS las sucursales (p. ej. una registrada desde el marketplace en otra).
-    AgendaService.listClientsForSelect({ limit: 200 })
+    AgendaService.listClientsForSelect({ limit: 200, generic_branch_id: activeBranchId ?? undefined })
       .then((data) => { if (!operationalContext || !cancelled) setClients(data); })
       .catch(() => { if (!operationalContext || !cancelled) setClients([]); });
     return () => { cancelled = true; };
@@ -359,7 +365,11 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     const searchTerm = filterSearch.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
-      const searchText = `${ticket.client_name ?? ""} ${ticket.service_name ?? ""} ${(ticket.service_names ?? []).join(" ")} ${ticket.ticket_code ?? ""}`.toLowerCase();
+      // También se busca por operaria: escribir «ana» muestra los tickets que atiende o atendió ese día.
+      const operariaName = ticket.professional_name
+        ?? professionals.find((p) => p.id === ticket.professional_id)?.username
+        ?? "";
+      const searchText = `${ticket.client_name ?? ""} ${ticket.service_name ?? ""} ${(ticket.service_names ?? []).join(" ")} ${ticket.ticket_code ?? ""} ${operariaName}`.toLowerCase();
       const ticketDate = getTicketDate(ticket.start_time);
       const ticketTime = getTicketTime(ticket.start_time);
 
@@ -376,7 +386,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
 
       return matchesSearch && matchesDate && matchesTime && matchesProfessional;
     });
-  }, [tickets, filterSearch, filterDate, filterTime, filterProfessionalId]);
+  }, [tickets, professionals, filterSearch, filterDate, filterTime, filterProfessionalId]);
   const hasActiveFilters = Boolean(filterSearch.trim() || filterProfessionalId);
 
   // Resumen + previsualización de mantenimiento/retiro para el modal
@@ -386,26 +396,44 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   const finishPreview = useMemo(() => {
     if (!finishTarget) return null;
 
-    const serviceId = finishTarget.service_id ?? finishTarget.service_ids?.[0] ?? null;
-    const service = serviceId ? servicesLookup.find((s) => s.id === serviceId) : undefined;
-    const category = service?.category_id
-      ? categoriesLookup.find((c) => c.id === service.category_id)
-      : undefined;
-
     const addDays = (days: number) => {
       const d = new Date();
       d.setDate(d.getDate() + days);
-      return d.toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" });
+      return d;
     };
+    const fmt = (d: Date) => d.toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" });
 
-    const maintenanceDate =
-      category?.has_maintenance && service?.maintenance_days != null
-        ? addDays(service.maintenance_days)
-        : null;
-    const removalDate =
-      category?.has_removal && service?.removal_days != null
-        ? addDays(service.removal_days)
-        : null;
+    // Todos los servicios de la atención (un ticket grupal o una promoción trae varios). Cada uno
+    // aporta su propio mantenimiento/retiro; el servidor guarda UN solo seguimiento con la fecha más
+    // próxima de cada tipo (ver tracking_service._resolve_next_dates).
+    const ids = finishTarget.service_ids?.length
+      ? finishTarget.service_ids
+      : finishTarget.service_id != null
+        ? [finishTarget.service_id]
+        : [];
+    const uniqueIds = Array.from(new Set(ids));
+    const followUps = uniqueIds.flatMap((id) => {
+      const service = servicesLookup.find((s) => s.id === id);
+      if (!service) return [];
+      const category = service.category_id ? categoriesLookup.find((c) => c.id === service.category_id) : undefined;
+      const maintenanceDays = category?.has_maintenance && service.maintenance_days != null ? service.maintenance_days : null;
+      const removalDays = category?.has_removal && service.removal_days != null ? service.removal_days : null;
+      if (maintenanceDays == null && removalDays == null) return [];
+      return [{
+        name: service.name,
+        maintenanceDays,
+        removalDays,
+        maintenanceDate: maintenanceDays != null ? addDays(maintenanceDays) : null,
+        removalDate: removalDays != null ? addDays(removalDays) : null,
+      }];
+    });
+
+    const earliest = (dates: (Date | null)[]) => {
+      const valid = dates.filter((d): d is Date => d != null);
+      return valid.length ? new Date(Math.min(...valid.map((d) => d.getTime()))) : null;
+    };
+    const maintenance = earliest(followUps.map((f) => f.maintenanceDate));
+    const removal = earliest(followUps.map((f) => f.removalDate));
 
     return {
       clientName: finishTarget.client_name,
@@ -413,8 +441,13 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       totalPrice: (finishTarget.service_prices?.length ? finishTarget.service_prices : [finishTarget.service_price])
         .filter((p): p is number => typeof p === "number")
         .reduce((sum, p) => sum + p, 0),
-      maintenanceDate,
-      removalDate,
+      maintenanceDate: maintenance ? fmt(maintenance) : null,
+      removalDate: removal ? fmt(removal) : null,
+      followUps: followUps.map((f) => ({
+        name: f.name,
+        maintenance: f.maintenanceDate ? `${fmt(f.maintenanceDate)} (${f.maintenanceDays} ${f.maintenanceDays === 1 ? "día" : "días"})` : null,
+        removal: f.removalDate ? `${fmt(f.removalDate)} (${f.removalDays} ${f.removalDays === 1 ? "día" : "días"})` : null,
+      })),
     };
   }, [finishTarget, servicesLookup, categoriesLookup]);
 
@@ -422,12 +455,33 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
   // se van agregando al final de la columna en vez de aparecer arriba.
   const byArrivalOrder = (a: TicketItem, b: TicketItem) => a.id - b.id;
 
+  // Reloj del tablero: cada 30 s las reservas cuya hora se acerca pasan solas de «Reservas de hoy» a «En espera».
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Orden de turno: por hora del ticket (una venta directa tiene la hora de «ahora»; una reserva, la suya),
+  // y a igualdad, por orden de creación. Antes se ordenaba solo por creación y una reserva hecha ayer
+  // quedaba primera aunque fuera para la tarde.
+  const byTurnOrder = (a: TicketItem, b: TicketItem) => {
+    // Una reserva ya llegada se ordena por su hora de llegada; una venta directa, por su hora.
+    // start_time va en reloj de La Paz y arrived_at en UTC: se pasan al mismo reloj (UTC-4) antes de comparar.
+    const clock = (iso: string) => Date.parse(`${iso.replace(/Z$/, "")}Z`);
+    const turnTime = (t: TicketItem) => (t.arrived_at ? clock(t.arrived_at) - 4 * 3600_000 : clock(t.start_time));
+    const diff = turnTime(a) - turnTime(b);
+    return Number.isFinite(diff) && diff !== 0 ? diff : a.id - b.id;
+  };
+
   const waitingTickets = useMemo(
     () => mergeTicketsBySaleId(
-      filteredTickets.filter((ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status))
-    ).sort(byArrivalOrder),
+      filteredTickets.filter(
+        (ticket) => !ticket.is_ia && ["pending", "waiting", "confirmed"].includes(ticket.status)
+      )
+    ).sort(byTurnOrder),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredTickets]
+    [filteredTickets, nowMs]
   );
 
   const inServiceTickets = useMemo(
@@ -446,6 +500,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     [filteredTickets]
   );
 
+  // Una reserva para dentro de varias horas no hace «ocupada» ni «con turno» a la operaria ahora.
   const operariaStatuses = useOperariaStatuses(tickets, professionals);
 
   // El selector "Asignar operaria" del popup de edición usaba `professional.is_busy`
@@ -457,13 +512,20 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     [operariaStatuses]
   );
 
-  const handleCancelTicketImpl = async (ticket: TicketItem) => {
+  const handleCancelTicketImpl = async (ticket: TicketItem, decision: CancelDecision) => {
     const siblingIds = getSiblingIds(ticket);
     const allIds = [ticket.id, ...siblingIds];
     const snapshot = tickets;
     applyGroupMoveLocally(allIds, { status: "cancelled" });
     try {
-      await Promise.all(allIds.map((id) => AgendaService.updateAppointment(id, { status: "cancelled" })));
+      // Uno por uno: cada cancelación recalcula la misma venta y queda registrada con su monto.
+      for (const id of allIds) {
+        await AgendaService.updateAppointment(id, {
+          status: "cancelled",
+          cancel_reason: decision.reason,
+          ...(decision.refund !== undefined ? { refund: decision.refund } : {}),
+        });
+      }
       if (ticket.client_id) {
         const update = ClientService.update(ticket.client_id, { status: "sin_estado" }).catch(() => {});
         if (operationalContext) await update;
@@ -679,6 +741,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
 
     AgendaService.listProfessionalsForSelect({
       limit: 200,
+      // Solo operarias: administración y caja no atienden servicios (igual que en el POS).
+      role_name: "Operaria",
       ...(activeBranchId ? { branch_id: activeBranchId } : {}),
     })
       .then(setProfessionals)
@@ -742,6 +806,12 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket) return;
 
+    // Finalizado es definitivo: no vuelve a «En servicio» ni a «En espera».
+    if (["completed", "finalizado", "atendido", "done"].includes(ticket.status)) {
+      if (targetColumn !== "completed") toast.info("Una atención finalizada ya no se puede mover.");
+      return;
+    }
+
     const siblingIds = getSiblingIds(ticket);
 
     if (targetColumn === "ia") {
@@ -774,6 +844,17 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
     const currentColumn = getColumnForStatus(ticket.status);
     const statusUnchanged = currentColumn === targetColumn;
     if (statusUnchanged && !ticket.is_ia) return;
+
+    // Finalizar siempre pasa por el diálogo de «Finalizar atención» (cuestionario, observaciones, seguimiento),
+    // igual que con el botón «Finalizar»: arrastrar a «Finalizadas» solo lo abre, no cambia el estado de golpe.
+    if (newStatus === "completed") {
+      if (ticket.status !== "in_service") {
+        toast.warning("Primero inicia la atención: solo se puede finalizar un ticket que está En servicio.");
+        return;
+      }
+      handleOpenFinishModal(ticket);
+      return;
+    }
 
     if (newStatus === "in_service" && !ticket.professional_id) {
       toast.warning("Asigna una operaria antes de mover a En servicio.");
@@ -1011,7 +1092,33 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       toast.warning(error instanceof Error ? error.message : "No se pudo verificar la sucursal.");
     }
   };
-  const handleCancelTicket = (ticket: TicketItem) => runQueueWrite(() => handleCancelTicketImpl(ticket), ticket);
+  // Cancelar pide motivo (y, si ya se cobró, qué pasa con el dinero) antes de hacer nada.
+  const [cancelTarget, setCancelTarget] = useState<TicketItem | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const handleCancelTicket = (ticket: TicketItem) => setCancelTarget(ticket);
+  const confirmCancelTicket = async (decision: CancelDecision) => {
+    const ticket = cancelTarget;
+    if (!ticket) return;
+    setIsCancelling(true);
+    try {
+      await runQueueWrite(() => handleCancelTicketImpl(ticket, decision), ticket);
+    } finally {
+      setIsCancelling(false);
+      setCancelTarget(null);
+    }
+  };
+  // Lo cobrado de lo que se va a cancelar (el ticket y sus hermanos de la misma venta).
+  const cancelAmountPaid = useMemo(() => {
+    if (!cancelTarget || cancelTarget.sale_status !== "paid") return 0;
+    const ids = [cancelTarget.id, ...getSiblingIds(cancelTarget)];
+    return ids.reduce((sum, id) => {
+      const t = tickets.find((item) => item.id === id);
+      if (!t) return sum;
+      const prices = t.service_prices?.length ? t.service_prices : [t.service_price ?? 0];
+      return sum + prices.reduce((a, p) => a + (typeof p === "number" ? p : 0), 0);
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelTarget, tickets]);
   const handleStartService = (ticket: TicketItem, options?: { skipAllergy?: boolean; skipPayment?: boolean }) =>
     runQueueWrite(() => handleStartServiceImpl(ticket, options), ticket);
   const handleFinishService = () => runQueueWrite(handleFinishServiceImpl, finishTarget);
@@ -1176,27 +1283,12 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
             type="text"
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
-            placeholder="Buscar clienta, servicio o código…"
+            placeholder="Buscar clienta, servicio, operaria o código…"
             aria-label="Buscar en el tablero"
-            className="h-7 w-56 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-7 pr-2 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
+            className="h-7 w-72 rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] pl-7 pr-2 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)] focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20"
           />
         </div>
-        <select
-          value={filterProfessionalId}
-          onChange={(e) => setFilterProfessionalId(e.target.value)}
-          aria-label="Filtrar por operaria"
-          className={`h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none focus:ring-2 focus:ring-brand-secondary/20 ${
-            filterProfessionalId
-              ? "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] font-medium text-[var(--ui-accent)]"
-              : "border-[var(--ui-border-strong)] bg-[var(--ui-input)] text-[var(--ui-text)]"
-          }`}
-        >
-          <option value="">Todas las operarias</option>
-          <option value="none">Sin operaria</option>
-          {professionals.map((p) => (
-            <option key={p.id} value={String(p.id)}>{p.username}</option>
-          ))}
-        </select>
+        <OperariaFilterSelect value={filterProfessionalId} onChange={setFilterProfessionalId} operarias={operariaStatuses} />
         {hasActiveFilters && (
           <button
             type="button"
@@ -1266,6 +1358,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
       <div
         className={`grid h-full gap-3 lg:grid-cols-3 lg:grid-rows-1 ${isDraggingBoard ? "select-none" : ""}`}
       >
+          <div className="flex h-full min-h-0 flex-col gap-3">
+          <div className="min-h-0 flex-1">
           <DroppableColumn
             id="waiting"
             dataTour="queue-col-waiting"
@@ -1327,6 +1421,8 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
               />
             )}
           />
+          </div>
+          </div>
 
           <DroppableColumn
             id="in_service"
@@ -1367,13 +1463,7 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                     >
                       <Printer className="h-3.5 w-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void handleCancelTicket(ticket); }}
-                      className="rounded-lg border border-rose-200 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 transition-colors"
-                    >
-                      Cancelar
-                    </button>
+                    {/* Un ticket en servicio ya no se puede cancelar (regla del cliente). */}
                   </div>
                 }
                 showRemaining
@@ -1583,6 +1673,17 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
           )}
         </GenericModal>
 
+        <CancelReasonDialog
+          open={cancelTarget !== null}
+          title="Cancelar ticket"
+          subject={cancelTarget ? `${cancelTarget.ticket_code ?? `#${cancelTarget.id}`} · ${(cancelTarget.client_name ?? "Cliente").split(" — ")[0]}` : ""}
+          amountPaid={cancelAmountPaid}
+          confirmLabel="Cancelar ticket"
+          isProcessing={isCancelling}
+          onCancel={() => setCancelTarget(null)}
+          onConfirm={(decision) => void confirmCancelTicket(decision)}
+        />
+
         <GenericModal isOpen={isFinishModalOpen} onClose={() => setIsFinishModalOpen(false)} title="Finalizar atención" size="lg">
           <div className="space-y-4">
             <div className="border-l-[3px] border-[#094732] bg-[var(--ui-surface-muted)] px-3 py-2 text-sm text-[var(--ui-text-muted)]">
@@ -1602,17 +1703,36 @@ const Main = ({ embedded = false, operationalContext }: { embedded?: boolean; op
                   )}
                 </div>
 
-                {(finishPreview.maintenanceDate || finishPreview.removalDate) && (
-                  <div className="mt-2 flex flex-wrap gap-2 border-t border-[var(--ui-border)] pt-2">
-                    {finishPreview.maintenanceDate && (
-                      <span className="rounded-full bg-[var(--ui-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--ui-accent)]">
-                        Mantenimiento sugerido: {finishPreview.maintenanceDate}
-                      </span>
-                    )}
-                    {finishPreview.removalDate && (
-                      <span className="rounded-full bg-[#fde8f0] px-2.5 py-1 text-xs font-semibold text-[#861237]">
-                        Retiro sugerido: {finishPreview.removalDate}
-                      </span>
+                {finishPreview.followUps.length > 0 && (
+                  <div className="mt-2 space-y-2 border-t border-[var(--ui-border)] pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ui-text-muted)]">Seguimiento que se registrará</p>
+                    {finishPreview.followUps.map((f) => (
+                      <div key={f.name} className="rounded-lg border border-[var(--ui-border)] bg-white px-3 py-2">
+                        {finishPreview.serviceNames.length > 1 && (
+                          <p className="mb-1 text-xs font-semibold text-[var(--ui-text)]">{f.name}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {f.maintenance && (
+                            <span className="rounded-full bg-[var(--ui-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--ui-accent)]">
+                              Mantenimiento: {f.maintenance}
+                            </span>
+                          )}
+                          {f.removal && (
+                            <span className="rounded-full bg-[#fde8f0] px-2.5 py-1 text-xs font-semibold text-[#861237]">
+                              Retiro: {f.removal}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {finishPreview.followUps.length > 1 && (
+                      <p className="text-[11px] text-[var(--ui-text-muted)]">
+                        Se guarda un solo seguimiento con la fecha más próxima de cada tipo:{" "}
+                        {[
+                          finishPreview.maintenanceDate ? `mantenimiento ${finishPreview.maintenanceDate}` : "",
+                          finishPreview.removalDate ? `retiro ${finishPreview.removalDate}` : "",
+                        ].filter(Boolean).join(" · ")}.
+                      </p>
                     )}
                   </div>
                 )}

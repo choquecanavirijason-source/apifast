@@ -1,10 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { toast } from "react-toastify";
-import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, Minus, ChevronDown, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Cake, CalendarClock, CheckCircle2, Minus, ChevronDown, ChevronLeft, ChevronUp, Layers, Plus, QrCode, Search, ShoppingCart, SplitSquareHorizontal, X, Trash2 } from "lucide-react";
 import { AgendaService, type ProfessionalForSelect, type ServiceOption } from "../../../../core/services/agenda/agenda.service";
 import type { MixedPaymentEntry } from "../../../../core/services/pos-sale/pos-sale.service";
 import type { BirthdayCouponUi, CartLine, PosCheckoutTicketPreview, PosSaleClientOption, ProductCartLine } from "../pos.types";
 import { PAYMENT_METHODS } from "../pos.constants";
+import { getComboGroups } from "../pos.combos";
+import { ConfirmDialog } from "../../../../components/common/ConfirmDialog";
 
 // Sección "Horario de tickets" (colapsable, encabezado "Horario · automático")
 // desactivada a pedido — el código queda intacto por si se vuelve a necesitar,
@@ -176,6 +178,7 @@ export default function PosSaleDrawer({
   };
 
   const [showSinHoraConfirm, setShowSinHoraConfirm] = useState(false);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
 
   // Historial de la clienta: últimos servicios completados
   const [clientHistory, setClientHistory] = useState<Array<{ id: number; ticket_code: string | null; service_names: string[] | undefined; start_time: string }>>([]);
@@ -288,13 +291,31 @@ export default function PosSaleDrawer({
   // Agrupar líneas por service_id para mostrar una sola fila por servicio con cantidad
   const groupedCartLines = useMemo(() => {
     const groups = new Map<string, CartLine[]>();
-    cartLines.forEach((line) => {
+    cartLines.filter((line) => !line.combo_group).forEach((line) => {
       const key = String(line.service_id || line.localId);
       const existing = groups.get(key) ?? [];
       groups.set(key, [...existing, line]);
     });
     return Array.from(groups.values());
   }, [cartLines]);
+
+  // Promociones (combos) en el carrito: se muestran juntas, con el precio y lo que ahorra la clienta.
+  const comboBlocks = useMemo(() => {
+    const complete = new Map(getComboGroups(cartLines, services).map((g) => [g.group, g]));
+    const order: string[] = [];
+    const lines = new Map<string, CartLine[]>();
+    cartLines.forEach((line) => {
+      if (!line.combo_group) return;
+      if (!lines.has(line.combo_group)) { lines.set(line.combo_group, []); order.push(line.combo_group); }
+      lines.get(line.combo_group)!.push(line);
+    });
+    return order.map((group) => ({ group, lines: lines.get(group)!, info: complete.get(group) ?? null }));
+  }, [cartLines, services]);
+  const plainLineCount = cartLines.filter((line) => !line.combo_group).length;
+  const hasPlainLines = plainLineCount > 0;
+  // Lo que ve la operaria: cada promoción cuenta como 1 (aunque entre al carrito como varios servicios).
+  const visibleServiceCount = plainLineCount + comboBlocks.length;
+  const visibleItemCount = visibleServiceCount + productLines.length;
 
   // En modo drawer, si no está abierto no se renderiza
   if (!isOpen && !isPanel) return null;
@@ -319,16 +340,14 @@ export default function PosSaleDrawer({
           {isPanel ? "Resumen de venta" : "Detalle de la venta"}
         </p>
         <p className="truncate text-xs text-[var(--ui-text-muted)]">
-          {cartCount} ítem(s) · Total Bs {total.toFixed(2)}
+          {visibleItemCount} ítem(s) · Total Bs {total.toFixed(2)}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
       {cartCount > 0 && (
         <button
           type="button"
-          onClick={() => {
-            if (window.confirm("¿Vaciar el carrito? Se quitan todos los servicios.")) cartLines.forEach((l) => onRemoveLine(l.localId));
-          }}
+          onClick={() => setIsClearConfirmOpen(true)}
           disabled={isSubmitting}
           title="Quitar todo del carrito"
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -393,7 +412,7 @@ export default function PosSaleDrawer({
       <div className={`border-b border-[var(--ui-border)] ${stepBorder(step1Done, !step1Done)}`}>
         <div className={`flex items-center gap-2 px-4 py-3 ${!step1Done ? "bg-[#fff4ce]" : "bg-[var(--ui-surface-muted)]"}`}>
           <ShoppingCart className={`h-4 w-4 ${!step1Done ? "text-[#8a6a1f]" : "text-[#094732]"}`} />
-          <span className="text-sm font-semibold text-[var(--ui-text)]">Servicios ({cartLines.length})</span>
+          <span className="text-sm font-semibold text-[var(--ui-text)]">Servicios ({visibleServiceCount})</span>
           {!step1Done && <span className="ml-auto text-[10px] font-semibold text-[#8a6a1f]">Requerido</span>}
         </div>
 
@@ -406,7 +425,51 @@ export default function PosSaleDrawer({
             </div>
           ) : (
             <>
-              {cartLines.length > 0 && (
+              {comboBlocks.map(({ group, lines: comboLines, info }) => (
+                <div key={group} className="border-b border-[var(--ui-border)] bg-[#fbf7ee]">
+                  <div className="flex items-center gap-2 px-4 py-2.5">
+                    <Layers className="h-4 w-4 shrink-0 text-[#8a6a1f]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--ui-text)]">
+                        {comboLines[0].combo_name ?? "Promoción"}
+                        <span className="ml-2 rounded-full bg-[#9F8351] px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-white">Promoción</span>
+                      </p>
+                      {info && info.discount > 0 && (
+                        <p className="text-[11px] font-semibold text-[#107c10]">
+                          Precio promoción Bs {info.comboPrice.toFixed(2)} · ahorra Bs {info.discount.toFixed(2)}
+                        </p>
+                      )}
+                      {info && info.discount === 0 && (
+                        <p className="text-[11px] text-[var(--ui-text-muted)]">Precio promoción Bs {info.comboPrice.toFixed(2)}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveLine(comboLines[0].localId)}
+                      className="text-[var(--ui-text-muted)] transition-colors hover:text-[#d13438]"
+                      aria-label="Quitar promoción"
+                      title="Quitar promoción completa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <ul className="divide-y divide-[#efe6d2] border-t border-[#efe6d2] bg-white/70">
+                    {comboLines.map((line, i) => {
+                      const svc = services.find((x) => String(x.id) === line.service_id);
+                      return (
+                        <li key={line.localId} className="flex items-center gap-2 px-4 py-2 text-sm">
+                          <span className="shrink-0 text-[11px] text-[var(--ui-text-muted)]">{i + 1}.</span>
+                          <span className="min-w-0 flex-1 truncate text-[var(--ui-text)]">{svc?.name ?? "Servicio"}</span>
+                          <span className="shrink-0 text-[11px] text-[var(--ui-text-muted)]">{line.duration_minutes} min</span>
+                          <span className="w-20 shrink-0 text-right text-xs font-semibold text-[var(--ui-text)]">Bs {line.price.toFixed(2)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+
+              {hasPlainLines && (
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[11px] font-semibold text-[var(--ui-text-muted)]">
@@ -1049,10 +1112,24 @@ export default function PosSaleDrawer({
 
                 {/* Info QR */}
                 {paymentMethod === "qr" && branchQrImageUrl && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#c8e6d9] bg-[#ecfdf5] px-3 py-2">
-                    <QrCode className="h-3.5 w-3.5 shrink-0 text-[#094732]" />
-                    <p className="text-[11px] font-medium text-[#094732]">
-                      Al confirmar el cobro se mostrará el QR para que el cliente escanee y pague.
+                  <div className="mt-2 rounded-lg border border-[#c8e6d9] bg-[#ecfdf5] p-3">
+                    <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#094732]">
+                      <QrCode className="h-3.5 w-3.5 shrink-0" />
+                      QR de pago · total Bs {total.toFixed(2)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowQrOverlay(true)}
+                      title="Ampliar el QR para mostrarlo a la clienta"
+                      className="group relative mx-auto block rounded-xl border border-[#c8e6d9] bg-white p-2 shadow-sm transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#094732]/50"
+                    >
+                      <img src={branchQrImageUrl} alt="QR de pago" className="h-44 w-44 object-contain" />
+                      <span className="absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-lg bg-[#094732]/90 py-1 text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                        <Search className="h-3 w-3" /> Ampliar
+                      </span>
+                    </button>
+                    <p className="mt-2 text-center text-[11px] text-[#094732]">
+                      Toca el QR para ampliarlo y mostrarlo. Al cobrar se abre grande para que la clienta escanee y pague.
                     </p>
                   </div>
                 )}
@@ -1160,15 +1237,6 @@ export default function PosSaleDrawer({
         </div>
         </div>
 
-        <div className="px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setActiveStep("cliente")}
-            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--ui-border-strong)] bg-white text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
-          >
-            Atrás
-          </button>
-        </div>
       </div>
       )}
 
@@ -1205,6 +1273,20 @@ export default function PosSaleDrawer({
         </button>
       </div>
     );
+
+  // "Atrás" fijo en el pie del paso Pago (antes estaba al final del scroll y se perdía de vista).
+  const backToClientButton = (
+    <button
+      type="button"
+      onClick={() => setActiveStep("cliente")}
+      aria-label="Volver al paso Cliente"
+      title="Volver al paso Cliente"
+      className="flex min-h-9 shrink-0 items-center justify-center gap-1 self-stretch rounded-lg border border-[var(--ui-border-strong)] bg-white px-3 text-xs font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
+    >
+      <ChevronLeft className="h-4 w-4" />
+      Atrás
+    </button>
+  );
 
   const panelFooter = (
     <div className="shrink-0 border-t border-[var(--ui-border)] bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
@@ -1293,6 +1375,7 @@ export default function PosSaleDrawer({
         return (
         <>
           <div className="flex gap-2" data-tour="pos-drawer-checkout-buttons">
+            {backToClientButton}
             <button
               type="button"
               disabled={cartCount === 0 || isSubmitting}
@@ -1323,7 +1406,11 @@ export default function PosSaleDrawer({
                   handleInvalidPay(true);
                   return;
                 }
-                onImmediateCheckout(false, true);
+                if (!isMixedMode && paymentMethod === "qr" && branchQrImageUrl) {
+                  openQrOverlay(() => onImmediateCheckout(false, true));
+                } else {
+                  onImmediateCheckout(false, true);
+                }
               }}
               className={`flex min-h-9 flex-1 items-center justify-center rounded-lg px-2 py-1 text-center text-xs font-semibold leading-tight transition-all ${
                 cartCount === 0 || isSubmitting
@@ -1331,7 +1418,7 @@ export default function PosSaleDrawer({
                   : "bg-[#094732] text-white hover:bg-[#063324]"
               }`}
             >
-              {isSubmitting ? "Procesando…" : "Cobrar e iniciar atención"}
+              {isSubmitting ? "Procesando…" : !isMixedMode && paymentMethod === "qr" && branchQrImageUrl ? "Ver QR, cobrar e iniciar" : "Cobrar e iniciar atención"}
             </button>
           </div>
         </>
@@ -1423,18 +1510,21 @@ export default function PosSaleDrawer({
                 {sinHoraCount} ticket(s) sin hora — se pedirá confirmación
               </p>
             )}
-            <button
-              type="button"
-              onClick={handleClick}
-              disabled={isDisabled || isSubmitting}
-              className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all ${
-                isDisabled || isSubmitting
-                  ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
-                  : "bg-[#094732] text-white shadow-sm hover:bg-[#063324] active:bg-[#094732]"
-              }`}
-            >
-              {isSubmitting ? "Procesando…" : primaryActionLabel}
-            </button>
+            <div className="flex gap-2">
+              {backToClientButton}
+              <button
+                type="button"
+                onClick={handleClick}
+                disabled={isDisabled || isSubmitting}
+                className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all ${
+                  isDisabled || isSubmitting
+                    ? "cursor-not-allowed bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]"
+                    : "bg-[#094732] text-white shadow-sm hover:bg-[#063324] active:bg-[#094732]"
+                }`}
+              >
+                {isSubmitting ? "Procesando…" : primaryActionLabel}
+              </button>
+            </div>
           </>
         );
           })()}
@@ -1445,42 +1535,65 @@ export default function PosSaleDrawer({
     </div>
   );
 
+  const clearDialog = (
+    <ConfirmDialog
+      isOpen={isClearConfirmOpen}
+      title="Vaciar la venta"
+      message={
+        <p>
+          Se quitará todo lo de esta venta:{" "}
+          <strong>
+            {[
+              comboBlocks.length > 0
+                ? `${comboBlocks.length} ${comboBlocks.length === 1 ? "promoción" : "promociones"} (${comboBlocks.reduce((n, b) => n + b.lines.length, 0)} servicios incluidos)`
+                : "",
+              plainLineCount > 0 ? `${plainLineCount} ${plainLineCount === 1 ? "servicio suelto" : "servicios sueltos"}` : "",
+              productLines.length > 0 ? `${productLines.length} ${productLines.length === 1 ? "producto" : "productos"}` : "",
+            ].filter(Boolean).join(", ")}
+          </strong>
+          . Esta acción no se puede deshacer.
+        </p>
+      }
+      confirmText="Vaciar"
+      cancelText="Cancelar"
+      variant="danger"
+      onCancel={() => setIsClearConfirmOpen(false)}
+      onConfirm={() => {
+        setIsClearConfirmOpen(false);
+        cartLines.forEach((l) => onRemoveLine(l.localId));
+        productLines.forEach((l) => onRemoveProductLine(l.localId));
+      }}
+    />
+  );
+
   // ── Overlay fullscreen QR ────────────────────────────────────────────────
   const qrOverlay = showQrOverlay && branchQrImageUrl ? (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4">
       <div
-        className="relative flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        className="relative flex max-h-full w-fit max-w-full flex-col items-center gap-2 overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabecera */}
-        <div className="flex w-full items-center justify-between">
-          <p className="text-base font-bold text-[var(--ui-text)]">Pago con QR</p>
-          <button
-            type="button"
-            onClick={closeQrOverlay}
-            className="rounded-full p-1.5 text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-hover)]"
-            aria-label="Cancelar pago QR"
-          >
-            <X className="h-5 w-5" />
-          </button>
+        {/* Cabecera: título y total en una sola línea para dejar todo el espacio al QR */}
+        <div className="flex w-full items-center justify-between gap-6 px-1">
+          <p className="text-sm font-bold text-[var(--ui-text)]">Pago con QR</p>
+          <p className="text-sm font-semibold text-[var(--ui-text-muted)]">
+            Total a cobrar <span className="ml-1.5 align-middle text-3xl font-black text-[#094732]">Bs {total.toFixed(2)}</span>
+          </p>
         </div>
 
-        {/* Total prominente */}
-        <div className="w-full rounded-xl border-2 border-[#094732] bg-[#ecfdf5] py-3 text-center">
-          <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Total a cobrar</p>
-          <p className="mt-0.5 text-3xl font-black text-[#094732]">Bs {total.toFixed(2)}</p>
-        </div>
-
-        {/* QR image */}
+        {/* QR image: ocupa casi toda la altura de la pantalla */}
         <img
           src={branchQrImageUrl}
           alt="QR de pago"
-          className="h-56 w-56 rounded-xl border border-[var(--ui-border)] object-contain bg-white p-2 shadow-sm"
+          className="h-[max(18rem,calc(100dvh-12rem))] w-auto max-w-full rounded-xl border border-[var(--ui-border)] object-contain bg-white"
         />
 
-        <p className="text-center text-xs text-[var(--ui-text-muted)]">
-          Muestra este QR al cliente, espera que escanee y pague,<br />
-          luego presiona <strong>Pago recibido</strong>.
+        <p className="text-center text-[11px] text-[var(--ui-text-muted)]">
+          {qrPendingAction ? (
+            <>Muestra este QR a la clienta, espera que escanee y pague,<br />luego presiona <strong>Pago recibido</strong>.</>
+          ) : (
+            <>Muestra este QR a la clienta. Para cobrar, cierra esta ventana y usa los botones de cobro.</>
+          )}
         </p>
 
         {/* Acciones */}
@@ -1488,16 +1601,16 @@ export default function PosSaleDrawer({
           <button
             type="button"
             onClick={closeQrOverlay}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--ui-border)] bg-white text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
+            className="flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--ui-border)] bg-white text-sm font-semibold text-[var(--ui-text)] transition hover:bg-[var(--ui-surface-hover)]"
           >
             <X className="h-4 w-4" />
-            Cancelar
+            {qrPendingAction ? "Cancelar" : "Cerrar"}
           </button>
-          <button
+          {qrPendingAction && <button
             type="button"
             onClick={confirmQrPayment}
             disabled={isSubmitting}
-            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold text-white transition ${
+            className={`flex h-9 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold text-white transition ${
               isSubmitting ? "cursor-not-allowed bg-[#a19f9d]" : "bg-[#107c10] hover:bg-[#0b5e0b]"
             }`}
           >
@@ -1507,7 +1620,7 @@ export default function PosSaleDrawer({
               <CheckCircle2 className="h-4 w-4" />
             )}
             {isSubmitting ? "Procesando…" : "Pago recibido ✓"}
-          </button>
+          </button>}
         </div>
       </div>
     </div>
@@ -1518,6 +1631,7 @@ export default function PosSaleDrawer({
     return (
       <>
         {qrOverlay}
+        {clearDialog}
         <div className="flex h-full flex-col overflow-hidden border-l border-[var(--ui-border)] bg-[var(--ui-surface-muted)]">
           {panelHeader}
           {panelBody}
@@ -1531,6 +1645,7 @@ export default function PosSaleDrawer({
   return (
     <>
       {qrOverlay}
+      {clearDialog}
       {/* Sin fondo bloqueante: el carrito queda abierto mientras se sigue
           agregando servicios desde la izquierda — se cierra solo con la X. */}
       <div

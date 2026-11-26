@@ -319,7 +319,7 @@ def test_cancelling_the_sale_frees_the_coupon(work):
     client = birthday_client(work)
     sale = work.api.post("/pos-sales/", json=sale_body(work, client.id, apply_birthday_coupon=True)).json()
     assert svc.check_eligibility(work.db, client.id)["reason"] == "already_used"
-    cancelled = work.api.post(f"/pos-sales/{sale['id']}/cancel")
+    cancelled = work.api.post(f"/pos-sales/{sale['id']}/cancel", json={"reason": "Motivo de prueba", "refund": True})
     assert cancelled.status_code == 200
     assert cancelled.json()["coupon_label"] is None      # la respuesta ya no muestra el cupón
     work.db.expire_all()

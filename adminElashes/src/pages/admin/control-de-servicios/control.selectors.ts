@@ -1,6 +1,16 @@
 import type { TicketItem, ProfessionalForSelect } from "../../../core/services/agenda/agenda.service";
 import type { OperariaCurrentStatus, OperariaStatus } from "./control.types";
 
+const WAITING_STATUSES = ["pending", "waiting", "confirmed"];
+
+/**
+ * Reserva pendiente cuya clienta todavía no llegó: no se muestra en Control de servicios hasta que en la
+ * Agenda se pulse «Llegó» (por si reservó y no viene). Las ventas de mostrador siempre se muestran.
+ */
+export function isAwaitingArrival(ticket: TicketItem): boolean {
+  return ticket.source === "reserva" && WAITING_STATUSES.includes(ticket.status) && !ticket.arrived_at;
+}
+
 /**
  * Prioridad de estados activos: cuanto mayor, más urgente.
  * Solo se consideran tickets que aún requieren atención.

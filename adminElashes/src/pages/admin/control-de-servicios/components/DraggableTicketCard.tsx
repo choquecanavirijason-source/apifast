@@ -67,6 +67,13 @@ export default function DraggableTicketCard({
   const [operariaListBounds, setOperariaListBounds] = useState<React.CSSProperties>({});
   const [clientListBounds, setClientListBounds] = useState<React.CSSProperties>({});
   const [detailOpen, setDetailOpen] = useState(false);
+  // Asignación rápida: el chip de la operaria abre directo la lista (sin pasar por «Editar turno»).
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickSearch, setQuickSearch] = useState("");
+  const [quickPos, setQuickPos] = useState<React.CSSProperties>({});
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const quickListRef = useRef<HTMLDivElement>(null);
+  const quickSearchRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const operariaSelectRef = useRef<HTMLInputElement>(null);
   const clientSelectRef = useRef<HTMLInputElement>(null);
@@ -78,13 +85,68 @@ export default function DraggableTicketCard({
 
   useEffect(() => { savingRef.current = isSavingEdit; }, [isSavingEdit]);
 
+  // Posición de la lista, pegada al chip (debajo, o arriba si abajo no hay lugar). Se calcula ANTES de abrirla:
+  // si se calculara después, la lista se dibujaría un instante sin posición, el foco desplazaría la página y
+  // el cierre por desplazamiento la apagaría enseguida (el clic "parpadeaba" y había que repetirlo).
+  const computeQuickPos = (): React.CSSProperties => {
+    const rect = chipRef.current?.getBoundingClientRect();
+    const width = 280;
+    if (!rect) return { position: "fixed", left: 8, top: 8, width, maxHeight: 340 };
+    const below = window.innerHeight - rect.bottom - 8;
+    const above = rect.top - 8;
+    const up = below < 220 && above > below;
+    const maxHeight = Math.max(140, Math.min(340, up ? above : below));
+    return {
+      position: "fixed",
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      width,
+      maxHeight,
+      ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+    };
+  };
+
+  const openedAtRef = useRef(0);
+  const openQuick = () => {
+    setQuickPos(computeQuickPos());
+    setQuickSearch("");
+    openedAtRef.current = Date.now();
+    setQuickOpen(true);
+  };
+
   useEffect(() => {
     if (!openOperariaSelector) return;
-    setEditOpen(true);
-    setOperariaListOpen(true);
-    setOperariaSearch("");
-    requestAnimationFrame(() => operariaSelectRef.current?.focus());
+    openQuick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOperariaSelector]);
+
+  // Al abrir, enfoca la búsqueda SIN desplazar la página.
+  useEffect(() => {
+    if (!quickOpen) return;
+    const id = requestAnimationFrame(() => quickSearchRef.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(id);
+  }, [quickOpen]);
+
+  useEffect(() => {
+    if (!quickOpen) return;
+    const close = () => { setQuickOpen(false); setQuickSearch(""); if (openOperariaSelector) onOperariaSelected?.(); };
+    const onDown = (e: MouseEvent) => {
+      if (quickListRef.current?.contains(e.target as Node) || chipRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const onScroll = (e: Event) => {
+      if (Date.now() - openedAtRef.current < 400) return; // el desplazamiento propio de abrir no cuenta
+      if (!quickListRef.current?.contains(e.target as Node)) close();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [quickOpen, openOperariaSelector, onOperariaSelected]);
 
   useEffect(() => {
     if (!operariaListOpen || !operariaSelectRef.current) return;
@@ -161,9 +223,12 @@ export default function DraggableTicketCard({
   // Con el popup de "Ajustar turno" o el panel de "Info" abiertos, el ticket
   // debería poder seguir arrastrándose a otra columna sin tener que cerrarlo
   // primero — sus propios controles ya frenan el drag por su cuenta (stopPtr).
+  // Una atención finalizada se queda finalizada: su tarjeta no se arrastra a otra columna.
+  const isFinished = ["completed", "finalizado", "atendido", "done"].includes(ticket.status);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `ticket-${ticket.id}`,
     data: { ticket, column: ticket.status },
+    disabled: isFinished,
   });
 
   const style: React.CSSProperties = {
@@ -178,6 +243,17 @@ export default function DraggableTicketCard({
     quickTime !== getTimeInputValue(ticket.start_time);
 
   const canEditOperaria = ["pending", "waiting", "confirmed"].includes(ticket.status);
+
+  const assignOperaria = (professionalId: string) => {
+    lastKeyRef.current = professionalId; // evita que el guardado automático del panel de edición lo repita
+    setQuickProId(professionalId);
+    setQuickOpen(false);
+    setQuickSearch("");
+    if (professionalId !== (ticket.professional_id ? String(ticket.professional_id) : "")) {
+      onSaveEdits(ticket, { date: quickDate, time: quickTime, professionalId, isIa: Boolean(ticket.is_ia) });
+    }
+    onOperariaSelected?.();
+  };
   // La clienta se puede corregir hasta que el ticket se finalice — después de
   // eso, la venta/tracking ya quedaron registrados a su nombre.
   const canEditClient = Boolean(onChangeClient) && ["pending", "waiting", "confirmed", "in_service"].includes(ticket.status);
@@ -188,6 +264,16 @@ export default function DraggableTicketCard({
   const proName = professionals.find((p) => String(p.id) === String(ticket.professional_id))?.username
     ?? ticket.professional_name ?? null;
 
+
+  // Opciones de la lista rápida: las libres primero, luego las que están en servicio; «Sin operaria» solo si ya tiene una.
+  const quickTerm = quickSearch.trim().toLocaleLowerCase();
+  const quickOptions = [
+    ...(proName && !quickTerm ? [{ id: 0, username: "Sin operaria", busy: false }] : []),
+    ...professionals
+      .map((p) => ({ id: p.id, username: p.username, busy: busyProfessionalIds?.has(p.id) ?? (p.is_busy === true) }))
+      .filter((p) => p.username.toLocaleLowerCase().includes(quickTerm))
+      .sort((a, b) => Number(a.busy) - Number(b.busy) || a.username.localeCompare(b.username, "es")),
+  ];
 
   const fieldCls =
     "h-8 w-full cursor-pointer rounded-lg border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2 text-xs text-[var(--ui-text)] outline-none transition focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20";
@@ -206,8 +292,8 @@ export default function DraggableTicketCard({
         if (canEdit) setEditOpen(true);
         else setDetailOpen((v) => !v);
       }}
-      title={canEdit ? "Arrastra para mover de columna · doble clic para editar" : "Arrastra para mover de columna"}
-      className={`group relative cursor-grab touch-none select-none rounded-lg border border-l-[3px] shadow-sm transition-shadow active:cursor-grabbing ${operariaListOpen || clientListOpen ? "z-20" : ""} ${ticketCardClass(ticket.status)} ${
+      title={isFinished ? "Atención finalizada" : canEdit ? "Arrastra para mover de columna · doble clic para editar" : "Arrastra para mover de columna"}
+      className={`group relative ${isFinished ? "cursor-default" : "cursor-grab active:cursor-grabbing"} touch-none select-none rounded-lg border border-l-[3px] shadow-sm transition-shadow ${operariaListOpen || clientListOpen ? "z-20" : ""} ${ticketCardClass(ticket.status)} ${
         isDragging ? "border-dashed opacity-40 shadow-none" : "hover:shadow-md"
       }`}
     >
@@ -217,7 +303,16 @@ export default function DraggableTicketCard({
         <div className="flex items-start gap-1.5">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-baseline gap-1.5">
-              <span className="truncate text-[12px] font-semibold">{ticket.client_name}</span>
+              {/* El código identifica el ticket: con varias clientas "Mostrador" es lo único que las distingue. */}
+              <span
+                title="Código del ticket"
+                className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 font-mono text-[10.5px] font-bold tabular-nums leading-none"
+              >
+                {ticket.ticket_code ?? `#${ticket.id}`}
+              </span>
+              <span className="truncate text-[12px] font-semibold" title={ticket.client_name}>
+                {(ticket.client_name ?? "").split(" — ")[0]}
+              </span>
               <span className="shrink-0 text-[11px] tabular-nums opacity-75">
                 {formatTime(ticket.start_time)}
                 {compact ? "" : ` – ${formatTime(ticket.end_time)}`}
@@ -263,11 +358,15 @@ export default function DraggableTicketCard({
         <div className={compactCollapsed ? "mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1" : ""}>
         <div className={`flex min-w-0 items-center justify-between gap-1.5 ${compactCollapsed ? "flex-1" : compact ? "mt-1" : "mt-1.5"}`}>
           {canEditOperaria ? (
+            <>
             <button
+              ref={chipRef}
               type="button"
               onPointerDown={stopPtr}
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => { setEditOpen((value) => !value); setOperariaListOpen(false); }}
+              onClick={() => { if (quickOpen) { setQuickOpen(false); setQuickSearch(""); } else openQuick(); }}
+              aria-haspopup="listbox"
+              aria-expanded={quickOpen}
               title={proName ? "Cambiar operaria" : "Asignar operaria"}
               className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                 proName
@@ -277,8 +376,67 @@ export default function DraggableTicketCard({
             >
               <UserCog size={11} className="shrink-0" />
               <span className="truncate">{proName ?? "Asignar operaria"}</span>
-              <ChevronDown size={10} className="shrink-0 opacity-60" />
+              <ChevronDown size={10} className={`shrink-0 opacity-60 transition-transform ${quickOpen ? "rotate-180" : ""}`} />
             </button>
+            {quickOpen && createPortal(
+              <div
+                ref={quickListRef}
+                role="listbox"
+                aria-label="Operarias"
+                style={quickPos}
+                className="z-[1000] flex flex-col overflow-hidden rounded-lg border border-[#094732]/30 bg-white text-[var(--ui-text)] shadow-xl"
+                onPointerDown={stopPtr}
+              >
+                <div className="shrink-0 border-b border-[var(--ui-border)] p-1.5">
+                  <input
+                    ref={quickSearchRef}
+                    type="text"
+                    value={quickSearch}
+                    onChange={(e) => setQuickSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      const first = quickOptions[0];
+                      if (first) assignOperaria(first.id ? String(first.id) : "");
+                    }}
+                    placeholder="Buscar operaria…"
+                    aria-label="Buscar operaria"
+                    className="h-8 w-full rounded-md border border-[var(--ui-border-strong)] bg-[var(--ui-input)] px-2 text-xs outline-none focus:border-[#094732] focus:ring-1 focus:ring-[#094732]/30"
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-1">
+                  {quickOptions.map((p) => {
+                    const selected = (p.id ? String(p.id) : "") === quickProId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => assignOperaria(p.id ? String(p.id) : "")}
+                        className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors ${
+                          selected ? "bg-[#ecfdf5] font-semibold text-[#094732]" : "hover:bg-[var(--ui-surface-hover)]"
+                        }`}
+                      >
+                        <span className="truncate capitalize">{p.username}</span>
+                        {p.id ? (
+                          <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            p.busy ? "bg-[#fde7e9] text-[#d13438]" : "bg-[#dff6dd] text-[#107c10]"
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${p.busy ? "bg-[#d13438]" : "bg-[#107c10]"}`} />
+                            {p.busy ? "En servicio" : "Libre"}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                  {quickOptions.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-[var(--ui-text-muted)]">Sin coincidencias</p>
+                  )}
+                </div>
+              </div>,
+              document.body,
+            )}
+            </>
           ) : (
             <span className="inline-flex min-w-0 items-center gap-1 text-[11px] opacity-80">
               <User size={11} className="shrink-0" />

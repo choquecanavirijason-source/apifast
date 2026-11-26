@@ -151,19 +151,18 @@ def create_inventory_movement(
     db.commit()
     db.refresh(movement)
 
-    # ── Alerta automática de stock bajo ──────────────────────────────────
-    # Dispara solo cuando el stock cruza el umbral mínimo (antes estaba OK, ahora está bajo)
+    # ── Alerta automática de stock bajo (POR SUCURSAL) ───────────────────
+    # Dispara solo cuando el stock de ESA sucursal cruza su mínimo (antes estaba bien, ahora está bajo).
     if batch is not None and normalized_type in {"out", "service_use"} and product is not None:
-        min_s = product.min_stock or 0
+        from .min_stock import branch_stock, min_stock_for
+
+        alert_branch_id = batch.branch_id
+        min_s = min_stock_for(db, product, alert_branch_id)
         if min_s > 0:
-            # Stock total del producto en todos los lotes
-            total_stock = sum(
-                b.current_quantity
-                for b in db.query(Batch).filter(Batch.product_id == product_id).all()
-            )
-            just_crossed = stock_before is not None and stock_before > min_s and total_stock <= min_s
-            if just_crossed:
-                _fire_stock_alert_background(db, product, total_stock, min_s)
+            stock_after = branch_stock(db, product_id, alert_branch_id)
+            stock_before = stock_after + quantity
+            if stock_before > min_s and stock_after <= min_s:
+                _fire_stock_alert_background(db, product, stock_after, min_s, alert_branch_id)
 
     return movement
 
@@ -269,24 +268,40 @@ def restock_from_sale(db: Session, sale_id: int, sale_code: str, created_at) -> 
         )
 
 
-def _fire_stock_alert_background(db: Session, product: Product, total_stock: int, min_stock: int) -> None:
+def _stock_alert_recipients(db: Session, branch_id: Optional[int]) -> list:
+    """Quién recibe el aviso de una sucursal: SuperAdmin siempre; Admin y Secretaria solo de esa sucursal
+    (o sin sucursal fija)."""
+    roles = db.query(Role).filter(Role.name.in_(["Secretaria", "Admin", "SuperAdmin"])).all()
+    by_id = {r.id: r.name for r in roles}
+    users = (
+        db.query(User)
+        .filter(User.role_id.in_(list(by_id)), User.is_active.is_(True), User.phone.isnot(None))
+        .all()
+    )
+    out = []
+    for user in users:
+        if by_id.get(user.role_id) == "SuperAdmin" or branch_id is None:
+            out.append(user)
+        elif user.branch_id is None or user.branch_id == branch_id or user.effective_branch_id == branch_id:
+            out.append(user)
+    return out
+
+
+def _fire_stock_alert_background(
+    db: Session, product: Product, total_stock: float, min_stock: float, branch_id: Optional[int] = None
+) -> None:
     """Envía alerta WhatsApp en background sin bloquear la respuesta HTTP."""
     from app.application.services.branch_integration_service import get_whatsapp_config_for_branch
     from app.application.services.whatsapp_service import normalize_phone_e164, send_whatsapp_text
 
     try:
-        secretaria_roles = db.query(Role).filter(Role.name.in_(["Secretaria", "Admin", "SuperAdmin"])).all()
-        role_ids = [r.id for r in secretaria_roles]
-        recipients = (
-            db.query(User)
-            .filter(User.role_id.in_(role_ids), User.is_active.is_(True), User.phone.isnot(None))
-            .all()
-        )
+        recipients = _stock_alert_recipients(db, branch_id)
         if not recipients:
             return
 
-        branch = db.query(Branch).first()
+        branch = db.query(Branch).filter(Branch.id == branch_id).first() if branch_id else None
         wa_config = get_whatsapp_config_for_branch(db, branch.id if branch else None)
+        where = f" en *{branch.name}*" if branch else ""
 
         agotado = total_stock == 0
         if agotado:

@@ -545,9 +545,12 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     [branchId, branches]
   );
 
+  // La Agenda solo muestra RESERVAS (agenda, «Agendar reserva», app de clientas o ventas programadas). Las ventas
+  // directas del mostrador se ven únicamente en Control de servicios.
   const visibleTickets = useMemo(() => {
-    if (!branchId) return tickets;
-    return tickets.filter((t) => {
+    const reservations = tickets.filter((t) => t.source !== "mostrador");
+    if (!branchId) return reservations;
+    return reservations.filter((t) => {
       if (t.branch_id != null) return Number(t.branch_id) === branchId;
       return true;
     });
@@ -748,9 +751,29 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     [patchTicket, tickets]
   );
 
+  // «Llegó»: la clienta de la reserva se presentó. Recién ahora aparece en «En espera» de Control de servicios.
+  const markReservationArrived = useCallback(
+    async (ticket: TicketItem) => {
+      const ids = tickets
+        .filter((t) => t.id === ticket.id || (ticket.sale_id != null && t.sale_id === ticket.sale_id))
+        .map((t) => t.id);
+      try {
+        await Promise.all(ids.map((id) => AgendaService.updateAppointment(id, { arrived: true, skip_availability_check: true })));
+        const arrivedAt = new Date().toISOString();
+        ids.forEach((id) => patchTicket(id, { arrived_at: arrivedAt }));
+        toast.success(`${ticket.client_name?.split(" — ")[0] ?? "La clienta"} llegó: ya está en Control de servicios.`);
+        window.dispatchEvent(new Event(AGENDA_REFRESH_EVENT));
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err, "No se pudo marcar la llegada."));
+      }
+    },
+    [patchTicket, tickets]
+  );
+
   const handleContextAction = useCallback(
     (action: TicketContextAction, ticket: TicketItem) => {
-      if (action === "edit") setEditingTicket(ticket);
+      if (action === "arrived") void markReservationArrived(ticket);
+      else if (action === "edit") setEditingTicket(ticket);
       else if (action === "start-service") void startServiceFromAgenda(ticket);
       else if (action === "finish") {
         // Finalizar registra seguimiento (operaria, notas, cuestionario): se usa la misma ventana de Control de servicios.
@@ -760,7 +783,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         navigate("/admin/pos-tracking", { state: { fromAgendaReservation: { appointmentId: ticket.id } } });
       }
     },
-    [navigate, startServiceFromAgenda]
+    [navigate, startServiceFromAgenda, markReservationArrived]
   );
 
   /** Clic en un ticket del panel: ir a su semana y abrir la edición. */
@@ -771,6 +794,49 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     setEditingTicket(ticket);
   }, []);
 
+  // Todo cambio de horario u operaria pide confirmación antes de guardarse (evita mover o estirar sin querer).
+  const [pendingMove, setPendingMove] = useState<{ ticket: TicketItem; next: string; run: () => void } | null>(null);
+  const describeMove = useCallback(
+    (ticket: TicketItem, start: Date, end: Date, operatorId?: number | null) => {
+      const hm = (d: Date) => d.toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const day = start.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+      const mins = Math.round((end.getTime() - start.getTime()) / 60_000);
+      const before = Math.round(getAppointmentDurationMs(ticket) / 60_000);
+      const operator =
+        operatorId !== undefined && operatorId !== ticket.professional_id
+          ? ` · operaria ${professionals.find((p) => p.id === operatorId)?.username ?? "sin asignar"}`
+          : "";
+      const durationNote = mins !== before ? ` (la duración cambia de ${before} a ${mins} min)` : ` (${mins} min)`;
+      return `${day}, ${hm(start)} – ${hm(end)}${durationNote}${operator}`;
+    },
+    [professionals]
+  );
+  const requestTimeChange = useCallback(
+    (ticket: TicketItem, dateKey: string, startMinute: number, endMinute: number) => {
+      const [y, m, d] = dateKey.split("-").map(Number);
+      const at = (minute: number) => new Date(y, (m || 1) - 1, d || 1, Math.floor(minute / 60), minute % 60, 0);
+      setPendingMove({
+        ticket,
+        next: describeMove(ticket, at(startMinute), at(endMinute)),
+        run: () => void changeTicketTime(ticket, dateKey, startMinute, endMinute),
+      });
+    },
+    [changeTicketTime, describeMove]
+  );
+  const requestReschedule = useCallback(
+    (ticketId: number, target: { hour: number; minute: number; professionalId?: number | null }) => {
+      const ticket = tickets.find((item) => item.id === ticketId);
+      if (!ticket) return;
+      const { start_time, end_time } = buildRescheduleTimes(ticket, selectedDate, target.hour, target.minute);
+      setPendingMove({
+        ticket,
+        next: describeMove(ticket, parseTicketDate(start_time), parseTicketDate(end_time), target.professionalId),
+        run: () => void rescheduleTicket(ticketId, target),
+      });
+    },
+    [describeMove, rescheduleTicket, selectedDate, tickets]
+  );
+
   /** Se soltó un ticket del panel en el calendario: se agenda ahí conservando su duración. */
   const dropPanelTicket = useCallback(
     (dateKey: string, minute: number) => {
@@ -778,9 +844,9 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       draggedPanelTicketRef.current = null;
       if (!ticket) return;
       const duration = Math.round(getAppointmentDurationMs(ticket) / 60_000);
-      void changeTicketTime(ticket, dateKey, minute, Math.min(minute + duration, 24 * 60 - 1));
+      requestTimeChange(ticket, dateKey, minute, Math.min(minute + duration, 24 * 60 - 1));
     },
-    [changeTicketTime]
+    [requestTimeChange]
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -804,12 +870,12 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
     if (dropTarget.type === "planner") {
       const hour = Math.floor(dropTarget.minuteOfDay / 60);
       const minute = dropTarget.minuteOfDay % 60;
-      void rescheduleTicket(ticketId, { hour, minute });
+      requestReschedule(ticketId, { hour, minute });
       return;
     }
 
     const pro = professionals[dropTarget.col];
-    void rescheduleTicket(ticketId, {
+    requestReschedule(ticketId, {
       hour: dropTarget.hour,
       minute: 0,
       professionalId: pro?.id ?? null,
@@ -1158,9 +1224,7 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
                   null
                 );
               }}
-              onChangeTime={(ticket, dateKey, startMinute, endMinute) =>
-                void changeTicketTime(ticket, dateKey, startMinute, endMinute)
-              }
+              onChangeTime={requestTimeChange}
               externalDragType={TICKET_DRAG_MIME}
               onDropExternal={dropPanelTicket}
               capacity={calendarScope === "day" ? capacity : undefined}
@@ -1380,6 +1444,26 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
       />
 
       <ConfirmDialog
+        isOpen={pendingMove !== null}
+        title="Confirmar cambio"
+        message={
+          pendingMove ? (
+            <p>
+              ¿Mover la reserva de <strong>{pendingMove.ticket.client_name}</strong> a <strong>{pendingMove.next}</strong>?
+            </p>
+          ) : ""
+        }
+        confirmText="Sí, cambiar"
+        cancelText="No, dejar como estaba"
+        onConfirm={() => {
+          const move = pendingMove;
+          setPendingMove(null);
+          move?.run();
+        }}
+        onCancel={() => setPendingMove(null)}
+      />
+
+      <ConfirmDialog
         isOpen={printPromptTicket !== null}
         title="Imprimir ticket"
         message={
@@ -1406,6 +1490,18 @@ export default function DailyAgendaPage({ embedded = false }: DailyAgendaPagePro
         saveLabel={
           editingTicket && startAfterEditRef.current === editingTicket.id ? "Guardar y pasar a servicio" : undefined
         }
+        mergeableCount={
+          editingTicket && editingTicket.sale_id != null
+            ? tickets.filter(
+                (t) =>
+                  t.id !== editingTicket.id &&
+                  t.sale_id === editingTicket.sale_id &&
+                  t.client_id === editingTicket.client_id &&
+                  ["pending", "confirmed", "waiting"].includes(t.status)
+              ).length
+            : 0
+        }
+        needsOperaria={Boolean(editingTicket && startAfterEditRef.current === editingTicket.id && !editingTicket.professional_id)}
         onClose={() => {
           startAfterEditRef.current = null;
           setEditingTicket(null);

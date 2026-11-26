@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.infrastructure.database import Base
@@ -21,6 +21,9 @@ class PosSale(Base):
     payment_method = Column(String(50), nullable=False, default="cash")
     status = Column(String(30), nullable=False, default="paid")
     notes = Column(Text, nullable=True)
+    # Promociones (combos) aplicadas al cobrar: [{combo_id, quantity, component_ids, discount_each}].
+    # Sirve para recalcular el total al editar o cancelar tickets sin perder (ni inventar) el descuento.
+    combo_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     client = relationship("Client", back_populates="sales")

@@ -38,6 +38,10 @@ export type CartLine = {
   status: "pending" | "in_service";
   duration_minutes: number;
   price: number;
+  /** Línea que viene de un combo: id del combo, grupo (todas las líneas del mismo combo vendido) y nombre. */
+  combo_id?: string;
+  combo_group?: string;
+  combo_name?: string;
 };
 
 export type PosSaleClientOption = {
